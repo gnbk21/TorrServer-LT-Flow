@@ -5,17 +5,15 @@ import (
 	"net/http"
 	"net/url"
 
-	"server/log"
 	"server/settings"
 )
 
-func runHTTPRedirectToHTTPS(addr string) error {
+func httpsRedirectHandler() http.Handler {
 	h := func(w http.ResponseWriter, r *http.Request) {
 		target := buildHTTPSRedirectTarget(r)
 		http.Redirect(w, r, target, http.StatusTemporaryRedirect)
 	}
-	log.TLogln("Start http server (redirect to https) at", addr)
-	return http.ListenAndServe(addr, http.HandlerFunc(h))
+	return http.HandlerFunc(h)
 }
 
 func buildHTTPSRedirectTarget(r *http.Request) string {

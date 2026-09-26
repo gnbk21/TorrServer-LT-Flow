@@ -1,9 +1,14 @@
 package web
 
 import (
+	"context"
+	"errors"
 	"net"
-	"os"
+	"net/http"
 	"sort"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	gstreamer "server/gstreamer/bridge"
 	"server/netbind"
@@ -36,8 +41,11 @@ import (
 )
 
 var (
-	BTS      = torr.NewBTS()
-	waitChan = make(chan error)
+	BTS         = torr.NewBTS()
+	waitChan    = make(chan error, 1)
+	serversMu   sync.Mutex
+	servers     []*http.Server
+	engineReady atomic.Bool
 )
 
 //	@title			Swagger Torrserver API
@@ -58,13 +66,6 @@ func Start() {
 	if len(ips) > 0 {
 		log.TLogln("Local IPs:", ips)
 	}
-	err := BTS.Connect()
-	if err != nil {
-		log.TLogln("BTS.Connect() error!", err) // waitChan <- err
-		os.Exit(1)                              // return
-	}
-	rutor.Start()
-
 	gin.SetMode(gin.ReleaseMode)
 
 	// corsCfg := cors.DefaultConfig()
@@ -83,6 +84,14 @@ func Start() {
 
 	route := gin.New()
 	route.Use(log.WebLogger(), waf.WAF(), gin.Recovery(), cors.New(corsCfg), location.Default())
+	engineReady.Store(false)
+	route.Use(func(c *gin.Context) {
+		if !engineReady.Load() && c.Request.URL.Path != "/echo" && c.Request.URL.Path != "/flow/network" {
+			c.AbortWithStatus(http.StatusServiceUnavailable)
+			return
+		}
+		c.Next()
+	})
 	auth.SetupAuth(route)
 
 	route.GET("/echo", echo)
@@ -96,16 +105,6 @@ func Start() {
 		webdav.MountWebDAV(route)
 	}
 
-	if settings.BTsets().EnableDLNA {
-		dlna.Start()
-	}
-	if settings.BTsets().EnableBonjour {
-		bonjour.Start()
-	}
-
-	// Auto-mount FUSE filesystem if enabled
-	fuse.FuseAutoMount()
-
 	route.GET("/swagger/*any", swaggerHandler())
 
 	// check if https enabled
@@ -117,7 +116,7 @@ func Start() {
 			settings.SetBTSets(settings.BTsets())
 		}
 		// verify if cert and key files are valid
-		err = sslcerts.VerifyCertKeyFiles(settings.BTsets().SslCert, settings.BTsets().SslKey, settings.SslPort)
+		err := sslcerts.VerifyCertKeyFiles(settings.BTsets().SslCert, settings.BTsets().SslKey, settings.SslPort)
 		// if not valid, generate new self-signed cert and key files
 		if err != nil {
 			log.TLogln("Error checking certificate and private key files:", err)
@@ -125,35 +124,39 @@ func Start() {
 			log.TLogln("Saving path to ssl cert and key in db", settings.BTsets().SslCert, settings.BTsets().SslKey)
 			settings.SetBTSets(settings.BTsets())
 		}
-		go func() {
-			for _, ip := range netbind.Normalize(settings.IPs) {
-				addr := netbind.Addr(ip, settings.SslPort)
-				go func(addr string) {
-					log.TLogln("Start https server at", addr)
-					waitChan <- route.RunTLS(addr, settings.BTsets().SslCert, settings.BTsets().SslKey)
-				}(addr)
-			}
-		}()
 	}
-
-	go func() {
-		if settings.Args != nil && settings.Args.ForceHTTPS && settings.Ssl {
-			for _, ip := range netbind.Normalize(settings.IPs) {
-				addr := netbind.Addr(ip, settings.Port)
-				go func(addr string) {
-					waitChan <- runHTTPRedirectToHTTPS(addr)
-				}(addr)
+	// Bind and serve the local API before constructing the libtorrent session.
+	// Only /echo and /flow/network answer until the engine is ready.
+	for _, ip := range netbind.Normalize(settings.IPs) {
+		if settings.Ssl {
+			if err := startListener(route, netbind.Addr(ip, settings.SslPort), true); err != nil {
+				startupError(err)
+				return
 			}
+		}
+		handler := http.Handler(route)
+		if settings.Args != nil && settings.Args.ForceHTTPS && settings.Ssl {
+			handler = httpsRedirectHandler()
+		}
+		if err := startListener(handler, netbind.Addr(ip, settings.Port), false); err != nil {
+			startupError(err)
 			return
 		}
-		for _, ip := range netbind.Normalize(settings.IPs) {
-			addr := netbind.Addr(ip, settings.Port)
-			go func(addr string) {
-				log.TLogln("Start http server at", addr)
-				waitChan <- route.Run(addr)
-			}(addr)
-		}
-	}()
+	}
+	if err := BTS.Connect(); err != nil {
+		startupError(err)
+		return
+	}
+	engineReady.Store(true)
+	rutor.Start()
+	if settings.BTsets().EnableDLNA {
+		dlna.Start()
+	}
+	if settings.BTsets().EnableBonjour {
+		bonjour.Start()
+	}
+	// Auto-mount FUSE filesystem if enabled.
+	fuse.FuseAutoMount()
 }
 
 func Wait() error {
@@ -161,13 +164,69 @@ func Wait() error {
 }
 
 func Stop() {
+	engineReady.Store(false)
+	shutdownListeners()
 	gstreamer.Stop()
 	dlna.Stop()
 	bonjour.Stop()
 	// Unmount FUSE filesystem if mounted
 	fuse.FuseCleanup()
 	BTS.Disconnect()
-	waitChan <- nil
+	select {
+	case waitChan <- nil:
+	default:
+	}
+}
+
+func startListener(handler http.Handler, addr string, tls bool) error {
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+	serversMu.Lock()
+	servers = append(servers, srv)
+	serversMu.Unlock()
+	go func() {
+		var serveErr error
+		if tls {
+			log.TLogln("Start https server at", addr)
+			serveErr = srv.ServeTLS(listener, settings.BTsets().SslCert, settings.BTsets().SslKey)
+		} else {
+			log.TLogln("Start http server at", addr)
+			serveErr = srv.Serve(listener)
+		}
+		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+			select {
+			case waitChan <- serveErr:
+			default:
+			}
+		}
+	}()
+	return nil
+}
+
+func startupError(err error) {
+	log.TLogln("Flow startup error:", err)
+	shutdownListeners()
+	select {
+	case waitChan <- err:
+	default:
+	}
+}
+
+func shutdownListeners() {
+	serversMu.Lock()
+	current := servers
+	servers = nil
+	serversMu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	for _, srv := range current {
+		if err := srv.Shutdown(ctx); err != nil {
+			_ = srv.Close()
+		}
+	}
 }
 
 // echo godoc

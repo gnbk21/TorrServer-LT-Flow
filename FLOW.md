@@ -102,6 +102,10 @@ the next check, and reannounce attempts. `ADDRESS_READY` means a usable local
 address exists; it does not certify Internet or tracker reachability. Flow
 checks periodically and retries with bounded backoff when addresses are absent
 or a reannounce operation fails.
+At startup the HTTP listener binds before libtorrent initializes; `/echo` and
+`/flow/network` remain available during that brief initialization, while other
+routes return 503. Service stop closes listeners and gives active HTTP requests
+up to five seconds to finish before closing the torrent session and database.
 
 The Windows executable depends on native libtorrent, Boost and OpenSSL. The
 repository's `.github/workflows/build.yml` builds those dependencies on Ubuntu
