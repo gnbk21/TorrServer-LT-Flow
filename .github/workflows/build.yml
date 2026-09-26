@@ -100,7 +100,7 @@ jobs:
           PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
-        run: go test -count=1 -timeout 180s ./lt/ ./torr/ ./torr/storage/torrstor/ ./dlna/
+        run: go test -count=1 -timeout 180s ./flow/ ./ffprobe/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./dlna/
 
       - name: Probe --version
         if: matrix.target == 'linux-amd64'

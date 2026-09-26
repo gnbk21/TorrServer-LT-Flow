@@ -13,6 +13,7 @@ import (
 	"github.com/anacrolix/dms/dlna"
 	"github.com/anacrolix/missinggo/v2/httptoo"
 
+	"server/flow"
 	"server/log"
 	mt "server/mimetype"
 	sets "server/settings"
@@ -90,12 +91,34 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		http.Error(resp, "no reader (cache not yet open)", http.StatusServiceUnavailable)
 		return errors.New("torr.Stream: NewReader returned nil")
 	}
-	defer t.CloseReader(reader)
+	defer func() {
+		lastOffset := reader.Offset()
+		t.CloseReader(reader)
+		if group != torrstor.ProbeReaderGroup && req.Method == http.MethodGet {
+			t.flowReaderClosed(file, lastOffset)
+		}
+	}()
 	// Tear the reader down the moment the client disconnects: a player seek
 	// aborts this request and opens a new range — the old reader must not sit
 	// in a 60s piece wait keeping its stale window prioritised against the new
 	// playback position.
 	reader.SetContext(req.Context())
+	classification, hint := t.flowStart(fileID, file, group, req)
+	started := time.Now()
+	var recorder *flow.ResponseRecorder
+	if sets.CurrentFlow().MetricsEnabled {
+		recorder = flow.NewResponseRecorder(resp)
+		resp = recorder
+		defer func() {
+			trace := FlowRangeTrace{Timestamp: started, Group: group, Method: req.Method,
+				Start: hint.Start, End: hint.End, Cancelled: req.Context().Err() != nil,
+				Classification: classification, LifetimeMs: time.Since(started).Milliseconds()}
+			if recorder != nil {
+				trace.Status, trace.BytesServed, trace.TTFBMs = recorder.Status, recorder.Bytes, recorder.TTFB.Milliseconds()
+			}
+			t.flowEnd(fileID, group, trace, hint)
+		}()
+	}
 
 	// Mark file as viewed (so /m3u?fromlast and the snake command
 	// reflect the latest playback position). MarkViewed keeps a timecode a
@@ -103,7 +126,6 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 	sets.MarkViewed(t.Hash().HexString(), fileID)
 
 	// HTTP / DLNA headers.
-	resp.Header().Set("Connection", "close")
 	resp.Header().Set("Server", "TorrServer (Portable SDK for UPnP devices)")
 	resp.Header().Set("transferMode.dlna.org", "Streaming")
 
@@ -120,9 +142,7 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 			SupportTimeSeek: true,
 		}.String())
 	}
-	if req.Header.Get("Range") != "" {
-		resp.Header().Set("Accept-Ranges", "bytes")
-	}
+	resp.Header().Set("Accept-Ranges", "bytes")
 
 	if sets.BTsets() != nil && sets.BTsets().EnableDebug {
 		// group= is the cache-window key this connection was bucketed under: "ss:..."

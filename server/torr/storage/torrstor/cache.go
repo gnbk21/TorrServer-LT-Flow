@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"server/flow"
 	"server/log"
 	"server/lt"
 	"server/settings"
@@ -67,7 +68,8 @@ const hashGraceSec = 30
 
 // Cache holds every Piece for a single torrent.
 type Cache struct {
-	storage *Storage
+	storage      *Storage
+	flowCounters flow.Counters
 
 	StorageID   int64
 	InfoHash    [20]byte
@@ -110,6 +112,10 @@ type Cache struct {
 	// joining client's own reader takes over.
 	preloadMu      sync.Mutex
 	preloadProtect [][2]int
+	// A small resident region survives a mobile client's last Range close.
+	// It shares the existing piece cache and expires without a timer goroutine.
+	warmProtect [2]int
+	warmUntil   time.Time
 
 	// announced is flipped once when the first Reader attaches, to kick
 	// tracker+DHT announces for this (lazily-added) torrent exactly once per
@@ -173,6 +179,13 @@ type Cache struct {
 	// between passes instead of being driven back down to the budget.
 	evicting   atomic.Bool
 	evictAgain atomic.Bool
+}
+
+func (c *Cache) FlowCounters() flow.CounterSnapshot {
+	if c == nil {
+		return flow.CounterSnapshot{}
+	}
+	return c.flowCounters.Snapshot()
 }
 
 // group is the sliding-window state of one playback session (device). playhead
@@ -1724,6 +1737,9 @@ func (c *Cache) readerProtectRanges() [][2]int {
 	// past the head it falls out of the sliding window and is dropped.
 	c.preloadMu.Lock()
 	out = append(out, c.preloadProtect...)
+	if time.Now().Before(c.warmUntil) {
+		out = append(out, c.warmProtect)
+	}
 	c.preloadMu.Unlock()
 	return out
 }
@@ -1904,6 +1920,27 @@ func (c *Cache) ClearPreloadReserve() {
 	c.preloadProtect = nil
 	c.preloadMu.Unlock()
 	go c.evictIfOverCapacity()
+}
+
+// SetWarmReserve protects an already cached region near the last playhead.
+// It never starts downloads and is bounded by the caller's cache policy.
+func (c *Cache) SetWarmReserve(first, last int, ttl time.Duration) {
+	if c == nil || ttl <= 0 || first < 0 || last < first {
+		return
+	}
+	c.preloadMu.Lock()
+	c.warmProtect = [2]int{first, last}
+	c.warmUntil = time.Now().Add(ttl)
+	c.preloadMu.Unlock()
+}
+
+func (c *Cache) ClearWarmReserve() {
+	if c == nil {
+		return
+	}
+	c.preloadMu.Lock()
+	c.warmUntil = time.Time{}
+	c.preloadMu.Unlock()
 }
 
 // Have reports whether the piece has been fully written to the cache.

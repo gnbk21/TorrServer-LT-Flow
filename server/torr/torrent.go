@@ -72,10 +72,18 @@ type Torrent struct {
 	playStarted    bool
 	playStartIndex int
 
-	DurationSeconds float64
-	BitRate         string
+	DurationSeconds        float64
+	BitRate                string
+	ProbeFileID            int
+	flowProbeFinishedIndex int
+	flowStartupStarted     time.Time
+	flowStartup            FlowStartupStatus
 
-	expiredTime time.Time
+	flowMu       sync.Mutex
+	flowSessions map[string]*flowSession
+
+	expiredTime   time.Time
+	warmIdleSince time.Time
 
 	gotInfoCh   chan struct{}
 	gotInfoOnce sync.Once
@@ -217,6 +225,9 @@ func magnetFromSpec(spec *TorrentSpec) string {
 }
 
 func torrentExpireTimeout() time.Duration {
+	if f := settings.CurrentFlow(); f.Enabled {
+		return time.Duration(f.WarmSessionTimeoutSec) * time.Second
+	}
 	t := time.Second * time.Duration(settings.BTsets().TorrentDisconnectTimeout)
 	if t > time.Minute {
 		t = time.Minute
@@ -352,15 +363,19 @@ func (t *Torrent) expired(now time.Time) bool {
 	t.mu.Lock()
 	stat := t.Stat
 	deadline := t.expiredTime
+	warmIdleSince := t.warmIdleSince
 	t.mu.Unlock()
 	switch stat {
 	case state.TorrentClosed, state.TorrentGettingInfo, state.TorrentPreload, state.TorrentInDB:
 		return false
 	}
-	if deadline.IsZero() || now.Before(deadline) {
+	if c := torrstor.Global().CacheByHash([20]byte(t.Hash())); c != nil && c.ActiveReaders() > 0 {
 		return false
 	}
-	if c := torrstor.Global().CacheByHash([20]byte(t.Hash())); c != nil && c.ActiveReaders() > 0 {
+	if settings.CurrentFlow().Enabled && !warmIdleSince.IsZero() {
+		return !now.Before(warmIdleSince.Add(torrentExpireTimeout()))
+	}
+	if deadline.IsZero() || now.Before(deadline) {
 		return false
 	}
 	return true

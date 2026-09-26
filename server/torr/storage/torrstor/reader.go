@@ -371,6 +371,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 		// nothing read yet (written == 0) we must block: this is the very byte the
 		// client asked for.
 		avail := r.cache.readableAt(piece, pieceOff)
+		miss := avail <= 0
 		if avail <= 0 {
 			if written > 0 {
 				break
@@ -392,6 +393,13 @@ func (r *Reader) Read(p []byte) (int, error) {
 		}
 		n, err := r.cache.readPiece(piece, pieceOff, p[written:int(end)])
 		if n > 0 {
+			if settings.CurrentFlow().MetricsEnabled {
+				if miss {
+					r.cache.flowCounters.Miss(n)
+				} else {
+					r.cache.flowCounters.Hit(n)
+				}
+			}
 			written += n
 		}
 		if err != nil && err != io.EOF {
@@ -522,7 +530,12 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 		r.cache.lastApplyMs.Store(0)
 		r.cache.applyStreamPriorities()
 	}
-	if !r.cache.WaitForBytes(ctx, piece, pieceOff) {
+	waitStarted := time.Now()
+	ready := r.cache.WaitForBytes(ctx, piece, pieceOff)
+	if settings.CurrentFlow().MetricsEnabled {
+		r.cache.flowCounters.Wait(time.Since(waitStarted))
+	}
+	if !ready {
 		if parent.Err() != nil {
 			return errors.New("torrstor.Reader: client gone")
 		}
