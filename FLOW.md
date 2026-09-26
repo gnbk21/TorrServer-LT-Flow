@@ -142,6 +142,11 @@ the default until a controlled benchmark supports changing the default.
 untouched. Cache limits, proxy settings, upload choices, and active-torrent
 queue protection are retained for every profile.
 
+The authenticated `/flow/status/<hash>` response also includes a bounded
+tracker event summary by protocol and host. Its identifiers hash the original
+URLs; paths, queries, userinfo, and tracker passkeys are never returned. A
+tracker reply is reported as success only after libtorrent emits that reply.
+
 The Windows executable depends on native libtorrent, Boost and OpenSSL. The
 repository's `.github/workflows/build.yml` builds those dependencies on Ubuntu
 with MinGW-w64 and uploads a `TorrServer-LT-windows-amd64` artifact. After

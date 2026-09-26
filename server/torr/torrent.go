@@ -81,6 +81,8 @@ type Torrent struct {
 
 	flowMu       sync.Mutex
 	flowSessions map[string]*flowSession
+	trackerMu    sync.Mutex
+	trackers     map[string]FlowTrackerDiagnostic
 
 	expiredTime   time.Time
 	warmIdleSince time.Time
