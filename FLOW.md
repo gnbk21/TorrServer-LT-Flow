@@ -97,6 +97,11 @@ command line. Service logs default to `flow.log` in that data directory.
 External DNS is no longer checked before the local server starts. The service
 has no interactive window; open the HTTP UI from a browser. The tray companion
 specified for a later phase is separate from the service.
+The authenticated `/flow/network` endpoint reports local address readiness,
+the next check, and reannounce attempts. `ADDRESS_READY` means a usable local
+address exists; it does not certify Internet or tracker reachability. Flow
+checks periodically and retries with bounded backoff when addresses are absent
+or a reannounce operation fails.
 
 The Windows executable depends on native libtorrent, Boost and OpenSSL. The
 repository's `.github/workflows/build.yml` builds those dependencies on Ubuntu

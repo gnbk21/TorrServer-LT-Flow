@@ -16,3 +16,7 @@ func flowStatus(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"hash": c.Param("hash"), "startup": t.FlowStartup(), "sessions": t.FlowStatus()})
 }
+
+func flowNetwork(c *gin.Context) {
+	c.JSON(http.StatusOK, torr.NetworkStatusSnapshot())
+}

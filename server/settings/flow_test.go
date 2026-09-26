@@ -10,7 +10,8 @@ func TestFlowSettingsMigrateNewFieldsWithoutOverwritingFlags(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{"Enabled":true,"AdaptiveStartup":true,"RangeTraceEnabled":false,"TargetBufferSeconds":60}`), &f); err != nil {
 		t.Fatal(err)
 	}
-	if !f.AdaptiveReadAhead || f.TargetBufferSeconds != 60 || f.MaxBufferSeconds != 180 {
+	if !f.AdaptiveReadAhead || f.TargetBufferSeconds != 60 || f.MaxBufferSeconds != 180 ||
+		f.NetworkRetryMinSec != 2 || f.NetworkRetryMaxSec != 60 {
 		t.Fatalf("new fields not migrated: %+v", f)
 	}
 	if f.RangeTraceEnabled {

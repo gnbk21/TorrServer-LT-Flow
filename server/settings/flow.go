@@ -18,6 +18,8 @@ type FlowSettings struct {
 	TargetBufferSeconds    int
 	MaxBufferSeconds       int
 	WarmSessionTimeoutSec  int
+	NetworkRetryMinSec     int
+	NetworkRetryMaxSec     int
 	RangeTraceEnabled      bool
 	RangeClassification    bool
 	MetricsEnabled         bool
@@ -45,6 +47,7 @@ func DefaultFlowSettings() *FlowSettings {
 		AdaptiveReadAhead: true, TargetBufferSeconds: 45,
 		MaxBufferSeconds:      180,
 		WarmSessionTimeoutSec: 600, RangeClassification: true,
+		NetworkRetryMinSec: 2, NetworkRetryMaxSec: 60,
 		MetricsEnabled: true,
 	}
 }
@@ -80,6 +83,12 @@ func (f *FlowSettings) Normalize() {
 	}
 	if f.WarmSessionTimeoutSec < 30 || f.WarmSessionTimeoutSec > 1800 {
 		f.WarmSessionTimeoutSec = 600
+	}
+	if f.NetworkRetryMinSec < 1 || f.NetworkRetryMinSec > 60 {
+		f.NetworkRetryMinSec = 2
+	}
+	if f.NetworkRetryMaxSec < f.NetworkRetryMinSec || f.NetworkRetryMaxSec > 600 {
+		f.NetworkRetryMaxSec = max(60, f.NetworkRetryMinSec)
 	}
 }
 

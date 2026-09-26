@@ -26,11 +26,14 @@ import (
 // one BTServer in the process; the abstraction is kept for parity with
 // the previous code base.
 type BTServer struct {
-	mu        sync.Mutex
-	session   *lt.Session
-	torrents  map[Hash]*Torrent
-	stopAlert chan struct{}
-	alertDone chan struct{}
+	mu            sync.Mutex
+	session       *lt.Session
+	torrents      map[Hash]*Torrent
+	stopAlert     chan struct{}
+	alertDone     chan struct{}
+	networkMu     sync.Mutex
+	networkStatus FlowNetworkStatus
+	networkDone   chan struct{}
 
 	// Latest session_stats counters snapshot, refreshed by the alert pump
 	// whenever a session_stats alert arrives (requested via SessionStats).
@@ -87,6 +90,8 @@ func (bt *BTServer) Connect() error {
 	bt.alertDone = make(chan struct{})
 	go bt.alertPump(bt.stopAlert, bt.alertDone)
 	go bt.expireWatch(bt.stopAlert)
+	bt.networkDone = make(chan struct{})
+	go bt.networkLifecycle(bt.stopAlert, bt.networkDone)
 
 	InitApiHelper(bt)
 	return nil
@@ -99,12 +104,13 @@ func (bt *BTServer) Disconnect() {
 	// alertDone deadlocks whenever the pump is mid-batch — observed as
 	// /shutdown hanging forever under steady alert traffic (DHT churn).
 	bt.mu.Lock()
-	stop, done := bt.stopAlert, bt.alertDone
+	stop, done, networkDone := bt.stopAlert, bt.alertDone, bt.networkDone
 	bt.stopAlert = nil
 	bt.mu.Unlock()
 	if stop != nil {
 		close(stop)
 		<-done
+		<-networkDone
 	}
 
 	bt.mu.Lock()
