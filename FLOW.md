@@ -78,6 +78,26 @@ performance result is asserted by this document.
 
 ## Windows build and self-test
 
+### Windows background service
+
+From an elevated PowerShell window, the Windows binary supports:
+
+```powershell
+./TorrServer-LT-windows-amd64.exe --service install
+./TorrServer-LT-windows-amd64.exe --service start
+./TorrServer-LT-windows-amd64.exe --service stop
+./TorrServer-LT-windows-amd64.exe --service restart
+./TorrServer-LT-windows-amd64.exe --service uninstall
+```
+
+Install uses Automatic (Delayed Start), the wildcard HTTP listener, and
+`%ProgramData%\TorrServer-Flow` for service data by default. Supply `--path`
+and other ordinary server flags during install to retain them in the service
+command line. Service logs default to `flow.log` in that data directory.
+External DNS is no longer checked before the local server starts. The service
+has no interactive window; open the HTTP UI from a browser. The tray companion
+specified for a later phase is separate from the service.
+
 The Windows executable depends on native libtorrent, Boost and OpenSSL. The
 repository's `.github/workflows/build.yml` builds those dependencies on Ubuntu
 with MinGW-w64 and uploads a `TorrServer-LT-windows-amd64` artifact. After
