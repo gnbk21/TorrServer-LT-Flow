@@ -1,6 +1,8 @@
 package settings
 
-// FlowSettings keeps the first Flow milestone independent of upstream settings.
+import "encoding/json"
+
+// FlowSettings keeps Flow controls independent of upstream settings.
 // A nil Flow field is migrated to these defaults when existing settings load.
 type FlowSettings struct {
 	Enabled                bool
@@ -12,11 +14,26 @@ type FlowSettings struct {
 	StartupBufferMinMB     int
 	StartupBufferMaxMB     int
 	StartupSafetyFactorPct int
+	AdaptiveReadAhead      bool
+	TargetBufferSeconds    int
+	MaxBufferSeconds       int
 	WarmSessionTimeoutSec  int
 	RangeTraceEnabled      bool
 	RangeClassification    bool
 	MetricsEnabled         bool
 	DebugFlow              bool
+}
+
+// UnmarshalJSON migrates newly added fields without overriding explicit false
+// values in an existing Flow object.
+func (f *FlowSettings) UnmarshalJSON(data []byte) error {
+	type plain FlowSettings
+	defaults := plain(*DefaultFlowSettings())
+	if err := json.Unmarshal(data, &defaults); err != nil {
+		return err
+	}
+	*f = FlowSettings(defaults)
+	return nil
 }
 
 func DefaultFlowSettings() *FlowSettings {
@@ -25,6 +42,8 @@ func DefaultFlowSettings() *FlowSettings {
 		BootstrapTailMode: "upstream-auto", ProbeGraceMs: 1500,
 		StartupBufferSeconds: 6, StartupBufferMinMB: 32,
 		StartupBufferMaxMB: 128, StartupSafetyFactorPct: 130,
+		AdaptiveReadAhead: true, TargetBufferSeconds: 45,
+		MaxBufferSeconds:      180,
 		WarmSessionTimeoutSec: 600, RangeClassification: true,
 		MetricsEnabled: true,
 	}
@@ -52,6 +71,12 @@ func (f *FlowSettings) Normalize() {
 	}
 	if f.StartupSafetyFactorPct < 100 || f.StartupSafetyFactorPct > 300 {
 		f.StartupSafetyFactorPct = 130
+	}
+	if f.TargetBufferSeconds < 10 || f.TargetBufferSeconds > 180 {
+		f.TargetBufferSeconds = 45
+	}
+	if f.MaxBufferSeconds < f.TargetBufferSeconds || f.MaxBufferSeconds > 600 {
+		f.MaxBufferSeconds = max(180, f.TargetBufferSeconds)
 	}
 	if f.WarmSessionTimeoutSec < 30 || f.WarmSessionTimeoutSec > 1800 {
 		f.WarmSessionTimeoutSec = 600

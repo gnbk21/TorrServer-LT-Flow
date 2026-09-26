@@ -11,10 +11,11 @@ import (
 // The underlying server remains responsible for status and body semantics.
 type ResponseRecorder struct {
 	http.ResponseWriter
-	start  time.Time
-	Status int
-	Bytes  int64
-	TTFB   time.Duration
+	start       time.Time
+	Status      int
+	Bytes       int64
+	TTFB        time.Duration
+	OnFirstByte func(time.Duration)
 }
 
 func NewResponseRecorder(w http.ResponseWriter) *ResponseRecorder {
@@ -23,7 +24,7 @@ func NewResponseRecorder(w http.ResponseWriter) *ResponseRecorder {
 
 func (w *ResponseRecorder) WriteHeader(status int) {
 	if w.Status == 0 {
-		w.Status, w.TTFB = status, time.Since(w.start)
+		w.Status = status
 	}
 	w.ResponseWriter.WriteHeader(status)
 }
@@ -33,6 +34,12 @@ func (w *ResponseRecorder) Write(p []byte) (int, error) {
 		w.WriteHeader(http.StatusOK)
 	}
 	n, err := w.ResponseWriter.Write(p)
+	if n > 0 && w.Bytes == 0 {
+		w.TTFB = time.Since(w.start)
+		if w.OnFirstByte != nil {
+			w.OnFirstByte(w.TTFB)
+		}
+	}
 	w.Bytes += int64(n)
 	return n, err
 }

@@ -91,6 +91,15 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		http.Error(resp, "no reader (cache not yet open)", http.StatusServiceUnavailable)
 		return errors.New("torr.Stream: NewReader returned nil")
 	}
+	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+		t.mu.Lock()
+		bitrate, duration, probeFile := t.BitRate, t.DurationSeconds, t.ProbeFileID
+		t.mu.Unlock()
+		if probeFile != fileID {
+			bitrate, duration = "", 0
+		}
+		cache.SetFlowMediaEstimate(group, file.Index, flow.MediaEstimate(file.Length, duration, bitrate))
+	}
 	defer func() {
 		lastOffset := reader.Offset()
 		t.CloseReader(reader)
@@ -103,11 +112,14 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 	// in a 60s piece wait keeping its stale window prioritised against the new
 	// playback position.
 	reader.SetContext(req.Context())
-	classification, hint := t.flowStart(fileID, file, group, req)
+	classification, hint, flowSeq := t.flowStart(fileID, file, group, req)
 	started := time.Now()
 	var recorder *flow.ResponseRecorder
 	if sets.CurrentFlow().MetricsEnabled {
 		recorder = flow.NewResponseRecorder(resp)
+		recorder.OnFirstByte = func(ttfb time.Duration) {
+			t.flowFirstByte(fileID, group, flowSeq, started, ttfb)
+		}
 		resp = recorder
 		defer func() {
 			trace := FlowRangeTrace{Timestamp: started, Group: group, Method: req.Method,
@@ -116,7 +128,7 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 			if recorder != nil {
 				trace.Status, trace.BytesServed, trace.TTFBMs = recorder.Status, recorder.Bytes, recorder.TTFB.Milliseconds()
 			}
-			t.flowEnd(fileID, group, trace, hint)
+			t.flowEnd(fileID, group, flowSeq, trace, hint)
 		}()
 	}
 

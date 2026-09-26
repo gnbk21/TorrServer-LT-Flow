@@ -68,8 +68,13 @@ const hashGraceSec = 30
 
 // Cache holds every Piece for a single torrent.
 type Cache struct {
-	storage      *Storage
-	flowCounters flow.Counters
+	storage         *Storage
+	flowCounters    flow.Counters
+	flowMu          sync.Mutex
+	flowGroups      map[string]*flowGroup
+	flowDownload    float64
+	flowLastRefresh time.Time
+	flowAhead       atomic.Int64 // zero retains the upstream window
 
 	StorageID   int64
 	InfoHash    [20]byte
@@ -448,6 +453,36 @@ func (c *Cache) readableAt(piece int, off int64) int64 {
 		return 0
 	}
 	return p.availableFrom(off)
+}
+
+// ContiguousAvailable counts readable bytes from start up to the first hole.
+// This includes arrived blocks of an incomplete piece, matching Reader.Read's
+// responsive serving semantics rather than reporting zero until a hash finishes.
+func (c *Cache) ContiguousAvailable(start, end int64) int64 {
+	if c == nil || c.PieceLength <= 0 || start < 0 || end <= start {
+		return 0
+	}
+	var available int64
+	for pos := start; pos < end; {
+		piece := int(pos / c.PieceLength)
+		if piece < 0 || piece >= c.NumPieces {
+			break
+		}
+		off := pos % c.PieceLength
+		n := c.readableAt(piece, off)
+		if n <= 0 {
+			break
+		}
+		if n > end-pos {
+			n = end - pos
+		}
+		available += n
+		pos += n
+		if off+n < c.PieceLength {
+			break // the next block in this partial piece is a hole
+		}
+	}
+	return available
 }
 
 // registerReader / unregisterReader track active streaming clients so
@@ -1231,6 +1266,16 @@ func (c *Cache) applyStreamPriorities() {
 // the real window whenever the player opened a second connection (the EOF index
 // read), evicting the just-preloaded head and thrashing.
 func (c *Cache) readerWindowPieces() (behind, ahead int) {
+	behind, ahead = c.baseReaderWindowPieces()
+	if f := settings.CurrentFlow(); f.Enabled && f.AdaptiveReadAhead {
+		if adaptive := int(c.flowAhead.Load()); adaptive > 0 && adaptive < ahead {
+			ahead = adaptive
+		}
+	}
+	return behind, ahead
+}
+
+func (c *Cache) baseReaderWindowPieces() (behind, ahead int) {
 	plen := c.PieceLength
 	if plen <= 0 {
 		return 0, streamWindowFloorPieces

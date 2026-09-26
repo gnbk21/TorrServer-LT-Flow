@@ -826,6 +826,12 @@ func (t *Torrent) probeMediaInfo(index int) {
 		t.flowStartup.ProbeSuccess = true
 	}
 	t.mu.Unlock()
+	if file := t.fileByID(index); file != nil {
+		if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+			cache.UpdateFlowMediaEstimate(file.Index,
+				flow.MediaEstimate(file.Length, data.Format.DurationSeconds, data.Format.BitRate))
+		}
+	}
 	log.TLogln("torr.probeMediaInfo:", t.Name(), "bitrate", data.Format.BitRate,
 		"duration", data.Format.DurationSeconds, "elapsed", time.Since(probeStart).Truncate(time.Millisecond).String())
 }

@@ -405,7 +405,6 @@ func (t *Torrent) progressTick() {
 		return
 	}
 	t.mu.Lock()
-	defer t.mu.Unlock()
 	now := time.Now()
 	dt := now.Sub(t.lastTimeSpeed).Seconds()
 	if dt > 0 {
@@ -417,6 +416,11 @@ func (t *Torrent) progressTick() {
 	t.BytesReadUsefulData = st.TotalPayloadDownload
 	t.BytesWrittenData = st.TotalPayloadUpload
 	t.lastTimeSpeed = now
+	rate := t.DownloadSpeed
+	t.mu.Unlock()
+	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+		cache.SetFlowDownloadRate(rate)
+	}
 }
 
 // ----- shutdown -----

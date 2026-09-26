@@ -35,6 +35,26 @@ Setting `BitTorr.Flow.Enabled=false`
 restores upstream's timeout and percentage-based preload behavior. The
 `Connection: close` removal remains an HTTP compatibility fix in both modes.
 
+## Adaptive buffering and seek follow-up
+
+`BitTorr.Flow.AdaptiveReadAhead` defaults to true. The existing cache window
+now chooses a bounded forward reach from probed/derived bitrate and, after
+enough valid progress samples, observed playback consumption. Its starting
+target is 45 seconds (`TargetBufferSeconds`) with a 180-second ceiling
+(`MaxBufferSeconds`). Download sustainability and recent piece waits can raise
+the target; a healthy swarm can lower it. The cache's configured budget and
+upstream head/tail pins remain authoritative. Setting `AdaptiveReadAhead=false`
+restores the upstream percentage-based window without disabling other Flow
+features.
+
+Flow diagnostics now include observed rate/confidence, chosen forward window,
+target buffer seconds, first body-byte timing, and seek/warm Range TTFB. Buffer
+ahead counts contiguous readable blocks, including a partial piece being served
+responsively. These are server measurements; player-visible seek and resume
+times still require the phone. A multi-file offset bug in the existing blocked
+piece cleanup was corrected so a completed seek cannot leave an obsolete
+piece forced indefinitely.
+
 ## Reproducible comparison protocol
 
 The supplied `TorrServer-LT-windows-amd64.exe` is a MatriX.145.LT-1.1.9

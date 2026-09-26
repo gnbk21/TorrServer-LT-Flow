@@ -37,6 +37,7 @@ type FlowStartupStatus struct {
 	ProbeCompleteMs          int64  `json:"probe_complete_ms"`
 	ProbeSuccess             bool   `json:"probe_success"`
 	StartupPrebufferMs       int64  `json:"startup_prebuffer_ms"`
+	TimeToFirstByteMs        int64  `json:"time_to_first_byte_ms"`
 }
 
 func (t *Torrent) FlowStartup() FlowStartupStatus {
@@ -60,6 +61,11 @@ type FlowSessionStatus struct {
 	BufferAheadBytes          int64            `json:"buffer_ahead_bytes"`
 	BufferAheadSeconds        float64          `json:"buffer_ahead_seconds"`
 	EstimatedMediaBitrate     float64          `json:"estimated_media_bitrate"`
+	ObservedPlaybackRate      float64          `json:"observed_playback_rate"`
+	ObservedConfidence        string           `json:"observed_confidence"`
+	PlaybackConsumptionRate   float64          `json:"playback_consumption_rate"`
+	TargetBufferSeconds       int              `json:"target_buffer_seconds"`
+	ForwardWindowPieces       int              `json:"forward_window_pieces"`
 	BitrateEstimateSource     string           `json:"bitrate_estimate_source"`
 	BitrateEstimateConfidence string           `json:"bitrate_estimate_confidence"`
 	DownloadRate              float64          `json:"download_rate"`
@@ -71,7 +77,9 @@ type FlowSessionStatus struct {
 	RangeRequestCount         uint64           `json:"range_request_count"`
 	RangeCancelCount          uint64           `json:"range_cancel_count"`
 	SeekCount                 uint64           `json:"seek_count"`
+	SeekRecoveryMs            int64            `json:"seek_recovery_ms"`
 	WarmReconnectCount        uint64           `json:"warm_reconnect_count"`
+	WarmReconnectTTFBMs       int64            `json:"warm_reconnect_ttfb_ms"`
 	LastClassification        string           `json:"last_classification"`
 	LastTTFBMs                int64            `json:"last_ttfb_ms"`
 	Traces                    []FlowRangeTrace `json:"traces,omitempty"`
@@ -79,15 +87,18 @@ type FlowSessionStatus struct {
 
 type flowSession struct {
 	FlowSessionStatus
-	fileOffset int64
-	lastSeen   time.Time
+	fileOffset      int64
+	lastSeen        time.Time
+	lastPlaybackSeq uint64
+	lastSeekSeq     uint64
+	lastWarmSeq     uint64
 }
 
 // flowStart records a logical playback session separately from a TCP request.
-func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Request) (string, flow.RangeHint) {
+func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Request) (string, flow.RangeHint, uint64) {
 	hint := flow.ParseRangeHint(req.Header.Get("Range"), file.Length)
 	if t == nil {
-		return "UNKNOWN", hint
+		return "UNKNOWN", hint, 0
 	}
 	internal := group == torrstor.ProbeReaderGroup
 	if !internal && req.Method == http.MethodGet && settings.CurrentFlow().Enabled {
@@ -102,7 +113,7 @@ func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Requ
 		t.mu.Unlock()
 	}
 	if !settings.CurrentFlow().MetricsEnabled {
-		return "UNKNOWN", hint
+		return "UNKNOWN", hint, 0
 	}
 	key := fmt.Sprintf("%d/%s", fileID, group)
 	t.flowMu.Lock()
@@ -126,29 +137,34 @@ func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Requ
 		s = &flowSession{FlowSessionStatus: FlowSessionStatus{Group: group, FileIndex: fileID, FileSize: file.Length, State: "NEW"}, fileOffset: file.Offset}
 		t.flowSessions[key] = s
 	}
-	classification := flow.Classify(req.Method, internal, hint, file.Length, s.PlaybackOffsetBytes, s.RangeRequestCount > 0)
+	purpose := flow.Classify(req.Method, internal, hint, file.Length, s.PlaybackOffsetBytes, s.RangeRequestCount > 0)
+	classification := purpose
 	if !settings.CurrentFlow().RangeClassification {
 		classification = "UNKNOWN"
 	}
 	if !internal {
 		if s.State == "WARM_IDLE" {
 			s.WarmReconnectCount++
+			s.lastWarmSeq = s.RangeRequestCount + 1
 		}
-		if classification == "SEEK" {
+		if purpose == "SEEK" {
 			s.SeekCount++
+			s.lastSeekSeq = s.RangeRequestCount + 1
 			s.State = "SEEK_RECOVERY"
 		} else {
 			s.State = "PLAYING"
 		}
 		s.ActiveReaders++
-		if hint.Valid {
-			s.PlaybackOffsetBytes = hint.Start
-		}
 	}
 	s.RangeRequestCount++
+	seq := s.RangeRequestCount
+	if !internal && hint.Valid && (purpose == "PLAYBACK" || purpose == "SEEK") {
+		s.PlaybackOffsetBytes = hint.Start
+		s.lastPlaybackSeq = seq
+	}
 	s.LastClassification = classification
 	s.lastSeen = time.Now()
-	return classification, hint
+	return classification, hint, seq
 }
 
 func (t *Torrent) flowReaderClosed(file *File, offset int64) {
@@ -183,7 +199,7 @@ func (t *Torrent) flowReaderClosed(file *File, offset int64) {
 	}
 }
 
-func (t *Torrent) flowEnd(fileID int, group string, tr FlowRangeTrace, hint flow.RangeHint) {
+func (t *Torrent) flowEnd(fileID int, group string, seq uint64, tr FlowRangeTrace, hint flow.RangeHint) {
 	if t == nil || !settings.CurrentFlow().MetricsEnabled {
 		return
 	}
@@ -197,11 +213,19 @@ func (t *Torrent) flowEnd(fileID int, group string, tr FlowRangeTrace, hint flow
 	if tr.Cancelled {
 		s.RangeCancelCount++
 	}
+	if tr.BytesServed > 0 {
+		if seq == s.lastSeekSeq {
+			s.SeekRecoveryMs = tr.TTFBMs
+		}
+		if seq == s.lastWarmSeq {
+			s.WarmReconnectTTFBMs = tr.TTFBMs
+		}
+	}
 	if group != torrstor.ProbeReaderGroup {
 		if s.ActiveReaders > 0 {
 			s.ActiveReaders--
 		}
-		if hint.Valid && tr.BytesServed > 0 {
+		if seq == s.lastPlaybackSeq && hint.Valid && tr.BytesServed > 0 {
 			s.PlaybackOffsetBytes = hint.Start + tr.BytesServed
 		}
 		if s.ActiveReaders == 0 {
@@ -224,6 +248,27 @@ func (t *Torrent) flowEnd(fileID int, group string, tr FlowRangeTrace, hint flow
 			}
 		}
 	}
+}
+
+func (t *Torrent) flowFirstByte(fileID int, group string, seq uint64, started time.Time, ttfb time.Duration) {
+	if t == nil || group == torrstor.ProbeReaderGroup {
+		return
+	}
+	t.mu.Lock()
+	if t.flowStartup.FileIndex == fileID && t.flowStartup.TimeToFirstByteMs == 0 {
+		t.flowStartup.TimeToFirstByteMs = started.Sub(t.flowStartupStarted).Milliseconds() + ttfb.Milliseconds()
+	}
+	t.mu.Unlock()
+	t.flowMu.Lock()
+	if s := t.flowSessions[fmt.Sprintf("%d/%s", fileID, group)]; s != nil {
+		if seq == s.lastSeekSeq {
+			s.SeekRecoveryMs = ttfb.Milliseconds()
+		}
+		if seq == s.lastWarmSeq {
+			s.WarmReconnectTTFBMs = ttfb.Milliseconds()
+		}
+	}
+	t.flowMu.Unlock()
 }
 
 // FlowStatus returns a bounded diagnostic snapshot. The cache remains the
@@ -265,8 +310,18 @@ func (t *Torrent) FlowStatus() []FlowSessionStatus {
 			s.PlaybackOffsetSeconds = float64(s.PlaybackOffsetBytes) / e.BytesPerSecond
 		}
 		s.BitrateEstimateSource, s.BitrateEstimateConfidence = e.Source, e.Confidence
+		if cache != nil {
+			w := cache.FlowWindow(s.Group)
+			s.ObservedPlaybackRate, s.ObservedConfidence = w.ObservedPlaybackRate, w.ObservedConfidence
+			s.TargetBufferSeconds, s.ForwardWindowPieces = w.TargetBufferSeconds, w.ForwardWindowPieces
+		}
+		s.PlaybackConsumptionRate = e.BytesPerSecond
+		if s.ObservedPlaybackRate > 0 {
+			s.PlaybackConsumptionRate = s.ObservedPlaybackRate
+		}
 		s.DownloadRate, s.UploadRate, s.ConnectedPeers = status.DownloadSpeed, status.UploadSpeed, status.ActivePeers
-		s.SustainabilityRatio = flow.Sustainability(status.DownloadSpeed, e)
+		s.SustainabilityRatio = flow.Sustainability(status.DownloadSpeed,
+			flow.Estimate{BytesPerSecond: s.PlaybackConsumptionRate})
 		if cache == nil || cache.PieceLength <= 0 {
 			continue
 		}
@@ -280,19 +335,9 @@ func (t *Torrent) FlowStatus() []FlowSessionStatus {
 		if start < offsets[i] || start >= end {
 			continue
 		}
-		for pos := start; pos < end; {
-			piece := int(pos / cache.PieceLength)
-			if !cache.Have(piece) {
-				break
-			}
-			next := (int64(piece) + 1) * cache.PieceLength
-			if next > end {
-				next = end
-			}
-			s.BufferAheadBytes += next - pos
-			pos = next
-		}
-		s.BufferAheadSeconds = flow.BufferSeconds(s.BufferAheadBytes, e)
+		s.BufferAheadBytes = cache.ContiguousAvailable(start, end)
+		s.BufferAheadSeconds = flow.BufferSeconds(s.BufferAheadBytes,
+			flow.Estimate{BytesPerSecond: s.PlaybackConsumptionRate})
 	}
 	return out
 }

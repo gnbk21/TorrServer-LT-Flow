@@ -77,3 +77,23 @@ func TestRecorderAllowsHTTPConnectionReuse(t *testing.T) {
 		}
 	}
 }
+
+func TestRecorderTTFBIncludesWaitAfterHeaders(t *testing.T) {
+	r := NewResponseRecorder(httptest.NewRecorder())
+	called := 0
+	r.OnFirstByte = func(time.Duration) { called++ }
+	r.WriteHeader(http.StatusPartialContent)
+	time.Sleep(15 * time.Millisecond)
+	if _, err := r.Write([]byte("x")); err != nil {
+		t.Fatal(err)
+	}
+	if r.TTFB < 15*time.Millisecond {
+		t.Fatalf("TTFB %v excluded the content wait", r.TTFB)
+	}
+	if _, err := r.Write([]byte("y")); err != nil {
+		t.Fatal(err)
+	}
+	if called != 1 {
+		t.Fatalf("first-byte callback called %d times", called)
+	}
+}
