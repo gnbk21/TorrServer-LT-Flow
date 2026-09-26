@@ -424,7 +424,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 	// every ~10s behind the advancing window for the rest of the stream (field
 	// log: piece 184 fetched 36 times / 288 MB during 4 minutes of playback).
 	if plen := r.cache.PieceLength; plen > 0 {
-		if wp := r.waitPiece.Load(); wp >= 0 && r.currentPiece() > wp {
+		if wp := r.waitPiece.Load(); wp >= 0 && r.currentPiece() > int(wp) {
 			r.waitPiece.CompareAndSwap(wp, -1)
 		}
 	}
