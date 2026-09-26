@@ -162,7 +162,7 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 		InfoBytes:  spec.InfoBytes,
 		Trackers:   spec.FlatTrackers(),
 		SavePath:   legacySavePath(spec.InfoHash),
-		Paused:     false,
+		Paused:     flowPaused.Load(),
 		HavePieces: havePieces,
 		PieceCount: pieceCount,
 	})

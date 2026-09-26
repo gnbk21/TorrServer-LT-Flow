@@ -30,6 +30,10 @@ var activeStreams int32
 // http.ServeContent on top of a torrstor.Reader, so Range requests,
 // Content-Type detection and ETag handling all come for free.
 func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter) error {
+	if FlowIsPaused() {
+		http.Error(resp, "Flow playback is paused", http.StatusServiceUnavailable)
+		return errors.New("torr.Stream: Flow playback paused")
+	}
 	streamID := atomic.AddInt32(&activeStreams, 1)
 	defer atomic.AddInt32(&activeStreams, -1)
 

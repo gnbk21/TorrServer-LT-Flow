@@ -107,6 +107,26 @@ At startup the HTTP listener binds before libtorrent initializes; `/echo` and
 routes return 503. Service stop closes listeners and gives active HTTP requests
 up to five seconds to finish before closing the torrent session and database.
 
+### Windows tray companion
+
+Run `tray/FlowTray.ps1` in Windows PowerShell with `-STA` in the user session.
+The **TorrServer-Flow-Tray** CI artifact packages the script separately from
+the server executable. For example:
+
+```powershell
+powershell.exe -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File .\FlowTray.ps1
+```
+
+The tray reads the local authenticated `/flow/tray` endpoint every five seconds
+and shows server state, active torrent, download speed, playable buffer and peer
+count. Its menu opens the UI, requests an elevated service restart, pauses or
+resumes torrent activity, and exits the tray without stopping the service.
+When HTTP authentication is enabled, pass a credential only for loopback use:
+
+```powershell
+powershell.exe -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File .\FlowTray.ps1 -Credential (Get-Credential)
+```
+
 The Windows executable depends on native libtorrent, Boost and OpenSSL. The
 repository's `.github/workflows/build.yml` builds those dependencies on Ubuntu
 with MinGW-w64 and uploads a `TorrServer-LT-windows-amd64` artifact. After

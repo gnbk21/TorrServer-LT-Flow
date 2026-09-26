@@ -20,3 +20,32 @@ func flowStatus(c *gin.Context) {
 func flowNetwork(c *gin.Context) {
 	c.JSON(http.StatusOK, torr.NetworkStatusSnapshot())
 }
+
+func flowTray(c *gin.Context) {
+	c.JSON(http.StatusOK, torr.SnapshotFlowTray())
+}
+
+func flowControl(c *gin.Context) {
+	var request struct {
+		Action string `json:"action"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	var paused bool
+	switch request.Action {
+	case "pause":
+		paused = true
+	case "resume":
+		paused = false
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unknown Flow action"})
+		return
+	}
+	if err := torr.SetFlowPaused(paused); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, torr.SnapshotFlowTray())
+}
