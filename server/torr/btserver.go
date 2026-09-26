@@ -474,6 +474,7 @@ func buildSessionConfig() (lt.SessionConfig, error) {
 	// Proxy (if CLI --proxy-url is set, plumb it through). Honours the
 	// --proxy-mode flag (tracker / peers / full).
 	applyProxyConfig(cfg)
+	applyFlowSwarmProfile(cfg, settings.CurrentFlow(), s.DisableEndGame)
 
 	return cfg, nil
 }

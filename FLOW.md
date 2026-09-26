@@ -127,6 +127,21 @@ When HTTP authentication is enabled, pass a credential only for loopback use:
 powershell.exe -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File .\FlowTray.ps1 -Credential (Get-Credential)
 ```
 
+### Swarm profiles
+
+`BitTorr.Flow.SwarmProfile` in `settings.json` accepts `legacy`,
+`conservative`, `balanced`, `aggressive`, or `custom`. Restart the server after
+changing it. `legacy` preserves the fork's prior libtorrent values and remains
+the default until a controlled benchmark supports changing the default.
+`conservative` leaves swarm tuning near libtorrent defaults. `balanced` uses
+50 connection attempts and a 50-peer connect boost; `aggressive` uses 100 and
+80. These are experimental choices, not proven faster on every network.
+`custom` applies only positive values supplied in `SwarmCustom` for
+`ConnectionSpeed`, `TorrentConnectBoost`, `PeerConnectTimeout`, `PieceTimeout`,
+`RequestQueueTime`, and `MinReconnectTime`; zero leaves that libtorrent value
+untouched. Cache limits, proxy settings, upload choices, and active-torrent
+queue protection are retained for every profile.
+
 The Windows executable depends on native libtorrent, Boost and OpenSSL. The
 repository's `.github/workflows/build.yml` builds those dependencies on Ubuntu
 with MinGW-w64 and uploads a `TorrServer-LT-windows-amd64` artifact. After

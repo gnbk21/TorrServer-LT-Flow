@@ -1,6 +1,9 @@
 package settings
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
 // FlowSettings keeps Flow controls independent of upstream settings.
 // A nil Flow field is migrated to these defaults when existing settings load.
@@ -20,10 +23,22 @@ type FlowSettings struct {
 	WarmSessionTimeoutSec  int
 	NetworkRetryMinSec     int
 	NetworkRetryMaxSec     int
+	SwarmProfile           string
+	SwarmCustom            FlowSwarmCustom
 	RangeTraceEnabled      bool
 	RangeClassification    bool
 	MetricsEnabled         bool
 	DebugFlow              bool
+}
+
+// Zero custom values leave libtorrent's own setting unchanged.
+type FlowSwarmCustom struct {
+	ConnectionSpeed     int
+	TorrentConnectBoost int
+	PeerConnectTimeout  int
+	PieceTimeout        int
+	RequestQueueTime    int
+	MinReconnectTime    int
 }
 
 // UnmarshalJSON migrates newly added fields without overriding explicit false
@@ -48,6 +63,7 @@ func DefaultFlowSettings() *FlowSettings {
 		MaxBufferSeconds:      180,
 		WarmSessionTimeoutSec: 600, RangeClassification: true,
 		NetworkRetryMinSec: 2, NetworkRetryMaxSec: 60,
+		SwarmProfile:   "legacy",
 		MetricsEnabled: true,
 	}
 }
@@ -89,6 +105,30 @@ func (f *FlowSettings) Normalize() {
 	}
 	if f.NetworkRetryMaxSec < f.NetworkRetryMinSec || f.NetworkRetryMaxSec > 600 {
 		f.NetworkRetryMaxSec = max(60, f.NetworkRetryMinSec)
+	}
+	f.SwarmProfile = strings.ToLower(strings.TrimSpace(f.SwarmProfile))
+	switch f.SwarmProfile {
+	case "legacy", "conservative", "balanced", "aggressive", "custom":
+	default:
+		f.SwarmProfile = "legacy"
+	}
+	if f.SwarmCustom.ConnectionSpeed < 0 || f.SwarmCustom.ConnectionSpeed > 500 {
+		f.SwarmCustom.ConnectionSpeed = 0
+	}
+	if f.SwarmCustom.TorrentConnectBoost < 0 || f.SwarmCustom.TorrentConnectBoost > 500 {
+		f.SwarmCustom.TorrentConnectBoost = 0
+	}
+	if f.SwarmCustom.PeerConnectTimeout < 0 || f.SwarmCustom.PeerConnectTimeout > 120 {
+		f.SwarmCustom.PeerConnectTimeout = 0
+	}
+	if f.SwarmCustom.PieceTimeout < 0 || f.SwarmCustom.PieceTimeout > 120 {
+		f.SwarmCustom.PieceTimeout = 0
+	}
+	if f.SwarmCustom.RequestQueueTime < 0 || f.SwarmCustom.RequestQueueTime > 30 {
+		f.SwarmCustom.RequestQueueTime = 0
+	}
+	if f.SwarmCustom.MinReconnectTime < 0 || f.SwarmCustom.MinReconnectTime > 600 {
+		f.SwarmCustom.MinReconnectTime = 0
 	}
 }
 

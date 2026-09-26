@@ -11,7 +11,7 @@ func TestFlowSettingsMigrateNewFieldsWithoutOverwritingFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !f.AdaptiveReadAhead || f.TargetBufferSeconds != 60 || f.MaxBufferSeconds != 180 ||
-		f.NetworkRetryMinSec != 2 || f.NetworkRetryMaxSec != 60 {
+		f.NetworkRetryMinSec != 2 || f.NetworkRetryMaxSec != 60 || f.SwarmProfile != "legacy" {
 		t.Fatalf("new fields not migrated: %+v", f)
 	}
 	if f.RangeTraceEnabled {
@@ -23,5 +23,16 @@ func TestFlowSettingsMigrateNewFieldsWithoutOverwritingFlags(t *testing.T) {
 	}
 	if disabled.AdaptiveReadAhead {
 		t.Fatal("explicit disable changed")
+	}
+}
+
+func TestFlowSwarmSettingsNormalize(t *testing.T) {
+	f := DefaultFlowSettings()
+	f.SwarmProfile = " Balanced "
+	f.SwarmCustom.ConnectionSpeed = 900
+	f.SwarmCustom.PeerConnectTimeout = 20
+	f.Normalize()
+	if f.SwarmProfile != "balanced" || f.SwarmCustom.ConnectionSpeed != 0 || f.SwarmCustom.PeerConnectTimeout != 20 {
+		t.Fatalf("normalized swarm settings: %+v", f)
 	}
 }
