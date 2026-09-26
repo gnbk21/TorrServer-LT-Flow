@@ -39,3 +39,14 @@ func TestConsumptionTrackerIgnoresSeekAndIdleGap(t *testing.T) {
 		t.Fatalf("seek/idle poisoned observed rate: %v", rate)
 	}
 }
+
+func TestBufferExhaustionSeconds(t *testing.T) {
+	if seconds, ok := BufferExhaustionSeconds(30*MiB, float64(2*MiB), float64(MiB)); !ok || seconds != 30 {
+		t.Fatalf("draining buffer: seconds=%v known=%v", seconds, ok)
+	}
+	for _, rates := range [][2]float64{{0, 0}, {float64(MiB), float64(MiB)}, {float64(MiB), float64(2 * MiB)}} {
+		if _, ok := BufferExhaustionSeconds(MiB, rates[0], rates[1]); ok {
+			t.Fatalf("non-draining or unknown rates %v reported exhaustion", rates)
+		}
+	}
+}

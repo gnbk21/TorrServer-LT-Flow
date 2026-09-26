@@ -60,6 +60,8 @@ type FlowSessionStatus struct {
 	PlaybackOffsetSeconds     float64          `json:"playback_offset_seconds"`
 	BufferAheadBytes          int64            `json:"buffer_ahead_bytes"`
 	BufferAheadSeconds        float64          `json:"buffer_ahead_seconds"`
+	BufferExhaustionSeconds   *float64         `json:"buffer_exhaustion_seconds,omitempty"`
+	BufferWarning             bool             `json:"buffer_warning"`
 	EstimatedMediaBitrate     float64          `json:"estimated_media_bitrate"`
 	ObservedPlaybackRate      float64          `json:"observed_playback_rate"`
 	ObservedConfidence        string           `json:"observed_confidence"`
@@ -338,6 +340,12 @@ func (t *Torrent) FlowStatus() []FlowSessionStatus {
 		s.BufferAheadBytes = cache.ContiguousAvailable(start, end)
 		s.BufferAheadSeconds = flow.BufferSeconds(s.BufferAheadBytes,
 			flow.Estimate{BytesPerSecond: s.PlaybackConsumptionRate})
+		if s.ActiveReaders > 0 && s.PlaybackOffsetBytes > 0 {
+			if seconds, known := flow.BufferExhaustionSeconds(s.BufferAheadBytes, s.PlaybackConsumptionRate, s.DownloadRate); known {
+				s.BufferExhaustionSeconds = &seconds
+				s.BufferWarning = seconds < 30
+			}
+		}
 	}
 	return out
 }

@@ -108,3 +108,8 @@ then restart it. Record Just Player version, startup to first frame, any stalls,
 seek recovery, phone disconnect/reconnect delay, and server CPU/RAM for both.
 The API's TTFB and startup timings are server observations; first playable frame
 must be measured on the phone.
+
+`buffer_exhaustion_seconds` estimates when the contiguous playable buffer will
+run dry at the current measured download and consumption rates. A
+`buffer_warning` is raised below 30 seconds during active playback; the field
+is absent when the buffer is not draining or a rate cannot be estimated.

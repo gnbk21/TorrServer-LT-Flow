@@ -107,3 +107,16 @@ func AdaptiveWindow(playbackRate, downloadRate, waitP95Ms float64, targetSeconds
 	pieces = min(maxAhead, max(8, pieces))
 	return seconds, pieces
 }
+
+// BufferExhaustionSeconds predicts how long a contiguous buffer lasts while
+// the swarm downloads more slowly than playback consumes. The second return
+// value is false when the rates are unknown or the buffer is not draining.
+func BufferExhaustionSeconds(bufferBytes int64, playbackRate, downloadRate float64) (float64, bool) {
+	if bufferBytes < 0 || playbackRate <= 0 || downloadRate < 0 ||
+		math.IsNaN(playbackRate) || math.IsInf(playbackRate, 0) ||
+		math.IsNaN(downloadRate) || math.IsInf(downloadRate, 0) ||
+		downloadRate >= playbackRate {
+		return 0, false
+	}
+	return float64(bufferBytes) / (playbackRate - downloadRate), true
+}
