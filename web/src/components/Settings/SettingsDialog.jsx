@@ -45,9 +45,9 @@ export default function SettingsDialog({ handleClose }) {
   const [isIinaUsed, setIsIinaUsed] = useState(JSON.parse(localStorage.getItem('isIinaUsed')) ?? false)
   const [gstAvailable, setGstAvailable] = useState(false)
   const [wafDirty, setWAFDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
-  const tabMain = 0
-  const tabAdditional = 1
   const tabSearch = 2
   const tabApp = 3
   const tabAccess = 4
@@ -76,6 +76,7 @@ export default function SettingsDialog({ handleClose }) {
   // eslint-disable-next-line no-alert
   const confirmWAFDiscard = () => !wafDirty || window.confirm(t('WAF.UnsavedConfirm'))
   const requestClose = () => {
+    if (saving) return false
     if (!confirmWAFDiscard()) return false
     handleClose()
     return true
@@ -83,13 +84,21 @@ export default function SettingsDialog({ handleClose }) {
 
   const ref = useOnStandaloneAppOutsideClick(requestClose)
 
-  const handleSave = () => {
-    if (!requestClose()) return
+  const handleSave = async () => {
+    if (saving || !settings || !confirmWAFDiscard()) return
+    setSaving(true)
+    setSaveError('')
     const sets = JSON.parse(JSON.stringify(settings))
     sets.CacheSize = cacheSize * 1024 * 1024
     sets.ReaderReadAHead = cachePercentage
     sets.PreloadCache = preloadCachePercentage
-    axios.post(settingsHost(), { action: 'set', sets })
+    try {
+      await axios.post(settingsHost(), { action: 'set', sets }, { timeout: 30000 })
+    } catch (error) {
+      setSaveError(error.response?.data?.error || error.message)
+      setSaving(false)
+      return
+    }
     // Clear TMDB cache so fresh settings are fetched on next poster search
     clearTMDBCache()
     localStorage.setItem('isVlcUsed', isVlcUsed)
@@ -98,6 +107,8 @@ export default function SettingsDialog({ handleClose }) {
     localStorage.setItem('isSenPlayerUsed', isSenPlayerUsed)
     localStorage.setItem('isIinaUsed', isIinaUsed)
     notifyPlayerSettingsChanged()
+    setSaving(false)
+    handleClose()
   }
 
   const inputForm = ({ target: { type, value, checked, id } }) => {
@@ -284,6 +295,7 @@ export default function SettingsDialog({ handleClose }) {
       </Content>
 
       <FooterSection>
+        {saveError && <p role='alert'>{saveError}</p>}
         <Button onClick={requestClose} color='secondary' variant='outlined'>
           {t('Cancel')}
         </Button>
@@ -307,7 +319,7 @@ export default function SettingsDialog({ handleClose }) {
           variant='contained'
           onClick={handleSave}
           color='secondary'
-          disabled={selectedTab === tabAccess && wafDirty}
+          disabled={saving || !settings || (selectedTab === tabAccess && wafDirty)}
           title={selectedTab === tabAccess && wafDirty ? t('WAF.SeparateSaveHint') : undefined}
         >
           {t('Save')}

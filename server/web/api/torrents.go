@@ -91,7 +91,8 @@ func addTorrent(req torrReqJS, c *gin.Context) {
 		return
 	}
 
-	log.TLogln("add torrent", req.Link)
+	// Magnet tracker URLs and remote torrent links may contain private passkeys.
+	log.TLogln("add torrent request")
 	req.Link = strings.ReplaceAll(req.Link, "&amp;", "&")
 
 	var torrSpec *torr.TorrentSpec

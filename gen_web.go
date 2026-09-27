@@ -64,7 +64,10 @@ func main() {
 
 	files := make([]string, 0)
 
-	filepath.WalkDir(srcGo+"template/pages/", func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(srcGo+"template/pages/", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 		if !d.IsDir() {
 			name := strings.TrimPrefix(path, srcGo+"template/")
 			if strings.Contains(name, "\\") {
@@ -77,6 +80,9 @@ func main() {
 		}
 		return nil
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
 	sort.Strings(files)
 	fmap := writeEmbed(srcGo+"template/html.go", files)
 	writeRoute(srcGo+"template/route.go", fmap)

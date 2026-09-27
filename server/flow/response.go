@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -16,6 +18,9 @@ type ResponseRecorder struct {
 	Bytes       int64
 	TTFB        time.Duration
 	OnFirstByte func(time.Duration)
+	// OnProgress receives the file offset after successful body writes. It is
+	// deliberately unavailable for errors and multipart framing.
+	OnProgress func(int64)
 }
 
 func NewResponseRecorder(w http.ResponseWriter) *ResponseRecorder {
@@ -41,7 +46,41 @@ func (w *ResponseRecorder) Write(p []byte) (int, error) {
 		}
 	}
 	w.Bytes += int64(n)
+	if n > 0 && w.OnProgress != nil {
+		if offset, ok := w.mediaOffset(); ok {
+			w.OnProgress(offset)
+		}
+	}
 	return n, err
+}
+
+func (w *ResponseRecorder) mediaOffset() (int64, bool) {
+	if w.Status == http.StatusOK {
+		return w.Bytes, true
+	}
+	if w.Status != http.StatusPartialContent {
+		return 0, false
+	}
+	// Read the actual response, not the request hint: If-Range can cause a
+	// complete 200 response, and multipart bodies contain non-media bytes.
+	h := w.Header().Get("Content-Range")
+	if !strings.HasPrefix(h, "bytes ") {
+		return 0, false
+	}
+	parts := strings.SplitN(strings.TrimPrefix(h, "bytes "), "/", 2)
+	if len(parts) != 2 {
+		return 0, false
+	}
+	rng := strings.SplitN(parts[0], "-", 2)
+	if len(rng) != 2 {
+		return 0, false
+	}
+	start, err := strconv.ParseInt(rng[0], 10, 64)
+	end, endErr := strconv.ParseInt(rng[1], 10, 64)
+	if err != nil || endErr != nil || start < 0 || end < start || w.Bytes > end-start+1 {
+		return 0, false
+	}
+	return start + w.Bytes, true
 }
 
 func (w *ResponseRecorder) Flush() {

@@ -28,9 +28,11 @@ export default function FlowDiagnostics({ hash, onClose }) {
 
   useEffect(() => {
     let active = true
+    let timer
+    const controller = new AbortController()
     const refresh = () => {
       axios
-        .get(flowStatusHost(hash))
+        .get(flowStatusHost(hash), { signal: controller.signal, timeout: 5000 })
         .then(({ data }) => {
           if (active) {
             setStatus(data)
@@ -40,12 +42,15 @@ export default function FlowDiagnostics({ hash, onClose }) {
         .catch(err => {
           if (active) setError(err.response?.data?.error || err.message)
         })
+        .finally(() => {
+          if (active) timer = window.setTimeout(refresh, 2000)
+        })
     }
     refresh()
-    const interval = window.setInterval(refresh, 2000)
     return () => {
       active = false
-      window.clearInterval(interval)
+      window.clearTimeout(timer)
+      controller.abort()
     }
   }, [hash])
 
@@ -65,7 +70,7 @@ export default function FlowDiagnostics({ hash, onClose }) {
             {(status.sessions || []).map(session => (
               <section key={`${session.group}-${session.file_index}`} style={{ marginTop: 20 }}>
                 <h3 style={{ marginBottom: 6 }}>
-                  File {session.file_index + 1} · {session.state}
+                  File {session.file_index} · {session.state}
                 </h3>
                 <Metric
                   label='Media bitrate'
@@ -82,8 +87,20 @@ export default function FlowDiagnostics({ hash, onClose }) {
                       : 'Unknown'
                   }
                 />
-                <Metric label='Buffer ahead' value={seconds(session.buffer_ahead_seconds)} />
-                <Metric label='Buffer risk' value={session.buffer_warning ? 'Warning' : 'Normal'} />
+                <Metric
+                  label='Estimated server buffer ahead'
+                  value={session.playback_consumption_rate > 0 ? seconds(session.buffer_ahead_seconds) : 'Unknown'}
+                />
+                <Metric
+                  label='Buffer risk'
+                  value={
+                    session.active_readers === 0 || session.playback_consumption_rate <= 0
+                      ? 'Unknown'
+                      : session.buffer_warning
+                      ? 'Warning'
+                      : 'No warning'
+                  }
+                />
                 <Metric label='Cache' value={`${mb(session.cache_used)} / ${mb(session.cache_size)}`} />
                 <Metric label='Connected peers' value={session.connected_peers ?? 0} />
                 <Metric label='Piece waits' value={session.piece_wait_count ?? 0} />

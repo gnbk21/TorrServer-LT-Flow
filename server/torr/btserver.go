@@ -507,7 +507,8 @@ func applyProxyConfig(cfg lt.SessionConfig) {
 	}
 	u, err := url.Parse(settings.Args.ProxyURL)
 	if err != nil || u.Host == "" {
-		log.Println("torr: cannot parse proxy URL:", err)
+		// url.Parse errors can contain the original URL, including credentials.
+		log.Println("torr: invalid proxy URL")
 		return
 	}
 

@@ -41,11 +41,13 @@ import (
 )
 
 var (
-	BTS         = torr.NewBTS()
-	waitChan    = make(chan error, 1)
-	serversMu   sync.Mutex
-	servers     []*http.Server
-	engineReady atomic.Bool
+	BTS            = torr.NewBTS()
+	waitChan       = make(chan error, 1)
+	serversMu      sync.Mutex
+	servers        []*http.Server
+	engineReady    atomic.Bool
+	listenersReady atomic.Bool
+	lifecycleMu    sync.Mutex
 )
 
 //	@title			Swagger Torrserver API
@@ -61,6 +63,9 @@ var (
 // @externalDocs.description	OpenAPI
 // @externalDocs.url			https://swagger.io/resources/open-api/
 func Start() {
+	lifecycleMu.Lock()
+	defer lifecycleMu.Unlock()
+	listenersReady.Store(false)
 	log.TLogln("Start TorrServer-LT " + version.Version + " libtorrent " + lt.Version())
 	ips := GetLocalIps()
 	if len(ips) > 0 {
@@ -143,6 +148,7 @@ func Start() {
 			return
 		}
 	}
+	listenersReady.Store(true)
 	if err := BTS.Connect(); err != nil {
 		startupError(err)
 		return
@@ -163,7 +169,16 @@ func Wait() error {
 	return <-waitChan
 }
 
+// ListenersReady reports this process's successful binds independently of
+// torrent engine initialization or external network availability.
+func ListenersReady() bool { return listenersReady.Load() }
+
 func Stop() {
+	// Finish initialization before disconnecting; otherwise Connect can finish
+	// after Stop and leave an engine running against a closed database.
+	lifecycleMu.Lock()
+	defer lifecycleMu.Unlock()
+	listenersReady.Store(false)
 	engineReady.Store(false)
 	shutdownListeners()
 	gstreamer.Stop()
@@ -207,6 +222,7 @@ func startListener(handler http.Handler, addr string, tls bool) error {
 }
 
 func startupError(err error) {
+	listenersReady.Store(false)
 	log.TLogln("Flow startup error:", err)
 	shutdownListeners()
 	select {

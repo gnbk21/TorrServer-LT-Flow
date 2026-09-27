@@ -72,9 +72,11 @@ compare p50/p95/p99 where the sample size permits. Record the torrent hashes
 and file indexes privately so later runs reuse the same data. Do not publish
 copyrighted media or credentials as fixtures.
 
-The plan's later scheduler tuning, service/tray, custom DNS, and provider phases
-depend on those measurements and a working Windows/libtorrent build. No
-performance result is asserted by this document.
+Adaptive scheduling and the Windows service/tray are implemented. Further swarm
+tuning still needs comparative measurements. Custom DNS and external providers
+are conditional extensions, not active features. No comparative performance
+result is asserted by this document. See [the audit](AUDIT.md) for remaining
+implementation and validation gaps.
 
 ## Windows build and self-test
 
@@ -96,7 +98,7 @@ and other ordinary server flags during install to retain them in the service
 command line. Service logs default to `flow.log` in that data directory.
 External DNS is no longer checked before the local server starts. The service
 has no interactive window; open the HTTP UI from a browser. The tray companion
-specified for a later phase is separate from the service.
+is separate from the service.
 The authenticated `/flow/network` endpoint reports local address readiness,
 the next check, and reannounce attempts. `ADDRESS_READY` means a usable local
 address exists; it does not certify Internet or tracker reachability. The

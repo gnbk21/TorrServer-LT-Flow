@@ -1,0 +1,39 @@
+name: Build embedded web UI
+
+on:
+  workflow_call:
+    inputs:
+      artifact-name:
+        required: true
+        type: string
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache: false
+      - name: Install web dependencies
+        working-directory: web
+        run: yarn install --frozen-lockfile
+      - name: Build Flow web UI
+        working-directory: web
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
+          CI: 'false'
+        run: yarn build
+      - name: Generate embedded assets
+        run: go run gen_web.go
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: server/web/pages/template
+          if-no-files-found: error

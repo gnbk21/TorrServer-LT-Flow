@@ -15,7 +15,7 @@ TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/Torr
 
 3. On the PC, open <http://127.0.0.1:8090>. On a phone on the same local network, use `http://<PC-LAN-IP>:8090` as the TorrServer address in your client (for example, Lampa), then play with Just Player. Allow the server through Windows Firewall on private networks if prompted.
 
-Keep Flow and another TorrServer instance on **different ports and data directories**. Do not start them concurrently against the same `config.db`. The server listens on all interfaces by default; enable HTTP authentication (`--httpauth`) if access extends beyond a trusted private network.
+Keep Flow and another TorrServer instance on **different ports and data directories**. Do not start them concurrently against the same `config.db`. The server listens on all interfaces by default. Keep it on a trusted private LAN or VPN. HTTP authentication (`--httpauth`, with an `accs.db` account file) protects management endpoints, but inherited playback routes can serve an existing torrent without credentials when its hash is known. Do not expose it directly to the Internet.
 
 The artifact also contains a `-gst` executable for optional GStreamer HLS transcoding. Direct playback uses the standard executable and does not require GStreamer. The `-gst` variant needs GStreamer installed separately at runtime.
 

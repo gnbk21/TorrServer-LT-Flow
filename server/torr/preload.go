@@ -755,12 +755,10 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 // the file's BitRate and DurationSeconds on the torrent, so they surface in the
 // status JSON (state.TorrentStatus.BitRate / DurationSeconds) that clients read.
 // This is the auto-population the original TorrServer performs inside Preload;
-// the on-demand /ffp/{hash}/{id} endpoint is unaffected. Called SYNCHRONOUSLY by
-// the &preload gate once head+tail are resident, so every byte ffprobe needs (the
-// header from the head, the duration from the EOF tail for unknown-size MKV) is
-// already in the cache — it returns in a moment and can't time out on a slow
-// piece. Defensive: a recover() keeps a probe failure from ever crashing the
-// process or aborting the preload.
+// the on-demand /ffp/{hash}/{id} endpoint is unaffected. Runs asynchronously
+// once bootstrap head+tail are resident. Further reads can still wait on missing
+// pieces, so the probe has a separate timeout and never gates playback forever.
+// A recover keeps probe failure from aborting the preload.
 func (t *Torrent) probeMediaInfo(index int) {
 	defer func() {
 		if t != nil {
@@ -839,8 +837,8 @@ func (t *Torrent) probeMediaInfo(index int) {
 // Preload (free function) keeps API parity with the call sites
 // (web/api/stream.go, tgbot). ctx should be the HTTP request's context so an
 // abandoned preload stops blocking. probe=true (the explicit &preload endpoint
-// TorrServe/Lampa hit) runs the synchronous ffprobe media-info population once
-// the buffer is in; false (a raw &play, tgbot) skips it.
+// TorrServe/Lampa hit) enables the legacy probe path. Flow adaptive startup can
+// also probe raw playback, asynchronously after its bootstrap buffer is ready.
 func Preload(ctx context.Context, torr *Torrent, index int, probe bool) {
 	if torr == nil || settings.BTsets() == nil {
 		return

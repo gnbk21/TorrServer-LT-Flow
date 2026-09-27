@@ -1,6 +1,6 @@
 module server
 
-go 1.25.7
+go 1.26.8
 
 require (
 	github.com/agnivade/levenshtein v1.2.1
@@ -27,10 +27,10 @@ require (
 	github.com/wlynxg/anet v0.0.5
 	go.etcd.io/bbolt v1.4.3
 	golang.org/x/exp v0.0.0-20260527015227-08cc5374adb3
-	golang.org/x/image v0.41.0
-	golang.org/x/net v0.55.0
-	golang.org/x/sync v0.20.0
-	golang.org/x/sys v0.45.0
+	golang.org/x/image v0.45.0
+	golang.org/x/net v0.58.0
+	golang.org/x/sync v0.22.0
+	golang.org/x/sys v0.47.0
 	gopkg.in/telebot.v4 v4.0.0-beta.7
 	gopkg.in/vansante/go-ffprobe.v2 v2.3.1
 )
@@ -79,7 +79,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
-	github.com/quic-go/quic-go v0.59.0 // indirect
+	github.com/quic-go/quic-go v0.59.1 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
@@ -87,10 +87,10 @@ require (
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/arch v0.23.0 // indirect
-	golang.org/x/crypto v0.52.0 // indirect
-	golang.org/x/mod v0.36.0 // indirect
+	golang.org/x/crypto v0.56.0 // indirect
+	golang.org/x/mod v0.40.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
-	golang.org/x/tools v0.45.0 // indirect
+	golang.org/x/tools v0.49.0 // indirect
 )

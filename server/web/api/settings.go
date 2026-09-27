@@ -46,6 +46,10 @@ func settings(c *gin.Context) {
 		c.JSON(200, sets.BTsets())
 		return
 	} else if req.Action == "set" {
+		if req.Sets == nil {
+			abortWithJSONError(c, http.StatusBadRequest, errors.New("sets is required"))
+			return
+		}
 		torr.SetSettings(req.Sets)
 		dlna.Stop()
 		if req.Sets.EnableDLNA {

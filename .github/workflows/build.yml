@@ -20,23 +20,9 @@ on:
 
 jobs:
   web:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: yarn
-          cache-dependency-path: web/yarn.lock
-      - name: Install web dependencies
-        working-directory: web
-        run: yarn install --frozen-lockfile
-      - name: Build Flow web UI
-        working-directory: web
-        env:
-          NODE_OPTIONS: --openssl-legacy-provider
-          CI: 'false'
-        run: yarn build
+    uses: ./.github/workflows/build-web.yml
+    with:
+      artifact-name: flow-web-cross
 
   # Fetch Boost + libtorrent once and cache _src, so the matrix below doesn't
   # download Boost (~120 MB) and clone libtorrent six times in parallel.
@@ -54,7 +40,7 @@ jobs:
         run: bash build/_fetch_sources.sh
 
   cross:
-    needs: sources
+    needs: [sources, web]
     name: ${{ matrix.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -70,6 +56,12 @@ jobs:
           - android-armv7
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download freshly generated web UI
+        uses: actions/download-artifact@v4
+        with:
+          name: flow-web-cross
+          path: server/web/pages/template
 
       - name: Restore Boost + libtorrent sources
         uses: actions/cache@v4
@@ -105,9 +97,7 @@ jobs:
 
       - name: Build
         env:
-          # Empty for branch/PR builds (scripts default to MatriX.145.LT-1.0.0);
-          # set to the tag when called from ts_release.yml.
-          TS_VERSION: ${{ inputs.version }}
+          TS_VERSION: ${{ inputs.version || format('MatriX.145.Flow-dev-{0}', github.sha) }}
         run: bash build/${{ matrix.target }}.sh
 
       # Only linux-amd64 runs on the x86 host; use it as the test + smoke gate.
@@ -119,7 +109,7 @@ jobs:
           PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
-        run: go test -count=1 -timeout 180s ./flow/ ./ffprobe/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/api/ ./dlna/
+        run: go test -count=1 -timeout 180s ./flow/ ./ffprobe/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/api/ ./dlna/ ./cmd/
 
       - name: Go vet
         if: matrix.target == 'linux-amd64'
@@ -130,6 +120,19 @@ jobs:
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
         run: go vet ./flow/ ./ffprobe/ ./settings/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/api/
+
+      - name: Race tests and reachable Go vulnerability scan
+        if: matrix.target == 'linux-amd64'
+        working-directory: server
+        env:
+          CGO_ENABLED: '1'
+          PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
+        run: |
+          go test -race -count=1 -timeout 180s ./flow/ ./settings/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/api/
+          go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+          govulncheck ./...
 
       - name: Probe --version
         if: matrix.target == 'linux-amd64'

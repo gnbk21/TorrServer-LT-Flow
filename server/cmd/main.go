@@ -181,7 +181,7 @@ func main() {
 	}
 
 	if params.ProxyURL != "" {
-		log.TLogln("Proxy configured from CLI:", params.ProxyURL, "mode:", settings.Args.ProxyMode)
+		log.TLogln("Proxy configured from CLI; mode:", settings.Args.ProxyMode)
 	}
 
 	if params.ForceHTTPS && !params.Ssl {

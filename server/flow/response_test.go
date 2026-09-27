@@ -97,3 +97,45 @@ func TestRecorderTTFBIncludesWaitAfterHeaders(t *testing.T) {
 		t.Fatalf("first-byte callback called %d times", called)
 	}
 }
+
+func TestRecorderProgressUsesResponseRange(t *testing.T) {
+	for _, tc := range []struct {
+		name, method, rng, ifRange string
+		want                       int64
+	}{
+		{"whole", "GET", "", "", 26},
+		{"range", "GET", "bytes=3-5", "", 6},
+		{"suffix", "GET", "bytes=-3", "", 26},
+		{"if-range-miss", "GET", "bytes=3-5", `"old"`, 26},
+		{"multipart", "GET", "bytes=3-5,8-10", "", -1},
+		{"invalid", "GET", "bytes=100-", "", -1},
+		{"head", "HEAD", "", "", -1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := httptest.NewRequest(tc.method, "/", nil)
+			r.Header.Set("Range", tc.rng)
+			r.Header.Set("If-Range", tc.ifRange)
+			w := NewResponseRecorder(httptest.NewRecorder())
+			w.Header().Set("ETag", `"new"`)
+			got := int64(-1)
+			w.OnProgress = func(offset int64) { got = offset }
+			http.ServeContent(w, r, "movie.mkv", time.Unix(0, 0), strings.NewReader("abcdefghijklmnopqrstuvwxyz"))
+			if got != tc.want {
+				t.Fatalf("offset = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRecorderProgressBeforeResponseEnds(t *testing.T) {
+	w := NewResponseRecorder(httptest.NewRecorder())
+	w.Header().Set("Content-Range", "bytes 100-199/1000")
+	w.WriteHeader(http.StatusPartialContent)
+	var got []int64
+	w.OnProgress = func(offset int64) { got = append(got, offset) }
+	_, _ = w.Write([]byte("abcd"))
+	_, _ = w.Write([]byte("ef"))
+	if len(got) != 2 || got[0] != 104 || got[1] != 106 {
+		t.Fatalf("progress = %v", got)
+	}
+}

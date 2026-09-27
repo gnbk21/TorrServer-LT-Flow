@@ -160,8 +160,7 @@ func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Requ
 	}
 	s.RangeRequestCount++
 	seq := s.RangeRequestCount
-	if !internal && hint.Valid && (purpose == "PLAYBACK" || purpose == "SEEK") {
-		s.PlaybackOffsetBytes = hint.Start
+	if !internal && req.Method == http.MethodGet && purpose != "HEAD_PROBE" && purpose != "TAIL_INDEX" {
 		s.lastPlaybackSeq = seq
 	}
 	s.LastClassification = classification
@@ -201,7 +200,21 @@ func (t *Torrent) flowReaderClosed(file *File, offset int64) {
 	}
 }
 
-func (t *Torrent) flowEnd(fileID int, group string, seq uint64, tr FlowRangeTrace, hint flow.RangeHint) {
+// flowProgress follows delivered bytes throughout an open HTTP response. This
+// is the server delivery position, not the player's decoded presentation time.
+func (t *Torrent) flowProgress(fileID int, group string, seq uint64, offset int64) {
+	if t == nil || seq == 0 {
+		return
+	}
+	t.flowMu.Lock()
+	defer t.flowMu.Unlock()
+	if s := t.flowSessions[fmt.Sprintf("%d/%s", fileID, group)]; s != nil && seq == s.lastPlaybackSeq {
+		s.PlaybackOffsetBytes = max(int64(0), min(offset, s.FileSize))
+		s.lastSeen = time.Now()
+	}
+}
+
+func (t *Torrent) flowEnd(fileID int, group string, seq uint64, tr FlowRangeTrace) {
 	if t == nil || !settings.CurrentFlow().MetricsEnabled {
 		return
 	}
@@ -226,9 +239,6 @@ func (t *Torrent) flowEnd(fileID int, group string, seq uint64, tr FlowRangeTrac
 	if group != torrstor.ProbeReaderGroup {
 		if s.ActiveReaders > 0 {
 			s.ActiveReaders--
-		}
-		if seq == s.lastPlaybackSeq && hint.Valid && tr.BytesServed > 0 {
-			s.PlaybackOffsetBytes = hint.Start + tr.BytesServed
 		}
 		if s.ActiveReaders == 0 {
 			s.State = "WARM_IDLE"
@@ -257,7 +267,7 @@ func (t *Torrent) flowFirstByte(fileID int, group string, seq uint64, started ti
 		return
 	}
 	t.mu.Lock()
-	if t.flowStartup.FileIndex == fileID && t.flowStartup.TimeToFirstByteMs == 0 {
+	if t.flowStartup.FileIndex == fileID && !t.flowStartupStarted.IsZero() && t.flowStartup.TimeToFirstByteMs == 0 {
 		t.flowStartup.TimeToFirstByteMs = started.Sub(t.flowStartupStarted).Milliseconds() + ttfb.Milliseconds()
 	}
 	t.mu.Unlock()

@@ -5,16 +5,15 @@ package main
 import (
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 
 	"server"
+	"server/web"
 )
 
 const flowServiceName = "TorrServer-Flow"
@@ -57,26 +56,10 @@ func serviceCommand(command string, p *args) error {
 		if p.UI {
 			return errors.New("--ui is interactive and cannot be installed in a service")
 		}
-		installedArgs := []string{"--service", "run"}
-		for i := 1; i < len(os.Args); i++ {
-			a := os.Args[i]
-			if a == "--service" {
-				i++
-				continue
-			}
-			if strings.HasPrefix(a, "--service=") {
-				continue
-			}
-			if a == "--path" || a == "-d" {
-				i++
-				continue
-			}
-			if strings.HasPrefix(a, "--path=") || strings.HasPrefix(a, "-d=") {
-				continue
-			}
-			installedArgs = append(installedArgs, a)
+		installedArgs, err := serviceRunArgs(os.Args[1:], path)
+		if err != nil {
+			return err
 		}
-		installedArgs = append(installedArgs, "--path", path)
 		s, err := m.CreateService(flowServiceName, exe, mgr.Config{
 			DisplayName:      "TorrServer-Flow",
 			Description:      "Torrent streaming server for local playback",
@@ -162,22 +145,24 @@ func stopService(s *mgr.Service) error {
 type flowService struct{}
 
 func (flowService) Execute(_ []string, requests <-chan svc.ChangeRequest, changes chan<- svc.Status) (bool, uint32) {
-	changes <- svc.Status{State: svc.StartPending}
-	started := make(chan struct{})
-	go func() {
-		server.Start()
-		close(started)
-	}()
-	select {
-	case <-started:
-	case <-time.After(25 * time.Second):
-		return false, 1
-	}
+	changes <- svc.Status{State: svc.StartPending, WaitHint: 25000}
 	wait := make(chan string, 1)
 	go func() { wait <- server.WaitServer() }()
-	if err := waitForHTTPListener(); err != nil {
-		go server.Stop()
-		return false, 1
+	go server.Start()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	deadline := time.NewTimer(25 * time.Second)
+	defer deadline.Stop()
+	for !web.ListenersReady() {
+		select {
+		case <-wait:
+			go server.Stop()
+			return false, 1
+		case <-deadline.C:
+			go server.Stop()
+			return false, 1
+		case <-ticker.C:
+		}
 	}
 	changes <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown}
 	for {
@@ -204,29 +189,6 @@ func (flowService) Execute(_ []string, requests <-chan svc.ChangeRequest, change
 			}
 		}
 	}
-}
-
-func waitForHTTPListener() error {
-	host := "127.0.0.1"
-	if len(params.IPs) > 0 && params.IPs[0] != "" {
-		host = params.IPs[0]
-	}
-	if host == "0.0.0.0" {
-		host = "127.0.0.1"
-	} else if host == "::" || host == "[::]" {
-		host = "::1"
-	}
-	addr := net.JoinHostPort(host, params.Port)
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", addr, 250*time.Millisecond)
-		if err == nil {
-			conn.Close()
-			return nil
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	return fmt.Errorf("HTTP listener did not become ready at %s", addr)
 }
 
 func runWindowsService() error {

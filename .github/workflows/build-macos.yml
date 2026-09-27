@@ -27,7 +27,13 @@ on:
         default: ''
 
 jobs:
+  web:
+    uses: ./.github/workflows/build-web.yml
+    with:
+      artifact-name: flow-web-macos
+
   macos:
+    needs: web
     name: macos/${{ matrix.arch }}
     runs-on: macos-latest          # Apple Silicon (arm64)
     timeout-minutes: 90
@@ -41,6 +47,12 @@ jobs:
             artifact: TorrServer-LT-darwin-amd64
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download freshly generated web UI
+        uses: actions/download-artifact@v4
+        with:
+          name: flow-web-macos
+          path: server/web/pages/template
 
       # amd64 cgo/b2 objects build with `-arch x86_64`; the binary runs on the
       # arm64 host via Rosetta 2 (present on the runners, assert anyway).
@@ -79,7 +91,7 @@ jobs:
       # base binary AND the -gst variant (see build/_deps.sh go_build).
       - name: Build
         env:
-          TS_VERSION: ${{ inputs.version }}
+          TS_VERSION: ${{ inputs.version || format('MatriX.145.Flow-dev-{0}', github.sha) }}
         run: bash build/darwin-native.sh ${{ matrix.arch }}
 
       # Native arm64 only: running x86_64 cgo tests under Rosetta is slow, and

@@ -124,6 +124,9 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		recorder.OnFirstByte = func(ttfb time.Duration) {
 			t.flowFirstByte(fileID, group, flowSeq, started, ttfb)
 		}
+		recorder.OnProgress = func(offset int64) {
+			t.flowProgress(fileID, group, flowSeq, offset)
+		}
 		resp = recorder
 		defer func() {
 			trace := FlowRangeTrace{Timestamp: started, Group: group, Method: req.Method,
@@ -132,7 +135,7 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 			if recorder != nil {
 				trace.Status, trace.BytesServed, trace.TTFBMs = recorder.Status, recorder.Bytes, recorder.TTFB.Milliseconds()
 			}
-			t.flowEnd(fileID, group, flowSeq, trace, hint)
+			t.flowEnd(fileID, group, flowSeq, trace)
 		}()
 	}
 
