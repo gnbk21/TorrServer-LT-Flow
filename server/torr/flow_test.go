@@ -28,7 +28,7 @@ func TestFlowProgressFollowsLiveBodyAndIgnoresOldRequest(t *testing.T) {
 	_, _, second := tor.flowStart(1, file, "test", req)
 	tor.flowProgress(1, "test", second, 70<<20)
 	tor.flowProgress(1, "test", first, 21<<20)
-	tor.flowEnd(1, "test", first, FlowRangeTrace{BytesServed: 21 << 20})
+	tor.flowEnd(1, "test", first, FlowRangeTrace{Method: "GET", BytesServed: 21 << 20})
 	if s.PlaybackOffsetBytes != 70<<20 {
 		t.Fatal("old response overwrote seek progress")
 	}
@@ -37,6 +37,28 @@ func TestFlowProgressFollowsLiveBodyAndIgnoresOldRequest(t *testing.T) {
 	tor.flowProgress(1, "test", probe, file.Length)
 	if s.PlaybackOffsetBytes != 70<<20 {
 		t.Fatal("tail probe overwrote playback progress")
+	}
+}
+
+func TestFlowHeadDoesNotBecomePlaybackAndErrorIsNotSeekRecovery(t *testing.T) {
+	old := settings.BTsets()
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	f := settings.DefaultFlowSettings()
+	f.Enabled = false
+	settings.StoreBTsets(&settings.BTSets{Flow: f})
+	tor := &Torrent{}
+	file := &File{Length: 256 << 20}
+	req := httptest.NewRequest("HEAD", "/", nil)
+	_, _, seq := tor.flowStart(1, file, "test", req)
+	s := tor.flowSessions["1/test"]
+	if s.ActiveReaders != 0 || s.State == "PLAYING" {
+		t.Fatal("HEAD became playback")
+	}
+	tor.flowEnd(1, "test", seq, FlowRangeTrace{Method: "HEAD", Status: 200})
+	s.lastSeekSeq = seq
+	tor.flowEnd(1, "test", seq, FlowRangeTrace{Method: "GET", Status: 416, BytesServed: 20, TTFBMs: 15})
+	if s.SeekRecoveryMs != 0 {
+		t.Fatal("error body became seek recovery")
 	}
 }
 

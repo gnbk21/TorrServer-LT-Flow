@@ -30,6 +30,13 @@ jobs:
           NODE_OPTIONS: --openssl-legacy-provider
           CI: 'false'
         run: yarn build
+      - name: Web lint and diagnostics regressions
+        working-directory: web
+        env:
+          CI: 'true'
+        run: |
+          yarn lint
+          yarn test --watchAll=false --runInBand FlowDiagnostics.test.jsx
       - name: Generate embedded assets
         run: go run gen_web.go
       - uses: actions/upload-artifact@v4

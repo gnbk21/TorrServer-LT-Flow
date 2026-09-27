@@ -75,7 +75,12 @@ The observed Windows process used roughly **4.16 GiB resident memory**, had four
 reported peers, and reported about 657 seconds buffered with zero instantaneous
 download. The old delivery-position bug makes that buffer reading unreliable.
 A single sample cannot diagnose a memory leak or establish whether the cache
-budget was appropriate. The process was no longer running and port 8090 was
+budget was appropriate. The saved configuration beside this executable specifies
+a 4 GiB RAM cache, 95% read-ahead, Flow enabled and the Balanced profile; this is
+consistent with a large cache footprint but is not a memory-stability test.
+No matching TorrServer application-error event was found in the preceding eight
+hours of the Windows Application log. The exit cause remains unknown.
+The process was no longer running and port 8090 was
 closed at the later check. The audit did not restart it, change its settings,
 or stop the user's playback.
 
@@ -88,14 +93,19 @@ or stop the user's playback.
   `golang.org/x/crypto/openpgp` advisory, which has no patched version.
   `go mod why golang.org/x/crypto/openpgp` reports that Flow does not need this
   package. The CI source scan is the more precise check.
-- Yarn's existing dependency tree reports 267 affected dependency occurrences
-  (10 critical, 143 high, 101 moderate, 13 low), not 267 independent exploitable
+- Yarn's original dependency tree reported 267 affected dependency occurrences.
+  After updating axios's form-data to 4.0.6 and aligning Babel core at 7.29.6 to
+  repair the broken test runner, 265 remain
+  (10 critical, 142 high, 101 moderate, 12 low), not 265 independent exploitable
   runtime defects. Most paths are CRA 4/Webpack/Jest/ESLint build tooling. The
-  additional axios/form-data and react-query/broadcast-channel paths require
+  remaining react-query/broadcast-channel paths require
   platform/reachability interpretation: Node-only code is not equivalent to
   browser runtime exposure. This audit does not claim a clean JavaScript audit.
   Replacing the obsolete build toolchain needs a separately verified migration,
-  not blind transitive dependency overrides.
+  not blind transitive dependency overrides. The narrow Babel override resolves
+  CRA's exact 7.12.3 pin conflicting with its installed newer syntax plugin;
+  production compilation and component tests verify it. Yarn still warns about
+  that exact-version override and inherited peer dependency declarations.
 - Go scanning does not cover vulnerabilities in linked C++/OpenSSL code.
 - Management authentication does not fully gate inherited known-torrent playback
   routes. Use a trusted LAN/VPN and private-network firewall rules. Restricting

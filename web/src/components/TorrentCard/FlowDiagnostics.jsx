@@ -94,7 +94,7 @@ export default function FlowDiagnostics({ hash, onClose }) {
                 <Metric
                   label='Buffer risk'
                   value={
-                    session.active_readers === 0 || session.playback_consumption_rate <= 0
+                    !(session.active_readers > 0 && session.playback_consumption_rate > 0)
                       ? 'Unknown'
                       : session.buffer_warning
                       ? 'Warning'

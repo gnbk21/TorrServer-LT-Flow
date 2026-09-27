@@ -122,7 +122,9 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 	if sets.CurrentFlow().MetricsEnabled {
 		recorder = flow.NewResponseRecorder(resp)
 		recorder.OnFirstByte = func(ttfb time.Duration) {
-			t.flowFirstByte(fileID, group, flowSeq, started, ttfb)
+			if recorder.Status == http.StatusOK || recorder.Status == http.StatusPartialContent {
+				t.flowFirstByte(fileID, group, flowSeq, started, ttfb)
+			}
 		}
 		recorder.OnProgress = func(offset int64) {
 			t.flowProgress(fileID, group, flowSeq, offset)

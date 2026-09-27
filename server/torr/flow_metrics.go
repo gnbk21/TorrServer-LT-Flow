@@ -144,7 +144,7 @@ func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Requ
 	if !settings.CurrentFlow().RangeClassification {
 		classification = "UNKNOWN"
 	}
-	if !internal {
+	if !internal && req.Method == http.MethodGet {
 		if s.State == "WARM_IDLE" {
 			s.WarmReconnectCount++
 			s.lastWarmSeq = s.RangeRequestCount + 1
@@ -228,7 +228,7 @@ func (t *Torrent) flowEnd(fileID int, group string, seq uint64, tr FlowRangeTrac
 	if tr.Cancelled {
 		s.RangeCancelCount++
 	}
-	if tr.BytesServed > 0 {
+	if tr.BytesServed > 0 && (tr.Status == http.StatusOK || tr.Status == http.StatusPartialContent) {
 		if seq == s.lastSeekSeq {
 			s.SeekRecoveryMs = tr.TTFBMs
 		}
@@ -236,7 +236,7 @@ func (t *Torrent) flowEnd(fileID int, group string, seq uint64, tr FlowRangeTrac
 			s.WarmReconnectTTFBMs = tr.TTFBMs
 		}
 	}
-	if group != torrstor.ProbeReaderGroup {
+	if group != torrstor.ProbeReaderGroup && tr.Method == http.MethodGet {
 		if s.ActiveReaders > 0 {
 			s.ActiveReaders--
 		}
