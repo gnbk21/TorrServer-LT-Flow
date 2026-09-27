@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { useState } from 'react'
 import { USBIcon, RAMIcon } from 'icons'
 import { FormControlLabel, MenuItem, Switch } from '@material-ui/core'
 import TextField from '@material-ui/core/TextField'
@@ -43,6 +44,7 @@ export default function PrimarySettingsComponent({
   const { t } = useTranslation()
   const { UseDisk, TorrentsSavePath, RemoveCacheOnDrop, PadTailPartial } = settings || {}
   const preloadCacheSize = Math.round((cacheSize / 100) * preloadCachePercentage)
+  const [customPreset, setCustomPreset] = useState(false)
 
   return (
     <MainSettingsContent>
@@ -76,8 +78,11 @@ export default function PrimarySettingsComponent({
           fullWidth
           variant='outlined'
           label='Flow cache preset'
-          value={[256, 512, 1024, 2048, 4096].includes(Number(cacheSize)) ? Number(cacheSize) : 'custom'}
+          value={
+            !customPreset && [256, 512, 1024, 2048, 4096].includes(Number(cacheSize)) ? Number(cacheSize) : 'custom'
+          }
           onChange={event => {
+            setCustomPreset(event.target.value === 'custom')
             if (event.target.value !== 'custom') setCacheSize(Number(event.target.value))
           }}
           helperText='Choose a RAM budget based on the media and available memory, or enter a custom size below.'
