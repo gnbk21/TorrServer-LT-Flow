@@ -14,11 +14,14 @@ import (
 // assert that DNS, trackers or the Internet are reachable.
 type FlowNetworkStatus struct {
 	State            string    `json:"state"`
+	Connectivity     string    `json:"connectivity"`
 	Addresses        []string  `json:"addresses"`
 	CheckedAt        time.Time `json:"checked_at"`
 	ChangedAt        time.Time `json:"changed_at"`
 	NextCheckSeconds int       `json:"next_check_seconds"`
 	ReannounceCount  uint64    `json:"reannounce_count"`
+	LastTrackerReply time.Time `json:"last_tracker_reply,omitempty"`
+	LastTrackerError time.Time `json:"last_tracker_error,omitempty"`
 	LastError        string    `json:"last_error,omitempty"`
 }
 
@@ -48,7 +51,35 @@ func (bt *BTServer) FlowNetworkStatus() FlowNetworkStatus {
 	if s.State == "" {
 		s.State = "UNKNOWN"
 	}
+	if s.Connectivity == "" {
+		s.Connectivity = "INTERNET_WAIT"
+	}
 	return s
+}
+
+// A tracker reply proves that at least one external tracker transport worked.
+// An error does not imply every tracker is down, so it marks a previously
+// working network as degraded rather than claiming complete Internet loss.
+func (bt *BTServer) recordTrackerConnectivity(alertType string) {
+	if bt == nil {
+		return
+	}
+	bt.networkMu.Lock()
+	defer bt.networkMu.Unlock()
+	if bt.networkStatus.State != "ADDRESS_READY" {
+		return
+	}
+	now := time.Now()
+	switch alertType {
+	case "tracker_reply", "tracker_reply_alert":
+		bt.networkStatus.Connectivity = "ONLINE"
+		bt.networkStatus.LastTrackerReply = now
+	case "tracker_error", "tracker_error_alert":
+		if bt.networkStatus.Connectivity == "ONLINE" {
+			bt.networkStatus.Connectivity = "DEGRADED"
+		}
+		bt.networkStatus.LastTrackerError = now
+	}
 }
 
 func NetworkStatusSnapshot() FlowNetworkStatus {
@@ -147,8 +178,12 @@ func (bt *BTServer) networkLifecycle(stop <-chan struct{}, done chan<- struct{})
 		if ready {
 			state = "ADDRESS_READY"
 		}
-		if status.State != state || !sameAddresses(status.Addresses, addresses) {
+		addressChanged := !sameAddresses(status.Addresses, addresses)
+		if status.State != state || addressChanged {
 			status.ChangedAt = now
+		}
+		if !ready || addressChanged {
+			status.Connectivity = "INTERNET_WAIT"
 		}
 		status.State, status.Addresses, status.CheckedAt = state, addresses, now
 		status.NextCheckSeconds = int(wait / time.Second)

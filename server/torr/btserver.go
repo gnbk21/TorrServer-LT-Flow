@@ -293,6 +293,7 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 	switch a.Type {
 	case "tracker_reply", "tracker_reply_alert", "tracker_error", "tracker_error_alert":
 		t.recordTrackerAlert(a)
+		bt.recordTrackerConnectivity(a.Type)
 	case "metadata_received", "metadata_received_alert", "add_torrent":
 		t.signalGotInfo()
 	case "torrent_finished":

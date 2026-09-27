@@ -99,9 +99,11 @@ has no interactive window; open the HTTP UI from a browser. The tray companion
 specified for a later phase is separate from the service.
 The authenticated `/flow/network` endpoint reports local address readiness,
 the next check, and reannounce attempts. `ADDRESS_READY` means a usable local
-address exists; it does not certify Internet or tracker reachability. Flow
-checks periodically and retries with bounded backoff when addresses are absent
-or a reannounce operation fails.
+address exists; it does not certify Internet or tracker reachability. The
+separate `connectivity` field stays `INTERNET_WAIT` until a tracker reply,
+becomes `DEGRADED` after a later tracker error, and returns to `ONLINE` after
+another reply. Flow checks periodically and retries with bounded backoff when
+addresses are absent or a reannounce operation fails.
 At startup the HTTP listener binds before libtorrent initializes; `/echo` and
 `/flow/network` remain available during that brief initialization, while other
 routes return 503. Service stop closes listeners and gives active HTTP requests

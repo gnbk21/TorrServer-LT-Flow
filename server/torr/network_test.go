@@ -31,3 +31,29 @@ func TestNetworkTrackerRecoversAfterAddressChanges(t *testing.T) {
 		t.Fatal("recovery should request an announce")
 	}
 }
+
+func TestTrackerConnectivityRequiresTransportReply(t *testing.T) {
+	bt := &BTServer{networkStatus: FlowNetworkStatus{State: "ADDRESS_READY", Connectivity: "INTERNET_WAIT"}}
+	bt.recordTrackerConnectivity("tracker_error")
+	if got := bt.FlowNetworkStatus().Connectivity; got != "INTERNET_WAIT" {
+		t.Fatalf("tracker error before success = %q", got)
+	}
+	bt.recordTrackerConnectivity("tracker_reply")
+	if got := bt.FlowNetworkStatus().Connectivity; got != "ONLINE" {
+		t.Fatalf("tracker reply = %q", got)
+	}
+	bt.recordTrackerConnectivity("tracker_error")
+	if got := bt.FlowNetworkStatus().Connectivity; got != "DEGRADED" {
+		t.Fatalf("tracker error after success = %q", got)
+	}
+	bt.recordTrackerConnectivity("tracker_reply")
+	if got := bt.FlowNetworkStatus().Connectivity; got != "ONLINE" {
+		t.Fatalf("recovery reply = %q", got)
+	}
+	bt.networkStatus.State = "NO_ADDRESS"
+	bt.networkStatus.Connectivity = "INTERNET_WAIT"
+	bt.recordTrackerConnectivity("tracker_reply")
+	if got := bt.FlowNetworkStatus().Connectivity; got != "INTERNET_WAIT" {
+		t.Fatalf("reply without address changed connectivity to %q", got)
+	}
+}

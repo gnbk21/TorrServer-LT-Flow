@@ -19,6 +19,25 @@ on:
         default: ''
 
 jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+      - name: Install web dependencies
+        working-directory: web
+        run: yarn install --frozen-lockfile
+      - name: Build Flow web UI
+        working-directory: web
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
+          CI: 'false'
+        run: yarn build
+
   # Fetch Boost + libtorrent once and cache _src, so the matrix below doesn't
   # download Boost (~120 MB) and clone libtorrent six times in parallel.
   sources:

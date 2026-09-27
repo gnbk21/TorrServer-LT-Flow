@@ -58,6 +58,8 @@ export default function FlowDiagnostics({ hash, onClose }) {
         {status && (
           <>
             <Metric label='Startup state' value={status.startup?.state || 'UNKNOWN'} />
+            <Metric label='Local address' value={status.network?.state || 'UNKNOWN'} />
+            <Metric label='Tracker connectivity' value={status.network?.connectivity || 'INTERNET_WAIT'} />
             <Metric label='Startup time to first byte' value={`${status.startup?.time_to_first_byte_ms || 0} ms`} />
             {(status.sessions || []).length === 0 && <p>No playback session yet.</p>}
             {(status.sessions || []).map(session => (
