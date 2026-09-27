@@ -147,6 +147,17 @@ tracker event summary by protocol and host. Its identifiers hash the original
 URLs; paths, queries, userinfo, and tracker passkeys are never returned. A
 tracker reply is reported as success only after libtorrent emits that reply.
 
+The web settings dialog has a **Flow** tab for the startup buffer, adaptive
+read-ahead, warm mobile sessions, network retry bounds, swarm profile and
+diagnostic switches. The main cache control provides 256, 512, 1024, 2048 and
+4096 MB presets plus a custom size. Choose a preset according to available RAM;
+none is presented as a universal recommendation. A torrent card opens live
+Flow diagnostics during playback, including buffer seconds, measured download,
+cache use, peer count, piece waits, seek recovery and tracker status. The
+status endpoint is authenticated like the existing settings API. Saving
+settings restarts the torrent engine and stops active streams; the newly
+selected swarm profile applies during that restart.
+
 The Windows executable depends on native libtorrent, Boost and OpenSSL. The
 repository's `.github/workflows/build.yml` builds those dependencies on Ubuntu
 with MinGW-w64 and uploads a `TorrServer-LT-windows-amd64` artifact. After

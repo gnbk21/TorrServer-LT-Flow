@@ -43,6 +43,7 @@ import {
   useGStreamerRuntime,
 } from 'utils/GStreamer'
 
+import FlowDiagnostics from './FlowDiagnostics'
 import {
   StatusIndicators,
   StyledButton,
@@ -57,7 +58,10 @@ const Transition = forwardRef((props, ref) => <Slide direction='up' ref={ref} {.
 const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds))
 
 const requestTorrentFiles = async (hash, isActive, attemptsLeft = 60) => {
-  const { data: status } = await axios.post(torrentsHost(), { action: 'get', hash })
+  const { data: status } = await axios.post(torrentsHost(), {
+    action: 'get',
+    hash,
+  })
   const files = status?.file_stats || []
   if (!isActive() || files.length || attemptsLeft <= 1) return files
 
@@ -214,6 +218,7 @@ const Torrent = ({ torrent }) => {
   const { parsedTitle } = getParsedTitle()
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [flowDiagnosticsOpen, setFlowDiagnosticsOpen] = useState(false)
   const handleClickOpenEditDialog = () => setIsEditDialogOpen(true)
   const handleCloseEditDialog = () => setIsEditDialogOpen(false)
 
@@ -471,7 +476,13 @@ const Torrent = ({ torrent }) => {
                 getContentAnchorEl={null}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                PaperProps={{ style: { maxHeight: '65vh', width: 420, maxWidth: 'calc(100vw - 32px)' } }}
+                PaperProps={{
+                  style: {
+                    maxHeight: '65vh',
+                    width: 420,
+                    maxWidth: 'calc(100vw - 32px)',
+                  },
+                }}
               >
                 {availablePlayers.map(player => (
                   <MenuItem
@@ -519,7 +530,13 @@ const Torrent = ({ torrent }) => {
             getContentAnchorEl={null}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
             transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-            PaperProps={{ style: { maxHeight: '65vh', width: 420, maxWidth: 'calc(100vw - 32px)' } }}
+            PaperProps={{
+              style: {
+                maxHeight: '65vh',
+                width: 420,
+                maxWidth: 'calc(100vw - 32px)',
+              },
+            }}
           >
             {audioMenuTracks.map((track, ordinal) => {
               const label = audioTrackLabel(track, ordinal)
@@ -550,6 +567,10 @@ const Torrent = ({ torrent }) => {
               onNotSupported={() => markPlayerUnsupported(selectedPlayer.key)}
             />
           )}
+
+          <StyledButton onClick={() => setFlowDiagnosticsOpen(true)}>
+            <span>Flow diagnostics</span>
+          </StyledButton>
 
           <StyledButton onClick={() => dropTorrent(torrent)}>
             <CloseIcon />
@@ -637,6 +658,7 @@ const Torrent = ({ torrent }) => {
           category={category}
         />
       )}
+      {flowDiagnosticsOpen && <FlowDiagnostics hash={hash} onClose={() => setFlowDiagnosticsOpen(false)} />}
     </>
   )
 }

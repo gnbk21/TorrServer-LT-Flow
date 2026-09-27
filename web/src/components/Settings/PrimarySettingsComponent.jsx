@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { USBIcon, RAMIcon } from 'icons'
-import { FormControlLabel, Switch } from '@material-ui/core'
+import { FormControlLabel, MenuItem, Switch } from '@material-ui/core'
 import TextField from '@material-ui/core/TextField'
 
 import {
@@ -71,13 +71,34 @@ export default function PrimarySettingsComponent({
 
         <br />
 
+        <TextField
+          select
+          fullWidth
+          variant='outlined'
+          label='Flow cache preset'
+          value={[256, 512, 1024, 2048, 4096].includes(Number(cacheSize)) ? Number(cacheSize) : 'custom'}
+          onChange={event => {
+            if (event.target.value !== 'custom') setCacheSize(Number(event.target.value))
+          }}
+          helperText='Choose a RAM budget based on the media and available memory, or enter a custom size below.'
+        >
+          <MenuItem value={256}>256 MB · Balanced</MenuItem>
+          <MenuItem value={512}>512 MB · High</MenuItem>
+          <MenuItem value={1024}>1024 MB · REMUX</MenuItem>
+          <MenuItem value={2048}>2048 MB · REMUX+</MenuItem>
+          <MenuItem value={4096}>4096 MB · Extreme</MenuItem>
+          <MenuItem value='custom'>Custom</MenuItem>
+        </TextField>
+
+        <br />
+
         <SliderInput
-          isProMode={isProMode}
+          isProMode
           title={t('SettingsDialog.CacheSize')}
           value={cacheSize}
           setValue={setCacheSize}
           sliderMin={32}
-          sliderMax={1024}
+          sliderMax={4096}
           inputMin={32}
           inputMax={999999}
           step={4}

@@ -20,6 +20,7 @@ export const tmdbSettingsHost = () => `${torrserverHost}/tmdb/settings`
 export const gstSettingsHost = () => `${torrserverHost}/gst/settings`
 export const wafHost = () => `${torrserverHost}/waf`
 export const runtimeStatusHost = () => `${torrserverHost}/runtime/status`
+export const flowStatusHost = hash => `${torrserverHost}/flow/status/${encodeURIComponent(hash)}`
 
 export const getTorrServerHost = () => torrserverHost
 export const setTorrServerHost = host => {

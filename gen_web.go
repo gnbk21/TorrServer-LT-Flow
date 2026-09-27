@@ -53,27 +53,13 @@ func main() {
 	compileHtml := "web/build/"
 	srcGo := "server/web/pages/"
 
-	// There are problems with running under windows
-	if err := run("rm", "-rf", srcGo+"template/pages"); err != nil {
-		if strings.Contains(err.Error(), "executable file not found") {
-			// Adding the ability to run on Windows with standard Go commands
-			if err = os.RemoveAll(srcGo + "template/pages"); err != nil {
-				log.Default().Fatalln(err.Error())
-			}
-		} else {
-			log.Default().Fatalln(err.Error())
-		}
+	// Copy the built files, not web/ itself. The old Windows fallback copied the
+	// parent directory and left the generated embed table pointing at stale paths.
+	if err := os.RemoveAll(srcGo + "template/pages"); err != nil {
+		log.Default().Fatalln(err.Error())
 	}
-	// There are problems with running under windows
-	if err := run("cp", "-r", compileHtml, srcGo+"template/pages/"); err != nil {
-		if strings.Contains(err.Error(), "executable file not found") {
-			// Adding the ability to run on Windows with standard Go commands
-			if err = os.CopyFS(srcGo+"template/pages/", os.DirFS(filepath.Dir(compileHtml))); err != nil {
-				log.Default().Fatalln(err.Error())
-			}
-		} else {
-			log.Default().Fatalln(err.Error())
-		}
+	if err := os.CopyFS(srcGo+"template/pages", os.DirFS(compileHtml)); err != nil {
+		log.Default().Fatalln(err.Error())
 	}
 
 	files := make([]string, 0)

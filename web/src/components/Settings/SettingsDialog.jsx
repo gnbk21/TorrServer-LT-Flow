@@ -23,6 +23,7 @@ import TorznabSettings from './TorznabSettings'
 import TMDBSettings from './TMDBSettings'
 import GStreamerSettings from './GStreamerSettings'
 import WAFSettings from './WAFSettings'
+import FlowSettings from './FlowSettings'
 
 export default function SettingsDialog({ handleClose }) {
   const { t } = useTranslation()
@@ -50,8 +51,9 @@ export default function SettingsDialog({ handleClose }) {
   const tabSearch = 2
   const tabApp = 3
   const tabAccess = 4
-  const tabGStreamer = 5
-  const maxTab = gstAvailable ? tabGStreamer : tabAccess
+  const tabFlow = 5
+  const tabGStreamer = 6
+  const maxTab = gstAvailable ? tabGStreamer : tabFlow
 
   useEffect(() => {
     fetch(gstSettingsHost())
@@ -197,6 +199,8 @@ export default function SettingsDialog({ handleClose }) {
 
           <StyledTab label={t('SettingsDialog.Tabs.Access')} {...a11yProps(tabAccess)} />
 
+          <StyledTab label='Flow' {...a11yProps(tabFlow)} />
+
           {gstAvailable && (
             <StyledTab
               disabled={!isProMode}
@@ -261,6 +265,10 @@ export default function SettingsDialog({ handleClose }) {
 
               <TabPanel value={selectedTab} index={tabAccess} dir={direction}>
                 <WAFSettings onDirtyChange={setWAFDirty} />
+              </TabPanel>
+
+              <TabPanel value={selectedTab} index={tabFlow} dir={direction}>
+                <FlowSettings settings={settings} updateSettings={updateSettings} />
               </TabPanel>
 
               {gstAvailable && (
