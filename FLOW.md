@@ -148,6 +148,7 @@ The authenticated `/flow/status/<hash>` response also includes a bounded
 tracker event summary by protocol and host. Its identifiers hash the original
 URLs; paths, queries, userinfo, and tracker passkeys are never returned. A
 tracker reply is reported as success only after libtorrent emits that reply.
+Debug logging also redacts tracker alert messages that may contain passkeys.
 
 The web settings dialog has a **Flow** tab for the startup buffer, adaptive
 read-ahead, warm mobile sessions, network retry bounds, swarm profile and

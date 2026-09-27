@@ -272,7 +272,18 @@ func (bt *BTServer) expireWatch(stop <-chan struct{}) {
 
 func (bt *BTServer) handleAlert(a *lt.Alert) {
 	if settings.BTsets() != nil && settings.BTsets().EnableDebug && a.Type != "" {
-		log.Printf("lt: %s — %s", a.Type, a.Message)
+		switch a.Type {
+		case "tracker_reply", "tracker_reply_alert":
+			log.Printf("lt: %s — peers=%d", a.Type, a.Peers)
+		case "tracker_error", "tracker_error_alert":
+			log.Printf("lt: %s — %s", a.Type, safeTrackerError(a.Error))
+		default:
+			if strings.HasPrefix(a.Type, "tracker") {
+				log.Printf("lt: %s", a.Type)
+			} else {
+				log.Printf("lt: %s — %s", a.Type, a.Message)
+			}
+		}
 	}
 	if len(a.Counters) > 0 && (a.Type == "session_stats" || a.Type == "session_stats_alert") {
 		bt.statsMu.Lock()
