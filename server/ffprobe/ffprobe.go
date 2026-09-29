@@ -49,20 +49,17 @@ func Exists() bool {
 // -probesize caps to keep a probe near the file head instead of reading deep
 // into — or seeking to the end of — the file.
 func ProbeUrl(link string, extra ...string) (*ffprobe.ProbeData, error) {
-	data, err := ffprobe.ProbeURL(getCtx(), link, extra...)
-	return data, err
+	return ProbeURLContext(context.Background(), link, extra...)
+}
+
+func ProbeURLContext(parent context.Context, link string, extra ...string) (*ffprobe.ProbeData, error) {
+	ctx, cancel := context.WithTimeout(parent, 5*time.Minute)
+	defer cancel()
+	return ffprobe.ProbeURL(ctx, link, extra...)
 }
 
 func ProbeReader(reader io.Reader) (*ffprobe.ProbeData, error) {
-	data, err := ffprobe.ProbeReader(getCtx(), reader)
-	return data, err
-}
-
-func getCtx() context.Context {
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		time.Sleep(5 * time.Minute)
-		cancel()
-	}()
-	return ctx
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	return ffprobe.ProbeReader(ctx, reader)
 }

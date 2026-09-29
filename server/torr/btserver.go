@@ -26,11 +26,14 @@ import (
 // one BTServer in the process; the abstraction is kept for parity with
 // the previous code base.
 type BTServer struct {
-	mu        sync.Mutex
-	session   *lt.Session
-	torrents  map[Hash]*Torrent
-	stopAlert chan struct{}
-	alertDone chan struct{}
+	mu            sync.Mutex
+	session       *lt.Session
+	torrents      map[Hash]*Torrent
+	stopAlert     chan struct{}
+	alertDone     chan struct{}
+	networkMu     sync.Mutex
+	networkStatus FlowNetworkStatus
+	networkDone   chan struct{}
 
 	// Latest session_stats counters snapshot, refreshed by the alert pump
 	// whenever a session_stats alert arrives (requested via SessionStats).
@@ -87,6 +90,8 @@ func (bt *BTServer) Connect() error {
 	bt.alertDone = make(chan struct{})
 	go bt.alertPump(bt.stopAlert, bt.alertDone)
 	go bt.expireWatch(bt.stopAlert)
+	bt.networkDone = make(chan struct{})
+	go bt.networkLifecycle(bt.stopAlert, bt.networkDone)
 
 	InitApiHelper(bt)
 	return nil
@@ -99,12 +104,13 @@ func (bt *BTServer) Disconnect() {
 	// alertDone deadlocks whenever the pump is mid-batch — observed as
 	// /shutdown hanging forever under steady alert traffic (DHT churn).
 	bt.mu.Lock()
-	stop, done := bt.stopAlert, bt.alertDone
+	stop, done, networkDone := bt.stopAlert, bt.alertDone, bt.networkDone
 	bt.stopAlert = nil
 	bt.mu.Unlock()
 	if stop != nil {
 		close(stop)
 		<-done
+		<-networkDone
 	}
 
 	bt.mu.Lock()
@@ -266,7 +272,18 @@ func (bt *BTServer) expireWatch(stop <-chan struct{}) {
 
 func (bt *BTServer) handleAlert(a *lt.Alert) {
 	if settings.BTsets() != nil && settings.BTsets().EnableDebug && a.Type != "" {
-		log.Printf("lt: %s — %s", a.Type, a.Message)
+		switch a.Type {
+		case "tracker_reply", "tracker_reply_alert":
+			log.Printf("lt: %s — peers=%d", a.Type, a.Peers)
+		case "tracker_error", "tracker_error_alert":
+			log.Printf("lt: %s — %s", a.Type, safeTrackerError(a.Error))
+		default:
+			if strings.HasPrefix(a.Type, "tracker") {
+				log.Printf("lt: %s", a.Type)
+			} else {
+				log.Printf("lt: %s — %s", a.Type, a.Message)
+			}
+		}
 	}
 	if len(a.Counters) > 0 && (a.Type == "session_stats" || a.Type == "session_stats_alert") {
 		bt.statsMu.Lock()
@@ -285,6 +302,9 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 		return
 	}
 	switch a.Type {
+	case "tracker_reply", "tracker_reply_alert", "tracker_error", "tracker_error_alert":
+		t.recordTrackerAlert(a)
+		bt.recordTrackerConnectivity(a.Type)
 	case "metadata_received", "metadata_received_alert", "add_torrent":
 		t.signalGotInfo()
 	case "torrent_finished":
@@ -468,6 +488,7 @@ func buildSessionConfig() (lt.SessionConfig, error) {
 	// Proxy (if CLI --proxy-url is set, plumb it through). Honours the
 	// --proxy-mode flag (tracker / peers / full).
 	applyProxyConfig(cfg)
+	applyFlowSwarmProfile(cfg, settings.CurrentFlow(), s.DisableEndGame)
 
 	return cfg, nil
 }
@@ -486,7 +507,8 @@ func applyProxyConfig(cfg lt.SessionConfig) {
 	}
 	u, err := url.Parse(settings.Args.ProxyURL)
 	if err != nil || u.Host == "" {
-		log.Println("torr: cannot parse proxy URL:", err)
+		// url.Parse errors can contain the original URL, including credentials.
+		log.Println("torr: invalid proxy URL")
 		return
 	}
 

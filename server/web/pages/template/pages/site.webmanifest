@@ -1,10 +1,10 @@
 {
-  "name": "TorrServer",
-  "short_name": "TorrServer",
+  "name": "TorrServer-Flow",
+  "short_name": "Flow",
   "icons": [
     {
       "src": "icon.png",
-      "sizes": "192x192",
+      "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     },
@@ -15,7 +15,9 @@
       "purpose": "any"
     }
   ],
-  "theme_color": "#ffffff",
-  "background_color": "#ffffff",
-  "display": "standalone"
+  "theme_color": "#090d16",
+  "background_color": "#090d16",
+  "display": "standalone",
+  "start_url": "./",
+  "scope": "./"
 }

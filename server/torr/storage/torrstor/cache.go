@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"server/flow"
 	"server/log"
 	"server/lt"
 	"server/settings"
@@ -67,7 +68,13 @@ const hashGraceSec = 30
 
 // Cache holds every Piece for a single torrent.
 type Cache struct {
-	storage *Storage
+	storage         *Storage
+	flowCounters    flow.Counters
+	flowMu          sync.Mutex
+	flowGroups      map[string]*flowGroup
+	flowDownload    float64
+	flowLastRefresh time.Time
+	flowAhead       atomic.Int64 // zero retains the upstream window
 
 	StorageID   int64
 	InfoHash    [20]byte
@@ -110,6 +117,10 @@ type Cache struct {
 	// joining client's own reader takes over.
 	preloadMu      sync.Mutex
 	preloadProtect [][2]int
+	// A small resident region survives a mobile client's last Range close.
+	// It shares the existing piece cache and expires without a timer goroutine.
+	warmProtect [2]int
+	warmUntil   time.Time
 
 	// announced is flipped once when the first Reader attaches, to kick
 	// tracker+DHT announces for this (lazily-added) torrent exactly once per
@@ -173,6 +184,13 @@ type Cache struct {
 	// between passes instead of being driven back down to the budget.
 	evicting   atomic.Bool
 	evictAgain atomic.Bool
+}
+
+func (c *Cache) FlowCounters() flow.CounterSnapshot {
+	if c == nil {
+		return flow.CounterSnapshot{}
+	}
+	return c.flowCounters.Snapshot()
 }
 
 // group is the sliding-window state of one playback session (device). playhead
@@ -435,6 +453,36 @@ func (c *Cache) readableAt(piece int, off int64) int64 {
 		return 0
 	}
 	return p.availableFrom(off)
+}
+
+// ContiguousAvailable counts readable bytes from start up to the first hole.
+// This includes arrived blocks of an incomplete piece, matching Reader.Read's
+// responsive serving semantics rather than reporting zero until a hash finishes.
+func (c *Cache) ContiguousAvailable(start, end int64) int64 {
+	if c == nil || c.PieceLength <= 0 || start < 0 || end <= start {
+		return 0
+	}
+	var available int64
+	for pos := start; pos < end; {
+		piece := int(pos / c.PieceLength)
+		if piece < 0 || piece >= c.NumPieces {
+			break
+		}
+		off := pos % c.PieceLength
+		n := c.readableAt(piece, off)
+		if n <= 0 {
+			break
+		}
+		if n > end-pos {
+			n = end - pos
+		}
+		available += n
+		pos += n
+		if off+n < c.PieceLength {
+			break // the next block in this partial piece is a hole
+		}
+	}
+	return available
 }
 
 // registerReader / unregisterReader track active streaming clients so
@@ -1218,6 +1266,16 @@ func (c *Cache) applyStreamPriorities() {
 // the real window whenever the player opened a second connection (the EOF index
 // read), evicting the just-preloaded head and thrashing.
 func (c *Cache) readerWindowPieces() (behind, ahead int) {
+	behind, ahead = c.baseReaderWindowPieces()
+	if f := settings.CurrentFlow(); f.Enabled && f.AdaptiveReadAhead {
+		if adaptive := int(c.flowAhead.Load()); adaptive > 0 && adaptive < ahead {
+			ahead = adaptive
+		}
+	}
+	return behind, ahead
+}
+
+func (c *Cache) baseReaderWindowPieces() (behind, ahead int) {
 	plen := c.PieceLength
 	if plen <= 0 {
 		return 0, streamWindowFloorPieces
@@ -1724,6 +1782,9 @@ func (c *Cache) readerProtectRanges() [][2]int {
 	// past the head it falls out of the sliding window and is dropped.
 	c.preloadMu.Lock()
 	out = append(out, c.preloadProtect...)
+	if time.Now().Before(c.warmUntil) {
+		out = append(out, c.warmProtect)
+	}
 	c.preloadMu.Unlock()
 	return out
 }
@@ -1904,6 +1965,27 @@ func (c *Cache) ClearPreloadReserve() {
 	c.preloadProtect = nil
 	c.preloadMu.Unlock()
 	go c.evictIfOverCapacity()
+}
+
+// SetWarmReserve protects an already cached region near the last playhead.
+// It never starts downloads and is bounded by the caller's cache policy.
+func (c *Cache) SetWarmReserve(first, last int, ttl time.Duration) {
+	if c == nil || ttl <= 0 || first < 0 || last < first {
+		return
+	}
+	c.preloadMu.Lock()
+	c.warmProtect = [2]int{first, last}
+	c.warmUntil = time.Now().Add(ttl)
+	c.preloadMu.Unlock()
+}
+
+func (c *Cache) ClearWarmReserve() {
+	if c == nil {
+		return
+	}
+	c.preloadMu.Lock()
+	c.warmUntil = time.Time{}
+	c.preloadMu.Unlock()
 }
 
 // Have reports whether the piece has been fully written to the cache.

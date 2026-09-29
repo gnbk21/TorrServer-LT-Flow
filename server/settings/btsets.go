@@ -26,6 +26,8 @@ type TMDBConfig struct {
 }
 
 type BTSets struct {
+	// Flow is optional so older settings files and older web clients remain valid.
+	Flow *FlowSettings
 	// Cache
 	CacheSize       int64 // in byte, def 64 MB
 	ReaderReadAHead int   // in percent, 5%-100%, [...S__X__E...] [S-E] not clean
@@ -172,6 +174,18 @@ func SetBTSets(sets *BTSets) {
 	if ReadOnly {
 		return
 	}
+	if sets == nil {
+		return
+	}
+	if sets.Flow == nil {
+		if old := BTsets(); old != nil && old.Flow != nil {
+			copy := *old.Flow
+			sets.Flow = &copy
+		} else {
+			sets.Flow = DefaultFlowSettings()
+		}
+	}
+	sets.Flow.Normalize()
 	// failsafe checks (use defaults)
 	if sets.CacheSize == 0 {
 		sets.CacheSize = 64 * 1024 * 1024
@@ -232,6 +246,7 @@ func SetBTSets(sets *BTSets) {
 
 func SetDefaultConfig() {
 	sets := new(BTSets)
+	sets.Flow = DefaultFlowSettings()
 	sets.CacheSize = 64 * 1024 * 1024 // 64 MB
 	sets.PreloadCache = 50
 	// Per-torrent peer cap (see torr.buildSessionConfig). 50 matches
@@ -272,6 +287,11 @@ func loadBTSets() {
 		sets := new(BTSets)
 		err := json.Unmarshal(buf, sets)
 		if err == nil {
+			if sets.Flow == nil {
+				sets.Flow = DefaultFlowSettings()
+			} else {
+				sets.Flow.Normalize()
+			}
 			if sets.ReaderReadAHead < 5 {
 				sets.ReaderReadAHead = 5
 			}

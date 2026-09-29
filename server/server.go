@@ -61,12 +61,12 @@ func Start() {
 	settings.SslPort = settings.Args.SslPort
 	settings.IPs = settings.Args.IPs
 
-	if settings.Args.TGToken != "" {
+	web.Start()
+	if settings.Args.TGToken != "" && web.ListenersReady() {
 		if err := tgbot.Start(settings.Args.TGToken); err != nil {
 			log.TLogln("tg bot start failed", err)
 		}
 	}
-	web.Start()
 }
 
 func cleanCache() {

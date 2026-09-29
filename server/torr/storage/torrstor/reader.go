@@ -371,6 +371,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 		// nothing read yet (written == 0) we must block: this is the very byte the
 		// client asked for.
 		avail := r.cache.readableAt(piece, pieceOff)
+		miss := avail <= 0
 		if avail <= 0 {
 			if written > 0 {
 				break
@@ -392,6 +393,13 @@ func (r *Reader) Read(p []byte) (int, error) {
 		}
 		n, err := r.cache.readPiece(piece, pieceOff, p[written:int(end)])
 		if n > 0 {
+			if settings.CurrentFlow().MetricsEnabled {
+				if miss {
+					r.cache.flowCounters.Miss(n)
+				} else {
+					r.cache.flowCounters.Hit(n)
+				}
+			}
 			written += n
 		}
 		if err != nil && err != io.EOF {
@@ -416,11 +424,14 @@ func (r *Reader) Read(p []byte) (int, error) {
 	// every ~10s behind the advancing window for the rest of the stream (field
 	// log: piece 184 fetched 36 times / 288 MB during 4 minutes of playback).
 	if plen := r.cache.PieceLength; plen > 0 {
-		if wp := r.waitPiece.Load(); wp >= 0 && (off+int64(written))/plen > wp {
+		if wp := r.waitPiece.Load(); wp >= 0 && r.currentPiece() > int(wp) {
 			r.waitPiece.CompareAndSwap(wp, -1)
 		}
 	}
 	if written > 0 {
+		if !r.internal {
+			r.cache.ObserveFlowProgress(r.group, r.file.Index, off+int64(written))
+		}
 		r.scheduleWindow()
 	}
 	if written == 0 {
@@ -522,7 +533,12 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 		r.cache.lastApplyMs.Store(0)
 		r.cache.applyStreamPriorities()
 	}
-	if !r.cache.WaitForBytes(ctx, piece, pieceOff) {
+	waitStarted := time.Now()
+	ready := r.cache.WaitForBytes(ctx, piece, pieceOff)
+	if settings.CurrentFlow().MetricsEnabled {
+		r.cache.flowCounters.Wait(time.Since(waitStarted))
+	}
+	if !ready {
 		if parent.Err() != nil {
 			return errors.New("torrstor.Reader: client gone")
 		}

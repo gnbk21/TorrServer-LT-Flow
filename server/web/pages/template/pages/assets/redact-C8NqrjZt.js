@@ -1,0 +1,1 @@
+function e(e){return(Array.isArray(e)?e.join(`, `):String(e??`—`)).replace(/(?:https?|udp|wss?):\/\/[^\s"'<>]+/gi,e=>{try{let t=new URL(e);return t.protocol+`//`+t.host+(t.pathname!==`/`||t.search||t.hash?`/[redacted]`:`/`)}catch{return`[redacted URL]`}}).replace(/\b(passkey|password|api[_-]?key|token|authorization)\s*[:=]\s*[^\s,;]+/gi,`$1=[redacted]`)}export{e as t};

@@ -1,0 +1,47 @@
+name: Build embedded web UI
+
+on:
+  workflow_call:
+    inputs:
+      artifact-name:
+        required: true
+        type: string
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache: false
+      - name: Install web dependencies
+        working-directory: web
+        run: yarn install --frozen-lockfile
+      - name: Validate Flow web UI
+        working-directory: web
+        run: |
+          yarn typecheck
+          yarn lint
+          yarn test
+          yarn build
+      - name: Browser regressions
+        working-directory: web
+        run: |
+          yarn playwright install --with-deps chromium
+          yarn test:e2e
+      - name: Generate embedded assets
+        run: |
+          go test gen_web.go gen_web_test.go
+          go run gen_web.go
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: server/web/pages/template
+          if-no-files-found: error

@@ -5,9 +5,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"server/ffprobe"
+	"server/flow"
 	"server/log"
 	"server/settings"
 	"server/torr/state"
@@ -84,11 +87,9 @@ const preloadWarmGrace = 8 * time.Second
 // the head of the file: it raises priority + ordered deadlines on the piece
 // range and blocks until they arrive (or the torrent closes / 2 min elapses),
 // updating PreloadedBytes/PreloadSize for the UI to poll.
-// probe asks for the synchronous ffprobe BitRate/DurationSeconds population once
-// the head+tail buffer is resident — used only by the explicit &preload path
-// (TorrServe / Lampa, which show those in their preload dialog). The &play path
-// (a raw player opening / switching episodes) passes false: it doesn't need the
-// media info and shouldn't pay the extra probe time.
+// probe selects the explicit &preload path used by TorrServe/Lampa. Flow starts
+// an asynchronous media probe after bootstrap for either entry path; the probe
+// cannot hold playback beyond the configured grace period.
 func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool) {
 	if t == nil || t.lh == nil || size <= 0 {
 		return
@@ -148,6 +149,8 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 	}
 	headFirst := clamp(int(f.Offset / plen))
 	headLast := clamp(int((f.Offset + headBytes - 1) / plen))
+	var headLastForTail atomic.Int64
+	headLastForTail.Store(int64(headLast))
 
 	headCount := headLast - headFirst + 1
 	if headCount <= 0 {
@@ -181,19 +184,24 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 		}
 	}
 
-	// Two-phase fill for the explicit &preload path (TorrServe / Lampa): buffer a
+	// Two-phase fill for Flow or the explicit &preload path: buffer a
 	// SMALL leading head slice + the tail FIRST, so the moment they're resident
 	// ffprobe reads the header + the EOF duration straight from cache and we publish
 	// BitRate/DurationSeconds — then prioritise the REST of the head. The media info
 	// therefore appears at a low percent (head+tail ready, before the bulk loads)
-	// and stays visible the whole way to 100%, exactly in the preload dialog. Only
-	// when ffprobe is actually available; the &play path keeps the single-phase
-	// full-head fill for the fastest playback start. probePieces = the phase-1
+	// and stays visible the whole way to 100%, exactly in the preload dialog.
+	// Outside Flow, it runs only when ffprobe is available on &preload.
+	// probePieces = the phase-1
 	// subset (small head + tail) the loop waits on before probing.
-	twoPhase := probe && ffprobe.Exists()
+	flowSettings := settings.CurrentFlow()
+	flowEnabled := flowSettings.Enabled && flowSettings.AdaptiveStartup
+	twoPhase := flowEnabled || (probe && ffprobe.Exists())
 	probeHeadLast := headLast
 	if twoPhase {
 		hb := int64(probeHeadBytes)
+		if flowEnabled {
+			hb = int64(flowSettings.BootstrapHeadMB) << 20
+		}
 		if hb > headBytes {
 			hb = headBytes
 		}
@@ -220,6 +228,13 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 	t.PreloadSize = int64(len(gatePieces)) * plen
 	t.PreloadedBytes = 0
 	t.Stat = state.TorrentPreload
+	if flowEnabled {
+		t.flowStartupStarted = time.Now()
+		t.flowStartup = FlowStartupStatus{FileIndex: index, State: "BOOTSTRAP_PRELOAD",
+			BootstrapHeadTargetBytes: int64(probeHeadCount) * plen,
+			BootstrapTailTargetBytes: int64(len(gatePieces)-headCount) * plen,
+			StartupTargetBytes:       int64(headCount) * plen}
+	}
 	t.mu.Unlock()
 
 	// prioritise raises priority 7 + an ascending deadline ramp (startN*10 ms,
@@ -298,10 +313,14 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 	// ramp starts after the tail (tailExtra), so the head is raced right behind the
 	// index, and the head's non-deadlined remainder fills in piece order via the
 	// sequential picker. Also called later by moov detection to refine the range.
+	var reserveMu sync.Mutex
+	var moovRange [2]int
+	moovKnown := false
 	prioritiseTail := func(tf, tl int) {
+		currentHeadLast := int(headLastForTail.Load())
 		var tailPieces []int
 		for p := tf; p <= tl; p++ {
-			if p < headFirst || p > headLast {
+			if p < headFirst || p > currentHeadLast {
 				tailPieces = append(tailPieces, p)
 			}
 		}
@@ -309,7 +328,12 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 			// Always keep the end-of-file tail (what the start gate waits for)
 			// reserved alongside head and the passed range, so a moov refinement
 			// to a different region never un-protects the gated index piece.
-			cache.SetPreloadReserve([][2]int{{headFirst, headLast}, {tailFirst, tailLast}, {tf, tl}})
+			reserveMu.Lock()
+			if tf != tailFirst || tl != tailLast {
+				moovRange, moovKnown = [2]int{tf, tl}, true
+			}
+			cache.SetPreloadReserve([][2]int{{headFirst, currentHeadLast}, {tailFirst, tailLast}, {tf, tl}})
+			reserveMu.Unlock()
 			prioritise(tailPieces, 0)
 		}
 	}
@@ -437,6 +461,16 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 	gateCount := len(gatePieces)
 	total := int64(gateCount) * plen
 	probed := false
+	var probeStartedAt time.Time
+	probeResultChecked := false
+	maxHeadLast := headLast
+	if flowEnabled {
+		maxHeadBytes := int64(flowSettings.StartupBufferMaxMB) << 20
+		if maxHeadBytes > f.Length {
+			maxHeadBytes = f.Length
+		}
+		maxHeadLast = clamp(int((f.Offset + maxHeadBytes - 1) / plen))
+	}
 	tick := time.NewTicker(200 * time.Millisecond)
 	defer tick.Stop()
 	for {
@@ -490,7 +524,17 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 			if probeDone == len(probePieces) {
 				probed = true
 				t.mu.Lock()
-				needProbe := t.BitRate == "" && t.DurationSeconds == 0
+				if flowEnabled {
+					t.flowStartup.State = "ADAPTIVE_PREBUFFER"
+					t.flowStartup.BootstrapCompleteMs = time.Since(t.flowStartupStarted).Milliseconds()
+				}
+				needProbe := ffprobe.Exists() && (t.ProbeFileID != index || (t.BitRate == "" && t.DurationSeconds == 0))
+				if needProbe {
+					t.flowProbeFinishedIndex = 0
+					if flowEnabled {
+						t.flowStartup.ProbeStartMs = time.Since(t.flowStartupStarted).Milliseconds()
+					}
+				}
 				t.mu.Unlock()
 				// Run ffprobe CONCURRENTLY, not inline: it reads the small head + EOF
 				// tail (both just made resident) off the cache, but parsing a big MKV
@@ -503,6 +547,7 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 				// beat later, still inside the preload window. needProbe + probed guard
 				// against a double probe.
 				if needProbe {
+					probeStartedAt = time.Now()
 					go t.probeMediaInfo(index)
 				}
 				if probeHeadLast < headLast {
@@ -513,6 +558,46 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 				}
 			}
 		}
+		// Stage B starts with a bounded provisional floor. A probe may raise
+		// the target while the same fill is running; already resident head pieces
+		// remain counted. No probe result is required to complete the gate.
+		if flowEnabled && probed && headLast < maxHeadLast {
+			t.mu.Lock()
+			bitrate, duration, probeFile := t.BitRate, t.DurationSeconds, t.ProbeFileID
+			t.mu.Unlock()
+			if probeFile == index {
+				estimate := flow.MediaEstimate(f.Length, duration, bitrate)
+				target := flow.StartupTarget(estimate, flowSettings.StartupBufferSeconds,
+					flowSettings.StartupBufferMinMB, flowSettings.StartupBufferMaxMB, flowSettings.StartupSafetyFactorPct)
+				newLast := clamp(int((f.Offset + min(target, f.Length) - 1) / plen))
+				if newLast > maxHeadLast {
+					newLast = maxHeadLast
+				}
+				if newLast > headLast {
+					for p := headLast + 1; p <= newLast; p++ {
+						if p < tailFirst || p > tailLast {
+							gatePieces = append(gatePieces, p)
+						}
+						prioritiseNoDeadline([]int{p})
+					}
+					headLast = newLast
+					headLastForTail.Store(int64(newLast))
+					gateCount = len(gatePieces)
+					total = int64(gateCount) * plen
+					reserveMu.Lock()
+					ranges := [][2]int{{headFirst, headLast}, {tailFirst, tailLast}}
+					if moovKnown {
+						ranges = append(ranges, moovRange)
+					}
+					cache.SetPreloadReserve(ranges)
+					reserveMu.Unlock()
+					t.mu.Lock()
+					t.PreloadSize = total
+					t.flowStartup.StartupTargetBytes = int64(headLast-headFirst+1) * plen
+					t.mu.Unlock()
+				}
+			}
+		}
 		// Display rule: report exactly 100% only when the gate actually releases.
 		// The boundary/index piece usually has all its bytes (Size ~= plen) several
 		// seconds before its hash completes — it pulls the next file's overlap — so
@@ -520,7 +605,7 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 		// "100% but not playing" this gate fix removes. Hold at <=99% until every
 		// gate piece is verified; clients gate on stat, and the bar now matches.
 		if done == gateCount {
-			got = total
+			got = total - total/100
 		} else if capBytes := total - total/100; got > capBytes {
 			got = capBytes
 		}
@@ -528,6 +613,25 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 		t.PreloadedBytes = got
 		t.mu.Unlock()
 		if done == gateCount {
+			if flowEnabled && !probeStartedAt.IsZero() && time.Since(probeStartedAt) < time.Duration(flowSettings.ProbeGraceMs)*time.Millisecond {
+				t.mu.Lock()
+				finished := t.flowProbeFinishedIndex == index
+				t.mu.Unlock()
+				if finished && !probeResultChecked {
+					probeResultChecked = true
+					continue // consume the published estimate before releasing
+				}
+				if !finished {
+					select {
+					case <-ctx.Done():
+					case <-tick.C:
+						continue
+					}
+				}
+			}
+			t.mu.Lock()
+			t.PreloadedBytes = total
+			t.mu.Unlock()
 			preloadOK = true
 			break
 		}
@@ -545,7 +649,14 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 		// pure interference — stop it (priority release + reserve clear below).
 		// Guarded by head residency so the EOF-index-reader-first race still fills
 		// the head before yielding (never starts playback on an empty buffer).
-		if cache.StreamingReaders() > 0 && cache.Have(headLast) {
+		headComplete := true
+		for p := headFirst; p <= headLast; p++ {
+			if st, ok := snap[p]; !ok || !st.Completed {
+				headComplete = false
+				break
+			}
+		}
+		if cache.StreamingReaders() > 0 && headComplete {
 			break
 		}
 		select {
@@ -559,6 +670,9 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 	t.mu.Lock()
 	if t.Stat == state.TorrentPreload {
 		t.Stat = state.TorrentWorking
+	}
+	if flowEnabled {
+		t.flowStartup.StartupPrebufferMs = time.Since(t.flowStartupStarted).Milliseconds()
 	}
 	t.mu.Unlock()
 
@@ -641,13 +755,21 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 // the file's BitRate and DurationSeconds on the torrent, so they surface in the
 // status JSON (state.TorrentStatus.BitRate / DurationSeconds) that clients read.
 // This is the auto-population the original TorrServer performs inside Preload;
-// the on-demand /ffp/{hash}/{id} endpoint is unaffected. Called SYNCHRONOUSLY by
-// the &preload gate once head+tail are resident, so every byte ffprobe needs (the
-// header from the head, the duration from the EOF tail for unknown-size MKV) is
-// already in the cache — it returns in a moment and can't time out on a slow
-// piece. Defensive: a recover() keeps a probe failure from ever crashing the
-// process or aborting the preload.
+// the on-demand /ffp/{hash}/{id} endpoint is unaffected. Runs asynchronously
+// once bootstrap head+tail are resident. Further reads can still wait on missing
+// pieces, so the probe has a separate timeout and never gates playback forever.
+// A recover keeps probe failure from aborting the preload.
 func (t *Torrent) probeMediaInfo(index int) {
+	defer func() {
+		if t != nil {
+			t.mu.Lock()
+			t.flowProbeFinishedIndex = index
+			if t.flowStartup.FileIndex == index {
+				t.flowStartup.ProbeCompleteMs = time.Since(t.flowStartupStarted).Milliseconds()
+			}
+			t.mu.Unlock()
+		}
+	}()
 	defer func() {
 		if r := recover(); r != nil {
 			log.TLogln("torr.probeMediaInfo: recovered from panic:", r)
@@ -673,7 +795,16 @@ func (t *Torrent) probeMediaInfo(index int) {
 	// for, so it appears at preload completion rather than earlier. Faststart MP4
 	// keeps all metadata at the front and probes early. /ffp stays unbounded.
 	probeStart := time.Now()
-	data, err := ffprobe.ProbeUrl(link,
+	probeCtx, probeCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer probeCancel()
+	go func() {
+		select {
+		case <-t.closeCh:
+			probeCancel()
+		case <-probeCtx.Done():
+		}
+	}()
+	data, err := ffprobe.ProbeURLContext(probeCtx, link,
 		"-probesize", "5000000",
 		"-analyzeduration", "2000000",
 	)
@@ -682,9 +813,23 @@ func (t *Torrent) probeMediaInfo(index int) {
 		return
 	}
 	t.mu.Lock()
+	if settings.CurrentFlow().Enabled && t.flowStartup.FileIndex != 0 && t.flowStartup.FileIndex != index {
+		t.mu.Unlock() // a newer file has become the active startup
+		return
+	}
 	t.BitRate = data.Format.BitRate
 	t.DurationSeconds = data.Format.DurationSeconds
+	t.ProbeFileID = index
+	if t.flowStartup.FileIndex == index {
+		t.flowStartup.ProbeSuccess = true
+	}
 	t.mu.Unlock()
+	if file := t.fileByID(index); file != nil {
+		if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+			cache.UpdateFlowMediaEstimate(file.Index,
+				flow.MediaEstimate(file.Length, data.Format.DurationSeconds, data.Format.BitRate))
+		}
+	}
 	log.TLogln("torr.probeMediaInfo:", t.Name(), "bitrate", data.Format.BitRate,
 		"duration", data.Format.DurationSeconds, "elapsed", time.Since(probeStart).Truncate(time.Millisecond).String())
 }
@@ -692,8 +837,8 @@ func (t *Torrent) probeMediaInfo(index int) {
 // Preload (free function) keeps API parity with the call sites
 // (web/api/stream.go, tgbot). ctx should be the HTTP request's context so an
 // abandoned preload stops blocking. probe=true (the explicit &preload endpoint
-// TorrServe/Lampa hit) runs the synchronous ffprobe media-info population once
-// the buffer is in; false (a raw &play, tgbot) skips it.
+// TorrServe/Lampa hit) enables the legacy probe path. Flow adaptive startup can
+// also probe raw playback, asynchronously after its bootstrap buffer is ready.
 func Preload(ctx context.Context, torr *Torrent, index int, probe bool) {
 	if torr == nil || settings.BTsets() == nil {
 		return
@@ -710,6 +855,19 @@ func Preload(ctx context.Context, torr *Torrent, index int, probe bool) {
 	cache := float32(settings.BTsets().CacheSize)
 	prc := float32(settings.BTsets().PreloadCache)
 	size := int64((cache / 100.0) * prc)
+	if f := settings.CurrentFlow(); f.Enabled && f.AdaptiveStartup {
+		size = int64(f.StartupBufferMinMB) << 20
+		if file := torr.fileByID(index); file != nil {
+			torr.mu.Lock()
+			bitrate, duration, probeFile := torr.BitRate, torr.DurationSeconds, torr.ProbeFileID
+			torr.mu.Unlock()
+			if probeFile != index {
+				bitrate, duration = "", 0
+			}
+			size = flow.StartupTarget(flow.MediaEstimate(file.Length, duration, bitrate),
+				f.StartupBufferSeconds, f.StartupBufferMinMB, f.StartupBufferMaxMB, f.StartupSafetyFactorPct)
+		}
+	}
 	if size <= 0 {
 		return
 	}
@@ -790,7 +948,7 @@ func PreloadOnPlay(reqCtx context.Context, torr *Torrent, index int) {
 
 	if cache := torrstor.Global().CacheByHash([20]byte(torr.Hash())); cache != nil && cache.PieceLength > 0 {
 		if f := torr.fileByID(index); f != nil {
-			if hl := preloadHeadLastPiece(f, cache.PieceLength, cache.NumPieces); cache.Have(hl) {
+			if hl := preloadHeadLastPiece(f, cache.PieceLength, cache.NumPieces); headRangeResident(cache, int(f.Offset/cache.PieceLength), hl) {
 				dbg("skip: head already resident, headLast", hl)
 				return
 			}
@@ -860,6 +1018,18 @@ func PreloadOnPlay(reqCtx context.Context, torr *Torrent, index int) {
 	waitBounded(reqCtx, done)
 }
 
+func headRangeResident(cache *torrstor.Cache, first, last int) bool {
+	if cache == nil || first > last {
+		return false
+	}
+	for p := first; p <= last; p++ {
+		if !cache.Have(p) {
+			return false
+		}
+	}
+	return true
+}
+
 // waitBounded blocks until the fill signalled by done completes, or reqCtx is
 // cancelled (the player disconnected) — whichever first. Returning early on
 // cancel only releases THIS handler; the detached fill behind done keeps running.
@@ -902,6 +1072,9 @@ func preloadHeadLastPiece(f *File, plen int64, numPieces int) int {
 	cacheB := float32(settings.BTsets().CacheSize)
 	prc := float32(settings.BTsets().PreloadCache)
 	size := int64((cacheB / 100.0) * prc)
+	if flowSettings := settings.CurrentFlow(); flowSettings.Enabled && flowSettings.AdaptiveStartup {
+		size = int64(flowSettings.StartupBufferMinMB) << 20
+	}
 	if size > f.Length {
 		size = f.Length
 	}

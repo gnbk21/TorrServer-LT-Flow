@@ -245,7 +245,11 @@ func shouldPreloadOnPlay(r *http.Request) bool {
 	if r.Method != http.MethodGet {
 		return false
 	}
-	if sets.BTsets() == nil || sets.BTsets().PreloadCache <= 0 {
+	if sets.BTsets() == nil {
+		return false
+	}
+	flow := sets.CurrentFlow()
+	if sets.BTsets().PreloadCache <= 0 && !(flow.Enabled && flow.AdaptiveStartup) {
 		return false
 	}
 	rng := strings.TrimSpace(r.Header.Get("Range"))
