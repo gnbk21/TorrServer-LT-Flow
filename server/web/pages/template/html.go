@@ -4,6 +4,9 @@ import (
 	_ "embed"
 )
 
+//go:embed pages/THIRD_PARTY_NOTICES.txt
+var THIRDPARTYNOTICEStxt []byte
+
 //go:embed pages/assets/Add-pXLq2E_p.js
 var AssetsAddpXLq2Epjs []byte
 

@@ -112,14 +112,33 @@ only failed entries for retry, including their metadata.
   JavaScript assets total 635,052 bytes gzip; this is the asset sum, not a measured
   phone transfer. The baseline was reconstructed from the preserved audit build
   because the incoming modernization draft had already removed legacy sources.
+- Registry audit of the modern frontend dependency tree reports zero advisories
+  across 396 dependencies. This does not cover the retained legacy toolchain or
+  the native C++/OpenSSL dependencies.
+- Manifest icon dimensions were checked against the PNG headers: 180x180 and
+  512x512. Build packaging retains original license notices for 78 production
+  dependency packages, including lazy HLS/QR dependencies. One notice omitted by
+  its npm package is preserved from upstream with provenance in web/licenses.
+- Production Chromium sample: 375x812, 4x CPU throttling, controlled API fixtures,
+  180 seconds. First-dashboard JavaScript asset sum was 186,769 bytes gzip (Node
+  zlib measurement), including lazy dashboard/shared chunks but excluding CSS,
+  images and media. Dashboard usable in 827 ms; library navigation took 156 ms.
+  DOM count remained 424; post-GC heap grew from 4,971,928 to 5,123,576 bytes
+  between 30 and 180 seconds. Script duration rose from 0.629 to 1.158 seconds;
+  total task duration from 1.385 to 2.390 seconds. There were no browser errors.
+  Counts: 75 library and 75 Flow requests, 28 each network/runtime/tray requests,
+  one settings read. Browser throttling affects timer cadence; interval behavior
+  is separately asserted in the bounded polling E2E check. This short sample
+  does not establish mobile CPU use or multi-hour memory stability. Local results,
+  screenshot and Chromium CPU profile are in .tools/audit/modern-performance.
 
 Browser fixtures do not prove torrent throughput, media decoding or phone
 intent handling. No real playback claims are derived from mocked tests.
 
 ## Remaining gates
 
-Final native Windows/Linux/macOS CI, isolated executable checks and measured
-production-browser performance remain to be recorded. The generated assets now
+Final native Windows/Linux/macOS CI and isolated executable checks remain to be
+recorded. The generated assets now
 contain the modern interface. Repeat checks affected by later fixes.
 
 ## Feature parity reconciliation
@@ -156,3 +175,12 @@ Real Android/Just Player launch, seek, background/resume, network changes and
 multi-hour memory acceptance require the user's device and representative media.
 The user elected to perform phone testing. Retain legacy sources and avoid a
 Modern Web 1.0 release claim until those gates are satisfied.
+Use [WEB_DEVICE_CHECKLIST.md](WEB_DEVICE_CHECKLIST.md) to record those results.
+
+The implementation is published in draft [PR #2](https://github.com/gnbk21/TorrServer-LT-Flow/pull/2)
+from feature/modern-web to develop. GitHub reports it mergeable; no merge has
+been performed. Initial implementation: cc9d0ff3cb732c95b7df16920a6b1af850cddf41;
+the subsequent packaging correction updates the manifest and license notices.
+Cross [CI run 36629956933](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/36629956933)
+and macOS [CI run 36629961474](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/36629961474)
+both passed their web jobs; native jobs are still in progress at this record.

@@ -1,5 +1,12 @@
 # Flow audit — 27 September 2026
 
+This document records the core audit and historical acceptance boundaries.
+For the modern interface implemented on `feature/modern-web`, see
+[WEB_AUDIT.md](WEB_AUDIT.md), [the implementation ledger](MODERNIZATION_CHECKLIST.md)
+and [real device checks](WEB_DEVICE_CHECKLIST.md). Modernization replaces the
+obsolete frontend toolchain and translates Flow controls; it does not complete
+the unmeasured core playback/transport/service acceptance tests listed below.
+
 ## Assessment
 
 Flow is a usable development fork, with working core playback features and

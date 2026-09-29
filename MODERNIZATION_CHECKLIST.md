@@ -30,9 +30,9 @@ not acceptance. Real device checks require the user's phone.
   integration/security/storage/GST settings, danger confirmations.
 - [x] 56–60, 93–98: responsive slate UI, accessible dialogs/focus/touch/reduced
   motion, maintained languages, failure/retry/stale data and empty states.
-- [ ] 62–67, 85: build/embed integration, no source maps, cache headers,
+- [x] 62–67, 85: build/embed integration, no source maps, cache headers,
   lazy chunks, initial compressed size and profiler/polling measurements.
-- [ ] 72–73, 86, 99–100: parity reconciliation; retain legacy until release gates.
+- [x] 72–73: parity reconciliation; legacy retained until release gates below.
 - [x] 87–90: meaningful unit/component/E2E tests and five responsive widths,
   landscape, keyboard/focus, offline/503/recovery, settings and player fallback.
 - [ ] 91–92: real Windows/Android playback, seeking, background/network recovery,
@@ -44,3 +44,25 @@ settings; invented TMDB write route and file-deletion flag; swallowed search
 errors; missing focus trap; hardcoded English and incomplete settings fields;
 conditional chart hook; unknown metrics displayed as zero/healthy; unsafe pairing
 selection and HTTP-only Android intents. These are not accepted functionality.
+
+## Reconciliation status on 30 September 2026
+
+- [x] 62–70: production build, modern asset generation, cache policy and proxy/auth
+  compatibility are implemented and locally verified. Native executable gate
+  remains pending below.
+- [x] 66–67, 85, 92–93: measured first dashboard JS (186,769 bytes gzip), lazy
+  player/language/auxiliary chunks, 180-second Chromium CPU/heap sample and bounded
+  visibility-aware request counts. Real mobile CPU and multi-hour memory remain
+  acceptance tests; no hardware performance claim is made.
+- [x] 71–73: legacy feature matrix reconciled in WEB_AUDIT.md; preserved source,
+  actual legacy screenshots/bundle baseline, feature branch and draft PR #2.
+- [ ] 75, 99: fresh native Windows/Linux/macOS CI and isolated executable smoke.
+- [ ] 82–83, 91–92, 99–100: user-owned real-phone/Just Player, large-stream,
+  network/background/seek and multi-hour acceptance, per WEB_DEVICE_CHECKLIST.md.
+- [ ] 86: legacy removal intentionally held until the required acceptance gates.
+
+No service worker or SSE was introduced; both are optional in the plan. The
+legacy independent speed-test download is explicitly excluded with rationale in
+WEB_AUDIT.md; actual torrent/runtime rates remain available. Baseline screenshots
+were recovered after the incoming draft had removed legacy source, using the
+preserved verified native artifact rather than an invented historical result.

@@ -14,6 +14,13 @@ func RouteWebPages(route gin.IRouter) {
 		c.Data(200, "text/html; charset=utf-8", Indexhtml)
 	})
 
+	route.GET("/THIRD_PARTY_NOTICES.txt", func(c *gin.Context) {
+		etag := fmt.Sprintf("%x", md5.Sum(THIRDPARTYNOTICEStxt))
+		c.Header("Cache-Control", "public, max-age=3600")
+		c.Header("ETag", etag)
+		c.Data(200, "text/plain; charset=utf-8", THIRDPARTYNOTICEStxt)
+	})
+
 	route.GET("/assets/Add-pXLq2E_p.js", func(c *gin.Context) {
 		etag := fmt.Sprintf("%x", md5.Sum(AssetsAddpXLq2Epjs))
 		c.Header("Cache-Control", "public, max-age=31536000, immutable")
