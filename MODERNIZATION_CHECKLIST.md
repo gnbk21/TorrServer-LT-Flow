@@ -48,8 +48,8 @@ selection and HTTP-only Android intents. These are not accepted functionality.
 ## Reconciliation status on 30 September 2026
 
 - [x] 62–70: production build, modern asset generation, cache policy and proxy/auth
-  compatibility are implemented and locally verified. Native executable gate
-  remains pending below.
+  compatibility are implemented and verified. Native executable results are
+  recorded below.
 - [x] 66–67, 85, 92–93: measured first dashboard JS (186,769 bytes gzip), lazy
   player/language/auxiliary chunks, 180-second Chromium CPU/heap sample and bounded
   visibility-aware request counts. Real mobile CPU and multi-hour memory remain
