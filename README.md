@@ -2,7 +2,7 @@
 
 TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps TorrServer-LT's libtorrent engine, web interface, and HTTP API.
 
-> **Development status:** [Preview 1](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-preview.1) is the first public prerelease, including Flow and the modern interface. It is a tested development snapshot, not a validated Flow 1.0. Flow integration is on `develop`, the modern interface is on `feature/modern-web`, and `master` remains reserved for stable releases. Real phone, long-session and controlled performance acceptance remain pending.
+> **Development status:** [Preview 1](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-preview.1) is the first public prerelease, including Flow and the modern interface. It is a tested development snapshot, not a validated Flow 1.0. Flow and the modern interface are integrated into `develop`, the default branch; `master` remains reserved for stable releases. Real phone, long-session and controlled performance acceptance remain pending.
 
 ## Run on Windows
 
@@ -47,10 +47,10 @@ All profiles retain your cache, proxy, upload, and active-torrent settings. Savi
 
 ### Modern web interface
 
-The modern interface is developed on **`feature/modern-web`**; `develop` retains
-the audited legacy interface until real device acceptance. Preview 1 packages
-the verified modern build. For later development builds, choose that branch
-in the build workflow.
+The modern interface was merged through [PR #2](https://github.com/gnbk21/TorrServer-LT-Flow/pull/2)
+into **`develop`**, the default branch. Preview 1 packages the verified modern
+build. For later development builds, choose `develop` in the build workflow.
+Legacy sources remain in `web-legacy/` until real device acceptance.
 
 It provides a playback dashboard with bounded buffer/throughput history, a
 torrent library and file browser, search with explicit preparation before

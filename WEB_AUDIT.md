@@ -1,8 +1,8 @@
 # Modern interface audit and acceptance record
 
 Specification: supplied Modern Web Interface plan, revision 2.0, sections 1–100.
-Working branch: feature/modern-web. This is an implementation record, not a
-Modern Web 1.0 release approval.
+Integration branch: develop. Implementation began on feature/modern-web. This
+is an implementation record, not a Modern Web 1.0 release approval.
 
 ## First public preview
 
@@ -190,9 +190,13 @@ The user elected to perform phone testing. Retain legacy sources and avoid a
 Modern Web 1.0 release claim until those gates are satisfied.
 Use [WEB_DEVICE_CHECKLIST.md](WEB_DEVICE_CHECKLIST.md) to record those results.
 
-The implementation is published in draft [PR #2](https://github.com/gnbk21/TorrServer-LT-Flow/pull/2)
-from feature/modern-web to develop. GitHub reports it mergeable; no merge has
-been performed. Initial implementation: cc9d0ff3cb732c95b7df16920a6b1af850cddf41;
+At the user's request, [PR #2](https://github.com/gnbk21/TorrServer-LT-Flow/pull/2)
+was merged from feature/modern-web into develop on 30 September 2026. Merge
+commit a82087bb342467987f01228ec586f805a692bccf has the exact tree of the
+verified feature head 59c17b48; changes since the tested build 847f6b4f are
+documentation only. Develop is the fork's default branch. Stable master
+promotion and legacy removal remain pending; integration does not waive the
+acceptance checks above. Initial implementation: cc9d0ff3cb732c95b7df16920a6b1af850cddf41;
 the subsequent packaging correction updates the manifest and license notices.
 The initial cross/macOS matrices passed. Final packaging commit
 847f6b4f37be32d49e5c9be1bdc30751d1836607 passed cross

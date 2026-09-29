@@ -86,10 +86,11 @@ Optional source-provider and DNS-over-HTTPS roadmap work is unfinished.
 The binaries are unsigned. Checksums verify file integrity, not publisher identity.
 IPv6 discovery was not validated on this Windows host.
 
-See the current [core audit](https://github.com/gnbk21/TorrServer-LT-Flow/blob/feature/modern-web/AUDIT.md),
-[web audit](https://github.com/gnbk21/TorrServer-LT-Flow/blob/feature/modern-web/WEB_AUDIT.md)
-and [device checklist](https://github.com/gnbk21/TorrServer-LT-Flow/blob/feature/modern-web/WEB_DEVICE_CHECKLIST.md).
-Stable master/develop promotion and legacy source removal are still held.
+See the current [core audit](https://github.com/gnbk21/TorrServer-LT-Flow/blob/develop/AUDIT.md),
+[web audit](https://github.com/gnbk21/TorrServer-LT-Flow/blob/develop/WEB_AUDIT.md)
+and [device checklist](https://github.com/gnbk21/TorrServer-LT-Flow/blob/develop/WEB_DEVICE_CHECKLIST.md).
+The modern interface is now integrated into develop through PR #2. Stable
+master promotion and legacy source removal are still held.
 No Docker image is published by this preview.
 
 GPL-3.0 source is available through the release's Source code archives and

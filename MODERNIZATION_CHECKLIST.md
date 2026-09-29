@@ -1,9 +1,10 @@
 # Modern interface implementation ledger
 
 Specification: revision 2.0, sections 1–100, in the supplied engineering plan.
-Current branch: feature/modern-web. Audit build 757577be is verified separately
-in AUDIT.md. Legacy remains recoverable on develop at that commit, with a local
-archive/reference in .tools/audit. The incoming draft is separately archived.
+Current branch: develop, after the user-approved merge of PR #2 on
+30 September 2026 (a82087bb). Audit build 757577be is verified separately in
+AUDIT.md. Legacy remains recoverable at that commit and in web-legacy/, with
+a local archive/reference in .tools/audit. The incoming draft is separately archived.
 
 Unchecked means implementation or verification remains; existence of a file is
 not acceptance. Real device checks require the user's phone.
@@ -55,7 +56,7 @@ selection and HTTP-only Android intents. These are not accepted functionality.
   visibility-aware request counts. Real mobile CPU and multi-hour memory remain
   acceptance tests; no hardware performance claim is made.
 - [x] 71–73: legacy feature matrix reconciled in WEB_AUDIT.md; preserved source,
-  actual legacy screenshots/bundle baseline, feature branch and draft PR #2.
+  actual legacy screenshots/bundle baseline, feature branch and merged PR #2.
 - [x] 75, 99 (build gates): final cross/macOS matrices, Linux unit/vet/race/security
   checks and actual Windows executable/UI/API smoke passed; recorded in WEB_AUDIT.md.
 - [ ] 82–83, 91–92, 99–100: user-owned real-phone/Just Player, large-stream,
