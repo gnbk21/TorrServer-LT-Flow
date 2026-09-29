@@ -9,7 +9,9 @@ import (
 // flowStatus exposes a bounded diagnostic snapshot for one live torrent.
 // It shares the existing API authentication middleware.
 func flowStatus(c *gin.Context) {
-	t := torr.GetTorrent(c.Param("hash"))
+	// Observing diagnostics must not promote a dropped torrent or extend its
+	// lifetime. Playback and explicit preload remain responsible for activation.
+	t := torr.GetTorrentInfo(c.Param("hash"))
 	if t == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "torrent not found"})
 		return
