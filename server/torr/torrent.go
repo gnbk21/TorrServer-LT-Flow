@@ -578,6 +578,13 @@ func (t *Torrent) Status() *state.TorrentStatus {
 	st.BytesReadUsefulData = lst.TotalPayloadDownload
 	st.PreloadedBytes = t.PreloadedBytes
 	st.PreloadSize = t.PreloadSize
+	// Expose the existing playback-reader count so the library can highlight
+	// active torrents without polling detailed Flow snapshots for every card.
+	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+		st.ActiveReaders = cache.StreamingReaders()
+	}
+	st.WarmIdle = st.ActiveReaders == 0 && settings.CurrentFlow().Enabled &&
+		!t.warmIdleSince.IsZero() && time.Since(t.warmIdleSince) < torrentExpireTimeout()
 
 	// libtorrent doesn't surface chunk counters directly via
 	// torrent_status; approximate by dividing payload bytes by the

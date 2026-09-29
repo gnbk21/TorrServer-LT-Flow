@@ -115,8 +115,27 @@ or stop the user's playback.
 ## Verification record
 
 Local Flow/ffprobe tests, HTTP response progress regressions and service argument
-tests pass. Web production build and lint were run; final CI and executable
-verification results will be recorded after completion of this audit's build.
+tests pass. On 2026-09-28, commit `757577be` passed cross-platform CI
+([run 36384009286](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/36384009286))
+and both native macOS builds
+([run 36384009309](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/36384009309)).
+These include the web production build, lint, two component regressions, native
+unit tests, Go vet, race tests and source vulnerability scanning. The scan found
+zero reachable vulnerabilities, zero in imported packages, and one uncalled
+module advisory described above.
+
+The downloaded Windows artifact was smoke-tested on loopback port 18090 with a
+fresh, separate state directory. Version, HTML and local script assets, echo,
+runtime status, Flow tray/network, settings read, missing-settings rejection
+(HTTP 400), and orderly shutdown passed. External legacy Firebase scripts could
+not be fetched by this shell due to TLS authentication errors; their loading was
+not validated. No torrent was added and no existing playback was interrupted.
+The executable is stamped with GitHub's tested PR merge SHA
+`949f142eb26a7b90b1c40c130b98b0ac9141aec7`, whose parents are upstream
+`f1eb076c` and audit head `757577be`. SHA-256:
+`0D3754149FF5BC99F12CF60E2C4ABBBE2E772FE36AC304C919C4DD6A53963664`.
+This verifies the audit build, not phone playback, performance improvements,
+multi-hour stability, or the unfinished modern interface.
 
 ## Recommended next work, in order
 

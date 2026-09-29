@@ -4,86 +4,98 @@ import (
 	_ "embed"
 )
 
-//go:embed pages/apple-splash-1125-2436.jpg
-var Applesplash11252436jpg []byte
+//go:embed pages/assets/Add-pXLq2E_p.js
+var AssetsAddpXLq2Epjs []byte
 
-//go:embed pages/apple-splash-1136-640.jpg
-var Applesplash1136640jpg []byte
+//go:embed pages/assets/AddTorrentModal-AAEitUlO.js
+var AssetsAddTorrentModalAAEitUlOjs []byte
 
-//go:embed pages/apple-splash-1170-2532.jpg
-var Applesplash11702532jpg []byte
+//go:embed pages/assets/Button-KTs46vB5.js
+var AssetsButtonKTs46vB5js []byte
 
-//go:embed pages/apple-splash-1242-2208.jpg
-var Applesplash12422208jpg []byte
+//go:embed pages/assets/CacheMap-A0Vl1Dg9.js
+var AssetsCacheMapA0Vl1Dg9js []byte
 
-//go:embed pages/apple-splash-1242-2688.jpg
-var Applesplash12422688jpg []byte
+//go:embed pages/assets/Dashboard-BhLk2Rv2.js
+var AssetsDashboardBhLk2Rv2js []byte
 
-//go:embed pages/apple-splash-1284-2778.jpg
-var Applesplash12842778jpg []byte
+//go:embed pages/assets/FlowDiagnosticsDrawer-CiqEzHhv.js
+var AssetsFlowDiagnosticsDrawerCiqEzHhvjs []byte
 
-//go:embed pages/apple-splash-1334-750.jpg
-var Applesplash1334750jpg []byte
+//go:embed pages/assets/GstRuntimeStatus-Cwkju5GU.js
+var AssetsGstRuntimeStatusCwkju5GUjs []byte
 
-//go:embed pages/apple-splash-1536-2048.jpg
-var Applesplash15362048jpg []byte
+//go:embed pages/assets/PhonePairingModal-yuSAmrTx.js
+var AssetsPhonePairingModalyuSAmrTxjs []byte
 
-//go:embed pages/apple-splash-1620-2160.jpg
-var Applesplash16202160jpg []byte
+//go:embed pages/assets/PlaybackLinks-CyNpNLoB.js
+var AssetsPlaybackLinksCyNpNLoBjs []byte
 
-//go:embed pages/apple-splash-1668-2224.jpg
-var Applesplash16682224jpg []byte
+//go:embed pages/assets/PosterSearch-DyWxdSkx.js
+var AssetsPosterSearchDyWxdSkxjs []byte
 
-//go:embed pages/apple-splash-1668-2388.jpg
-var Applesplash16682388jpg []byte
+//go:embed pages/assets/Settings-D0gy1Xr-.js
+var AssetsSettingsD0gy1Xrjs []byte
 
-//go:embed pages/apple-splash-1792-828.jpg
-var Applesplash1792828jpg []byte
+//go:embed pages/assets/TorrentFilesDialog-W4Pz-37Q.js
+var AssetsTorrentFilesDialogW4Pz37Qjs []byte
 
-//go:embed pages/apple-splash-2048-1536.jpg
-var Applesplash20481536jpg []byte
+//go:embed pages/assets/Torrents-BZ8l6j8N.js
+var AssetsTorrentsBZ8l6j8Njs []byte
 
-//go:embed pages/apple-splash-2048-2732.jpg
-var Applesplash20482732jpg []byte
+//go:embed pages/assets/VideoPlayer-C7JJqRko.js
+var AssetsVideoPlayerC7JJqRkojs []byte
 
-//go:embed pages/apple-splash-2160-1620.jpg
-var Applesplash21601620jpg []byte
+//go:embed pages/assets/client-Dr26AKOf.js
+var AssetsclientDr26AKOfjs []byte
 
-//go:embed pages/apple-splash-2208-1242.jpg
-var Applesplash22081242jpg []byte
+//go:embed pages/assets/clipboard-BX4bd3OW.js
+var AssetsclipboardBX4bd3OWjs []byte
 
-//go:embed pages/apple-splash-2224-1668.jpg
-var Applesplash22241668jpg []byte
+//go:embed pages/assets/createLucideIcon-D7zlQbrg.js
+var AssetscreateLucideIconD7zlQbrgjs []byte
 
-//go:embed pages/apple-splash-2388-1668.jpg
-var Applesplash23881668jpg []byte
+//go:embed pages/assets/hls-D9b4QHpD.js
+var AssetshlsD9b4QHpDjs []byte
 
-//go:embed pages/apple-splash-2436-1125.jpg
-var Applesplash24361125jpg []byte
+//go:embed pages/assets/index-DvLSKgo6.css
+var AssetsindexDvLSKgo6css []byte
 
-//go:embed pages/apple-splash-2532-1170.jpg
-var Applesplash25321170jpg []byte
+//go:embed pages/assets/index-zDv5cfCc.js
+var AssetsindexzDv5cfCcjs []byte
 
-//go:embed pages/apple-splash-2688-1242.jpg
-var Applesplash26881242jpg []byte
+//go:embed pages/assets/integrations-WHdJYyGB.js
+var AssetsintegrationsWHdJYyGBjs []byte
 
-//go:embed pages/apple-splash-2732-2048.jpg
-var Applesplash27322048jpg []byte
+//go:embed pages/assets/preload-helper-uBIymjUX.js
+var AssetspreloadhelperuBIymjUXjs []byte
 
-//go:embed pages/apple-splash-2778-1284.jpg
-var Applesplash27781284jpg []byte
+//go:embed pages/assets/redact-C8NqrjZt.js
+var AssetsredactC8NqrjZtjs []byte
 
-//go:embed pages/apple-splash-640-1136.jpg
-var Applesplash6401136jpg []byte
+//go:embed pages/assets/rolldown-runtime-CbXtAM7H.js
+var AssetsrolldownruntimeCbXtAM7Hjs []byte
 
-//go:embed pages/apple-splash-750-1334.jpg
-var Applesplash7501334jpg []byte
+//go:embed pages/assets/translation-B0NYojKI.js
+var AssetstranslationB0NYojKIjs []byte
 
-//go:embed pages/apple-splash-828-1792.jpg
-var Applesplash8281792jpg []byte
+//go:embed pages/assets/translation-BIGisKhu.js
+var AssetstranslationBIGisKhujs []byte
 
-//go:embed pages/asset-manifest.json
-var Assetmanifestjson []byte
+//go:embed pages/assets/translation-BWAK4bsq.js
+var AssetstranslationBWAK4bsqjs []byte
+
+//go:embed pages/assets/translation-Bs9KBEWW.js
+var AssetstranslationBs9KBEWWjs []byte
+
+//go:embed pages/assets/translation-CjVsGf_8.js
+var AssetstranslationCjVsGf8js []byte
+
+//go:embed pages/assets/translation-ZAW2oU3J.js
+var AssetstranslationZAW2oU3Jjs []byte
+
+//go:embed pages/assets/useQuery-xJfTCyZ4.js
+var AssetsuseQueryxJfTCyZ4js []byte
 
 //go:embed pages/browserconfig.xml
 var Browserconfigxml []byte
@@ -112,32 +124,8 @@ var Indexhtml []byte
 //go:embed pages/logo.png
 var Logopng []byte
 
-//go:embed pages/lord-icon-2.0.2.js
-var Lordicon202js []byte
-
 //go:embed pages/mstile-150x150.png
 var Mstile150x150png []byte
 
 //go:embed pages/site.webmanifest
 var Sitewebmanifest []byte
-
-//go:embed pages/static/js/2.0aab376d.chunk.js
-var Staticjs20aab376dchunkjs []byte
-
-//go:embed pages/static/js/2.0aab376d.chunk.js.LICENSE.txt
-var Staticjs20aab376dchunkjsLICENSEtxt []byte
-
-//go:embed pages/static/js/2.0aab376d.chunk.js.map
-var Staticjs20aab376dchunkjsmap []byte
-
-//go:embed pages/static/js/main.78fa0abd.chunk.js
-var Staticjsmain78fa0abdchunkjs []byte
-
-//go:embed pages/static/js/main.78fa0abd.chunk.js.map
-var Staticjsmain78fa0abdchunkjsmap []byte
-
-//go:embed pages/static/js/runtime-main.5ed86a79.js
-var Staticjsruntimemain5ed86a79js []byte
-
-//go:embed pages/static/js/runtime-main.5ed86a79.js.map
-var Staticjsruntimemain5ed86a79jsmap []byte

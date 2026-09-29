@@ -39,7 +39,7 @@ func main() {
 		}
 	}
 
-	if _, err := os.Stat("web/build/static"); os.IsNotExist(err) {
+	if _, err := os.Stat("web/build/index.html"); os.IsNotExist(err) {
 		os.Chdir("web")
 		if err = run("yarn"); err != nil {
 			log.Default().Fatalln(err.Error())
@@ -74,7 +74,7 @@ func main() {
 				// Adding the ability to run on Windows with standard Go commands
 				name = strings.TrimPrefix(strings.ReplaceAll(name, "\\", "/"), "server/web/pages/template/")
 			}
-			if !strings.HasPrefix(filepath.Base(name), ".") {
+			if !strings.HasPrefix(filepath.Base(name), ".") && !strings.HasSuffix(name, ".map") {
 				files = append(files, name)
 			}
 		}
@@ -158,10 +158,7 @@ func RouteWebPages(route gin.IRouter) {
 		// revalidated, otherwise a browser keeps a stale index.html after a
 		// bundle update and requests the now-deleted old chunks (a white screen
 		// / "the app stopped working"). no-cache still uses the ETag for 304s.
-		cacheHdr := "public, max-age=31536000"
-		if strings.HasSuffix(link, ".html") {
-			cacheHdr = "no-cache"
-		}
+		cacheHdr := assetCacheControl(link)
 		embedStr += `
 	route.GET("` + link + `", func(c *gin.Context) {
 		etag := fmt.Sprintf("%x", md5.Sum(` + fmap[link] + `))
@@ -190,4 +187,15 @@ func cleanName(fn string) string {
 		os.Exit(1)
 	}
 	return strings.Title(reg.ReplaceAllString(fn, ""))
+}
+
+func assetCacheControl(path string) string {
+	name := filepath.Base(path)
+	if strings.HasSuffix(name, ".html") || strings.HasSuffix(name, ".webmanifest") || name == "manifest.json" || name == "sw.js" || name == "service-worker.js" {
+		return "no-cache"
+	}
+	if strings.HasPrefix(path, "/assets/") && regexp.MustCompile(`-[A-Za-z0-9_-]{8,}\.`).MatchString(name) {
+		return "public, max-age=31536000, immutable"
+	}
+	return "public, max-age=3600"
 }

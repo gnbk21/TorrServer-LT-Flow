@@ -45,6 +45,35 @@ All profiles retain your cache, proxy, upload, and active-torrent settings. Savi
 
 ## Build and project status
 
+### Modern web interface
+
+The modern interface is developed on **`feature/modern-web`**; `develop` retains
+the audited legacy interface until real device acceptance. Choose that branch
+in the build workflow to download an executable containing the modern UI.
+
+It provides a playback dashboard with bounded buffer/throughput history, a
+torrent library and file browser, search with explicit preparation before
+playback, and settings with Apply/discard and restart warnings. **Connect phone**
+offers a selectable LAN address and QR code; playback links include Just Player,
+VLC and ordinary HTTP open/copy fallbacks. Seven interface languages are retained.
+Ordinary LAN HTTP works without installing a PWA or service worker.
+
+Frontend development requires Node.js 22.12 or newer and Yarn 1.22:
+
+```powershell
+cd web
+yarn install --frozen-lockfile
+yarn dev
+```
+
+Vite proxies server requests to `http://127.0.0.1:8090`; set `FLOW_DEV_SERVER` to
+use another isolated server. Run `yarn typecheck`, `yarn lint`, `yarn test` and
+`yarn test:e2e` for verification. Build with `yarn build`, then run
+`go run gen_web.go` from the repository root before building the native server.
+See [web acceptance record](WEB_AUDIT.md) and
+[implementation ledger](MODERNIZATION_CHECKLIST.md) for verified behavior and
+remaining device/release gates. Legacy sources remain in `web-legacy/`.
+
 The [build workflow](.github/workflows/build.yml) compiles the web UI, server, libtorrent, and Windows dependencies, then uploads platform artifacts. A local Go-only build is insufficient; see [build instructions](build/README.md) for the CGo/C++ toolchain. Other platform targets remain in CI, but Windows x64 and Android playback are the primary Flow development path.
 
 This fork retains the upstream API and settings format where possible. Upstream install scripts, `release.json`, and upstream release links still refer to **TorrServer-LT**, not a Flow release. Use this fork's CI artifact until a Flow release is published. The [draft integration PR](https://github.com/gnbk21/TorrServer-LT-Flow/pull/1) tracks promotion from `develop` to `master` after the remaining validation.
