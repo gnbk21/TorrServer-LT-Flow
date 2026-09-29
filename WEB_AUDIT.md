@@ -4,6 +4,20 @@ Specification: supplied Modern Web Interface plan, revision 2.0, sections 1–10
 Working branch: feature/modern-web. This is an implementation record, not a
 Modern Web 1.0 release approval.
 
+## First public preview
+
+On 30 September 2026, [Flow Preview 1](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-preview.1)
+was published as a prerelease from the verified build commit 847f6b4f, reusing
+unchanged CI binaries. The tag targets that exact commit; binaries retain their
+development version identifier. Eight platform ZIPs, a standalone Windows
+executable, tray script, setup instructions, build provenance, original dependency
+notices and checksums are provided. All 17 uploaded asset digests matched the
+local packages; the ZIP contents and every packaged binary were verified.
+The inherited stable tag workflow was temporarily suspended during manual
+publication and restored to active afterward; no preview Docker image was built.
+This distribution does not satisfy or waive the device, playback, performance
+and stable-release gates below. See [release notes](RELEASE_NOTES.md).
+
 ## Baseline and preservation
 
 The audited legacy baseline is develop commit 757577be. Its native CI and
