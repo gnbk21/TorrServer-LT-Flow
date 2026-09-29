@@ -56,7 +56,8 @@ selection and HTTP-only Android intents. These are not accepted functionality.
   acceptance tests; no hardware performance claim is made.
 - [x] 71–73: legacy feature matrix reconciled in WEB_AUDIT.md; preserved source,
   actual legacy screenshots/bundle baseline, feature branch and draft PR #2.
-- [ ] 75, 99: fresh native Windows/Linux/macOS CI and isolated executable smoke.
+- [x] 75, 99 (build gates): final cross/macOS matrices, Linux unit/vet/race/security
+  checks and actual Windows executable/UI/API smoke passed; recorded in WEB_AUDIT.md.
 - [ ] 82–83, 91–92, 99–100: user-owned real-phone/Just Player, large-stream,
   network/background/seek and multi-hour acceptance, per WEB_DEVICE_CHECKLIST.md.
 - [ ] 86: legacy removal intentionally held until the required acceptance gates.

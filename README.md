@@ -58,6 +58,11 @@ offers a selectable LAN address and QR code; playback links include Just Player,
 VLC and ordinary HTTP open/copy fallbacks. Seven interface languages are retained.
 Ordinary LAN HTTP works without installing a PWA or service worker.
 
+The verified Windows build is available in
+[CI run 36631696935](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/36631696935)
+as `TorrServer-LT-windows-amd64`. It passed an isolated Windows UI/API smoke check;
+real phone and long playback acceptance remain pending.
+
 Frontend development requires Node.js 22.12 or newer and Yarn 1.22:
 
 ```powershell

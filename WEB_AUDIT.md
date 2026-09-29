@@ -104,7 +104,7 @@ only failed entries for retry, including their metadata.
 - Asset cache policy unit checks passed: HTML/manifests revalidate,
   hashed assets are immutable for one year, other assets use short caching.
 - CI workflow migrated from CRA flags/tests to typecheck, lint, Vitest, Vite,
-  Playwright and asset-generation tests. Final native CI is pending.
+  Playwright and asset-generation tests. Final native CI passed (links below).
 - Legacy executable 757577be was captured on isolated loopback port 18091 with
   fresh state. Desktop 1440x900 and mobile 375x812 screenshots are saved under
   .tools/audit/legacy-browser-baseline. No browser runtime exceptions occurred.
@@ -137,9 +137,8 @@ intent handling. No real playback claims are derived from mocked tests.
 
 ## Remaining gates
 
-Final native Windows/Linux/macOS CI and isolated executable checks remain to be
-recorded. The generated assets now
-contain the modern interface. Repeat checks affected by later fixes.
+The generated assets contain the modern interface. Native CI and isolated
+executable checks passed; repeat checks affected by any later fixes.
 
 ## Feature parity reconciliation
 
@@ -181,6 +180,38 @@ The implementation is published in draft [PR #2](https://github.com/gnbk21/TorrS
 from feature/modern-web to develop. GitHub reports it mergeable; no merge has
 been performed. Initial implementation: cc9d0ff3cb732c95b7df16920a6b1af850cddf41;
 the subsequent packaging correction updates the manifest and license notices.
-Cross [CI run 36629956933](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/36629956933)
-and macOS [CI run 36629961474](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/36629961474)
-both passed their web jobs; native jobs are still in progress at this record.
+The initial cross/macOS matrices passed. Final packaging commit
+847f6b4f37be32d49e5c9be1bdc30751d1836607 passed cross
+[CI run 36631696935](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/36631696935)
+and macOS [CI run 36631661693](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/36631661693).
+All eight native targets passed. Linux unit tests, vet and race tests passed.
+Source govulncheck reported zero reachable vulnerabilities, zero in imported
+packages and one uncalled module advisory, as described in AUDIT.md. Docker
+publication was intentionally skipped for the feature branch.
+
+## Final Windows executable verification
+
+Downloaded artifact: .tools/artifacts/windows-modern-847f6b4f/TorrServer-LT-windows-amd64.exe.
+Version identifies the exact final packaging commit above and libtorrent 2.1.0.0.
+SHA-256: A00CB418EFD3FBD4CCB345E5D10E417B6F086F907E6AA5B5CD4CC8C151D32C6A.
+
+The executable ran on loopback port 18092, with fresh isolated state under
+.tools/audit/modern-native-smoke/state. Chromium used the actual embedded UI and
+actual backend, with no API fixtures for this check. The following passed:
+
+- Modern HTML and local hashed JavaScript load; no legacy Firebase dependency.
+- HTML/manifest no-cache and hashed JavaScript immutable cache headers.
+- Correct icon dimensions and embedded notices for core/lazy dependencies.
+- Echo, runtime, Flow tray/network, GST capability and empty-library reads.
+- Missing settings object returns HTTP 400 without a restart.
+- Settings Cancel leaves saved state unchanged; Apply persists FriendlyName and
+  completes the real engine restart.
+- Mobile Flow settings/pairing fit a 375 px viewport; screenshots inspected.
+- Header pause/resume follows the actual backend response.
+- No browser runtime exceptions; GET shutdown returns 200, process exits and
+  the isolated listener closes.
+
+Bonjour logged that no suitable IPv6 multicast interface was available on this
+host; IPv4 advertisement continued. This environment limitation does not establish
+IPv6 discovery compatibility. No torrent/media was loaded, no actual LAN phone
+connection was tested, and no existing user process or state directory was changed.
