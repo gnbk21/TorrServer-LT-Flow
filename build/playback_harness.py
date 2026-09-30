@@ -6,6 +6,7 @@ to or restarts an existing server. Reports observations without treating HTTP
 delivery as a measurement of Android decoder/player latency.
 """
 import argparse
+import base64
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import http.client
@@ -25,7 +26,7 @@ MIB = 1024 * 1024
 
 
 class OwnedServer:
-    def __init__(self, executable, state):
+    def __init__(self, executable, state, profile=False, auth=False, extra_settings=None):
         self.executable, self.state = executable.resolve(), state.resolve()
         state.mkdir(parents=True, exist_ok=False)
         with socket.socket() as reservation:
@@ -42,14 +43,31 @@ class OwnedServer:
                            "StartupBufferSeconds": 1, "StartupBufferMinMB": 1, "StartupBufferMaxMB": 8,
                            "WarmSessionTimeoutSec": 30, "RangeTraceEnabled": True,
                            "SwarmProfile": "custom", "SwarmCustom": {"MinReconnectTime": 1, "PeerConnectTimeout": 5}}}
+        config.update(extra_settings or {})
+        self.authorization = None
+        if auth:
+            (state / "accs.db").write_text(json.dumps({"fixture": "local-fixture-only"}), encoding="utf-8")
+            self.authorization = "Basic " + base64.b64encode(b"fixture:local-fixture-only").decode()
         (state / "settings.json").write_text(json.dumps({"BitTorr": config}), encoding="utf-8")
         self.log = (state / "server-output.log").open("wb")
         flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        self.process = subprocess.Popen([str(self.executable), "--path", str(self.state), "--port", str(self.port), "--ip", "127.0.0.1"],
+        arguments = [str(self.executable), "--path", str(self.state), "--port", str(self.port), "--ip", "127.0.0.1"]
+        if auth: arguments.append("--httpauth")
+        self.profile_base = None
+        if profile:
+            with socket.socket() as reservation:
+                reservation.bind(("127.0.0.1",0))
+                profile_port = reservation.getsockname()[1]
+            self.profile_base = f"http://127.0.0.1:{profile_port}"
+            arguments += ["--profile-address",f"127.0.0.1:{profile_port}"]
+        self.observations = []
+        self.process = subprocess.Popen(arguments,
                                         stdout=self.log, stderr=subprocess.STDOUT, creationflags=flags)
         self.started = time.monotonic()
 
     def request(self, path, data=None, headers=None, method=None, timeout=120):
+        headers = dict(headers or {})
+        if self.authorization: headers.setdefault("Authorization", self.authorization)
         if data is not None and not isinstance(data, bytes):
             data = json.dumps(data).encode()
             headers = dict(headers or {}, **{"Content-Type": "application/json"})
@@ -57,8 +75,11 @@ class OwnedServer:
         return urllib.request.urlopen(req, timeout=timeout)
 
     def json(self, path, data=None, timeout=10):
+        started = time.monotonic()
         with self.request(path, data, timeout=timeout) as response:
-            return json.load(response)
+            body = response.read()
+        self.observations.append({"path":path,"bytes":len(body),"elapsed_ms":(time.monotonic()-started)*1000})
+        return json.loads(body)
 
     def ready(self):
         deadline = time.monotonic() + 30
@@ -112,7 +133,7 @@ def range_read(server, info_hash, index, source, start, end, cancel=False):
         first = response.read(1)
         ttfb = (time.monotonic()-started)*1000
         if response.status != 206 or first != source[start:start+1]:
-            raise AssertionError(f"Range status/content mismatch: {response.status}, file {index}")
+            raise AssertionError(f"Range status/content mismatch: status={response.status}, file={index}, start={start}, first={first.hex()}, expected={source[start:start+1].hex()}, content_range={response.getheader('Content-Range')}")
         if cancel:
             return {"file_index": index, "start": start, "cancelled": True, "ttfb_ms": ttfb}
         data = first + response.read()
@@ -125,8 +146,8 @@ def range_read(server, info_hash, index, source, start, end, cancel=False):
         connection.close()
 
 
-def run_case(executable, directory, fixtures, label, rate, delay, disconnect, duration):
-    server = OwnedServer(executable, directory / label)
+def run_case(executable, directory, fixtures, label, rate, delay, disconnect, duration, profile=False):
+    server = OwnedServer(executable, directory / label, profile=profile)
     report = {"case": label, "http_delivery_only": True, "ranges": [], "samples": []}
     try:
         report["startup_ready_ms"] = server.ready()
@@ -158,6 +179,34 @@ def run_case(executable, directory, fixtures, label, rate, delay, disconnect, du
                     time.sleep(.5)
                     report["flow"] = server.json("/flow/status/"+info_hash)
                     break
+            sessions = report["flow"].get("sessions") or []
+            if any(p.stat().st_size > 32*MIB for p in fixtures) and not any(s.get("seek_count",0)>0 for s in sessions):
+                raise AssertionError("The classified seek path was not exercised")
+            if not any(s.get("range_cancel_count",0)>0 for s in sessions):
+                raise AssertionError("Reader cancellation was not recorded")
+            if profile:
+                def capture(kind, seconds):
+                    with urllib.request.urlopen(server.profile_base+f"/debug/pprof/{kind}?seconds={seconds}",timeout=seconds+10) as response:
+                        (directory / label / f"{kind}.pprof").write_bytes(response.read())
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    task = pool.submit(capture,"profile",30)
+                    deadline_profile = time.monotonic()+30
+                    profile_cycle = 0
+                    while time.monotonic()<deadline_profile:
+                        for file in status["file_stats"]:
+                            source = next(p.read_bytes() for p in fixtures if file["path"].endswith(p.name))
+                            offset = (profile_cycle*131072) % max(1,len(source)-262144)
+                            range_read(server, info_hash, file["id"], source,offset,offset+131071)
+                        profile_cycle += 1
+                        time.sleep(.05)
+                    task.result()
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    task = pool.submit(capture,"trace",5)
+                    for _ in range(10):
+                        server.json("/runtime/status")
+                        time.sleep(.5)
+                    task.result()
+                report["profile_cycles"] = profile_cycle
             deadline = time.monotonic() + duration
             cycle = 0
             last = status["file_stats"][-1]
@@ -185,8 +234,10 @@ def run_case(executable, directory, fixtures, label, rate, delay, disconnect, du
                         report["warm_expiry_ms"] = (time.monotonic()-expiry_started)*1000
                         break
                     time.sleep(1)
+                report["warm_expiry_observable"] = allocation is not None
                 if allocation is not None and "warm_expiry_ms" not in report:
                     raise AssertionError("Warm cache did not expire")
+            report["status_requests"] = server.observations
             report["passed"] = True
     finally:
         server.close()
@@ -199,6 +250,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--fixtures", type=Path)
     parser.add_argument("--duration", type=int, default=0, help="additional resource cycling seconds per case; e.g. 7200 for endurance")
+    parser.add_argument("--profile", action="store_true", help="collect bounded CPU profiles and execution traces while exercising playback")
     parser.add_argument("--cases", nargs="+", choices=("fast","slow","disconnect"), default=["fast","slow","disconnect"])
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
@@ -208,7 +260,7 @@ if __name__ == "__main__":
     try:
         for name in args.cases:
             print(f"Controlled case: {name}", flush=True)
-            result["cases"].append(run_case(args.executable,args.output,paths,name,*cases[name],args.duration))
+            result["cases"].append(run_case(args.executable,args.output,paths,name,*cases[name],args.duration,args.profile))
             (args.output / "report.json").write_text(json.dumps(result,indent=2)+"\n",encoding="utf-8")
         print(json.dumps({"passed":True,"report":str(args.output / "report.json"),"cases":len(result["cases"])}))
     except Exception as error:

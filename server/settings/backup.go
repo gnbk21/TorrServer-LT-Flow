@@ -121,6 +121,20 @@ func (b *Backup) Digest() string {
 	return hex.EncodeToString(sum[:])
 }
 func (b *Backup) MergedSettings() (*BTSets, error) {
+	for name, value := range b.Settings {
+		if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return nil, errors.New("backup settings cannot be null")
+		}
+		if name == "Flow" {
+			decoder := json.NewDecoder(bytes.NewReader(value))
+			decoder.DisallowUnknownFields()
+			type portableFlow FlowSettings // bypass the migration decoder to reject unknown fields
+			var checked portableFlow
+			if err := decoder.Decode(&checked); err != nil {
+				return nil, errors.New("invalid or unknown Flow settings")
+			}
+		}
+	}
 	current := BTsets()
 	if current == nil {
 		current = &BTSets{Flow: DefaultFlowSettings()}
@@ -139,7 +153,7 @@ func (b *Backup) MergedSettings() (*BTSets, error) {
 	if err = json.Unmarshal(raw, &sets); err != nil {
 		return nil, errors.New("backup settings have invalid types")
 	}
-	if sets.CacheSize < 0 || sets.CacheSize > 16<<30 || sets.ConnectionsLimit < 0 || sets.ConnectionsLimit > 10000 || sets.DHTConnectionsLimit < 0 || sets.DHTConnectionsLimit > 100000 || sets.ReaderReadAHead < 0 || sets.ReaderReadAHead > 100 || sets.PreloadCache < 0 || sets.PreloadCache > 100 || sets.PeersListenPort < 0 || sets.PeersListenPort > 65535 || sets.DownloadRateLimit < 0 || sets.UploadRateLimit < 0 {
+	if sets.CacheSize < 0 || sets.CacheSize > 16<<30 || sets.ConnectionsLimit < 0 || sets.ConnectionsLimit > 10000 || sets.DHTConnectionsLimit < 0 || sets.DHTConnectionsLimit > 100000 || sets.ReaderReadAHead < 0 || sets.ReaderReadAHead > 100 || sets.PreloadCache < 0 || sets.PreloadCache > 100 || sets.PeersListenPort < 0 || sets.PeersListenPort > 65535 || sets.DownloadRateLimit < 0 || sets.UploadRateLimit < 0 || sets.TorrentDisconnectTimeout < 0 || sets.TorrentDisconnectTimeout > 86400 || sets.RetrackersMode < 0 || sets.RetrackersMode > 3 || len(sets.FriendlyName) > 512 {
 		return nil, errors.New("backup settings exceed supported bounds")
 	}
 	if sets.Flow != nil {

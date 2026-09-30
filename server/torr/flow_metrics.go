@@ -36,6 +36,7 @@ type FlowStartupStatus struct {
 	ProbeStartMs             int64  `json:"probe_start_ms"`
 	ProbeCompleteMs          int64  `json:"probe_complete_ms"`
 	ProbeSuccess             bool   `json:"probe_success"`
+	ProbeCached              bool   `json:"probe_cached"`
 	StartupPrebufferMs       int64  `json:"startup_prebuffer_ms"`
 	TimeToFirstByteMs        int64  `json:"time_to_first_byte_ms"`
 }

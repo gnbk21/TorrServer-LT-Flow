@@ -442,7 +442,11 @@
       "4": "Fermé",
       "5": "En base de données"
     },
-    "title": "Titre"
+    "title": "Titre",
+    "pagination": "Pages de la bibliothèque",
+    "previousPage": "Page précédente",
+    "nextPage": "Page suivante",
+    "pageCount": "Page {{page}} sur {{pages}}"
   },
   "runtime": {
     "torrents": "Torrents",

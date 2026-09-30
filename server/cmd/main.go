@@ -66,14 +66,6 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	arg.MustParse(&params)
-	if params.ProfileAddress != "" {
-		stop, err := diagnostics.StartProfiling(params.ProfileAddress)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "Flow profiling:", err)
-			os.Exit(1)
-		}
-		defer stop()
-	}
 	if params.Service != "" && params.Service != "run" {
 		if err := serviceCommand(params.Service, &params); err != nil {
 			fmt.Fprintln(os.Stderr, "Flow service:", err)
@@ -110,6 +102,14 @@ func main() {
 			os.Exit(1)
 		}
 		return
+	}
+	if params.ProfileAddress != "" {
+		stop, err := diagnostics.StartProfiling(params.ProfileAddress)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Flow profiling:", err)
+			os.Exit(1)
+		}
+		defer stop()
 	}
 	settings.HttpAuth = params.HttpAuth
 	log.Init(params.LogPath, params.WebLogPath)

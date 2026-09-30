@@ -123,11 +123,11 @@ async function mockServer(
         {
           dlna_enabled: false,
           bonjour_enabled: false,
-		  friendly_name: "Flow test",
+          friendly_name: "Flow test",
           webdav_enabled: false,
-		  webdav_path: "/dav",
-		  fuse_path: "",
-		  fuse_enabled: false,
+          webdav_path: "/dav",
+          fuse_path: "",
+          fuse_enabled: false,
           bt: {
             active_streams: active ? 1 : 0,
             torrent_count: 1,

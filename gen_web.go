@@ -22,16 +22,8 @@ func main() {
 		if slices.ContainsFunc(os.Args, func(s string) bool {
 			return s == "--clean" || s == "-c"
 		}) {
-			// There are problems with running under windows
-			if err := run("rm", "-rf", "web/build"); err != nil {
-				if strings.Contains(err.Error(), "executable file not found") {
-					// Adding the ability to run on Windows with standard Go commands
-					if err := os.RemoveAll("web/build"); err != nil {
-						log.Default().Fatalln(err.Error())
-					}
-				} else {
-					log.Default().Fatalln(err.Error())
-				}
+			if err := os.RemoveAll(filepath.Join(dir, "web", "build")); err != nil {
+				log.Default().Fatalln(err.Error())
 			}
 		} else {
 			// Do not uncomment, be aware - its crash the build

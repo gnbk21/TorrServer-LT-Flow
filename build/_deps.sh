@@ -316,6 +316,12 @@ go_build() {
     pc_stamp=$( { cat "$deps/lib/pkgconfig/libtorrent-rasterbar.pc"; echo "${EXTRA_CGO_LDFLAGS:-}"; } | sha1sum | cut -c1-12 )
 
     log "go build ($TARGET)"
+    # Opt-in only: native libtorrent work is not optimized by Go PGO.
+    local pgo_args=(-pgo=off)
+    if [[ -n "${TS_PGO_PROFILE:-}" ]]; then
+        [[ -f "$TS_PGO_PROFILE" ]] || { log "TS_PGO_PROFILE is not a readable CPU profile"; exit 1; }
+        pgo_args=("-pgo=$TS_PGO_PROFILE")
+    fi
     cd "$ROOT/server"
     # one_build <output> [extra go build args...] — both variants share the
     # exact same cgo env, so the second build reuses the Go build cache for
@@ -333,6 +339,7 @@ go_build() {
             CGO_CXXFLAGS="-DTS_PC_STAMP=$pc_stamp -DTSL_HAVE_LT_INTERNALS" \
             CGO_LDFLAGS="-L$deps/lib ${EXTRA_CGO_LDFLAGS:-}" \
             go build \
+            "${pgo_args[@]}" \
             "$@" \
             -ldflags "-s -w ${EXTRA_GO_LDFLAGS:-} -X server/version.Version=${TS_VERSION}" \
             -o "$target_out" \

@@ -103,10 +103,21 @@ func Doctor(stateDir, port string, ips []string, auth bool) ([]Check, bool) {
 		}
 	}
 	for _, tool := range []string{"ffprobe", "gst-launch-1.0"} {
-		if _, err := exec.LookPath(tool); err != nil {
+		_, err := exec.LookPath(tool)
+		if err != nil {
+			if exe, exeErr := os.Executable(); exeErr == nil {
+				for _, name := range []string{tool, tool + ".exe"} {
+					if info, statErr := os.Stat(filepath.Join(filepath.Dir(exe), name)); statErr == nil && !info.IsDir() {
+						err = nil
+						break
+					}
+				}
+			}
+		}
+		if err != nil {
 			add(tool, "optional_missing", "Optional dependency is not on PATH; external-player playback remains available")
 		} else {
-			add(tool, "ok", "Optional dependency is available on PATH")
+			add(tool, "ok", "Optional dependency is available on PATH or beside the executable")
 		}
 	}
 	return checks, valid

@@ -436,7 +436,11 @@
       "4": "Închis",
       "5": "În baza de date"
     },
-    "title": "Titlu"
+    "title": "Titlu",
+    "pagination": "Paginile bibliotecii",
+    "previousPage": "Pagina precedentă",
+    "nextPage": "Pagina următoare",
+    "pageCount": "Pagina {{page}} din {{pages}}"
   },
   "runtime": {
     "torrents": "Torrente",

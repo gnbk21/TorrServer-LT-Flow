@@ -5,11 +5,16 @@ import (
 	"net/http"
 	"server/flow"
 	"server/torr"
+	"time"
 )
 
 func flowMaintenance(c *gin.Context) {
+	if !sameOriginMaintenance(c) {
+		return
+	}
 	var req struct {
-		Enabled bool `json:"enabled"`
+		Enabled bool   `json:"enabled"`
+		Token   string `json:"token"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid maintenance request"})
@@ -19,10 +24,19 @@ func flowMaintenance(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "playback or preload is active"})
 		return
 	}
-	enabled, active := flow.Maintenance.Set(req.Enabled)
-	if req.Enabled && !enabled {
+	if !req.Enabled {
+		if !flow.Maintenance.Release(req.Token) {
+			c.JSON(http.StatusConflict, gin.H{"error": "maintenance lease does not match"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"enabled": false})
+		return
+	}
+	token, active := flow.Maintenance.Acquire(120 * time.Second)
+	if token == "" {
 		c.JSON(http.StatusConflict, gin.H{"error": "requests are active", "active_requests": active})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"enabled": enabled, "active_requests": active})
+	c.Header("Cache-Control", "no-store")
+	c.JSON(http.StatusOK, gin.H{"enabled": true, "active_requests": active, "token": token, "lease_seconds": 120})
 }

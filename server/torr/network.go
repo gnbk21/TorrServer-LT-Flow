@@ -30,6 +30,7 @@ type FlowNetworkStatus struct {
 	ReannounceCount          uint64    `json:"reannounce_count"`
 	LastTrackerReply         time.Time `json:"last_tracker_reply,omitempty"`
 	LastTrackerError         time.Time `json:"last_tracker_error,omitempty"`
+	ConnectivityLostAt       time.Time `json:"connectivity_lost_at,omitempty"`
 	LastError                string    `json:"last_error,omitempty"`
 }
 
@@ -80,14 +81,16 @@ func (bt *BTServer) recordTrackerConnectivity(alertType string) {
 	now := time.Now()
 	switch alertType {
 	case "tracker_reply", "tracker_reply_alert":
-		if bt.networkStatus.Connectivity != "ONLINE" && !bt.networkStatus.ChangedAt.IsZero() {
-			bt.networkStatus.LastTrackerRecoveryMs = now.Sub(bt.networkStatus.ChangedAt).Milliseconds()
+		if bt.networkStatus.Connectivity != "ONLINE" && !bt.networkStatus.ConnectivityLostAt.IsZero() {
+			bt.networkStatus.LastTrackerRecoveryMs = now.Sub(bt.networkStatus.ConnectivityLostAt).Milliseconds()
 		}
 		bt.networkStatus.Connectivity = "ONLINE"
+		bt.networkStatus.ConnectivityLostAt = time.Time{}
 		bt.networkStatus.LastTrackerReply = now
 	case "tracker_error", "tracker_error_alert":
 		if bt.networkStatus.Connectivity == "ONLINE" {
 			bt.networkStatus.Connectivity = "DEGRADED"
+			bt.networkStatus.ConnectivityLostAt = now
 		}
 		bt.networkStatus.LastTrackerError = now
 	}
@@ -167,6 +170,7 @@ func (bt *BTServer) reannounceOnNetworkChange(stop <-chan struct{}) (int, error)
 // Windows notifications. It never blocks startup on an external host.
 func (bt *BTServer) networkLifecycle(stop <-chan struct{}, done chan<- struct{}) {
 	defer close(done)
+	defer func() { bt.networkMu.Lock(); bt.networkStatus.State = "STOPPED"; bt.networkMu.Unlock() }()
 	var tracker networkTracker
 	attempt := 0
 	started := time.Now()
@@ -227,6 +231,9 @@ func (bt *BTServer) networkLifecycle(stop <-chan struct{}, done chan<- struct{})
 		}
 		if !ready || addressChanged {
 			status.Connectivity = "INTERNET_WAIT"
+			if status.ConnectivityLostAt.IsZero() {
+				status.ConnectivityLostAt = now
+			}
 		}
 		status.State, status.Addresses, status.CheckedAt = state, addresses, now
 		status.NextCheckSeconds = int(wait / time.Second)

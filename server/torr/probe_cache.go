@@ -15,7 +15,7 @@ func (t *Torrent) probeKey(index int) (flow.ProbeKey, bool) {
 	return flow.ProbeKey{Hash: t.Hash().HexString(), Index: index, Size: f.Length, Path: f.Path}, true
 }
 
-func (t *Torrent) restoreProbe(index int) bool {
+func (t *Torrent) restoreProbe(index int, activeOnly bool) bool {
 	key, ok := t.probeKey(index)
 	if !ok {
 		return false
@@ -25,7 +25,13 @@ func (t *Torrent) restoreProbe(index int) bool {
 		return false
 	}
 	t.mu.Lock()
+	defer t.mu.Unlock()
+	if activeOnly && t.flowStartup.FileIndex != 0 && t.flowStartup.FileIndex != index {
+		return true // metadata is cached, but a newer file owns the visible startup
+	}
 	t.BitRate, t.DurationSeconds, t.ProbeFileID = r.BitRate, r.Duration, index
-	t.mu.Unlock()
+	if t.flowStartup.FileIndex == index {
+		t.flowStartup.ProbeSuccess, t.flowStartup.ProbeCached = true, true
+	}
 	return true
 }

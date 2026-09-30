@@ -175,6 +175,24 @@ jobs:
           _out/TorrServer-LT-linux-amd64 --version
           _out/TorrServer-LT-linux-amd64-gst --version
 
+      - name: Bounded fuzz campaigns
+        if: matrix.target == 'linux-amd64'
+        working-directory: server
+        env:
+          CGO_ENABLED: '1'
+          PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
+        run: |
+          go test ./flow -run '^$' -fuzz '^FuzzRangeHint$' -fuzztime=10s -parallel=2
+          go test ./settings -run '^$' -fuzz '^FuzzBackupImport$' -fuzztime=10s -parallel=2
+          go test ./settings -run '^$' -fuzz '^FuzzFlowSettings$' -fuzztime=10s -parallel=2
+          go test ./torr -run '^$' -fuzz '^FuzzTrackerURLRedaction$' -fuzztime=10s -parallel=2
+
+      - name: Authenticated backup, maintenance and startup diagnostics
+        if: matrix.target == 'linux-amd64'
+        run: python3 build/maintenance_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/maintenance-check
+
       - name: Controlled peer playback and resource cycles
         if: matrix.target == 'linux-amd64'
         run: |
@@ -189,6 +207,7 @@ jobs:
             _out/controlled-playback/report.json
             _out/controlled-playback/fixtures/fixtures.json
             _out/controlled-playback/*/server-output.log
+            _out/maintenance-check/report.json
           if-no-files-found: warn
 
       - uses: actions/upload-artifact@v4
@@ -203,6 +222,26 @@ jobs:
           name: TorrServer-Flow-Tray
           path: tray/FlowTray.ps1
           if-no-files-found: error
+
+  windows-service:
+    needs: cross
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: TorrServer-LT-windows-amd64
+          path: service-binary
+      - name: Restricted account lifecycle
+        shell: pwsh
+        run: ./build/test-windows-service.ps1 -Executable ./service-binary/TorrServer-LT-windows-amd64.exe -OutputDirectory ./service-test-state
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flow-windows-service-check
+          path: |
+            service-test-state/service-test.json
+            service-test-state/flow.log
 
   # Assemble + push the multi-arch GHCR image straight from the linux binaries
   # the matrix just cross-built — no recompile and no QEMU for the binary (only

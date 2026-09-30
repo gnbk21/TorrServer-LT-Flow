@@ -10,6 +10,8 @@ function Get-FlowRelease {
     if (-not $release) { throw "No published Flow $Channel release is available." }
     $asset = $release.assets | Where-Object { $_.name -eq 'release.json' } | Select-Object -First 1
     if (-not $asset) { throw 'This release has no verified update manifest. Download and install its package manually.' }
+    $manifestUrl = 'https://github.com/gnbk21/TorrServer-LT-Flow/releases/download/' + $release.tag_name + '/release.json'
+    if ($asset.browser_download_url -ne $manifestUrl) { throw 'Unexpected manifest asset URL.' }
     $manifest = Invoke-RestMethod -Uri $asset.browser_download_url -Headers $headers -TimeoutSec 30
     if ($manifest.schema_version -ne 1 -or $manifest.repository -ne 'gnbk21/TorrServer-LT-Flow' -or $manifest.channel -ne $Channel -or $manifest.Version -ne $release.tag_name -or $manifest.commit -notmatch '^[a-f0-9]{40}$') {
         throw 'Invalid Flow release identity or channel.'

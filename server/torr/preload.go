@@ -126,7 +126,7 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 	if f == nil {
 		return
 	}
-	t.restoreProbe(index)
+	probeCached := t.restoreProbe(index, false)
 
 	cache := torrstor.Global().CacheByHash([20]byte(t.Hash()))
 	if cache == nil || cache.PieceLength <= 0 {
@@ -234,7 +234,7 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 		t.flowStartup = FlowStartupStatus{FileIndex: index, State: "BOOTSTRAP_PRELOAD",
 			BootstrapHeadTargetBytes: int64(probeHeadCount) * plen,
 			BootstrapTailTargetBytes: int64(len(gatePieces)-headCount) * plen,
-			StartupTargetBytes:       int64(headCount) * plen}
+			StartupTargetBytes:       int64(headCount) * plen, ProbeSuccess: probeCached, ProbeCached: probeCached}
 	}
 	t.mu.Unlock()
 
@@ -779,7 +779,7 @@ func (t *Torrent) probeMediaInfo(index int) {
 	if t == nil || !ffprobe.Exists() {
 		return
 	}
-	if t.restoreProbe(index) {
+	if t.restoreProbe(index, true) {
 		return
 	}
 	key, valid := t.probeKey(index)

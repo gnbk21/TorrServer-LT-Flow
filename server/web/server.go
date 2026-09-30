@@ -93,6 +93,7 @@ func Start() {
 	route := gin.New()
 	route.Use(log.WebLogger(), waf.WAF(), gin.Recovery(), cors.New(corsCfg), location.Default())
 	engineReady.Store(false)
+	diagnostics.MarkEngineReady(false)
 	route.Use(func(c *gin.Context) {
 		if !engineReady.Load() && c.Request.URL.Path != "/echo" && c.Request.URL.Path != "/flow/network" {
 			c.AbortWithStatus(http.StatusServiceUnavailable)
@@ -199,6 +200,7 @@ func Stop() {
 	defer lifecycleMu.Unlock()
 	listenersReady.Store(false)
 	engineReady.Store(false)
+	diagnostics.MarkEngineReady(false)
 	shutdownListeners()
 	gstreamer.Stop()
 	dlna.Stop()

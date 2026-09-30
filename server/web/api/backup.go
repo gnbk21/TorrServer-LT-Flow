@@ -101,12 +101,12 @@ func backupApply(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "stop playback and preload before restoring"})
 		return
 	}
-	enabled, active := flow.Maintenance.Set(true)
-	if !enabled || active != 0 {
+	token, active := flow.Maintenance.Acquire(0)
+	if token == "" || active != 0 {
 		c.JSON(http.StatusConflict, gin.H{"error": "server is busy"})
 		return
 	}
-	defer flow.Maintenance.Set(false)
+	defer flow.Maintenance.Release(token)
 	recovery := sets.CaptureRecovery()
 	recoveryData, err := json.Marshal(recovery)
 	if err != nil {

@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { useLibrary, refreshLibrary } from "../hooks/queries";
 import { torrentsApi } from "../api/torrents";
@@ -21,6 +21,7 @@ const Diagnostics = lazy(() =>
     default: m.FlowDiagnosticsDrawer,
   })),
 );
+const emptyLibrary: Torrent[] = [];
 function DiagnosticsView({
   torrent,
   onClose,
@@ -47,6 +48,7 @@ export default function Torrents() {
   const [filter, setFilter] = useState("");
   const [category, setCategory] = useState("");
   const [sort, setSort] = useState("recent");
+  const [page, setPage] = useState(1);
   const [add, setAdd] = useState(false);
   const [files, setFiles] = useState<Torrent>();
   const [diagnostic, setDiagnostic] = useState<Torrent>();
@@ -54,25 +56,32 @@ export default function Torrents() {
   const [error, setError] = useState<unknown>();
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const list = query.data || [];
-  const shown = list
-    .filter(
-      (row) =>
-        (!category ||
-          (category === "uncategorized"
-            ? !row.category
-            : `category:${row.category}` === category)) &&
-        `${row.title} ${row.name || ""}`
-          .toLowerCase()
-          .includes(filter.toLowerCase()),
-    )
-    .sort((a, b) =>
-      sort === "title"
-        ? a.title.localeCompare(b.title)
-        : sort === "size"
-          ? (b.torrent_size || 0) - (a.torrent_size || 0)
-          : (b.timestamp || 0) - (a.timestamp || 0),
-    );
+  const list = query.data ?? emptyLibrary;
+  const shown = useMemo(
+    () =>
+      list
+        .filter(
+          (row) =>
+            (!category ||
+              (category === "uncategorized"
+                ? !row.category
+                : `category:${row.category}` === category)) &&
+            `${row.title} ${row.name || ""}`
+              .toLowerCase()
+              .includes(filter.toLowerCase()),
+        )
+        .sort((a, b) =>
+          sort === "title"
+            ? a.title.localeCompare(b.title)
+            : sort === "size"
+              ? (b.torrent_size || 0) - (a.torrent_size || 0)
+              : (b.timestamp || 0) - (a.timestamp || 0),
+        ),
+    [list, category, filter, sort],
+  );
+  const pages = Math.max(1, Math.ceil(shown.length / 50));
+  const currentPage = Math.min(page, pages);
+  const visibleRows = shown.slice((currentPage - 1) * 50, currentPage * 50);
   const act = async (fn: () => Promise<unknown>) => {
     setError(undefined);
     setBusy(true);
@@ -133,13 +142,22 @@ export default function Torrents() {
       <div className="grid sm:grid-cols-3 gap-3">
         <label className="field">
           {t("Search")}
-          <input value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <input
+            value={filter}
+            onChange={(e) => {
+              setFilter(e.target.value);
+              setPage(1);
+            }}
+          />
         </label>
         <label className="field">
           {t("Category")}
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={(e) => {
+              setCategory(e.target.value);
+              setPage(1);
+            }}
           >
             <option value="">{t("All")}</option>
             <option value="uncategorized">{t("Uncategorized")}</option>
@@ -154,7 +172,13 @@ export default function Torrents() {
         </label>
         <label className="field">
           {t("torrent.sort")}
-          <select value={sort} onChange={(e) => setSort(e.target.value)}>
+          <select
+            value={sort}
+            onChange={(e) => {
+              setSort(e.target.value);
+              setPage(1);
+            }}
+          >
             {["recent", "title", "size"].map((value) => (
               <option key={value} value={value}>
                 {t(`torrent.${value}`)}
@@ -179,7 +203,7 @@ export default function Torrents() {
         </div>
       )}
       <div className="grid xl:grid-cols-2 gap-4" aria-busy={busy}>
-        {shown.map((row) => (
+        {visibleRows.map((row) => (
           <TorrentCard
             busy={busy}
             key={row.hash}
@@ -195,6 +219,25 @@ export default function Torrents() {
           />
         ))}
       </div>
+      {pages > 1 && (
+        <nav className="actions" aria-label={t("torrent.pagination")}>
+          <Button
+            disabled={currentPage === 1}
+            onClick={() => setPage(currentPage - 1)}
+          >
+            {t("torrent.previousPage")}
+          </Button>
+          <span role="status">
+            {t("torrent.pageCount", { page: currentPage, pages })}
+          </span>
+          <Button
+            disabled={currentPage === pages}
+            onClick={() => setPage(currentPage + 1)}
+          >
+            {t("torrent.nextPage")}
+          </Button>
+        </nav>
+      )}
       {add && (
         <AddTorrentModal
           isOpen

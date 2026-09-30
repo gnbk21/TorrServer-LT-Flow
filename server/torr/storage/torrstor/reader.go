@@ -393,7 +393,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 		}
 		n, err := r.cache.readPiece(piece, pieceOff, p[written:int(end)])
 		if n > 0 {
-			if settings.CurrentFlow().MetricsEnabled {
+			if settings.CurrentFlow().MetricsEnabled && r.group != ProbeReaderGroup {
 				if miss {
 					r.cache.flowCounters.Miss(n)
 				} else {

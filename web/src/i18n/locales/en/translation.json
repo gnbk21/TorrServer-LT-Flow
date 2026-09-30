@@ -551,7 +551,11 @@
     "tmdbUnavailable": "Configure TMDB in Settings to search for posters.",
     "tmdbFailed": "Poster search failed. You can enter a poster URL manually.",
     "selectPoster": "Select poster",
-    "fileCount": "{{count}} files"
+    "fileCount": "{{count}} files",
+    "pagination": "Library pages",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "pageCount": "Page {{page}} of {{pages}}"
   },
   "pairing": {
     "title": "Connect your phone",

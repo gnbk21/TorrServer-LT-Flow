@@ -15,8 +15,9 @@ if ($manifest.Version -eq $record.version) { Write-Output 'This release is alrea
 $request = @{ TimeoutSec = 5; ErrorAction = 'Stop' }
 if ($Credential) { $request.Credential = $Credential }
 $baseUri = 'http://127.0.0.1:' + [int]$record.port
+$maintenanceToken = ''
 function Set-FlowMaintenance([bool]$Enabled) {
-    Invoke-RestMethod @request -Uri "$baseUri/flow/maintenance" -Method Post -ContentType 'application/json' -Body (@{enabled=$Enabled} | ConvertTo-Json -Compress)
+    Invoke-RestMethod @request -Uri "$baseUri/flow/maintenance" -Method Post -ContentType 'application/json' -Body (@{enabled=$Enabled;token=$maintenanceToken} | ConvertTo-Json -Compress)
 }
 function Start-InstalledFlow {
     if ($record.service) {
@@ -44,13 +45,14 @@ function Wait-FlowHealth([string]$ExpectedVersion) {
 }
 $temporary = Join-Path $install ('download-' + [guid]::NewGuid().ToString('N') + '.exe')
 $previous = Join-Path $install ('previous-' + [guid]::NewGuid().ToString('N') + '.exe')
-$quiesced = $false; $swapped = $false
+$quiesced = $false; $swapped = $false; $stopped = $false; $backup = $null
 try {
     Save-FlowBinary $manifest $temporary -RequireAttestation:$RequireAttestation
     # No replacement until the server atomically rejects new playback and confirms idle.
     $maintenance = Set-FlowMaintenance $true
     if (-not $maintenance.enabled -or $maintenance.active_requests -ne 0) { throw 'Server is not idle.' }
     $quiesced = $true
+    $maintenanceToken = $maintenance.token
     $processes = @(Get-Process -Name 'TorrServer-LT-windows-amd64' -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe })
     if (-not $record.service -and $processes.Count -ne 1) { throw 'Expected exactly one managed server process.' }
     if ($record.service) {
@@ -60,9 +62,19 @@ try {
         try { Invoke-RestMethod @request -Uri "$baseUri/shutdown" | Out-Null } catch { }
         if (-not $processes[0].WaitForExit(30000)) { throw 'Server did not shut down; no replacement was made.' }
     }
+    $stopped = $true
     # State remains in place. Keep a recovery copy of configuration after a clean close.
     $backup = Join-Path ([string]$record.state_directory) ('upgrade-backups/' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N'))
     [void](New-Item -ItemType Directory -Path $backup -Force)
+    # Protect the directory before copying account/configuration files into it.
+    $owner = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $acl = New-Object Security.AccessControl.DirectorySecurity
+    $acl.SetAccessRuleProtection($true, $false)
+    foreach ($sid in @($owner, 'S-1-5-18', 'S-1-5-32-544')) {
+        $rule = New-Object Security.AccessControl.FileSystemAccessRule -ArgumentList ([Security.Principal.SecurityIdentifier]$sid), 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow'
+        $acl.AddAccessRule($rule)
+    }
+    Set-Acl -LiteralPath $backup -AclObject $acl
     Get-ChildItem -LiteralPath ([string]$record.state_directory) -File | Where-Object { $_.Extension -in @('.db','.json','.txt') } | Copy-Item -Destination $backup
     Move-Item -LiteralPath $exe -Destination $previous
     try { Move-Item -LiteralPath $temporary -Destination $exe } catch { Move-Item -LiteralPath $previous -Destination $exe; throw }
@@ -74,7 +86,10 @@ try {
 } catch {
     $failure = $_
     if ($swapped) {
-        if ($record.service) { & $exe --service stop | Out-Null }
+        if ($record.service) {
+            & $exe --service stop | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Rollback blocked: service could not be stopped. Previous executable retained.' }
+        }
         else {
             try { Invoke-RestMethod @request -Uri "$baseUri/shutdown" | Out-Null } catch { }
             $new = @(Get-Process -Name 'TorrServer-LT-windows-amd64' -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe })
@@ -83,9 +98,15 @@ try {
         $failed = Join-Path $install ('failed-' + [guid]::NewGuid().ToString('N') + '.exe')
         Move-Item -LiteralPath $exe -Destination $failed
         Move-Item -LiteralPath $previous -Destination $exe
+        # Undo migrations of files captured after the old server closed cleanly.
+        Get-ChildItem -LiteralPath $backup -File | Copy-Item -Destination ([string]$record.state_directory) -Force
         Start-InstalledFlow
         Wait-FlowHealth ([string]$record.version)
         Write-Warning 'Previous executable restored and health checked. State was preserved.'
+    } elseif ($stopped) {
+        Start-InstalledFlow
+        Wait-FlowHealth ([string]$record.version)
+        Write-Warning 'The previous executable was restarted after an update preparation failure.'
     } elseif ($quiesced) { try { Set-FlowMaintenance $false | Out-Null } catch { } }
     throw $failure
 } finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary } }
