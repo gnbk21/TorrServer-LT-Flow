@@ -184,6 +184,15 @@ def run_case(executable, directory, fixtures, label, rate, delay, disconnect, du
                 raise AssertionError("The classified seek path was not exercised")
             if not any(s.get("range_cancel_count",0)>0 for s in sessions):
                 raise AssertionError("Reader cancellation was not recorded")
+            if label == "fast":
+                # Cross-file churn exceeds the cache and reproduces a late native
+                # hash/have result racing cache eviction. Each response is verified.
+                for cycle in range(64):
+                    for file in status["file_stats"]:
+                        source = next(p.read_bytes() for p in fixtures if file["path"].endswith(p.name))
+                        offset = (cycle*131072) % max(1,len(source)-262144)
+                        range_read(server,info_hash,file["id"],source,offset,offset+131071)
+                report["cross_file_churn_requests"] = 64*len(status["file_stats"])
             if profile:
                 def capture(kind, seconds):
                     with urllib.request.urlopen(server.profile_base+f"/debug/pprof/{kind}?seconds={seconds}",timeout=seconds+10) as response:

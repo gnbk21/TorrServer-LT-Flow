@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { writeFile } from "node:fs/promises";
 import settings from "./settings.json" with { type: "json" };
 
 test("active playback remains visible when Flow metrics are unavailable", async ({
@@ -23,13 +24,28 @@ test("active playback remains visible when Flow metrics are unavailable", async 
 
 test("polling is deduplicated, bounded and stops when hidden", async ({
   page,
-}) => {
+}, info) => {
   test.setTimeout(45000);
   await mockServer(page, { active: true });
   await page.route("**/torrents", (route) =>
     route.fulfill({ json: [{ ...torrent, active_readers: 1 }] }),
   );
   const counts: Record<string, number> = {};
+  const bytes: Record<string, number> = {};
+  page.on("response", async (response) => {
+    const path = new URL(response.url()).pathname;
+    if (
+      path.startsWith("/flow/") ||
+      path === "/torrents" ||
+      path === "/runtime/status"
+    ) {
+      try {
+        bytes[path] = (bytes[path] || 0) + (await response.body()).length;
+      } catch {
+        /* cancelled in-flight response */
+      }
+    }
+  });
   page.on("request", (request) => {
     const path = new URL(request.url()).pathname;
     if (
@@ -47,6 +63,19 @@ test("polling is deduplicated, bounded and stops when hidden", async ({
   expect(counts["/flow/status/" + hash]).toBeGreaterThanOrEqual(8);
   expect(counts["/flow/status/" + hash]).toBeLessThanOrEqual(14);
   expect(counts["/torrents"]).toBeLessThanOrEqual(14);
+  const measurement = info.outputPath("polling-measurement.json");
+  await writeFile(
+    measurement,
+    JSON.stringify(
+      { visible_seconds: 11, counts, bytes, synthetic_payloads: true },
+      null,
+      2,
+    ),
+  );
+  await info.attach("polling-measurement", {
+    path: measurement,
+    contentType: "application/json",
+  });
   await page.evaluate(() => {
     Object.defineProperty(document, "hidden", {
       configurable: true,
@@ -298,6 +327,65 @@ test("dirty form blocks navigation; continuing keeps edits", async ({
     page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible();
 });
+test("backup preview is inert until confirmation and support report downloads", async ({
+  page,
+}) => {
+  await mockServer(page);
+  const applies: unknown[] = [];
+  await page.route("**/flow/backup/preview", (route) =>
+    route.fulfill({
+      json: {
+        digest: "a".repeat(64),
+        library_count: 1,
+        settings_fields: ["CacheSize"],
+        credentials_excluded: true,
+        mode: "merge",
+        restart_required: true,
+      },
+    }),
+  );
+  await page.route("**/flow/backup/apply", (route) => {
+    applies.push(route.request().postDataJSON());
+    return route.fulfill({
+      json: { restored: true, recovery_backup: "before-restore-fixture.json" },
+    });
+  });
+  await page.route("**/flow/support", (route) =>
+    route.fulfill({ json: { schema_version: 1, privacy: "redacted" } }),
+  );
+  await page.goto("/#/settings");
+  await page.getByRole("tab", { name: "Advanced", exact: true }).click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download support report" }).click();
+  expect((await download).suggestedFilename()).toBe(
+    "TorrServer-Flow-support.json",
+  );
+  const file = {
+    name: "portable.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({ fixture: true })),
+  };
+  await page
+    .getByLabel("Preview backup import", { exact: true })
+    .setInputFiles(file);
+  await expect(
+    page.getByRole("dialog", { name: "Restore preview" }),
+  ).toBeVisible();
+  expect(applies).toHaveLength(0);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(applies).toHaveLength(0);
+  await page
+    .getByLabel("Preview backup import", { exact: true })
+    .setInputFiles(file);
+  await page
+    .getByRole("button", { name: "Restore backup", exact: true })
+    .click();
+  await expect(page.getByText(/Restored. Local recovery backup/)).toBeVisible();
+  expect(applies).toEqual([
+    { backup: { fixture: true }, digest: "a".repeat(64) },
+  ]);
+});
+
 test("file view retains raw name, watched timecode and browser fallback", async ({
   page,
 }) => {

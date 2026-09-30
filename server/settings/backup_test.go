@@ -2,6 +2,7 @@ package settings
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,7 +11,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-func backupTestDB(t *testing.T) *TDB {
+func backupTestDB(t testing.TB) *TDB {
 	t.Helper()
 	oldDB, oldPath, oldSettings, oldReadOnly := tdb, Path, BTsets(), ReadOnly
 	Path = t.TempDir()
@@ -32,6 +33,53 @@ func backupTestDB(t *testing.T) *TDB {
 		ReadOnly = oldReadOnly
 	})
 	return db
+}
+
+func TestBackupRejectsNestedUnknownNullAndInvalidBounds(t *testing.T) {
+	backupTestDB(t)
+	for _, field := range []struct{ name, value string }{
+		{"Flow", `{"SwarmCustom":{"PrivateKey":"secret"}}`},
+		{"Flow", `{"UnknownField":1}`}, {"CacheSize", `null`},
+		{"TorrentDisconnectTimeout", `-1`}, {"RetrackersMode", `9`},
+	} {
+		backup, _ := ExportBackup()
+		backup.Settings[field.name] = json.RawMessage(field.value)
+		data, _ := json.Marshal(backup)
+		if _, err := ParseBackup(data); err == nil {
+			t.Fatalf("accepted %s=%s", field.name, field.value)
+		}
+	}
+}
+
+func BenchmarkLibrarySingleUpsert(b *testing.B) {
+	for _, legacy := range []bool{true, false} {
+		name := "single-key"
+		if legacy {
+			name = "legacy-whole-library"
+		}
+		b.Run(name, func(b *testing.B) {
+			backupTestDB(b)
+			for i := 0; i < 1000; i++ {
+				AddTorrent(&TorrentDB{TorrentSpec: &TorrentSpec{InfoHash: fmt.Sprintf("%040x", i)}, Title: "Generated library fixture"})
+			}
+			row := &TorrentDB{TorrentSpec: &TorrentSpec{InfoHash: fmt.Sprintf("%040x", 500)}, Title: "Edited title"}
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if legacy {
+					rows := ListTorrent()
+					for _, existing := range rows {
+						if existing.InfoHash == row.InfoHash {
+							existing.Title = row.Title
+						}
+						value, _ := json.Marshal(existing)
+						tdb.Set("Torrents", existing.InfoHash, value)
+					}
+				} else {
+					AddTorrent(row)
+				}
+			}
+		})
+	}
 }
 
 func TestPortableBackupExcludesCredentialsAndPreservesLocalSecrets(t *testing.T) {

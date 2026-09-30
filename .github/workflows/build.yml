@@ -193,6 +193,16 @@ jobs:
         if: matrix.target == 'linux-amd64'
         run: python3 build/maintenance_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/maintenance-check
 
+      - name: Library persistence measurement
+        if: matrix.target == 'linux-amd64'
+        working-directory: server
+        env:
+          CGO_ENABLED: '1'
+          PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
+        run: go test ./settings -run '^$' -bench '^BenchmarkLibrarySingleUpsert$' -benchtime=3x -benchmem | tee ../_out/library-upsert-benchmark.txt
+
       - name: Controlled peer playback and resource cycles
         if: matrix.target == 'linux-amd64'
         run: |
@@ -208,6 +218,7 @@ jobs:
             _out/controlled-playback/fixtures/fixtures.json
             _out/controlled-playback/*/server-output.log
             _out/maintenance-check/report.json
+            _out/library-upsert-benchmark.txt
           if-no-files-found: warn
 
       - uses: actions/upload-artifact@v4

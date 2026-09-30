@@ -14,6 +14,7 @@ import (
 	"github.com/anacrolix/publicip"
 	"github.com/wlynxg/anet"
 
+	"server/diagnostics"
 	"server/lt"
 	"server/settings"
 	"server/torr/storage/torrstor"
@@ -94,11 +95,13 @@ func (bt *BTServer) Connect() error {
 	go bt.networkLifecycle(bt.stopAlert, bt.networkDone)
 
 	InitApiHelper(bt)
+	diagnostics.MarkEngineReady(true)
 	return nil
 }
 
 // Disconnect stops the alert pump and tears down the session.
 func (bt *BTServer) Disconnect() {
+	diagnostics.MarkEngineReady(false)
 	// Stop the alert pump BEFORE taking bt.mu for teardown: handleAlert locks
 	// bt.mu for its registry lookup, so holding the lock while waiting on
 	// alertDone deadlocks whenever the pump is mid-batch — observed as

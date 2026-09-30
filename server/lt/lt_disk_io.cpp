@@ -222,25 +222,11 @@ public:
         }
         int got = cb_.read(storage_id_of(s), static_cast<int>(r.piece),
                            r.start, reinterpret_cast<uint8_t*>(buf), r.length);
-        // A short/empty read means the piece was evicted from the streaming
-        // cache (we only keep the reader's window + recently-played pieces).
-        // async_read is libtorrent's UPLOAD path — our own HTTP Reader reads the
-        // cache directly and hashing uses async_hash — so a miss here must NOT
-        // fault the torrent: returning a storage_error makes libtorrent treat it
-        // as disk corruption and pause playback. Zero-fill the gap and report
-        // success instead; at worst we feed a peer a bad block, never killing our
-        // own download or stream.
-        //
-        // On eviction we now also call WeDontHave (piece_picker un-have) so
-        // libtorrent stops advertising evicted pieces and peers stop requesting
-        // them — but that un-have is posted to the network thread, so there is a
-        // brief window where a request for a just-evicted piece can still arrive.
-        // This zero-fill safety net covers that race.
-        if (got < 0) got = 0;
-        if (got < r.length) {
-            std::memset(buf + got, 0, static_cast<size_t>(r.length - got));
-        }
+        // Upload requests can race cache eviction. Reject missing data rather
+        // than fabricating a corrupt block. libtorrent 2.1's upload completion
+        // sends dont-have/reject on a read error; it does not pause the torrent.
         lt::storage_error err;
+        if (got != r.length) err = make_io_error("read");
         // Do the I/O inline (like posix_disk_io) but deliver the completion
         // handler via the session's io_context. libtorrent requires disk
         // handlers to be posted, not invoked re-entrantly — calling them
