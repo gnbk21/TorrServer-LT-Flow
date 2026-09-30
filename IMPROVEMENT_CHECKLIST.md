@@ -29,13 +29,14 @@ An item is complete only after implementation and relevant verification.
 ## Regression and measurement
 
 - [x] Legal generated MP4/MKV fixtures, head/tail layouts and variable bitrate.
-- [ ] Controlled local peer bandwidth/delay/disconnect harness and result report.
-- [ ] Range overlap/cancellation/seek/reconnect/warm-expiry regressions.
+- [x] Controlled local peer bandwidth/delay/disconnect harness and result report.
+- [x] Range overlap/cancellation/seek/reconnect/warm-expiry regressions.
 - [x] Repeatable long resource-cycle runner recording RSS/cache/goroutines/handles.
 - [x] Actual Go DTO/frontend validator contract tests.
 - [x] Fuzz targets for Range, imports, settings and URL handling.
 - [x] Opt-in loopback/authenticated profiling and execution-trace collection; native profiling guidance.
-- [ ] Representative PGO evaluation with documented results and conditional build support.
+- [x] Conditional PGO builds and interleaved generated-fixture evaluation with documented results.
+- [ ] Representative real-media PGO evaluation before any adoption.
 
 ## Product features
 
@@ -73,11 +74,12 @@ See MEASUREMENTS.md for workloads, exact numbers and limitations.
 
 Unchecked distribution items still require a tagged pipeline run, reproducible
 package comparison, actual published-download and attestation verification.
-The controlled-playback and Range items await extended profiling stress after
-partial and complete-piece eviction races were reproduced and ownership checks
-implemented; the short initial matrix alone is insufficient. The PGO driver exists and normal builds remain
-explicitly off, but its generated training/comparison must finish successfully;
-representative real-media adoption remains conditional. Restricted service
+Controlled playback passed Linux `36758891545`; extended profiling passed Linux
+`36758885562` (256 initial switches plus 135 cycles) and Windows `2a12912c`
+(256 plus 104 cycles). The PGO driver completed three interleaved pairs, with
+both binary digests recorded and all playback checks passing. Normal builds
+remain explicitly off; representative real-media adoption remains conditional.
+Restricted service
 update/rollback passed disposable Windows run `36753656101`, including restored
 configuration, private migration quarantine and preserved account/listeners.
 Idle-only update still awaits actual published transport/provenance validation.

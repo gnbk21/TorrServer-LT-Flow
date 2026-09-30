@@ -93,7 +93,11 @@ Complete eviction is now serialized after native flush; stale markers do not
 reset an in-flight download and delayed alerts cannot complete buffers with
 holes. Exact metadata length covers the short final piece. Actual storage
 failures are reported without fabricating corrupt hashes or acknowledging lost
-writes. These changes require a fresh native stress pass before publication.
+writes. Linux run `36758891545` passed all three scenarios after these changes,
+including 256 fast switches and four resource cycles per case. Windows
+`2a12912c` passed 104 additional profiling cycles, four resource cycles and warm
+expiry after 25.6 seconds. Linux profiling run `36758885562` passed 256 initial
+switches plus 135 additional cycles without hash failures or peer bans.
 
 The native 1,000-entry library upsert benchmark in run `36747207599` measured
 319.6 ms / 11.65 MB / 81,099 allocations per whole-library rewrite versus
@@ -112,7 +116,7 @@ request, and the profiling listener shuts down with its owned server.
 & .\TorrServer-LT-windows-amd64.exe --path .\profile-state --port 8091 --ip 127.0.0.1 --profile-address 127.0.0.1:8092
 Invoke-WebRequest 'http://127.0.0.1:8092/debug/pprof/profile?seconds=30' -OutFile cpu.pprof
 Invoke-WebRequest 'http://127.0.0.1:8092/debug/pprof/trace?seconds=5' -OutFile trace.out
-go tool pprof -top .\TorrServer-LT-windows-amd64.exe cpu.pprof
+go tool pprof -symbolize=none -top cpu.pprof
 go tool trace trace.out
 ```
 
@@ -125,11 +129,25 @@ profiler to investigate libtorrent/OpenSSL, separately from Go heap and schedule
 analysis. RSS includes native allocations; RSS minus Go heap is not an exact
 native-memory measurement.
 
+Use the runtime-recorded Go names with `-symbolize=none` for stripped release
+binaries. Local ELF re-symbolization produced incorrect Go function labels in
+the initial CI text summaries; the original profile still contained correct
+runtime names and is what the PGO compiler consumed. Native C++ frames require
+matching unstripped symbols and native profiling, separately from this Go view.
+
 The manual build workflow's `evaluate_pgo` option trains on generated native
 playback, records CPU/trace data, compiles with `TS_PGO_PROFILE`, and compares three
 interleaved baseline and candidate runs. Normal builds explicitly use `-pgo=off`.
 Generated-fixture results alone cannot authorize a shipped PGO profile; adoption
 requires a representative real-media workload and repeatable improvement.
+
+Linux run `36758885562` completed three interleaved baseline/PGO pairs at
+4 MiB/s with 1 ms block delay; all six playback checks passed. Median-of-run
+median TTFB was 1.225 ms without PGO versus 1.125 ms with PGO. Per-run p95 ranged
+from 676–2,156 ms without PGO and 953–1,847 ms with PGO. Those variable tail
+results and tiny median difference do not establish a repeatable viewing
+benefit. The report records both binary digests, `synthetic_only: true` and
+`adopted: false`; Preview 2 retains PGO off.
 
 ## Endurance and hardware gates
 

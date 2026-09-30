@@ -282,7 +282,9 @@ jobs:
         run: |
           cp _out/TorrServer-LT-linux-amd64 _out/TorrServer-LT-linux-amd64-baseline
           python3 build/playback_harness.py --executable _out/TorrServer-LT-linux-amd64-baseline --output _out/pgo-training --fixtures _out/controlled-playback/fixtures --cases fast --profile --debug
-          go tool pprof -top _out/TorrServer-LT-linux-amd64-baseline _out/pgo-training/fast/profile.pprof > _out/pgo-training/cpu-top.txt
+          # Keep runtime-recorded Go symbols. Local re-symbolization of the
+          # stripped release ELF can assign incorrect function names to PCs.
+          go tool pprof -symbolize=none -top _out/pgo-training/fast/profile.pprof > _out/pgo-training/cpu-top.txt
           TS_PGO_PROFILE="$PWD/_out/pgo-training/fast/profile.pprof" bash build/linux-amd64.sh
           python3 build/pgo_compare.py --baseline _out/TorrServer-LT-linux-amd64-baseline --candidate _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/pgo-comparison
       - uses: actions/upload-artifact@v4

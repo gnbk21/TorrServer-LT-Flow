@@ -11,9 +11,9 @@ describe the revisions tested at those dates and do not override this table.
 | Portable maintenance | Native authenticated backup/restore/support, active-playback rejection and startup doctor passed | Hardware acceptance remains separate |
 | Windows updater | Actual native install/update, corruption rejection, maintenance ownership, startup-failure rollback and protected backups passed in PowerShell 5.1 and 7 with controlled release transport | Live release transport and provenance validation |
 | Restricted Windows service | Native SCM install/restart/stop/uninstall and authenticated update/configuration rollback passed in disposable CI | Physical boot/sleep/network acceptance remains separate |
-| Cache refetch | Windows extended stress passed; later Linux churn exposed completion/eviction ordering; complete eviction now checks native flushed ownership and delayed alerts cannot complete buffers with holes | Rerun native stress and PGO training before Preview 2 publication |
+| Cache refetch | Native complete/partial ownership checks and hole-safe completion passed Linux's three scenarios and extended Windows/Linux profiling stress | Final tagged build regression gate |
 | Swarm profiles | Legacy, Conservative, Balanced, Aggressive streaming and bounded Custom; translated explanations | No comparative speed ranking established |
-| Resource/performance evidence | Legal generated-media harness, resource runner and measured library optimization | Multi-hour representative-media runs; PGO/SSE decisions use measured evidence |
+| Resource/performance evidence | Generated-media harness, resource runner, library optimization and six interleaved PGO comparison runs passed; PGO remains off | Multi-hour representative-media runs and real-media evidence before PGO adoption |
 | Stable Flow / Modern Web 1.0 | Not approved; stable publication is gated by `RELEASE_ACCEPTANCE.json` | Representative phone/A-B evidence, multi-hour resources, Windows boot/sleep/network recovery |
 
 Preview 2 adds bounded rolling measurements, adaptive-window hysteresis,
