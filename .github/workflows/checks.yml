@@ -35,6 +35,9 @@ jobs:
             $errors += $parseErrors
           }
           if ($errors.Count) { throw ($errors | Out-String) }
+      - name: Verify installer channel selection
+        shell: pwsh
+        run: ./build/test-release-channels.ps1
   web:
     if: github.event_name == 'push'
     uses: ./.github/workflows/build-web.yml

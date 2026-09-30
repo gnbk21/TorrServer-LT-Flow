@@ -12,6 +12,7 @@ every platform package. Dependencies are pinned in `build/_common.sh`,
   `RELEASE_ACCEPTANCE.json` and the tagged commit is present on `master`.
 - `MatriX.145.Flow-vX.Y.Z-preview.N` (or alpha/beta/rc): prerelease. Preview
   builds pass CI but may have remaining real-device or long-session gates.
+- `MatriX.145.Flow-preview.N`: the initial numbered preview releases.
 - Development branch artifacts are not published releases.
 
 Docker `latest` follows stable releases; `preview` follows prereleases. A

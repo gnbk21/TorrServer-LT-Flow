@@ -6,7 +6,11 @@ function Get-FlowRelease {
     param([ValidateSet('stable', 'preview')][string]$Channel)
     $headers = @{ 'User-Agent' = 'TorrServer-Flow'; Accept = 'application/vnd.github+json' }
     $releases = @(Invoke-RestMethod -Uri 'https://api.github.com/repos/gnbk21/TorrServer-LT-Flow/releases?per_page=100' -Headers $headers -TimeoutSec 30)
-    $release = $releases | Where-Object { -not $_.draft -and ([bool]$_.prerelease -eq ($Channel -eq 'preview')) -and $_.tag_name -match '^MatriX\.145\.Flow-' } | Select-Object -First 1
+    $tagPattern = '^MatriX\.145\.Flow-v[0-9]+\.[0-9]+\.[0-9]+$'
+    if ($Channel -eq 'preview') {
+        $tagPattern = '^MatriX\.145\.Flow-(v[0-9]+\.[0-9]+\.[0-9]+-(preview|alpha|beta|rc)\.[0-9]+|preview\.[0-9]+)$'
+    }
+    $release = $releases | Where-Object { -not $_.draft -and ([bool]$_.prerelease -eq ($Channel -eq 'preview')) -and $_.tag_name -cmatch $tagPattern } | Select-Object -First 1
     if (-not $release) { throw "No published Flow $Channel release is available." }
     $asset = $release.assets | Where-Object { $_.name -eq 'release.json' } | Select-Object -First 1
     if (-not $asset) { throw 'This release has no verified update manifest. Download and install its package manually.' }
