@@ -306,12 +306,27 @@ jobs:
       - name: Build update lifecycle fixture
         if: matrix.target == 'windows-amd64'
         env:
-          TS_VERSION: MatriX.145.Flow-dev-${{ github.sha }}-update-fixture
+          TS_VERSION: MatriX.145.Flow-v0.0.0-rc.0
         run: bash build/windows-amd64.sh
       - uses: actions/upload-artifact@v4
         if: matrix.target == 'windows-amd64'
         with:
           name: flow-windows-update-fixture
+          path: _out/TorrServer-LT-windows-amd64.exe
+          if-no-files-found: error
+
+      # Unpublished branch builds have development identities and deliberately
+      # cannot pass release selection. Give the same native source a valid test
+      # prerelease identity; tagged builds test their actual release binary.
+      - name: Build branch update candidate fixture
+        if: matrix.target == 'windows-amd64' && inputs.version == ''
+        env:
+          TS_VERSION: MatriX.145.Flow-v0.0.0-rc.1
+        run: bash build/windows-amd64.sh
+      - uses: actions/upload-artifact@v4
+        if: matrix.target == 'windows-amd64' && inputs.version == ''
+        with:
+          name: flow-windows-update-candidate
           path: _out/TorrServer-LT-windows-amd64.exe
           if-no-files-found: error
 
@@ -331,12 +346,17 @@ jobs:
         with:
           name: flow-windows-update-fixture
           path: update-fixture
+      - uses: actions/download-artifact@v4
+        if: inputs.version == ''
+        with:
+          name: flow-windows-update-candidate
+          path: update-candidate
       - name: Authenticated update and startup failure rollback
         shell: pwsh
-        run: ./build/test-windows-update.ps1 -Baseline ./update-fixture/TorrServer-LT-windows-amd64.exe -Candidate ./service-binary/TorrServer-LT-windows-amd64.exe -OutputDirectory ./update-test-state -Commit '${{ github.sha }}'
+        run: ./build/test-windows-update.ps1 -Baseline ./update-fixture/TorrServer-LT-windows-amd64.exe -Candidate '${{ inputs.version != '' && './service-binary/TorrServer-LT-windows-amd64.exe' || './update-candidate/TorrServer-LT-windows-amd64.exe' }}' -OutputDirectory ./update-test-state -Commit '${{ github.sha }}'
       - name: Restricted service update and migration rollback
         shell: pwsh
-        run: ./build/test-windows-update.ps1 -Baseline ./update-fixture/TorrServer-LT-windows-amd64.exe -Candidate ./service-binary/TorrServer-LT-windows-amd64.exe -OutputDirectory ./service-update-test-state -Commit '${{ github.sha }}' -AsService
+        run: ./build/test-windows-update.ps1 -Baseline ./update-fixture/TorrServer-LT-windows-amd64.exe -Candidate '${{ inputs.version != '' && './service-binary/TorrServer-LT-windows-amd64.exe' || './update-candidate/TorrServer-LT-windows-amd64.exe' }}' -OutputDirectory ./service-update-test-state -Commit '${{ github.sha }}' -AsService
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -348,76 +368,14 @@ jobs:
             service-update-test-state/report.json
             service-update-test-state/state/flow.log
 
-  # Assemble + push the multi-arch GHCR image straight from the linux binaries
-  # the matrix just cross-built — no recompile and no QEMU for the binary (only
-  # the base image's apt runs emulated, per arch). Publishes on master pushes and
-  # on release tags (when this workflow is reused by ts_release.yml); never on
-  # pull requests. See Dockerfile.runtime.
+  # Development master images retain their separate channel. Release images
+  # publish only from ts_release.yml after every native/package gate passes.
   docker:
-    needs: cross
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
-    runs-on: ubuntu-latest
+    needs: [cross, windows-service]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && inputs.release_channel != 'stable' && inputs.release_channel != 'preview'
     permissions:
       contents: read
       packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download linux binaries
-        uses: actions/download-artifact@v4
-        with:
-          pattern: TorrServer-LT-linux-*
-          path: _artifacts
-          merge-multiple: true
-
-      # Name each binary `torrserver` under dist/<arch>, where <arch> is exactly
-      # buildx's $TARGETARCH$TARGETVARIANT (amd64 / arm64 / armv7), and set +x
-      # (the artifact zip drops the executable bit).
-      - name: Lay binaries out per Docker arch
-        run: |
-          set -euo pipefail
-          install -D -m755 _artifacts/TorrServer-LT-linux-amd64 dist/amd64/torrserver
-          install -D -m755 _artifacts/TorrServer-LT-linux-arm64 dist/arm64/torrserver
-          install -D -m755 _artifacts/TorrServer-LT-linux-armv7 dist/armv7/torrserver
-
-      - name: Set up QEMU            # only to run the base image's apt per arch
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Lower-case image repo
-        run: echo "REG_REPO=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-
-      - name: Docker metadata (tags + labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ env.REG_REPO }}
-          # Channel policy is explicit; suppress automatic latest generation.
-          flavor: latest=false
-          tags: |
-            type=raw,value=master,enable=${{ github.ref == 'refs/heads/master' }}
-            type=ref,event=tag
-            type=raw,value=latest,enable=${{ inputs.release_channel == 'stable' }}
-            type=raw,value=preview,enable=${{ inputs.release_channel == 'preview' }}
-
-      - name: Build and push multi-arch image
-        uses: docker/build-push-action@v6
-        env:
-          # Don't upload the `<repo>.dockerbuild` build-record artifact — it shows
-          # up in the release job's artifact set and breaks its download.
-          DOCKER_BUILD_RECORD_UPLOAD: "false"
-        with:
-          context: .
-          file: Dockerfile.runtime
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+    uses: ./.github/workflows/build-docker.yml
+    with:
+      release_channel: development

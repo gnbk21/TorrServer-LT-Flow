@@ -16,6 +16,14 @@ describe the revisions tested at those dates and do not override this table.
 | Resource/performance evidence | Generated-media harness, resource runner, library optimization and six interleaved PGO comparison runs passed; PGO remains off | Multi-hour representative-media runs and real-media evidence before PGO adoption |
 | Stable Flow / Modern Web 1.0 | Not approved; stable publication is gated by `RELEASE_ACCEPTANCE.json` | Representative phone/A-B evidence, multi-hour resources, Windows boot/sleep/network recovery |
 
+The initial `MatriX.145.Flow-preview.2` tag failed its updater fixture gate in
+run `36762628271`; no GitHub release was published. Strict channel selection
+correctly rejected that fixture's development identity. The corrected attempt
+uses `MatriX.145.Flow-v0.2.0-preview.1`; the failed tag is retained for traceability.
+Container publication now follows all native, service, macOS, packaging and
+provenance gates. The earlier failed attempt's container tag is not an accepted
+release. Public package visibility remains to be checked with owner access.
+
 Preview 2 adds bounded rolling measurements, adaptive-window hysteresis,
 per-file probe result reuse, process/cache accounting, redacted support export,
 portable backup/import, startup diagnostics, verified update/rollback and

@@ -36,6 +36,8 @@ function Manifest([string]$Path) {
 $oldManifest = Manifest $baselinePath
 $newManifest = Manifest $candidatePath
 if ($oldManifest.Version -eq $newManifest.Version) { throw 'Test binaries must have different build identities.' }
+$previewTag = '^MatriX\.145\.Flow-(v[0-9]+\.[0-9]+\.[0-9]+-(preview|alpha|beta|rc)\.[0-9]+|preview\.[0-9]+)$'
+if ($oldManifest.Version -cnotmatch $previewTag -or $newManifest.Version -cnotmatch $previewTag) { throw 'Update transport fixtures require valid prerelease identities; development artifacts are deliberately not releases.' }
 $global:flowUpdateTestfixtureManifest=$oldManifest
 $global:flowUpdateTestfixtureBinary=$baselinePath
 $global:flowUpdateTestcorrupt=$false
