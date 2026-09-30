@@ -20,6 +20,14 @@ per-session playback telemetry retains its one-second interval. Hidden tabs stop
 polling. `web/e2e/library.spec.ts` verifies search, page navigation, empty results
 and the large-library request budget.
 
+The production Vite build measured 168.53 KiB gzip for the entry JavaScript,
+about 16 KiB gzip of shared preloads and 3.94 KiB gzip for the lazy dashboard.
+The HLS decoder is a separate 178.98 KiB gzip lazy chunk; it is not an initial
+preload. Non-English language chunks load on selection. These are build sizes,
+not measured download times. Vite's warning about chunks over 500 KiB minified
+remains visible; the initial compressed JavaScript fits the specification's
+preferred 150–200 KiB budget.
+
 ## Polling and SSE decision
 
 The browser regression recorded 33 requests and 9,582 bytes of synthetic JSON
@@ -119,6 +127,9 @@ executables, authenticated loopback HTTP, file replacement, protected recovery
 backups and startup-failure rollback. Only GitHub release transport is replaced
 by a controlled manifest/download fixture. It also checks corrupted downloads,
 another maintenance owner, credential preservation and listener flags.
+The rollback fixture also corrupts the owned configuration database after the
+pre-update backup, then injects an actual candidate startup failure. The previous
+server returns healthy with its private setting restored from the protected copy.
 `build/maintenance_harness.py` separately verifies that actual active playback
 rejects maintenance. Live release download/attestation verification remains a
 distribution gate. Authenticode requires the maintainer's signing identity.

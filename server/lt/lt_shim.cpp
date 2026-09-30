@@ -145,7 +145,12 @@ static void refresh_connect_candidates(lt::torrent_handle const& h) {
     // torrent_handle enqueues its priority operation on this same context.
     // Posting afterwards observes the resulting state without racing it.
     lt::post(tor->session().get_context(), [tor]() {
-        tor->flow_refresh_connect_candidates();
+        // Avoid scanning a large peer list on every window/deadline update.
+        // The blocked transition is specifically a downloading torrent with
+        // known peers but a stale zero candidate count.
+        if (!tor->is_finished() && tor->num_connect_candidates() == 0
+            && tor->num_known_peers() > 0)
+            tor->flow_refresh_connect_candidates();
     });
 #else
     (void)h;
