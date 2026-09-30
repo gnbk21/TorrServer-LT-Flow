@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import zipfile
 
@@ -34,6 +35,29 @@ def find_binary(artifact_dir, name):
     if len(found) != 1:
         raise ValueError(f"Expected exactly one {name}")
     return found[0]
+
+
+def binary_identity_matches(info, tag, commit):
+    settings = {}
+    for line in info.splitlines():
+        fields = line.split(maxsplit=1)
+        if len(fields) == 2 and fields[0] == "build":
+            key, separator, value = fields[1].partition("=")
+            if separator and key in ("vcs.revision", "-ldflags"):
+                if key in settings:
+                    return False
+                settings[key] = value
+    if settings.get("vcs.revision") != commit:
+        return False
+    try:
+        value = shlex.split(settings.get("-ldflags", ""))
+        if len(value) != 1:
+            return False
+        flags = shlex.split(value[0])
+    except ValueError:
+        return False
+    symbol = f"server/version.Version={tag}"
+    return any(flag == f"-X={symbol}" or (flag == "-X" and index + 1 < len(flags) and flags[index + 1] == symbol) for index, flag in enumerate(flags))
 
 
 def module_notices(binaries, native_root):
@@ -85,7 +109,7 @@ def package(artifact_dir, output, tag, commit, native_root):
         for name in names:
             binary = find_binary(artifact_dir, name)
             info = subprocess.check_output(["go", "version", "-m", str(binary)], text=True)
-            if f"vcs.revision={commit}" not in info or f"server/version.Version={tag}" not in info:
+            if not binary_identity_matches(info, tag, commit):
                 raise ValueError(f"Binary identity mismatch: {name}")
             binaries.append(binary)
             files[name] = {"sha256": digest(binary), "size": binary.stat().st_size}
