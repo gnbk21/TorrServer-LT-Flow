@@ -7,29 +7,29 @@ import (
 //go:embed pages/THIRD_PARTY_NOTICES.txt
 var THIRDPARTYNOTICEStxt []byte
 
-//go:embed pages/assets/Add-BY0RuTri.js
-var AssetsAddBY0RuTrijs []byte
+//go:embed pages/assets/Add-Cb9ihC3l.js
+var AssetsAddCb9ihC3ljs []byte
 
-//go:embed pages/assets/AddTorrentModal-DYWo7wo9.js
-var AssetsAddTorrentModalDYWo7wo9js []byte
+//go:embed pages/assets/AddTorrentModal-BNDi13E_.js
+var AssetsAddTorrentModalBNDi13Ejs []byte
 
 //go:embed pages/assets/Button-KTs46vB5.js
 var AssetsButtonKTs46vB5js []byte
 
-//go:embed pages/assets/CacheMap-BGGmal-V.js
-var AssetsCacheMapBGGmalVjs []byte
+//go:embed pages/assets/CacheMap-BzFLc-Cu.js
+var AssetsCacheMapBzFLcCujs []byte
 
-//go:embed pages/assets/Dashboard-Dmhmfnq0.js
-var AssetsDashboardDmhmfnq0js []byte
+//go:embed pages/assets/Dashboard-BPbZNBIm.js
+var AssetsDashboardBPbZNBImjs []byte
 
-//go:embed pages/assets/FlowDiagnosticsDrawer-CpH0uzNd.js
-var AssetsFlowDiagnosticsDrawerCpH0uzNdjs []byte
+//go:embed pages/assets/FlowDiagnosticsDrawer-DimfGnaY.js
+var AssetsFlowDiagnosticsDrawerDimfGnaYjs []byte
 
-//go:embed pages/assets/GstRuntimeStatus-VUjst_HI.js
-var AssetsGstRuntimeStatusVUjstHIjs []byte
+//go:embed pages/assets/GstRuntimeStatus-BraJLjwx.js
+var AssetsGstRuntimeStatusBraJLjwxjs []byte
 
-//go:embed pages/assets/PhonePairingModal-CPqPdt8q.js
-var AssetsPhonePairingModalCPqPdt8qjs []byte
+//go:embed pages/assets/PhonePairingModal-q2f4nXtU.js
+var AssetsPhonePairingModalq2f4nXtUjs []byte
 
 //go:embed pages/assets/PlaybackLinks-Ccfy1QQ_.js
 var AssetsPlaybackLinksCcfy1QQjs []byte
@@ -37,17 +37,17 @@ var AssetsPlaybackLinksCcfy1QQjs []byte
 //go:embed pages/assets/PosterSearch-DyWxdSkx.js
 var AssetsPosterSearchDyWxdSkxjs []byte
 
-//go:embed pages/assets/Settings-BKxun42h.js
-var AssetsSettingsBKxun42hjs []byte
+//go:embed pages/assets/Settings-BBBxb4x-.js
+var AssetsSettingsBBBxb4xjs []byte
 
-//go:embed pages/assets/TorrentFilesDialog-szRrA80d.js
-var AssetsTorrentFilesDialogszRrA80djs []byte
+//go:embed pages/assets/TorrentFilesDialog-Cs5RQYL6.js
+var AssetsTorrentFilesDialogCs5RQYL6js []byte
 
-//go:embed pages/assets/Torrents-Bi9LsMaU.js
-var AssetsTorrentsBi9LsMaUjs []byte
+//go:embed pages/assets/Torrents-D-lwNDwX.js
+var AssetsTorrentsDlwNDwXjs []byte
 
-//go:embed pages/assets/VideoPlayer-Cf80MWiX.js
-var AssetsVideoPlayerCf80MWiXjs []byte
+//go:embed pages/assets/VideoPlayer-CzNiQMuu.js
+var AssetsVideoPlayerCzNiQMuujs []byte
 
 //go:embed pages/assets/client-Dr26AKOf.js
 var AssetsclientDr26AKOfjs []byte
@@ -64,11 +64,11 @@ var AssetsformatBYcZLV7js []byte
 //go:embed pages/assets/hls-D9b4QHpD.js
 var AssetshlsD9b4QHpDjs []byte
 
-//go:embed pages/assets/index-BAH-nO5A.js
-var AssetsindexBAHnO5Ajs []byte
-
 //go:embed pages/assets/index-DVKn9Oxb.css
 var AssetsindexDVKn9Oxbcss []byte
+
+//go:embed pages/assets/index-ya6-oKxm.js
+var Assetsindexya6oKxmjs []byte
 
 //go:embed pages/assets/integrations-WHdJYyGB.js
 var AssetsintegrationsWHdJYyGBjs []byte

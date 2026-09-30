@@ -2,6 +2,18 @@ import { test, expect, type Page } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
 import settings from "./settings.json" with { type: "json" };
 
+test("legacy zero-cache settings remain accessible for explicit repair", async ({ page }) => {
+  await mockServer(page);
+  await page.route("**/settings", (route) => {
+    if (new URL(route.request().url()).pathname !== "/settings") return route.fallback();
+    return route.fulfill({ json: { ...settings, CacheSize: 0 } });
+  });
+  await page.goto("/#/settings");
+  await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
+  await expect(page.getByRole("spinbutton", { name: "Cache Size", exact: true })).toHaveValue("0");
+  await expect(page.getByText("The server could not complete the request.", { exact: true })).toHaveCount(0);
+});
+
 test("active playback remains visible when Flow metrics are unavailable", async ({
   page,
 }) => {

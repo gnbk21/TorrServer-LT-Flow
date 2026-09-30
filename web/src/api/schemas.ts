@@ -21,7 +21,9 @@ export const torrentSchema = z
   .passthrough();
 export const settingsSchema = z
   .object({
-    CacheSize: z.number().positive(),
+    // Persisted legacy/partial configurations can report zero. Read it without
+    // preventing settings repair; Apply still validates a positive budget.
+    CacheSize: z.number().nonnegative(),
     ReaderReadAHead: z.number(),
     PreloadCache: z.number(),
     Flow: z

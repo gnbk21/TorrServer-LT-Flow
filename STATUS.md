@@ -5,7 +5,7 @@ describe the revisions tested at those dates and do not override this table.
 
 | Area | Current state | Remaining gate |
 | --- | --- | --- |
-| Public distribution | Preview 1 is published from exact commit `847f6b4f` | Preview 2 release packaging, download and attestation validation |
+| Public distribution | Preview 2 tag `MatriX.145.Flow-v0.2.0-preview.4` is published from `78ece513`; native/package/provenance and live Windows transport passed | Corrected zero-cache Settings compatibility build and native browser acceptance |
 | Preview 2 integration | [Draft PR #3](https://github.com/gnbk21/TorrServer-LT-Flow/pull/3) | Final native playback stress and full CI gates |
 | Modern UI | Type checking/lint/unit tests and 30 browser scenarios passed; large-library pagination, compact telemetry and all seven languages retained | Real Android layout and player launch acceptance |
 | Portable maintenance | Native authenticated backup/restore/support, active-playback rejection and startup doctor passed | Hardware acceptance remains separate |
@@ -30,8 +30,13 @@ real API response shape. The `MatriX.145.Flow-v0.2.0-preview.3` publication was
 cancelled during the final notice review: statically linked Windows/Android
 toolchain runtimes also need their original notices. CI now collects those from
 the actual compiler/NDK installation and packaging requires all three copies.
-The next candidate is `MatriX.145.Flow-v0.2.0-preview.4`; earlier tags are
-retained for traceability.
+The `MatriX.145.Flow-v0.2.0-preview.4` package passed native, packaging,
+provenance and live PowerShell 5.1/7 installation/update validation. The actual
+browser check then found that a persisted zero cache budget prevented opening
+Settings. The read validator now accepts the backend's legacy zero value;
+Apply still requires a positive budget. Unit and browser regressions cover
+explicit repair without autosave. The next candidate is
+`MatriX.145.Flow-v0.2.0-preview.5`; earlier tags are retained for traceability.
 The complete packager passed locally using all 13 native artifacts from
 `815d5bee`, authentic pinned dependency notices, all eight platform archives,
 and two identical checksum inventories. Published transport is still a gate.

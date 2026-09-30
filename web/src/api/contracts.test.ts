@@ -2,6 +2,15 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { flowSchema, settingsSchema, torrentSchema, runtimeSchema, networkSchema } from "./schemas";
+import { validateSettings } from "../lib/settings";
+
+test("legacy zero cache is readable while Apply requires a positive budget", () => {
+  const legacy = { CacheSize: 0, ReaderReadAHead: 5, PreloadCache: 0, LegacyOption: true };
+  expect(settingsSchema.parse(legacy)).toEqual(legacy);
+  expect(settingsSchema.safeParse({ ...legacy, CacheSize: -1 }).success).toBe(false);
+  expect(validateSettings({ CacheSize: 0 }).CacheSize).toBeDefined();
+  expect(validateSettings({ CacheSize: 64 * 1048576 }).CacheSize).toBeUndefined();
+});
 
 const input = process.env.FLOW_CONTRACT_INPUT;
 test.skipIf(!input)("actual Go DTOs satisfy frontend validators and reject incompatible field types", () => {
