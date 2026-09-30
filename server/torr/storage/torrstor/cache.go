@@ -1666,14 +1666,13 @@ func (c *Cache) evictPass() (evictedAny bool) {
 		}
 	}
 
-	evict := func(p *Piece) bool {
+	evict := func(p *Piece, abandonedAt int64) bool {
 		// The pass's protection snapshot can predate a newly attached reader.
 		// Keep registration stable through removal and recheck its current target.
 		c.readersMu.Lock()
 		defer c.readersMu.Unlock()
 		for reader := range c.readers {
-			if reader.currentPiece() == p.Id || int(reader.waitPiece.Load()) == p.Id ||
-				(int(reader.winFirst.Load()) >= 0 && p.Id >= int(reader.winFirst.Load()) && p.Id <= int(reader.winLast.Load())) {
+			if reader.currentPiece() == p.Id || int(reader.waitPiece.Load()) == p.Id {
 				return false
 			}
 		}
@@ -1694,6 +1693,14 @@ func (c *Cache) evictPass() (evictedAny bool) {
 		if c.pieces[p.Id] != p {
 			c.mu.Unlock()
 			return false
+		}
+		if abandonedAt != 0 {
+			// Recheck the reader before changing the picker's state as well as
+			// before wiping: a reader may attach after the protection snapshot.
+			if h := c.handle.Load(); h != nil {
+				_ = h.WeDontHave(p.Id, 0)
+			}
+			c.abandoned[p.Id] = abandonedAt
 		}
 		delete(c.pieces, p.Id)
 		if c.evicted == nil {
@@ -1740,13 +1747,7 @@ func (c *Cache) evictPass() (evictedAny bool) {
 			grace = hashGraceSec
 		}
 		if nowU-p.Accessed() > grace {
-			if h := c.handle.Load(); h != nil {
-				_ = h.WeDontHave(p.Id, 0)
-			}
-			c.mu.Lock()
-			c.abandoned[p.Id] = nowU
-			c.mu.Unlock()
-			evict(p)
+			evict(p, nowU)
 		}
 	}
 
@@ -1778,7 +1779,7 @@ func (c *Cache) evictPass() (evictedAny bool) {
 			continue
 		}
 		sz := p.SizeBytes()
-		if evict(p) {
+		if evict(p, 0) {
 			needFree -= sz
 		}
 	}

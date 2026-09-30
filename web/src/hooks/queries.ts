@@ -37,12 +37,14 @@ export function useLibrary() {
     refetchInterval: (query) =>
       !visible
         ? false
-        : query.state.data?.some(
-              (t) =>
-                (t.active_readers ?? 0) > 0 || t.stat === 1 || t.stat === 2,
-            )
-          ? 1000
-          : 5000,
+        : (query.state.data?.length ?? 0) > 200
+          ? 5000
+          : query.state.data?.some(
+                (t) =>
+                  (t.active_readers ?? 0) > 0 || t.stat === 1 || t.stat === 2,
+              )
+            ? 1000
+            : 5000,
   });
 }
 export function useRuntime() {

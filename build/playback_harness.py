@@ -136,7 +136,10 @@ def range_read(server, info_hash, index, source, start, end, cancel=False):
             raise AssertionError(f"Range status/content mismatch: status={response.status}, file={index}, start={start}, first={first.hex()}, expected={source[start:start+1].hex()}, content_range={response.getheader('Content-Range')}")
         if cancel:
             return {"file_index": index, "start": start, "cancelled": True, "ttfb_ms": ttfb}
-        data = first + response.read()
+        try:
+            data = first + response.read()
+        except http.client.IncompleteRead as error:
+            raise AssertionError(f"Incomplete Range: file={index}, start={start}, end={end}, received={1+len(error.partial)}, missing={error.expected}") from error
         expected = source[start:end+1]
         if data != expected or response.getheader("Content-Range") != f"bytes {start}-{end}/{len(source)}":
             raise AssertionError("Range body/header mismatch")
@@ -146,8 +149,8 @@ def range_read(server, info_hash, index, source, start, end, cancel=False):
         connection.close()
 
 
-def run_case(executable, directory, fixtures, label, rate, delay, disconnect, duration, profile=False):
-    server = OwnedServer(executable, directory / label, profile=profile)
+def run_case(executable, directory, fixtures, label, rate, delay, disconnect, duration, profile=False, debug=False):
+    server = OwnedServer(executable, directory / label, profile=profile, extra_settings={"EnableDebug":debug})
     report = {"case": label, "http_delivery_only": True, "ranges": [], "samples": []}
     try:
         report["startup_ready_ms"] = server.ready()
@@ -193,6 +196,16 @@ def run_case(executable, directory, fixtures, label, rate, delay, disconnect, du
                         offset = (cycle*131072) % max(1,len(source)-262144)
                         range_read(server,info_hash,file["id"],source,offset,offset+131071)
                 report["cross_file_churn_requests"] = 64*len(status["file_stats"])
+                observations = len(server.observations)
+                poll_started = time.monotonic()
+                for tick in range(12):
+                    server.json("/flow/status/"+info_hash)
+                    server.json("/torrents",{"action":"list"})
+                    if tick%5==0:
+                        for endpoint in ("/flow/tray","/flow/network","/runtime/status"): server.json(endpoint)
+                    time.sleep(max(0,poll_started+tick+1-time.monotonic()))
+                requests = server.observations[observations:]
+                report["polling_measurement"] = {"seconds":time.monotonic()-poll_started,"requests":len(requests),"payload_bytes":sum(r["bytes"] for r in requests),"request_p95_ms":sorted(r["elapsed_ms"] for r in requests)[int((len(requests)-1)*.95)],"generated_media":True}
             if profile:
                 def capture(kind, seconds):
                     with urllib.request.urlopen(server.profile_base+f"/debug/pprof/{kind}?seconds={seconds}",timeout=seconds+10) as response:
@@ -248,6 +261,14 @@ def run_case(executable, directory, fixtures, label, rate, delay, disconnect, du
                     raise AssertionError("Warm cache did not expire")
             report["status_requests"] = server.observations
             report["passed"] = True
+    except Exception as error:
+        report["error"] = str(error)
+        for key, endpoint in (("runtime", "/runtime/status"), ("flow", "/flow/status/"+locals().get("info_hash", ""))):
+            try: report[key] = server.json(endpoint)
+            except (OSError, ValueError): pass
+        if "swarm" in locals(): report["peer"] = swarm.status()
+        (directory / label / "failure.json").write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
+        raise
     finally:
         server.close()
     return report
@@ -260,6 +281,7 @@ if __name__ == "__main__":
     parser.add_argument("--fixtures", type=Path)
     parser.add_argument("--duration", type=int, default=0, help="additional resource cycling seconds per case; e.g. 7200 for endurance")
     parser.add_argument("--profile", action="store_true", help="collect bounded CPU profiles and execution traces while exercising playback")
+    parser.add_argument("--debug", action="store_true", help="retain cache/picker diagnostics for a failing controlled scenario")
     parser.add_argument("--cases", nargs="+", choices=("fast","slow","disconnect"), default=["fast","slow","disconnect"])
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
@@ -269,7 +291,7 @@ if __name__ == "__main__":
     try:
         for name in args.cases:
             print(f"Controlled case: {name}", flush=True)
-            result["cases"].append(run_case(args.executable,args.output,paths,name,*cases[name],args.duration,args.profile))
+            result["cases"].append(run_case(args.executable,args.output,paths,name,*cases[name],args.duration,args.profile,args.debug))
             (args.output / "report.json").write_text(json.dumps(result,indent=2)+"\n",encoding="utf-8")
         print(json.dumps({"passed":True,"report":str(args.output / "report.json"),"cases":len(result["cases"])}))
     except Exception as error:

@@ -29,22 +29,22 @@ function Health {
 }
 $installed = $false
 try {
-    Command @('--service','install','--path',$state,'--port',[string]$port,'--ip','127.0.0.1','--httpauth')
+    Command -Arguments @('--service','install','--path',$state,'--port',[string]$port,'--ip','127.0.0.1','--httpauth')
     $installed = $true
     $service = Get-CimInstance Win32_Service -Filter "Name='TorrServer-Flow'"
     if ($service.StartName -ne 'NT SERVICE\TorrServer-Flow') { throw 'Service is not using its virtual account.' }
     $sidType = (Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\TorrServer-Flow').ServiceSidType
     if ($sidType -ne 3) { throw 'Service SID is not restricted.' }
-    Command @('--service','start'); Health
+    Command -Arguments @('--service','start'); Health
     $lease = Invoke-RestMethod -Uri "$baseUri/flow/maintenance" -Method Post -ContentType 'application/json' -Body '{"enabled":true}' -Headers $headers
     if (-not $lease.token) { throw 'Maintenance lease missing.' }
     Invoke-RestMethod -Uri "$baseUri/flow/maintenance" -Method Post -ContentType 'application/json' -Body (@{enabled=$false;token=$lease.token}|ConvertTo-Json -Compress) -Headers $headers | Out-Null
-    Command @('--service','restart'); Health
+    Command -Arguments @('--service','restart'); Health
     $report = Invoke-RestMethod -Uri "$baseUri/flow/support" -Headers $headers
     if (($report|ConvertTo-Json -Depth 20) -match 'service-fixture-only') { throw 'Support report leaked an account.' }
-    Command @('--service','stop')
+    Command -Arguments @('--service','stop')
     if ((Get-Service -Name 'TorrServer-Flow').Status -ne 'Stopped') { throw 'Service did not stop.' }
     @{passed=$true;restricted_account=$true;restricted_sid=$true;restart=$true;clean_stop=$true;path=$state} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $state 'service-test.json')
 } finally {
-    if ($installed) { Command @('--service','uninstall') }
+    if ($installed) { Command -Arguments @('--service','uninstall') }
 }

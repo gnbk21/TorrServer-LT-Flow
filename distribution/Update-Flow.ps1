@@ -9,6 +9,8 @@ $install = [IO.Path]::GetFullPath($InstallDirectory)
 $recordPath = Join-Path $install 'flow-install.json'
 $record = Get-Content -LiteralPath $recordPath -Raw | ConvertFrom-Json
 if ($record.schema_version -ne 1) { throw 'Unsupported installation record.' }
+$httpAuth = ($record.PSObject.Properties.Name -contains 'http_auth') -and [bool]$record.http_auth
+if ($httpAuth -and -not $Credential) { throw 'This installation requires -Credential for authenticated health and maintenance checks.' }
 $exe = Join-Path $install 'TorrServer-LT-windows-amd64.exe'
 $manifest = Get-FlowRelease $Channel
 if ($manifest.Version -eq $record.version) { Write-Output 'This release is already installed.'; return }
@@ -27,7 +29,7 @@ function Start-InstalledFlow {
         # Arguments are quoted for Windows CreateProcess, never evaluated as shell code.
         if ([string]$record.state_directory -match '["\r\n]') { throw 'Invalid state path.' }
         $arguments = '--path "' + ([string]$record.state_directory).TrimEnd('\') + '" --port ' + [int]$record.port
-        if ($Credential) { $arguments += ' --httpauth' }
+        if ($httpAuth) { $arguments += ' --httpauth' }
         Start-Process -FilePath $exe -ArgumentList $arguments -WorkingDirectory $install -WindowStyle Hidden | Out-Null
     }
 }
@@ -81,7 +83,7 @@ try {
     $swapped = $true
     Start-InstalledFlow
     Wait-FlowHealth $manifest.Version
-    Write-FlowInstallRecord $install ([string]$record.state_directory) ([int]$record.port) $manifest ([bool]$record.service)
+    Write-FlowInstallRecord $install ([string]$record.state_directory) ([int]$record.port) $manifest ([bool]$record.service) $httpAuth
     Write-Output "Updated to $($manifest.Version). Previous executable: $previous. Configuration backup: $backup."
 } catch {
     $failure = $_

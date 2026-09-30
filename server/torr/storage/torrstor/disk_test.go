@@ -248,6 +248,9 @@ func TestCache_EvictionSparesReaderWindow(t *testing.T) {
 		if present(gone) {
 			t.Fatalf("unprotected piece %d should have been evicted", gone)
 		}
+		if !c.consumeEvicted(gone) || c.consumeEvicted(gone) {
+			t.Fatalf("piece %d needs exactly one on-demand picker reset", gone)
+		}
 	}
 	if c.Filled() > c.capacity() {
 		t.Fatalf("eviction did not converge: filled=%d cap=%d", c.Filled(), c.capacity())
@@ -606,14 +609,14 @@ func TestTailPiecesFor(t *testing.T) {
 		plen int64
 		want int
 	}{
-		{8 * MB, 1},  // > 5 MB -> one whole chunk
-		{6 * MB, 1},  // > 5 MB -> one whole chunk
-		{5 * MB, 1},  // == 5 MB -> the chunk already covers it
-		{4 * MB, 2},  // < 5 MB -> ceil(5/4) = 2
-		{2 * MB, 3},  // < 5 MB -> ceil(5/2) = 3
-		{1 * MB, 5},  // < 5 MB -> ceil(5/1) = 5
+		{8 * MB, 1},                   // > 5 MB -> one whole chunk
+		{6 * MB, 1},                   // > 5 MB -> one whole chunk
+		{5 * MB, 1},                   // == 5 MB -> the chunk already covers it
+		{4 * MB, 2},                   // < 5 MB -> ceil(5/4) = 2
+		{2 * MB, 3},                   // < 5 MB -> ceil(5/2) = 3
+		{1 * MB, 5},                   // < 5 MB -> ceil(5/1) = 5
 		{16 * 1024, maxTailPinPieces}, // tiny piece -> capped
-		{0, 1},       // no metadata yet
+		{0, 1},                        // no metadata yet
 	}
 	for _, c := range cases {
 		if got := TailPiecesFor(c.plen); got != c.want {

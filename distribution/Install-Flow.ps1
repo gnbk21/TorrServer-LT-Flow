@@ -4,6 +4,7 @@ param(
     [Parameter(Mandatory)][string]$StateDirectory,
     [ValidateRange(1, 65535)][int]$Port = 8090,
     [switch]$AsService,
+    [switch]$HttpAuth,
     [switch]$RequireAttestation
 )
 . (Join-Path $PSScriptRoot 'FlowRelease.ps1')
@@ -14,17 +15,24 @@ if (Test-Path -LiteralPath (Join-Path $install 'TorrServer-LT-windows-amd64.exe'
 $manifest = Get-FlowRelease $Channel
 [void](New-Item -ItemType Directory -Path $install -Force)
 [void](New-Item -ItemType Directory -Path $state -Force)
+if ($HttpAuth) {
+    $accounts = Get-Content -LiteralPath (Join-Path $state 'accs.db') -Raw | ConvertFrom-Json
+    $entries = @($accounts.PSObject.Properties)
+    if (-not $entries.Count -or @($entries | Where-Object { -not $_.Name -or -not ($_.Value -is [string]) -or -not $_.Value }).Count) { throw '-HttpAuth requires an existing valid accs.db account map in the state directory.' }
+}
 $temporary = Join-Path $install ('download-' + [guid]::NewGuid().ToString('N') + '.exe')
 try {
     Save-FlowBinary $manifest $temporary -RequireAttestation:$RequireAttestation
     $exe = Join-Path $install 'TorrServer-LT-windows-amd64.exe'
     Move-Item -LiteralPath $temporary -Destination $exe
     if ($AsService) {
-        & $exe --service install --path $state --port $Port
+        $arguments = @('--service','install','--path',$state,'--port',[string]$Port)
+        if ($HttpAuth) { $arguments += '--httpauth' }
+        & $exe @arguments
         if ($LASTEXITCODE -ne 0) { throw 'Service installation failed. The downloaded executable is retained.' }
     }
-    Write-FlowInstallRecord $install $state $Port $manifest ([bool]$AsService)
+    Write-FlowInstallRecord $install $state $Port $manifest ([bool]$AsService) ([bool]$HttpAuth)
     Write-Output "Installed $($manifest.Version). State: $state. Port: $Port."
     if ($AsService) { Write-Output 'Start using --service start from an elevated terminal.' }
-    else { Write-Output "Start: & '$exe' --path '$state' --port $Port" }
+    else { $authArgument=''; if ($HttpAuth) { $authArgument=' --httpauth' }; Write-Output "Start: & '$exe' --path '$state' --port $Port$authArgument" }
 } finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary } }
