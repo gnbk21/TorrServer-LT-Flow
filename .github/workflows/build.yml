@@ -400,6 +400,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ env.REG_REPO }}
+          # Channel policy is explicit; suppress automatic latest generation.
+          flavor: latest=false
           tags: |
             type=raw,value=master,enable=${{ github.ref == 'refs/heads/master' }}
             type=ref,event=tag
