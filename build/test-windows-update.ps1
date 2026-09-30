@@ -50,7 +50,8 @@ $global:flowUpdateTeststartArguments=@()
 function Invoke-RestMethod {
     [CmdletBinding()]param([string]$Uri,[hashtable]$Headers,[int]$TimeoutSec,[string]$Method,[string]$ContentType,$Body)
     if ($Uri -eq 'https://api.github.com/repos/gnbk21/TorrServer-LT-Flow/releases?per_page=100') {
-        return @([pscustomobject]@{draft=$false;prerelease=$true;tag_name=$global:flowUpdateTestfixtureManifest.Version;assets=@([pscustomobject]@{name='release.json';browser_download_url="https://github.com/gnbk21/TorrServer-LT-Flow/releases/download/$($global:flowUpdateTestfixtureManifest.Version)/release.json"})})
+        Write-Output -NoEnumerate @([pscustomobject]@{draft=$false;prerelease=$true;tag_name=$global:flowUpdateTestfixtureManifest.Version;assets=@([pscustomobject]@{name='release.json';browser_download_url="https://github.com/gnbk21/TorrServer-LT-Flow/releases/download/$($global:flowUpdateTestfixtureManifest.Version)/release.json"})})
+        return
     }
     if ($Uri -eq "https://github.com/gnbk21/TorrServer-LT-Flow/releases/download/$($global:flowUpdateTestfixtureManifest.Version)/release.json") { return $global:flowUpdateTestfixtureManifest }
     Microsoft.PowerShell.Utility\Invoke-RestMethod @PSBoundParameters

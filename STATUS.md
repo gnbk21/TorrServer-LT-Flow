@@ -22,8 +22,12 @@ correctly rejected that fixture's development identity. The next attempt,
 `MatriX.145.Flow-v0.2.0-preview.1` in run `36766807632`, passed every native/service
 gate but found a packager bug: artifact directories were counted as files.
 Regression tests now distinguish directories from files and still reject real
-duplicates. The next candidate is `MatriX.145.Flow-v0.2.0-preview.2`; failed tags
-are retained for traceability.
+duplicates. The `MatriX.145.Flow-v0.2.0-preview.2` release passed packaging and
+provenance publication, but live installer validation found a PowerShell
+JSON-array enumeration defect. Its native binaries are unaffected; its managed
+scripts must be replaced. The selector and transport fixtures now preserve the
+real API response shape. The next candidate is `MatriX.145.Flow-v0.2.0-preview.3`;
+earlier tags are retained for traceability.
 The complete packager passed locally using all 13 native artifacts from
 `815d5bee`, authentic pinned dependency notices, all eight platform archives,
 and two identical checksum inventories. Published transport is still a gate.

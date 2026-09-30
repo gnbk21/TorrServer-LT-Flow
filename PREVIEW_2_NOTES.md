@@ -25,9 +25,9 @@ interface. Stable Flow / Modern Web 1.0 acceptance remains incomplete.
 
 Use the standard executable for direct playback; optional `-gst` builds require
 GStreamer. Windows packages include the tray and managed distribution scripts.
-See [installation and recovery](https://github.com/gnbk21/TorrServer-LT-Flow/blob/MatriX.145.Flow-v0.2.0-preview.2/DISTRIBUTION.md),
-[measurements](https://github.com/gnbk21/TorrServer-LT-Flow/blob/MatriX.145.Flow-v0.2.0-preview.2/MEASUREMENTS.md)
-and [remaining stable acceptance gates](https://github.com/gnbk21/TorrServer-LT-Flow/blob/MatriX.145.Flow-v0.2.0-preview.2/RELEASE_ACCEPTANCE.json). Back up existing state and stop
+See [installation and recovery](https://github.com/gnbk21/TorrServer-LT-Flow/blob/MatriX.145.Flow-v0.2.0-preview.3/DISTRIBUTION.md),
+[measurements](https://github.com/gnbk21/TorrServer-LT-Flow/blob/MatriX.145.Flow-v0.2.0-preview.3/MEASUREMENTS.md)
+and [remaining stable acceptance gates](https://github.com/gnbk21/TorrServer-LT-Flow/blob/MatriX.145.Flow-v0.2.0-preview.3/RELEASE_ACCEPTANCE.json). Back up existing state and stop
 playback before upgrading. Preview 1 requires a manual upgrade because it lacks
 the managed update manifest and maintenance leases.
 

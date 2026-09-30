@@ -15,7 +15,12 @@ $fixtureReleases = @(
 )
 function Invoke-RestMethod {
     param([string]$Uri, $Headers, $TimeoutSec)
-    if ($Uri -like 'https://api.github.com/*') { return $fixtureReleases }
+    if ($Uri -like 'https://api.github.com/*') {
+        # Match Invoke-RestMethod's JSON-array output rather than PowerShell
+        # function return enumeration, which hid the live API regression.
+        Write-Output -NoEnumerate $fixtureReleases
+        return
+    }
     $tag = ($Uri -split '/')[-2]
     $channel = 'stable'
     if ($tag -match 'preview|alpha|beta|rc') { $channel = 'preview' }

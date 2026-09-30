@@ -5,7 +5,10 @@ $ErrorActionPreference = 'Stop'
 function Get-FlowRelease {
     param([ValidateSet('stable', 'preview')][string]$Channel)
     $headers = @{ 'User-Agent' = 'TorrServer-Flow'; Accept = 'application/vnd.github+json' }
-    $releases = @(Invoke-RestMethod -Uri 'https://api.github.com/repos/gnbk21/TorrServer-LT-Flow/releases?per_page=100' -Headers $headers -TimeoutSec 30)
+    # Invoke-RestMethod emits a JSON array as one pipeline object. Normalize
+    # after assignment so selection receives each release on both PS 5.1/7.
+    $releaseResponse = Invoke-RestMethod -Uri 'https://api.github.com/repos/gnbk21/TorrServer-LT-Flow/releases?per_page=100' -Headers $headers -TimeoutSec 30
+    $releases = @($releaseResponse)
     $tagPattern = '^MatriX\.145\.Flow-v[0-9]+\.[0-9]+\.[0-9]+$'
     if ($Channel -eq 'preview') {
         $tagPattern = '^MatriX\.145\.Flow-(v[0-9]+\.[0-9]+\.[0-9]+-(preview|alpha|beta|rc)\.[0-9]+|preview\.[0-9]+)$'
