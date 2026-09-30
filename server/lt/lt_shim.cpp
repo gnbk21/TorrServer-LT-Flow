@@ -564,6 +564,14 @@ size_t lt_shim_version(char* buf, size_t cap) {
     return copy_string(ver, buf, cap);
 }
 
+int lt_cache_reconciliation_supported(void) {
+#ifdef TSL_HAVE_LT_INTERNALS
+    return 1;
+#else
+    return 0;
+#endif
+}
+
 size_t lt_engine_version(char* buf, size_t cap) {
     static const std::string ver = LIBTORRENT_VERSION;
     return copy_string(ver, buf, cap);

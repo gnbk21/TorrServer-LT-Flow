@@ -37,6 +37,7 @@ extern "C" {
 /* ----- types ----- */
 typedef int64_t lt_session;
 typedef int64_t lt_torrent;
+int lt_cache_reconciliation_supported(void);
 
 /* ----- error codes ----- */
 #define LT_OK              0

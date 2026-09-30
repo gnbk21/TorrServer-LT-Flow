@@ -118,6 +118,8 @@ jobs:
         working-directory: server
         env:
           CGO_ENABLED: '1'
+          CGO_CXXFLAGS: -DTSL_HAVE_LT_INTERNALS
+          FLOW_REQUIRE_CACHE_EXTENSION: '1'
           PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
@@ -128,6 +130,8 @@ jobs:
         working-directory: server
         env:
           CGO_ENABLED: '1'
+          CGO_CXXFLAGS: -DTSL_HAVE_LT_INTERNALS
+          FLOW_REQUIRE_CACHE_EXTENSION: '1'
           PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
@@ -138,6 +142,8 @@ jobs:
         working-directory: server
         env:
           CGO_ENABLED: '1'
+          CGO_CXXFLAGS: -DTSL_HAVE_LT_INTERNALS
+          FLOW_REQUIRE_CACHE_EXTENSION: '1'
           PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
@@ -170,6 +176,8 @@ jobs:
         working-directory: server
         env:
           CGO_ENABLED: '1'
+          CGO_CXXFLAGS: -DTSL_HAVE_LT_INTERNALS
+          FLOW_REQUIRE_CACHE_EXTENSION: '1'
           PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
@@ -189,6 +197,8 @@ jobs:
         working-directory: server
         env:
           CGO_ENABLED: '1'
+          CGO_CXXFLAGS: -DTSL_HAVE_LT_INTERNALS
+          FLOW_REQUIRE_CACHE_EXTENSION: '1'
           PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
@@ -207,6 +217,8 @@ jobs:
         working-directory: server
         env:
           CGO_ENABLED: '1'
+          CGO_CXXFLAGS: -DTSL_HAVE_LT_INTERNALS
+          FLOW_REQUIRE_CACHE_EXTENSION: '1'
           PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib

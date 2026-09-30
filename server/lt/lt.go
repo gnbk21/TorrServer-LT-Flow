@@ -450,6 +450,10 @@ func (t *Torrent) HasPiece(piece int) bool {
 	return C.lt_torrent_have_piece(t.id, C.int(piece)) == 1
 }
 
+// CacheReconciliationSupported reports the static build's native cache API.
+// Shared distro builds may omit the required internal symbols.
+func CacheReconciliationSupported() bool { return C.lt_cache_reconciliation_supported() == 1 }
+
 // PieceLength returns the piece length in bytes (0 before metadata).
 func (t *Torrent) PieceLength() int64 { return int64(C.lt_torrent_piece_length(t.id)) }
 
@@ -598,16 +602,16 @@ func (t *Torrent) Status() (*Status, error) {
 
 // Alert is one entry produced by the shim's alert pump.
 type Alert struct {
-	Type        string          `json:"type"`
-	Category    uint32          `json:"category"`
-	Message     string          `json:"message"`
-	Torrent     int64           `json:"torrent,omitempty"`
-	TorrentHash string          `json:"torrent_hash,omitempty"`
-	Piece       int             `json:"piece,omitempty"`
-	Block       int             `json:"block,omitempty"`
-	URL         string          `json:"url,omitempty"`
-	Peers       int             `json:"peers,omitempty"`
-	Error       string          `json:"error,omitempty"`
+	Type        string `json:"type"`
+	Category    uint32 `json:"category"`
+	Message     string `json:"message"`
+	Torrent     int64  `json:"torrent,omitempty"`
+	TorrentHash string `json:"torrent_hash,omitempty"`
+	Piece       int    `json:"piece,omitempty"`
+	Block       int    `json:"block,omitempty"`
+	URL         string `json:"url,omitempty"`
+	Peers       int    `json:"peers,omitempty"`
+	Error       string `json:"error,omitempty"`
 	// Counters is only set on session_stats alerts: metric name → value,
 	// as serialized by the shim from lt::session_stats_metrics().
 	Counters map[string]int64 `json:"counters,omitempty"`

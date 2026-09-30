@@ -501,6 +501,12 @@ func TestStatus(t *testing.T) {
 }
 
 func TestCacheRefetchLeavesSeedingState(t *testing.T) {
+	if !CacheReconciliationSupported() {
+		if os.Getenv("FLOW_REQUIRE_CACHE_EXTENSION") == "1" {
+			t.Fatal("release-path tests require native cache reconciliation")
+		}
+		t.Skip("shared libtorrent does not supply cache reconciliation")
+	}
 	s := newSession(t)
 	tor, err := s.AddTorrent(AddTorrentParams{InfoBytes: minimalTorrent(), SavePath: t.TempDir(), HavePieces: []byte{1}, PieceCount: 1})
 	if err != nil {
