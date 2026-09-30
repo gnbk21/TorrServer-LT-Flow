@@ -111,14 +111,15 @@ def package(artifact_dir, output, tag, commit, native_root):
                 entry.create_system = 3
                 entry.external_attr = ((0o100755 if executable else 0o100644) << 16)
                 archive.writestr(entry, path.read_bytes(), compresslevel=9)
-            for doc in documents:
-                add(output / doc)
+            contents = [(output / doc, False) for doc in documents]
             for binary in binaries:
                 if binary.name.startswith(f"TorrServer-LT-{platform}"):
-                    add(binary, executable=True)
+                    contents.append((binary, True))
             if platform.startswith("windows"):
                 for script in ("FlowTray.ps1", "Install-Flow.ps1", "Update-Flow.ps1", "FlowRelease.ps1"):
-                    add(output / script)
+                    contents.append((output / script, False))
+            for path, executable in sorted(contents, key=lambda item: item[0].name):
+                add(path, executable)
         packages[platform] = {"name": name, "url": base_url + name, "sha256": digest(output / name), "size": (output / name).stat().st_size}
     build_epoch = int(subprocess.check_output(["git", "show", "-s", "--format=%ct", commit], cwd=root, text=True).strip())
     manifest = {"Name": "TorrServer-Flow", "Version": tag, "BuildDate": datetime.datetime.fromtimestamp(build_epoch, datetime.timezone.utc).isoformat(),
