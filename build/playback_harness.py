@@ -196,10 +196,19 @@ def run_case(executable, directory, fixtures, label, rate, delay, disconnect, du
                         offset = (cycle*131072) % max(1,len(source)-262144)
                         range_read(server,info_hash,file["id"],source,offset,offset+131071)
                 report["cross_file_churn_requests"] = 64*len(status["file_stats"])
+                full = server.json("/flow/status/"+info_hash)
+                full_bytes = server.observations[-1]["bytes"]
+                compact = server.json("/flow/status/"+info_hash+"?traces=false")
+                compact_bytes = server.observations[-1]["bytes"]
+                if any(s.get("traces") for s in compact.get("sessions",[])):
+                    raise AssertionError("Compact status retained diagnostic traces")
+                if {(s["group"],s["file_index"]) for s in full.get("sessions",[])} != {(s["group"],s["file_index"]) for s in compact.get("sessions",[])}:
+                    raise AssertionError("Compact status lost sessions")
+                report["status_payload"] = {"full_bytes":full_bytes,"compact_bytes":compact_bytes,"full_trace_count":sum(len(s.get("traces",[])) for s in full.get("sessions",[]))}
                 observations = len(server.observations)
                 poll_started = time.monotonic()
                 for tick in range(12):
-                    server.json("/flow/status/"+info_hash)
+                    server.json("/flow/status/"+info_hash+"?traces=false")
                     server.json("/torrents",{"action":"list"})
                     if tick%5==0:
                         for endpoint in ("/flow/tray","/flow/network","/runtime/status"): server.json(endpoint)

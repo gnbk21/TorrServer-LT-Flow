@@ -90,6 +90,15 @@ export function useFlows(hashes: string[]) {
     })),
   });
 }
+export function useFlowDiagnostics(hash: string | undefined, enabled: boolean) {
+  const visible = useVisible();
+  return useQuery({
+    queryKey: ["flow-diagnostics", hash],
+    queryFn: ({ signal }) => flowApi.getStatus(hash!, signal, true),
+    enabled: enabled && !!hash,
+    refetchInterval: enabled && visible ? 3000 : false,
+  });
+}
 export function useVersion() {
   return useQuery({
     queryKey: ["version"],

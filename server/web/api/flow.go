@@ -24,7 +24,7 @@ func flowStatus(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "torrent not found"})
 		return
 	}
-	c.JSON(http.StatusOK, FlowStatusResponse{c.Param("hash"), t.FlowStartup(), t.FlowStatus(), t.FlowTrackers(), torr.NetworkStatusSnapshot()})
+	c.JSON(http.StatusOK, FlowStatusResponse{c.Param("hash"), t.FlowStartup(), t.FlowStatusWithTraces(c.Query("traces") != "false"), t.FlowTrackers(), torr.NetworkStatusSnapshot()})
 }
 
 func flowNetwork(c *gin.Context) {

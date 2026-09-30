@@ -7,9 +7,12 @@ import {
 } from "../types/flow";
 
 export const flowApi = {
-  getStatus: (hash: string, signal?: AbortSignal) =>
+  getStatus: (hash: string, signal?: AbortSignal, includeTraces = false) =>
     api
-      .get<unknown>(`/flow/status/${encodeURIComponent(hash)}`, signal)
+      .get<unknown>(
+        `/flow/status/${encodeURIComponent(hash)}${includeTraces ? "" : "?traces=false"}`,
+        signal,
+      )
       .then((data) => flowSchema.parse(data) as FlowStatusResponse),
 
   getNetwork: (signal?: AbortSignal) =>

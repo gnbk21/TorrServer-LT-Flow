@@ -2,6 +2,8 @@ import { redactDiagnostic } from "../../lib/redact";
 import { useTranslation } from "react-i18next";
 import { Modal } from "../common/Modal";
 import type { FlowStatusResponse } from "../../types/flow";
+import { useFlowDiagnostics } from "../../hooks/queries";
+import { RequestError } from "../common/RequestState";
 export interface FlowDiagnosticsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -11,10 +13,12 @@ export interface FlowDiagnosticsDrawerProps {
 export function FlowDiagnosticsDrawer({
   isOpen,
   onClose,
-  status,
+  status: summary,
   torrentTitle,
 }: FlowDiagnosticsDrawerProps) {
   const { t } = useTranslation();
+  const diagnostics = useFlowDiagnostics(summary?.hash, isOpen);
+  const status = diagnostics.data ?? summary;
   return (
     <Modal
       isOpen={isOpen}
@@ -23,6 +27,13 @@ export function FlowDiagnosticsDrawer({
       subtitle={torrentTitle}
       maxWidth="4xl"
     >
+      {diagnostics.error && (
+        <RequestError
+          error={diagnostics.error}
+          stale={!!status}
+          retry={() => diagnostics.refetch()}
+        />
+      )}
       {!status ? (
         <p>{t("flow.noMetrics")}</p>
       ) : (

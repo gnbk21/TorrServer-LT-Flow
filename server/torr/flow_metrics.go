@@ -292,6 +292,12 @@ func (t *Torrent) flowFirstByte(fileID int, group string, seq uint64, started ti
 // FlowStatus returns a bounded diagnostic snapshot. The cache remains the
 // authority for resident bytes, so buffer seconds stop at the first hole.
 func (t *Torrent) FlowStatus() []FlowSessionStatus {
+	return t.FlowStatusWithTraces(true)
+}
+
+// FlowStatusWithTraces lets frequent UI observations omit optional diagnostic
+// history. The existing full snapshot remains the compatibility default.
+func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 	if t == nil {
 		return nil
 	}
@@ -300,7 +306,10 @@ func (t *Torrent) FlowStatus() []FlowSessionStatus {
 	var offsets []int64
 	for _, s := range t.flowSessions {
 		copy := s.FlowSessionStatus
-		copy.Traces = append([]FlowRangeTrace(nil), s.Traces...)
+		copy.Traces = nil
+		if includeTraces {
+			copy.Traces = append([]FlowRangeTrace(nil), s.Traces...)
+		}
 		if copy.ActiveReaders == 0 && time.Since(s.lastSeen) >= time.Duration(settings.CurrentFlow().WarmSessionTimeoutSec)*time.Second {
 			copy.State = "EXPIRED"
 		}
