@@ -1,10 +1,12 @@
 # Modern interface implementation ledger
 
 Specification: revision 2.0, sections 1–100, in the supplied engineering plan.
-Current branch: develop, after the user-approved merge of PR #2 on
+Modernization baseline: develop, after the user-approved merge of PR #2 on
 30 September 2026 (a82087bb). Audit build 757577be is verified separately in
 AUDIT.md. Legacy remains recoverable at that commit and in web-legacy/, with
 a local archive/reference in .tools/audit. The incoming draft is separately archived.
+Preview 2 changes and their current integration state are tracked in STATUS.md
+and IMPROVEMENT_CHECKLIST.md.
 
 Unchecked means implementation or verification remains; existence of a file is
 not acceptance. Real device checks require the user's phone.
