@@ -481,7 +481,7 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 			// until timeout. Un-have just this one piece so the picker re-downloads it.
 			// This replaces un-having on every eviction, which churned the picker and
 			// stalled the whole download once the cache started evicting mid-stream.
-			if r.handle.HasPiece(piece) {
+			if r.cache.consumeEvicted(piece) || r.handle.HasPiece(piece) {
 				// Un-have it and leave it at top priority (applied atomically inside
 				// WeDontHave) so the picker re-requests it immediately.
 				if s := settings.BTsets(); s != nil && s.EnableDebug {

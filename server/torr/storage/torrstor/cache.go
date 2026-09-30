@@ -68,6 +68,9 @@ const hashGraceSec = 30
 
 // Cache holds every Piece for a single torrent.
 type Cache struct {
+	// Recent eviction markers distinguish missing native blocks from a new
+	// download. They contain no media data and are bounded to 2048 entries.
+	evicted         map[int]bool // guarded by mu
 	storage         *Storage
 	flowCounters    flow.Counters
 	flowMu          sync.Mutex
@@ -1585,6 +1588,14 @@ func (c *Cache) clearAbandoned(piece int) {
 	c.mu.Unlock()
 }
 
+func (c *Cache) consumeEvicted(piece int) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	evicted := c.evicted[piece]
+	delete(c.evicted, piece)
+	return evicted
+}
+
 // evictIfOverCapacity drops the least-recently-used complete pieces until
 // Filled <= capacity, but never evicts a piece inside an active reader's
 // protected window (its forward readahead + a behind-margin). Protecting the
@@ -1655,7 +1666,17 @@ func (c *Cache) evictPass() (evictedAny bool) {
 		}
 	}
 
-	evict := func(p *Piece) {
+	evict := func(p *Piece) bool {
+		// The pass's protection snapshot can predate a newly attached reader.
+		// Keep registration stable through removal and recheck its current target.
+		c.readersMu.Lock()
+		defer c.readersMu.Unlock()
+		for reader := range c.readers {
+			if reader.currentPiece() == p.Id || int(reader.waitPiece.Load()) == p.Id ||
+				(int(reader.winFirst.Load()) >= 0 && p.Id >= int(reader.winFirst.Load()) && p.Id <= int(reader.winLast.Load())) {
+				return false
+			}
+		}
 		// We deliberately do NOT WeDontHave here: un-having every evicted piece
 		// churns the piece_picker and stalls the whole download once eviction
 		// starts mid-stream. The have-bitfield is reconciled lazily, on demand, by
@@ -1669,11 +1690,26 @@ func (c *Cache) evictPass() (evictedAny bool) {
 				"size", p.SizeBytes()>>20, "MB win", winLo, "..", winHi,
 				"filled", int(filled>>20), "cap", int(cap>>20))
 		}
-		p.wipe()
 		c.mu.Lock()
+		if c.pieces[p.Id] != p {
+			c.mu.Unlock()
+			return false
+		}
 		delete(c.pieces, p.Id)
+		if c.evicted == nil {
+			c.evicted = map[int]bool{}
+		}
+		if len(c.evicted) >= 2048 {
+			for id := range c.evicted {
+				delete(c.evicted, id)
+				break
+			}
+		}
+		c.evicted[p.Id] = true
 		c.mu.Unlock()
+		p.wipe()
 		evictedAny = true
+		return true
 	}
 	// Never evict an INCOMPLETE piece during the capacity trim: its blocks live only
 	// in this cache and libtorrent may finish it later (end-game, an unchoke, a
@@ -1742,8 +1778,9 @@ func (c *Cache) evictPass() (evictedAny bool) {
 			continue
 		}
 		sz := p.SizeBytes()
-		evict(p)
-		needFree -= sz
+		if evict(p) {
+			needFree -= sz
+		}
 	}
 	return evictedAny
 }
