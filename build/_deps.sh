@@ -302,6 +302,7 @@ gst_variant_wanted() {
 
 go_build() {
     local deps="$1"
+    python3 "$ROOT/build/patch_libtorrent_header.py" "$deps"
     local out="$OUT_DIR/TorrServer-LT-${TARGET}${BINEXT:-}"
     # -gst suffix BEFORE the .exe extension; the suffix form keeps the CI
     # artifact globs (TorrServer-LT-<target>*) picking both variants up.

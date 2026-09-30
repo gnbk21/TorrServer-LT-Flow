@@ -69,6 +69,53 @@ extern void tsl_install_disk_io_on(libtorrent::session_params& params);
 #include <vector>
 
 namespace lt = libtorrent;
+
+#ifdef TSL_HAVE_LT_INTERNALS
+// A cache miss is not a hash failure: reconcile availability without blaming
+// peers or rechecking the entire torrent. The pinned build declares this
+// non-virtual member in torrent.hpp; it changes no class layout.
+#if LIBTORRENT_VERSION_NUM >= 20100
+void libtorrent::aux::torrent::flow_forget_piece(piece_index_t const index,
+    download_priority_t const priority)
+#else
+void libtorrent::torrent::flow_forget_piece(piece_index_t const index,
+    download_priority_t const priority)
+#endif
+{
+    if (m_abort || !valid_metadata() || index < piece_index_t{0}
+        || index >= m_torrent_file->end_piece()) return;
+    bool const was_finished = is_finished();
+    bool const was_all = m_have_all;
+    leave_seed_mode(seed_mode_t::skip_checking);
+    m_have_all = false;
+    if (!has_picker()) {
+        need_picker();
+        if (was_all) m_picker->we_have_all();
+    }
+    bool const had_piece = m_picker->have_piece(index);
+    m_picker->set_piece_priority(index, dont_download);
+    m_picker->we_dont_have(index);
+    m_picker->set_piece_priority(index, priority);
+    // File progress must forget the byte count too, or the next completion
+    // counts the same bytes twice. Rebuild only for formerly complete pieces.
+    if (had_piece || was_all) {
+        m_file_progress.clear();
+#if LIBTORRENT_VERSION_NUM >= 20100
+        m_file_progress.init(*m_picker, m_torrent_file->layout());
+#else
+        m_file_progress.init(*m_picker, m_torrent_file->files());
+#endif
+    }
+    if (had_piece) inc_stats_counter(counters::num_have_pieces, -1);
+    // is_seed() also consults m_state. Leaving that at seeding makes priority
+    // updates no-ops and disconnects the very seed needed for the cache miss.
+    if (state() == torrent_status::seeding) set_state(torrent_status::finished);
+    update_gauge();
+    update_peer_interest(was_finished);
+    set_need_save_resume(torrent_handle::if_download_progress);
+    state_updated();
+}
+#endif
 using json = nlohmann::json;
 
 // nlohmann::json::dump() defaults to error_handler_t::strict, which THROWS
@@ -1079,15 +1126,7 @@ int lt_torrent_we_dont_have(lt_torrent tid, int piece_idx, int prio) {
     lt::io_context& ioc = tor->session().get_context();
     lt::post(ioc, [tor, piece_idx, prio]() {
         lt::piece_index_t const pi{piece_idx};
-        // need_picker() materialises a picker reflecting current have-state
-        // (e.g. a seeding torrent with have_all and no picker), so we_dont_have
-        // works even after the torrent finished.
-        if (!tor->has_picker()) tor->need_picker();
-        tor->set_piece_priority(pi, lt::dont_download);
-        tor->picker().we_dont_have(pi);
-        // Re-apply the requested priority last so the picker will (or won't)
-        // re-request the piece exactly as the caller intends.
-        tor->set_piece_priority(pi,
+        tor->flow_forget_piece(pi,
             static_cast<lt::download_priority_t>(static_cast<std::uint8_t>(prio)));
     });
     return LT_OK;
