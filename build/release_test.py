@@ -9,7 +9,7 @@ class ReleaseClassification(unittest.TestCase):
             self.assertEqual(classify(tag), "preview")
 
     def test_foreign_or_ambiguous_tags_fail_closed(self):
-        for tag in ("latest", "v1.0.0", "MatriX.145", "MatriX.145.Flow-v1.0.0-beta", "MatriX.145.Flow-v1.0.0/../../bad"):
+        for tag in ("latest", "v1.0.0", "MatriX.145", "MatriX.145.Flow-v1.0.0-beta", "MatriX.145.Flow-v1.0.0/../../bad", "MatriX.145.Flow-v١.٠.٠", "MatriX.145.Flow-v1.0.0\n"):
             with self.assertRaises(ValueError):
                 classify(tag)
 

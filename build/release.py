@@ -17,9 +17,9 @@ GST = {"windows-amd64", "linux-amd64", "linux-arm64", "darwin-amd64", "darwin-ar
 
 
 def classify(tag):
-    if re.fullmatch(r"MatriX\.145\.Flow-v\d+\.\d+\.\d+", tag):
+    if re.fullmatch(r"MatriX\.145\.Flow-v[0-9]+\.[0-9]+\.[0-9]+", tag):
         return "stable"
-    if re.fullmatch(r"MatriX\.145\.Flow-v\d+\.\d+\.\d+-(preview|alpha|beta|rc)\.\d+", tag) or re.fullmatch(r"MatriX\.145\.Flow-preview\.\d+", tag):
+    if re.fullmatch(r"MatriX\.145\.Flow-v[0-9]+\.[0-9]+\.[0-9]+-(preview|alpha|beta|rc)\.[0-9]+", tag) or re.fullmatch(r"MatriX\.145\.Flow-preview\.[0-9]+", tag):
         return "preview"
     raise ValueError("Use MatriX.145.Flow-vX.Y.Z or MatriX.145.Flow-vX.Y.Z-preview.N")
 
