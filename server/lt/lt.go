@@ -514,6 +514,11 @@ func (t *Torrent) WeDontHave(piece, prio int) error {
 	return codeToErr(C.lt_torrent_we_dont_have(t.id, C.int(piece), C.int(prio)))
 }
 
+// PrunePartial schedules pruning after native write/hash work has settled.
+func (t *Torrent) PrunePartial(piece int) error {
+	return codeToErr(C.lt_torrent_prune_partial(t.id, C.int(piece)))
+}
+
 // SetPieceDeadline sets a soft deadline (in ms) for a piece, optionally
 // asking for an alert when the piece is ready.
 func (t *Torrent) SetPieceDeadline(piece, deadlineMs int, alertWhenReady bool) error {
@@ -762,6 +767,9 @@ type StorageCallbacks struct {
 	// Have reports whether the piece is locally complete (used in Etap 4.2
 	// resume scan).
 	Have func(storage int64, piece int) bool
+	// Prune removes an old, unprotected partial on the native network thread.
+	// It must not call back into libtorrent.
+	Prune func(storage int64, piece int) bool
 }
 
 var (
@@ -784,7 +792,7 @@ func storageSnapshot() StorageCallbacks {
 // sessions keep whichever disk_io they were started with.
 func RegisterStorageCallbacks(cb StorageCallbacks) error {
 	empty := cb.Open == nil && cb.Close == nil && cb.Deleted == nil &&
-		cb.Read == nil && cb.Write == nil && cb.Have == nil
+		cb.Read == nil && cb.Write == nil && cb.Have == nil && cb.Prune == nil
 	storageMu.Lock()
 	storage = cb
 	storageMu.Unlock()
@@ -871,6 +879,15 @@ func tsl_storage_have_go(storage C.longlong, piece C.int) C.int {
 		return 0
 	}
 	if cb.Have(int64(storage), int(piece)) {
+		return 1
+	}
+	return 0
+}
+
+//export tsl_storage_prune_go
+func tsl_storage_prune_go(storage C.longlong, piece C.int) C.int {
+	cb := storageSnapshot()
+	if cb.Prune != nil && cb.Prune(int64(storage), int(piece)) {
 		return 1
 	}
 	return 0

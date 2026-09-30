@@ -31,6 +31,42 @@ func TestParkedReadReconcilesLateCompletionAndCancels(t *testing.T) {
 	}
 }
 
+func TestPartialPruneRechecksActivityAndStoresLateBlocks(t *testing.T) {
+	old := settings.BTsets()
+	settings.StoreBTsets(&settings.BTSets{CacheSize: 64 * flow.MiB})
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	s := NewStorage()
+	s.callbackOpen(31, mkHash(0xD7), 128, 4*pieceBlockSize)
+	c := s.lookup(31)
+	block := bytes.Repeat([]byte{0x73}, pieceBlockSize)
+	_, _ = s.callbackWrite(31, 50, 0, block)
+	p := c.pieces[50]
+	if s.callbackPrune(31, 50) {
+		t.Fatal("recent block was discarded")
+	}
+	p.accessed.Store(time.Now().Unix() - abandonEvictSec - 2)
+	r := NewReader(c, nil, FileInfo{Offset: 50 * c.PieceLength, Length: c.PieceLength}, "phone")
+	if s.callbackPrune(31, 50) {
+		t.Fatal("new reader's target was discarded")
+	}
+	_ = r.Close()
+	// Drop the closed reader's warm reservation for this isolated prune check.
+	c.groupsMu.Lock()
+	c.groups = map[string]*group{}
+	c.groupsMu.Unlock()
+	if !s.callbackPrune(31, 50) || !c.consumeEvicted(50) {
+		t.Fatal("settled stale partial was not discarded and marked")
+	}
+	_, _ = s.callbackWrite(31, 50, pieceBlockSize, block)
+	dst := make([]byte, pieceBlockSize)
+	if n, err := s.callbackRead(31, 50, pieceBlockSize, dst); err != nil || n != len(dst) || !bytes.Equal(dst, block) {
+		t.Fatal("late native block was acknowledged without retaining its bytes")
+	}
+	if c.readableAt(50, 0) != 0 {
+		t.Fatal("unwritten earlier block became readable")
+	}
+}
+
 func TestContiguousAvailableStopsAtPartialPieceHole(t *testing.T) {
 	old := settings.BTsets()
 	settings.StoreBTsets(&settings.BTSets{CacheSize: 64 * flow.MiB})

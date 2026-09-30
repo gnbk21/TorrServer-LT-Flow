@@ -123,6 +123,11 @@ constexpr lt::status_t tsl_status_ok = lt::status_t::no_error;
 // ============================================================================
 // the custom disk_interface
 // ============================================================================
+extern "C" int lt_storage_prune_partial(int64_t storage_id, int piece) {
+    auto cb = current_callbacks();
+    return cb.prune ? cb.prune(storage_id, piece) : 0;
+}
+
 namespace {
 
 struct storage_state {

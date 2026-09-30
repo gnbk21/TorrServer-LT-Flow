@@ -207,6 +207,7 @@ int lt_torrent_set_file_priority(lt_torrent t, int file_idx, int prio);
  * public torrent_handle equivalent — this pokes the internal picker on the
  * session network thread). Also clears any deadline on the piece. */
 int lt_torrent_we_dont_have(lt_torrent t, int piece_idx, int prio);
+int lt_torrent_prune_partial(lt_torrent t, int piece_idx);
 
 /* ----- status & stats -----
  * status_json output schema (subset used by Go state.TorrentStatus):

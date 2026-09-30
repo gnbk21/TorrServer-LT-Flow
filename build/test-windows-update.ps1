@@ -131,10 +131,15 @@ try {
     CheckState
     $global:flowUpdateTestfixtureManifest=$oldManifest; $global:flowUpdateTestfixtureBinary=$baselinePath; $global:flowUpdateTestfailNextStart=$true
     $rolledBack=$false
-    try { & (Join-Path $root 'distribution/Update-Flow.ps1') -InstallDirectory $install -Channel preview -Credential $credential } catch { $rolledBack=$_.Exception.Message -match 'healthy' }
+    try { & (Join-Path $root 'distribution/Update-Flow.ps1') -InstallDirectory $install -Channel preview -Credential $credential } catch { $rolledBack=$true; $rollbackError=$_.Exception.Message }
     if (-not $rolledBack) { throw 'Injected startup failure did not trigger rollback.' }
+    if ($global:flowUpdateTestfailNextStart) { throw 'Candidate migration failure was not exercised.' }
     Health $newManifest.Version
     CheckState
+    if ($AsService) {
+        $service=Get-CimInstance Win32_Service -Filter "Name='TorrServer-Flow'"
+        if ($service.StartName -ne 'NT SERVICE\TorrServer-Flow' -or $service.PathName -notmatch '--httpauth' -or $service.PathName -notmatch '--ip 127\.0\.0\.1') { throw 'Rollback changed the service account or listener/authentication flags.' }
+    }
     if (Test-Path -LiteralPath (Join-Path $state 'candidate-only.json')) { throw 'Failed candidate migration file remained in active state.' }
     $retainedMigration = @(Get-ChildItem -LiteralPath (Join-Path $state 'upgrade-backups') -Recurse -File -Filter 'candidate-only.json')
     if ($retainedMigration.Count -ne 1 -or $retainedMigration[0].Directory.Name -ne 'failed-state') { throw 'Failed migration data was not preserved privately.' }
@@ -148,7 +153,7 @@ try {
         if (-not $acl.AreAccessRulesProtected) { throw 'Recovery directory inherits unsafe access.' }
         if ($acl.Access | Where-Object {$_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -in @('S-1-1-0','S-1-5-11','S-1-5-32-545')}) { throw 'Recovery backup is readable by general users.' }
     }
-    @{passed=$true;native_executables=$true;release_transport='controlled fixture';maintenance_owner_rejection=$true;integrity_rejection=$true;authenticated_update=$true;startup_failure_rollback=$true;configuration_mutation_rollback=$true;state_preserved=$true;listener_preserved=$true;protected_backups=$true} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'report.json')
+    @{passed=$true;native_executables=$true;service=$AsService.IsPresent;release_transport='controlled fixture';maintenance_owner_rejection=$true;integrity_rejection=$true;authenticated_update=$true;startup_failure_rollback=$true;configuration_mutation_rollback=$true;failed_migration_quarantined=$true;state_preserved=$true;listener_preserved=$true;protected_backups=$true;rollback_error=$rollbackError} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'report.json')
 } finally {
     try { Microsoft.PowerShell.Utility\Invoke-RestMethod -Uri "$baseUri/shutdown" -Headers $headers -TimeoutSec 2 | Out-Null } catch { }
     $owned=@(Get-Process -Name 'TorrServer-LT-windows-amd64' -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq $exe})

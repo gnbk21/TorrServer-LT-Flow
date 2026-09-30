@@ -15,6 +15,7 @@ extern void tsl_storage_deleted_go(long long storage_id);
 extern int  tsl_storage_read_go   (long long storage_id, int piece, long long offset, unsigned char* buf, int len);
 extern int  tsl_storage_write_go  (long long storage_id, int piece, long long offset, const unsigned char* buf, int len);
 extern int  tsl_storage_have_go   (long long storage_id, int piece);
+extern int  tsl_storage_prune_go  (long long storage_id, int piece);
 
 /* Public installer: registers the Go callback set with the C++ side.
  * Called by lt.RegisterStorageCallbacks() on the Go side. */
@@ -26,6 +27,7 @@ int tsl_install_go_storage_callbacks(void) {
     cb.read    = (int  (*)(int64_t, int, int64_t, uint8_t*, int))          tsl_storage_read_go;
     cb.write   = (int  (*)(int64_t, int, int64_t, const uint8_t*, int))    tsl_storage_write_go;
     cb.have    = (int  (*)(int64_t, int))                                  tsl_storage_have_go;
+    cb.prune   = (int  (*)(int64_t, int))                                  tsl_storage_prune_go;
     return lt_install_storage_callbacks_full(&cb);
 }
 

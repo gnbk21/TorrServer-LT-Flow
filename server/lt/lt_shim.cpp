@@ -1194,6 +1194,38 @@ int lt_torrent_we_dont_have(lt_torrent tid, int piece_idx, int prio) {
     WRAP_END(LT_ERR_INTERNAL)
 }
 
+int lt_torrent_prune_partial(lt_torrent tid, int piece_idx) {
+    WRAP_BEGIN
+    auto h = get_torrent(tid);
+    if (!h.is_valid()) return set_err(LT_ERR_NOT_FOUND, "torrent not found");
+#ifdef TSL_HAVE_LT_INTERNALS
+    auto tor = h.native_handle();
+    if (!tor) return set_err(LT_ERR_NOT_FOUND, "no native handle");
+    lt::post(tor->session().get_context(), [tor, piece_idx]() {
+        lt::piece_index_t const pi{piece_idx};
+        if (!tor->valid_metadata() || !tor->has_storage() || !tor->has_picker()
+            || piece_idx < 0 || pi >= tor->torrent_file().end_piece()
+            || tor->picker().have_piece(pi)) return;
+        // A hash worker or deferred write completion still owns this data.
+        // Never clear it or synthesize a hash failure that would blame peers.
+        for (auto const& dp : tor->picker().get_download_queue())
+            if (dp.index == pi && (dp.hashing || dp.writing != 0)) return;
+        using U = typename lt::aux::underlying_index_t<lt::storage_index_t>::type;
+        if (!lt_storage_prune_partial(static_cast<int64_t>(static_cast<U>(tor->storage())), piece_idx)) return;
+        // No native network operation can interleave the cache removal and
+        // picker reset. Late wire blocks are stored normally, never acknowledged
+        // as successful writes while silently discarding their bytes.
+        int const blocks = tor->picker().blocks_in_piece(pi);
+        for (int block = 0; block < blocks; ++block)
+            tor->cancel_block(lt::piece_block{pi, block});
+        tor->set_piece_priority(pi, lt::dont_download);
+        tor->flow_forget_piece(pi, lt::dont_download);
+    });
+#endif
+    return LT_OK;
+    WRAP_END(LT_ERR_INTERNAL)
+}
+
 int lt_torrent_set_piece_deadline(lt_torrent tid, int piece_idx, int deadline_ms, int alert_when_ready) {
     WRAP_BEGIN
     auto h = get_torrent(tid);

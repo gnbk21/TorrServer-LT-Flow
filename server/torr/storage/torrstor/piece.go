@@ -201,6 +201,10 @@ func (p *Piece) release() {
 func (p *Piece) wipe() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	p.wipeLocked()
+}
+
+func (p *Piece) wipeLocked() {
 	if p.disk != nil {
 		p.disk.Release()
 	}

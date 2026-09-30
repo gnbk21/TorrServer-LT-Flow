@@ -88,15 +88,6 @@ type Cache struct {
 	mu     sync.RWMutex
 	pieces map[int]*Piece
 
-	// abandoned records pieces proactively forgotten on a seek (un-had via
-	// WeDontHave, then wiped) and when, guarded by mu. A block that was already
-	// in flight when we abandoned the piece still lands afterwards and would
-	// re-create the incomplete piece, only for the next eviction pass to reap it
-	// again. writePiece drops such a straggler block instead of resurrecting the
-	// piece, so a seek's leftovers go away in one pass. A reader that genuinely
-	// needs the piece again (seek back) clears the mark via clearAbandoned.
-	abandoned map[int]int64
-
 	// per-piece progress channels: closed (= broadcast) by SignalPieceComplete
 	// when libtorrent's piece_finished_alert arrives AND by writePiece on every
 	// block landed on a waited piece, then recreated by the next subscriber.
@@ -253,7 +244,6 @@ func newCache(s *Storage, sid int64, hash [20]byte, numPieces int, pieceLength i
 		NumPieces:   numPieces,
 		PieceLength: pieceLength,
 		pieces:      map[int]*Piece{},
-		abandoned:   map[int]int64{},
 		waiters:     map[int]chan struct{}{},
 		readers:     map[*Reader]struct{}{},
 		groups:      map[string]*group{},
@@ -1548,18 +1538,6 @@ func (c *Cache) writePiece(piece int, offset int64, src []byte) (int, error) {
 	c.mu.Lock()
 	p := c.pieces[piece]
 	if p == nil {
-		// A block that was in flight when we abandoned this piece on a seek still
-		// lands here. Drop it (report it written, but don't resurrect the piece) so
-		// the seek's leftovers don't keep coming back. The mark expires so a stale
-		// id can't suppress a real re-download forever; a seek back clears it sooner
-		// via clearAbandoned.
-		if t, ok := c.abandoned[piece]; ok {
-			if time.Now().Unix()-t < abandonEvictSec {
-				c.mu.Unlock()
-				return len(src), nil
-			}
-			delete(c.abandoned, piece)
-		}
 		p = newPiece(c, piece)
 		c.pieces[piece] = p
 	}
@@ -1576,16 +1554,53 @@ func (c *Cache) writePiece(piece int, offset int64, src []byte) (int, error) {
 	return n, err
 }
 
-// clearAbandoned removes a piece's abandoned mark so a writePiece for it stores
-// the block instead of dropping it. Called when a reader genuinely needs the
-// piece again (a seek back into a forgotten region), so its re-download isn't
-// suppressed by the straggler-drop guard.
-func (c *Cache) clearAbandoned(piece int) {
-	c.mu.Lock()
-	if len(c.abandoned) > 0 {
-		delete(c.abandoned, piece)
+// prunePartial runs only on the native network thread after the picker confirms
+// that no deferred write or hash job owns this piece. Recheck the current cache
+// and readers here, rather than acting on an earlier eviction-pass snapshot.
+// Do not invoke libtorrent from this callback.
+func (c *Cache) prunePartial(piece int) bool {
+	if pieceInRanges(piece, c.readerProtectRanges()) {
+		return false
 	}
-	c.mu.Unlock()
+	c.readersMu.Lock()
+	defer c.readersMu.Unlock()
+	for reader := range c.readers {
+		if reader.currentPiece() == piece || int(reader.waitPiece.Load()) == piece {
+			return false
+		}
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	p := c.pieces[piece]
+	if p == nil {
+		return false
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	grace := int64(abandonEvictSec)
+	if p.size >= c.PieceLength {
+		grace = hashGraceSec
+	}
+	if p.complete || p.size == 0 || time.Now().Unix()-p.accessed.Load() <= grace {
+		return false
+	}
+	delete(c.pieces, piece)
+	c.markEvictedLocked(piece)
+	p.wipeLocked()
+	return true
+}
+
+func (c *Cache) markEvictedLocked(piece int) {
+	if c.evicted == nil {
+		c.evicted = map[int]bool{}
+	}
+	if len(c.evicted) >= 2048 {
+		for id := range c.evicted {
+			delete(c.evicted, id)
+			break
+		}
+	}
+	c.evicted[piece] = true
 }
 
 func (c *Cache) consumeEvicted(piece int) bool {
@@ -1666,7 +1681,7 @@ func (c *Cache) evictPass() (evictedAny bool) {
 		}
 	}
 
-	evict := func(p *Piece, abandonedAt int64) bool {
+	evict := func(p *Piece) bool {
 		// The pass's protection snapshot can predate a newly attached reader.
 		// Keep registration stable through removal and recheck its current target.
 		c.readersMu.Lock()
@@ -1694,25 +1709,8 @@ func (c *Cache) evictPass() (evictedAny bool) {
 			c.mu.Unlock()
 			return false
 		}
-		if abandonedAt != 0 {
-			// Recheck the reader before changing the picker's state as well as
-			// before wiping: a reader may attach after the protection snapshot.
-			if h := c.handle.Load(); h != nil {
-				_ = h.WeDontHave(p.Id, 0)
-			}
-			c.abandoned[p.Id] = abandonedAt
-		}
 		delete(c.pieces, p.Id)
-		if c.evicted == nil {
-			c.evicted = map[int]bool{}
-		}
-		if len(c.evicted) >= 2048 {
-			for id := range c.evicted {
-				delete(c.evicted, id)
-				break
-			}
-		}
-		c.evicted[p.Id] = true
+		c.markEvictedLocked(p.Id)
 		c.mu.Unlock()
 		p.wipe()
 		evictedAny = true
@@ -1747,7 +1745,9 @@ func (c *Cache) evictPass() (evictedAny bool) {
 			grace = hashGraceSec
 		}
 		if nowU-p.Accessed() > grace {
-			evict(p, nowU)
+			if h := c.handle.Load(); h != nil {
+				_ = h.PrunePartial(p.Id)
+			}
 		}
 	}
 
@@ -1779,7 +1779,7 @@ func (c *Cache) evictPass() (evictedAny bool) {
 			continue
 		}
 		sz := p.SizeBytes()
-		if evict(p, 0) {
+		if evict(p) {
 			needFree -= sz
 		}
 	}

@@ -28,11 +28,14 @@ struct tsl_storage_callbacks {
 
     // Etap 4.2: report locally-have pieces during resume.
     int  (*have)   (int64_t storage_id, int piece);
+    // Optional: remove a stale partial after native write/hash work settles.
+    int  (*prune)  (int64_t storage_id, int piece);
 };
 
 // Install / clear the Go callbacks. Pass NULL to revert to default
 // libtorrent disk_io on the next session_new. Returns LT_OK on success.
 int lt_install_storage_callbacks_full(const struct tsl_storage_callbacks* cb);
+int lt_storage_prune_partial(int64_t storage_id, int piece);
 
 #ifdef __cplusplus
 }
