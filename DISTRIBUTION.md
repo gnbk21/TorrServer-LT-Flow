@@ -47,6 +47,10 @@ No publisher signing certificate is bundled or implied.
 Extract the ZIP. Keep all four PowerShell scripts together. Use an explicit
 state directory separate from the executable directory. Existing state is
 retained; installations are never inferred from whichever process owns a port.
+The scripts support Windows PowerShell 5.1 and PowerShell 7. Install GitHub CLI
+and ensure `gh` is on `PATH` before using `-RequireAttestation`; this option
+requires successful provenance verification in addition to SHA-256 and version
+checks. Running the standard executable directly does not require GitHub CLI.
 
 ```powershell
 .\Install-Flow.ps1 -Channel preview -InstallDirectory C:\Flow\bin -StateDirectory C:\Flow\state -RequireAttestation

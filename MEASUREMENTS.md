@@ -191,5 +191,82 @@ restricted service identity, authenticated update, listener preservation, privat
 backups, restored configuration and quarantined candidate migration files. It
 does not establish physical boot or sleep/resume behavior on the user's PC.
 `build/maintenance_harness.py` separately verifies that actual active playback
-rejects maintenance. Live release download/attestation verification remains a
-distribution gate. Authenticode requires the maintainer's signing identity.
+rejects maintenance. Live release download/attestation results are recorded
+below. Authenticode requires the maintainer's signing identity.
+
+## Final Preview 2 candidate: 1 October 2026
+
+Tag `MatriX.145.Flow-v0.2.0-preview.5` identifies source commit
+`e0307c6dc151ab88be7449c13080a42d344b0913`. The eight native targets and both
+frontend builds passed in [tagged run 36780598722](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/36780598722).
+Linux unit/vet/race tests, four bounded fuzz campaigns and reachable Go
+vulnerability checks passed. The scan still reports one uncalled module
+advisory; it does not certify the native C++ dependency stack.
+
+Frontend verification passed 41 unit/component cases and a separate test of
+actual Go DTOs (42 distinct cases), plus 31 browser scenarios. The corrected
+build's entry JavaScript is 168.57 KB gzip, its lazy dashboard 3.94 KB gzip,
+and its lazy HLS chunk 178.98 KB gzip. The minified-size warning remains visible.
+A new regression accepts legacy `CacheSize: 0` when reading settings, so the
+page can open for repair; Apply still requires a positive budget.
+
+All three generated-media playback scenarios passed against the exact tagged
+Linux binary, SHA-256
+`cb8fb6a0208be85b1a741729ee9267bcef240018d5f0da83979c2b13d5072e20`.
+The fast case completed 256 cross-file churn requests and four additional
+resource cycles; slow and disconnect cases each completed four cycles. Warm
+expiry was observed after 25.30 seconds. Native polling measured 33 requests /
+126,239 response bytes over 12 seconds, with request p95 51.16 ms. Full status
+was 69,619 bytes including 282 traces; compact status was 6,183 bytes. These are
+generated-fixture observations, not decoded-frame or representative endurance
+measurements. Authenticated maintenance passed exclusive ownership,
+active-playback rejection, restore recovery and startup doctor checks.
+
+The same tagged run passed restricted Windows service installation, restart and
+clean shutdown. Both console and service update fixtures passed authenticated
+update, corrupted-download and maintenance-owner rejection, preserved state and
+listeners, protected backups, startup-failure rollback, restored configuration
+and private quarantine of failed migration files. Physical boot/sleep/network
+acceptance remains separate from these disposable CI lifecycle checks.
+
+The prerelease published at `2026-09-30T21:58:31Z`. All 32 assets were downloaded
+and verified: 31 checksum entries, 13 full binary identities, eight sorted ZIPs
+with fixed timestamps/modes, manifest URLs/sizes/digests and original native,
+Go, frontend and static compiler-runtime notices. CI packaged the same inputs
+twice and obtained identical checksum inventories. This verifies reproducible
+packaging, not arbitrary-toolchain native compilation reproducibility.
+
+Windows standard executable SHA-256:
+`15868e7b4d5c189ff1de1f117b149d499763862980e11c1e5e73c008de3d3179`.
+Windows ZIP SHA-256:
+`b5735a1aceea3109aa067c88c64a910770cbe713aca9dea737f4a1cb9bad7e30`.
+GitHub CLI verified both downloaded attestations; source digest, tag reference,
+workflow identity and artifact subject digests matched. This is build provenance,
+not Authenticode publisher signing.
+
+The actual packaged installation and update scripts passed live GitHub
+release selection/download and required provenance under PowerShell 5.1 and 7.
+Tests used separate fresh loopback state on ports 53342 and 59022, authenticated
+management, the previously stress-tested `2a12912c` native baseline, and the
+published `.5` candidate. Both preserved authentication, listeners and private
+configuration, created protected recovery copies, returned exact-version healthy
+servers and stopped their owned processes cleanly. The updater fixtures above
+separately establish rejection and rollback behavior.
+
+The same downloaded Windows package served its actual embedded UI on isolated
+loopback port 56248. The in-app browser verified Dashboard, empty Torrents,
+unconfigured Search/Add, General settings with the backend's legacy cache zero,
+Flow settings and Advanced maintenance controls. No API responses were mocked,
+no settings were applied, and no browser runtime errors were recorded. Clean
+shutdown completed. This smoke establishes native page integration; it does not
+replace real Android layout, Just Player launch or media acceptance.
+
+The full tagged pipeline completed successfully, including actual `--version`
+runtime/linkage checks for Linux amd64, arm64 and arm/v7 containers before push.
+Anonymous registry reads verified all three platform configurations, exact source
+and version labels, and identical version/`preview` index digest:
+`sha256:d1490c9c148c822134aa247f6f2cec24c715faedd0a5956ac5b4e30368c1fdea`.
+This prerelease publishes version and `preview` tags, not `latest`. Source branch
+cross/native and macOS runs `36780597119` and `36780596874` also passed. PGO remains
+off, stable approval remains false, and the three external hardware/media gates
+in `RELEASE_ACCEPTANCE.json` are unchanged.

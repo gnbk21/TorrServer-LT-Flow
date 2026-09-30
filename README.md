@@ -1,12 +1,12 @@
 # TorrServer-Flow
 
-TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps TorrServer-LT's libtorrent engine, web interface, and HTTP API.
+TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps the libtorrent engine, existing media cache and HTTP API, and adds a modern embedded web interface.
 
-> **Development status:** [Preview 1](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-preview.1) is the published prerelease. Preview 2 is under verification in [PR #3](https://github.com/gnbk21/TorrServer-LT-Flow/pull/3). See the [current status and exact remaining gates](STATUS.md). `develop` is the default integration branch; `master` is reserved for accepted stable releases. Neither preview is a validated Flow 1.0.
+> **Development status:** [Preview 2](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v0.2.0-preview.5) is the current prerelease, built from `e0307c6d`. Its integration is tracked in [PR #3](https://github.com/gnbk21/TorrServer-LT-Flow/pull/3); see the [current status and exact remaining gates](STATUS.md). `develop` is the default integration branch; `master` is reserved for accepted stable releases. This preview is not a validated Flow / Modern Web 1.0 release.
 
 ## Run on Windows
 
-1. Open [Preview 1](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-preview.1), download **`TorrServer-Flow-windows-amd64-preview.1.zip`**, and extract it. This contains the modern interface. The standard Windows executable is also available separately.
+1. Open [Preview 2](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v0.2.0-preview.5), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v0.2.0-preview.5.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
 2. In PowerShell, run the standard executable from the extracted folder, using a separate data directory for Flow:
 
    ```powershell
@@ -25,7 +25,7 @@ The artifact also contains a `-gst` executable for optional GStreamer HLS transc
 - **Adaptive read-ahead:** sizes the forward cache window from media bitrate and observed playback, within the configured cache budget. It can be disabled independently of other Flow features.
 - **Warm mobile sessions:** briefly protects data around the last playhead after a player disconnects, so a quick reconnect can resume from cached pieces.
 - **Seek and Range diagnostics:** tracks startup, buffering, piece waits, seek recovery, and HTTP Range timing. A torrent card opens live diagnostics; detailed Range traces are opt-in.
-- **Windows background operation:** includes a service mode and a separate tray companion. See [Flow development notes](FLOW.md) for service and tray commands.
+- **Windows background operation:** includes a restricted service account and a separate tray companion. See [Flow development notes](FLOW.md) for service and tray commands.
 
 Preview 2 also provides rolling 60-second health metrics, smoother adaptive
 windows, bounded per-file probe reuse, process/cache memory observations,
@@ -57,8 +57,9 @@ All profiles retain your cache, proxy, upload, and active-torrent settings. Savi
 ### Modern web interface
 
 The modern interface was merged through [PR #2](https://github.com/gnbk21/TorrServer-LT-Flow/pull/2)
-into **`develop`**, the default branch. Preview 1 packages the verified modern
-build. For later development builds, choose `develop` in the build workflow.
+into **`develop`**, the default branch. The current preview packages the modern
+build plus Preview 2 improvements. PR #3 tracks those changes into `develop`;
+branch artifacts identify their exact development commit.
 Legacy sources remain in `web-legacy/` until real device acceptance.
 
 It provides a playback dashboard with bounded buffer/throughput history, a
@@ -91,8 +92,15 @@ remaining device/release gates. Legacy sources remain in `web-legacy/`.
 
 The [build workflow](.github/workflows/build.yml) compiles the web UI, server, libtorrent, and Windows dependencies, then uploads platform artifacts. A local Go-only build is insufficient; see [build instructions](build/README.md) for the CGo/C++ toolchain. Other platform targets remain in CI, but Windows x64 and Android playback are the primary Flow development path.
 
-This fork retains the upstream API and settings format where possible. Upstream install scripts, `release.json`, and upstream release links still refer to **TorrServer-LT**, not a Flow release. Use this fork's prerelease assets or CI artifacts. Preview 1 includes checksums,
-original dependency notices, build provenance and [release notes](RELEASE_NOTES.md);
-its binaries retain their exact `847f6b4f` development build identity. The [draft integration PR](https://github.com/gnbk21/TorrServer-LT-Flow/pull/1) tracks promotion from `develop` to `master` after the remaining validation.
+This fork retains the upstream API and settings format where possible. Upstream
+install scripts, the root `release.json`, and upstream release links still refer
+to **TorrServer-LT**. Use this fork's release assets or CI artifacts. Preview 2
+generates its own channel-aware release manifest, checksums, original dependency
+notices and GitHub build attestations. The managed scripts verify SHA-256 and
+the exact executable version; `-RequireAttestation` also requires GitHub CLI
+provenance verification. Executables remain unsigned by Authenticode. See
+[distribution and recovery](DISTRIBUTION.md) and [Preview 2 notes](PREVIEW_2_NOTES.md).
+The [draft stable integration PR](https://github.com/gnbk21/TorrServer-LT-Flow/pull/1)
+tracks promotion from `develop` to `master` after the remaining acceptance.
 
 Use torrents you are authorized to access. TorrServer-Flow retains the upstream [GPL-3.0 license](LICENSE) and acknowledges the work of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) and [TorrServer](https://github.com/YouROK/TorrServer).
