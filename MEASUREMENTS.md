@@ -20,10 +20,10 @@ per-session playback telemetry retains its one-second interval. Hidden tabs stop
 polling. `web/e2e/library.spec.ts` verifies search, page navigation, empty results
 and the large-library request budget.
 
-The production Vite build measured 168.53 KiB gzip for the entry JavaScript,
-about 16 KiB gzip of shared preloads and 3.94 KiB gzip for the lazy dashboard.
-The HLS decoder is a separate 178.98 KiB gzip lazy chunk; it is not an initial
-preload. Non-English language chunks load on selection. These are build sizes,
+The production Vite build measured 168.58 KB gzip for the entry JavaScript,
+about 16 KB gzip of shared preloads and 3.95 KB gzip for the lazy dashboard.
+The HLS decoder is a separate 178.98 KB gzip lazy chunk; it is not an initial
+preload. Vite reports decimal KB. Non-English language chunks load on selection. These are build sizes,
 not measured download times. Vite's warning about chunks over 500 KiB minified
 remains visible; the initial compressed JavaScript fits the specification's
 preferred 150–200 KiB budget.
@@ -37,6 +37,15 @@ establishes scheduling behavior; synthetic payload size is not a real swarm
 measurement. `build/playback_harness.py` additionally records the response bytes
 and request p95 of the same cadence against a real native server and generated
 media in `polling_measurement`.
+
+Native Linux run `36750140703` measured 33 requests / 126,290 response bytes
+over 12 seconds, with request p95 51.7 ms. A full diagnostic response was 69,570
+bytes including 282 Range trace records; compact status was 6,120 bytes. Normal
+UI polling requests compact status; the diagnostics drawer fetches histories
+only while open, every three visible seconds. Existing API callers still receive
+the full response unless they explicitly request `?traces=false`. The earlier
+full-history polling run used 887,133 bytes at the same cadence. These runs show
+payload reduction, not a controlled CPU or latency comparison.
 
 Retain bounded polling for Preview 2. The measured library bottleneck was card
 rendering and repeated whole-library work; pagination and a slower large-library
@@ -52,6 +61,11 @@ MP4 with its index at the head, MP4 with its index at the tail, MKV and a larger
 variable-bitrate MP4. It verifies streams, duration, MP4 layout and SHA-256.
 No copyrighted sample library or external torrent is required.
 
+On 30 September 2026, the production-only frontend dependency audit reported
+zero known advisories across 78 dependencies. Native CI also runs reachable Go
+vulnerability checks. These dated scans do not guarantee the absence of unknown
+vulnerabilities or replace runtime and compatibility verification.
+
 `build/controlled_peer.py` supplies an actual local BitTorrent peer and tracker.
 The harness tests unthrottled, 2 MiB/s with block delay, and a one-time disconnect
 at 4 MiB/s. Range responses are compared byte for byte to the generated source,
@@ -63,6 +77,22 @@ Failed stress runs exposed premature EOF, stale completion/eviction races and
 completed-torrent state that did not re-enter download mode. These scenarios
 remain required gates; compiling the fix alone does not mark them passed.
 Reports identify the exact executable digest and retain failure observations.
+
+All three generated-media scenarios passed in Linux run `36750140703`, including
+256 fast cross-file requests, overlap/cancellation/seek/reconnect, four additional
+resource cycles per case and warm expiry after 25.3 seconds. A subsequent
+extended profiling stress run exposed another race: stale incomplete pieces
+were discarded while late blocks were acknowledged without storing their data.
+The resulting hash mismatch banned the valid seed. Native serialized partial
+pruning and normal retention of late blocks address that defect; extended stress
+verification remains required before publication.
+
+The native 1,000-entry library upsert benchmark in run `36747207599` measured
+319.6 ms / 11.65 MB / 81,099 allocations per whole-library rewrite versus
+0.308 ms / 10.94 KB / 69 allocations per single-key update. Three iterations of
+each implementation ran on the same Linux runner. This narrow persistence
+benchmark is separate from browser rendering and does not establish general
+throughput guarantees.
 
 ## Profiling and PGO
 
@@ -80,7 +110,7 @@ go tool trace trace.out
 
 Profiles/traces can contain private runtime details. Keep them local unless
 reviewed; the redacted support report does not include them. The earlier Windows
-CPU sample attributed about 99% of samples to `runtime.cgocall` through the
+30-second CPU sample attributed about 97.1% of samples to `runtime.cgocall` through the
 blocking alert wait. That does not establish that optimizing Go code will improve
 playback or identify the C++ work underneath. Use native symbols and an OS CPU
 profiler to investigate libtorrent/OpenSSL, separately from Go heap and scheduler

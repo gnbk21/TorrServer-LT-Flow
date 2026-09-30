@@ -64,6 +64,9 @@ It stages and verifies the binary, requests atomic idle maintenance, closes
 the owned server cleanly, retains a configuration backup and previous binary,
 then checks the exact version and engine readiness. Failure restores the old
 binary and rechecks health. Credentials are passed in memory via `-Credential`.
+Rollback also restores the pre-update configuration snapshot. Files newly created
+by a failed migration are retained privately under the recovery directory's
+`failed-state` folder and removed from the restored server's active state path.
 
 ```powershell
 .\Update-Flow.ps1 -InstallDirectory C:\Flow\bin -Channel preview -RequireAttestation

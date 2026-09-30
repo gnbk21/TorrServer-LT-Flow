@@ -58,12 +58,9 @@ const staleReaderSec = 2
 // stranded seek leftovers, untouched well past this window, are reaped.
 const abandonEvictSec = 4
 
-// hashGraceSec is the (much longer) grace for a FULLY-SIZED incomplete piece. It
-// has all its blocks and is only waiting on libtorrent's hash worker, which is a
-// bounded pool and can lag well past abandonEvictSec under load. Reaping it would
-// wipe the RAM that async_hash is about to read back — a short read there is read
-// as a (synthetic) disk fault and pauses the torrent. The long grace lets the
-// hash always win; a genuinely stranded PARTIAL stays on the short timer.
+// hashGraceSec gives fully-sized incomplete pieces extra time to finish.
+// Size alone does not prove that all blocks arrived. Native pruning additionally
+// refuses pieces owned by an outstanding write or hash job, regardless of age.
 const hashGraceSec = 30
 
 // Cache holds every Piece for a single torrent.
@@ -1725,12 +1722,9 @@ func (c *Cache) evictPass() (evictedAny bool) {
 	// bounded, and a stranded one is reaped separately below once abandoned.
 	evictable := func(p *Piece) bool { return p.SizeBytes() > 0 && p.Complete() }
 
-	// First, reap STRANDED INCOMPLETE leftovers: a seek leaves partial pieces in the
-	// abandoned playback region; they get no more blocks (Accessed stops advancing)
-	// and complete-only eviction can't touch them, so they'd linger forever. Once
-	// untouched past abandonEvictSec and OUTSIDE the protected window, forget them
-	// (WeDontHave priority 0 so the picker won't re-request — makes the wipe safe)
-	// and drop them.
+	// Request pruning of stale partials. Actual removal and picker reset happen
+	// together on the native network thread after write/hash ownership settles.
+	// This pass must not wipe data before that asynchronous check has run.
 	nowU := time.Now().Unix()
 	for _, p := range pieces {
 		if p.SizeBytes() <= 0 || p.Complete() || pieceInRanges(p.Id, protect) {

@@ -1,7 +1,8 @@
 # Modern interface device acceptance
 
-Use the modern executable built from `feature/modern-web`. Keep the audited
-legacy executable for rollback. Do not run two servers against one data directory.
+Use the latest published Flow preview, recording `/echo` and its SHA-256.
+Development verification builds are identified separately in STATUS.md. Keep
+the previous executable for rollback. Do not run two servers against one data directory.
 The checks below are not marked passed by desktop emulation or fixture tests.
 
 ## Start
@@ -46,4 +47,5 @@ credentials. Server delivery position and buffer estimates are not the player's
 decoded presentation position or measured time to first frame.
 
 Stable promotion and legacy removal remain gated on these results and the
-remaining core Flow acceptance checks in [AUDIT.md](AUDIT.md).
+remaining core Flow acceptance checks in [STATUS.md](STATUS.md) and
+`RELEASE_ACCEPTANCE.json`.

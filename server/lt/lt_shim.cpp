@@ -1209,7 +1209,7 @@ int lt_torrent_prune_partial(lt_torrent tid, int piece_idx) {
         // A hash worker or deferred write completion still owns this data.
         // Never clear it or synthesize a hash failure that would blame peers.
         for (auto const& dp : tor->picker().get_download_queue())
-            if (dp.index == pi && (dp.hashing || dp.writing != 0)) return;
+            if (dp.index == pi && (dp.hashing || dp.writing != 0 || dp.locked)) return;
         using U = typename lt::aux::underlying_index_t<lt::storage_index_t>::type;
         if (!lt_storage_prune_partial(static_cast<int64_t>(static_cast<U>(tor->storage())), piece_idx)) return;
         // No native network operation can interleave the cache removal and
