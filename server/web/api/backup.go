@@ -107,6 +107,10 @@ func backupApply(c *gin.Context) {
 		return
 	}
 	defer flow.Maintenance.Release(token)
+	if torr.FlowHasActiveWork() {
+		c.JSON(http.StatusConflict, gin.H{"error": "stop playback and preload before restoring"})
+		return
+	}
 	recovery := sets.CaptureRecovery()
 	recoveryData, err := json.Marshal(recovery)
 	if err != nil {
