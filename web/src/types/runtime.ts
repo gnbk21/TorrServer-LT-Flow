@@ -33,6 +33,36 @@ export interface ClientStatus {
 }
 
 export interface RuntimeStatus {
+  memory?: {
+    rss_bytes: number;
+    rss_available: boolean;
+    go_heap_bytes: number;
+    go_system_bytes: number;
+    goroutines: number;
+    handles: number;
+    handles_available: boolean;
+    sampled_at: string;
+  };
+  cache_allocation?: {
+    caches: number;
+    active_caches: number;
+    idle_caches: number;
+    warm_caches: number;
+    resident_bytes: number;
+    active_resident_bytes: number;
+    idle_resident_bytes: number;
+    warm_resident_bytes: number;
+    effective_capacity_bytes: number;
+    protected_bytes: number;
+    active_readers: number;
+  };
+  startup?: {
+    started_at: string;
+    listeners_ready: boolean;
+    engine_ready: boolean;
+    listener_ready_ms: number;
+    engine_ready_ms: number;
+  };
   dlna_enabled: boolean;
   bonjour_enabled: boolean;
   friendly_name: string;

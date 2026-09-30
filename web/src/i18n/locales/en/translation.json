@@ -490,7 +490,16 @@
       "UNKNOWN": "There is not enough playback telemetry to judge buffer health."
     },
     "pause": "Pause engine",
-    "resume": "Resume engine"
+    "resume": "Resume engine",
+    "troubleshooting": {
+      "title": "Playback troubleshooting",
+      "delivery": "The delivery position is the end of bytes sent by the server, not the player’s decoded position. Buffer seconds are estimates.",
+      "estimate": "Media bitrate is provisional or unavailable. An optional ffprobe result improves the estimate; variable bitrate still causes variation.",
+      "draining": "Measured download is below estimated demand and the buffer is draining. Check swarm peers and the network connection.",
+      "waiting": "A server read waited at least 500 ms within the last 60 seconds. This does not prove a player decoding stall.",
+      "idle": "No player request is active. The player may be paused, disconnected, or consuming its own buffer.",
+      "peers": "No connected peers and no contiguous bytes are available. Check local network readiness and tracker status."
+    }
   },
   "torrent": {
     "justPlayer": "Play in Just Player",
@@ -680,6 +689,25 @@
           "MinReconnectTime": "Minimum reconnect interval (seconds)"
         }
       }
+    },
+    "maintenance": {
+      "title": "Maintenance and recovery",
+      "exclusions": "Portable backups omit credentials, private trackers, paths, posters and custom client data. Support reports also omit names and hashes.",
+      "support": "Download support report",
+      "export": "Export backup",
+      "import": "Preview backup import",
+      "tooLarge": "The backup exceeds 16 MiB.",
+      "dirty": "Save or discard your changes before restoring a backup.",
+      "preview": "Restore preview",
+      "summary": "Merge {{torrents}} library records and {{fields}} settings fields.",
+      "confirmHint": "Stop playback first. The engine restarts; existing credentials and host paths are retained. A protected local recovery backup is saved before applying.",
+      "restore": "Restore backup",
+      "restored": "Restored. Local recovery backup: {{name}}",
+      "rss": "Process resident memory",
+      "heap": "Go heap",
+      "activeCache": "Active cache bytes",
+      "warmCache": "Warm cache bytes",
+      "memoryHint": "Process memory includes native allocations. Cache capacity and the Go memory limit are not a process RAM limit."
     }
   },
   "runtime": {

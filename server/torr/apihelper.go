@@ -1,6 +1,7 @@
 package torr
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -278,10 +279,10 @@ func DropTorrent(hashHex string) {
 }
 
 // SetSettings applies a new settings_pack and bounces the session.
-func SetSettings(set *sets.BTSets) {
+func SetSettings(set *sets.BTSets) error {
 	if sets.ReadOnly {
 		log.TLogln("torr.SetSettings: read-only DB mode")
-		return
+		return errors.New("database is read-only")
 	}
 	// The storage-backend preferences (json vs config.db for Settings/Viewed)
 	// are owned exclusively by the /storage/settings switch endpoint, which
@@ -298,7 +299,9 @@ func SetSettings(set *sets.BTSets) {
 			trackersChanged = set.TrackersListURL != cur.TrackersListURL || set.DefaultTrackers != cur.DefaultTrackers
 		}
 	}
-	sets.SetBTSets(set)
+	if err := sets.SetBTSetsChecked(set); err != nil {
+		return err
+	}
 	if trackersChanged {
 		utils.InvalidateTrackersCache()
 	}
@@ -310,7 +313,9 @@ func SetSettings(set *sets.BTSets) {
 	log.TLogln("torr.SetSettings: reconnect")
 	if err := bts.Connect(); err != nil {
 		log.TLogln("torr.SetSettings: connect:", err)
+		return err
 	}
+	return nil
 }
 
 // SetDefSettings resets settings to defaults and bounces the session.

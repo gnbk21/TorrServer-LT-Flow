@@ -535,7 +535,7 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 	}
 	waitStarted := time.Now()
 	ready := r.cache.WaitForBytes(ctx, piece, pieceOff)
-	if settings.CurrentFlow().MetricsEnabled {
+	if settings.CurrentFlow().MetricsEnabled && r.group != ProbeReaderGroup {
 		r.cache.flowCounters.Wait(time.Since(waitStarted))
 	}
 	if !ready {

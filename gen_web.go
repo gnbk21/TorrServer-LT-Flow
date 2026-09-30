@@ -116,29 +116,13 @@ import (
 func writeRoute(fname string, fmap map[string]string) {
 	ff, err := os.Create(fname)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 	defer ff.Close()
-	embedStr := `package template
-
-import (
-	"crypto/md5"
-	"fmt"
-	"github.com/gin-gonic/gin"
-)
-
-func RouteWebPages(route gin.IRouter) {
-	route.GET("/", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Indexhtml))
-		c.Header("Cache-Control", "no-cache")
-		c.Header("ETag", etag)
-		c.Data(200, "text/html; charset=utf-8", Indexhtml)
-	})
-`
-	mime.AddExtensionType(".map", "application/json")
+	ff.WriteString("package template\n\nimport \"github.com/gin-gonic/gin\"\n\nfunc RouteWebPages(route gin.IRouter) {\n")
+	fmt.Fprintln(ff, " route.GET(\"/\", assetHandler(Indexhtml, \"text/html; charset=utf-8\", \"no-cache\"))")
+	fmt.Fprintln(ff, " route.HEAD(\"/\", assetHandler(Indexhtml, \"text/html; charset=utf-8\", \"no-cache\"))")
 	mime.AddExtensionType(".webmanifest", "application/manifest+json")
-	// sort fmap
 	keys := make([]string, 0, len(fmap))
 	for key := range fmap {
 		keys = append(keys, key)
@@ -146,31 +130,20 @@ func RouteWebPages(route gin.IRouter) {
 	sort.Strings(keys)
 	for _, link := range keys {
 		fmime := mime.TypeByExtension(filepath.Ext(link))
-		if fmime == "application/xml" || fmime == "application/javascript" {
-			fmime = fmime + "; charset=utf-8"
+		if fmime == "" {
+			fmime = "application/octet-stream"
+		}
+		if fmime == "application/javascript" || fmime == "application/xml" {
+			fmime += "; charset=utf-8"
 		}
 		if fmime == "image/x-icon" {
 			fmime = "image/vnd.microsoft.icon"
 		}
-		// Hashed assets (chunks, images) are immutable — their filename changes
-		// when their content does — so cache them for a year. The HTML entry
-		// point is NOT hashed and references the current chunk names; it must be
-		// revalidated, otherwise a browser keeps a stale index.html after a
-		// bundle update and requests the now-deleted old chunks (a white screen
-		// / "the app stopped working"). no-cache still uses the ETag for 304s.
-		cacheHdr := assetCacheControl(link)
-		embedStr += `
-	route.GET("` + link + `", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(` + fmap[link] + `))
-		c.Header("Cache-Control", "` + cacheHdr + `")
-		c.Header("ETag", etag)
-		c.Data(200, "` + fmime + `", ` + fmap[link] + `)
-	})
-`
+		for _, method := range []string{"GET", "HEAD"} {
+			fmt.Fprintf(ff, " route.%s(%q, assetHandler(%s, %q, %q))\n", method, link, fmap[link], fmime, assetCacheControl(link))
+		}
 	}
-	embedStr += "}\n"
-
-	ff.WriteString(embedStr)
+	fmt.Fprintln(ff, "}")
 }
 
 func run(name string, args ...string) error {

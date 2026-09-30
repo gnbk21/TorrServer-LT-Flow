@@ -9,7 +9,7 @@ on:
   # master. Build manually (workflow_dispatch) or via a release tag, which
   # reuses this workflow through ts_release.yml's workflow_call.
   pull_request:
-    branches: [master]
+    branches: [master, develop]
   workflow_dispatch:
   # Reused by ts_release.yml on a tag; `version` stamps the binaries.
   workflow_call:
@@ -17,6 +17,9 @@ on:
       version:
         type: string
         default: ''
+      release_channel:
+        type: string
+        default: 'development'
 
 jobs:
   web:
@@ -109,7 +112,7 @@ jobs:
           PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
-        run: go test -count=1 -timeout 180s ./flow/ ./ffprobe/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/api/ ./dlna/ ./cmd/
+        run: go test -count=1 -timeout 180s ./diagnostics/ ./flow/ ./ffprobe/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/api/ ./web/pages/template/ ./dlna/ ./cmd/
 
       - name: Go vet
         if: matrix.target == 'linux-amd64'
@@ -208,7 +211,8 @@ jobs:
           tags: |
             type=raw,value=master,enable=${{ github.ref == 'refs/heads/master' }}
             type=ref,event=tag
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
+            type=raw,value=latest,enable=${{ inputs.release_channel == 'stable' }}
+            type=raw,value=preview,enable=${{ inputs.release_channel == 'preview' }}
 
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v6

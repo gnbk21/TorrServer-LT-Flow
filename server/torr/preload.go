@@ -126,6 +126,7 @@ func (t *Torrent) Preload(ctx context.Context, index int, size int64, probe bool
 	if f == nil {
 		return
 	}
+	t.restoreProbe(index)
 
 	cache := torrstor.Global().CacheByHash([20]byte(t.Hash()))
 	if cache == nil || cache.PieceLength <= 0 {
@@ -778,6 +779,15 @@ func (t *Torrent) probeMediaInfo(index int) {
 	if t == nil || !ffprobe.Exists() {
 		return
 	}
+	if t.restoreProbe(index) {
+		return
+	}
+	key, valid := t.probeKey(index)
+	if !valid || !mediaProbes.Begin(key, time.Now()) {
+		return
+	}
+	result, success := flow.ProbeResult{}, false
+	defer func() { mediaProbes.Finish(key, result, success, time.Now()) }()
 	// stat=ffprobe tags this loopback reader as internal (see streamGroupKey /
 	// ProbeReaderGroup) so it isn't counted as a playback client by the preload's
 	// hand-off gate while the fill is still running.
@@ -812,6 +822,8 @@ func (t *Torrent) probeMediaInfo(index int) {
 		log.TLogln("torr.probeMediaInfo: failed after", time.Since(probeStart).Truncate(time.Millisecond).String(), "err:", err)
 		return
 	}
+	result = flow.ProbeResult{BitRate: data.Format.BitRate, Duration: data.Format.DurationSeconds}
+	success = true
 	t.mu.Lock()
 	if settings.CurrentFlow().Enabled && t.flowStartup.FileIndex != 0 && t.flowStartup.FileIndex != index {
 		t.mu.Unlock() // a newer file has become the active startup

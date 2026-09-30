@@ -539,6 +539,15 @@
       "STALLED": "Serverul raportează un flux blocat.",
       "WARM_IDLE": "Redarea este deconectată sau întreruptă; cache-ul rămâne protejat pentru reluare.",
       "UNKNOWN": "Nu există suficientă telemetrie pentru a evalua bufferul."
+    },
+    "troubleshooting": {
+      "title": "Diagnosticarea redării",
+      "delivery": "Poziția livrată este sfârșitul octeților trimiși de server, nu poziția decodată de player. Secundele de buffer sunt estimări.",
+      "estimate": "Bitrate-ul este provizoriu sau necunoscut. ffprobe, opțional, îmbunătățește estimarea; bitrate-ul variabil rămâne imprecis.",
+      "draining": "Descărcarea măsurată este sub consumul estimat și bufferul scade. Verifică peer-ii și conexiunea de rețea.",
+      "waiting": "O citire a serverului a așteptat cel puțin 500 ms în ultimele 60 de secunde. Aceasta nu dovedește blocarea decodării.",
+      "idle": "Nicio cerere a playerului nu este activă. Acesta poate fi în pauză, deconectat sau poate folosi propriul buffer.",
+      "peers": "Nu există peer-i conectați și nici octeți contigui disponibili. Verifică rețeaua locală și trackerele."
     }
   },
   "search": {
@@ -663,6 +672,25 @@
           "MinReconnectTime": "Interval minim de reconectare (secunde)"
         }
       }
+    },
+    "maintenance": {
+      "title": "Întreținere și restaurare",
+      "exclusions": "Copiile portabile exclud parolele, trackerele private, căile, posterele și datele clienților. Rapoartele exclud și numele și hash-urile.",
+      "support": "Descarcă raportul",
+      "export": "Exportă copia",
+      "import": "Previzualizează importul",
+      "tooLarge": "Copia depășește 16 MiB.",
+      "dirty": "Salvează sau anulează modificările înainte de restaurare.",
+      "preview": "Previzualizare restaurare",
+      "summary": "Combină {{torrents}} înregistrări și {{fields}} câmpuri de setări.",
+      "confirmHint": "Oprește redarea. Motorul repornește; parolele și căile locale se păstrează. Înainte de aplicare se salvează o copie locală protejată.",
+      "restore": "Restaurează copia",
+      "restored": "Restaurat. Copie locală: {{name}}",
+      "rss": "Memorie rezidentă a procesului",
+      "heap": "Heap Go",
+      "activeCache": "Cache activ",
+      "warmCache": "Cache păstrat",
+      "memoryHint": "Memoria procesului include alocări native. Capacitatea cache-ului și limita Go nu limitează întreaga memorie RAM a procesului."
     }
   }
 }

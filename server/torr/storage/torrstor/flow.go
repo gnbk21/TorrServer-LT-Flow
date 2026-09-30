@@ -12,12 +12,15 @@ type flowGroup struct {
 	fileIndex int
 	estimate  flow.Estimate
 	tracker   flow.ConsumptionTracker
+	smoother  flow.WindowSmoother
 	seen      time.Time
 	seconds   int
 	pieces    int
 }
 
 type FlowWindowStatus struct {
+	RecentDownloadRate   float64 `json:"recent_download_rate"`
+	DownloadRateSamples  int     `json:"download_rate_samples"`
 	ObservedPlaybackRate float64 `json:"observed_playback_rate"`
 	ObservedConfidence   string  `json:"observed_confidence"`
 	TargetBufferSeconds  int     `json:"target_buffer_seconds"`
@@ -90,10 +93,12 @@ func (c *Cache) SetFlowDownloadRate(rate float64) {
 		return
 	}
 	c.flowMu.Lock()
+	now := time.Now()
 	if rate >= 0 && !math.IsNaN(rate) && !math.IsInf(rate, 0) {
-		c.flowDownload = rate
+		c.flowRates.Observe(rate, now)
+		c.flowDownload, _ = c.flowRates.Mean(now)
 	}
-	c.refreshFlowWindowLocked(time.Now())
+	c.refreshFlowWindowLocked(now)
 	c.flowMu.Unlock()
 }
 
@@ -104,11 +109,13 @@ func (c *Cache) FlowWindow(group string) FlowWindowStatus {
 	c.flowMu.Lock()
 	defer c.flowMu.Unlock()
 	g := c.flowGroups[group]
+	download, samples := c.flowRates.Mean(time.Now())
 	if g == nil {
-		return FlowWindowStatus{}
+		return FlowWindowStatus{RecentDownloadRate: download, DownloadRateSamples: samples}
 	}
 	rate, confidence := g.tracker.Rate()
 	return FlowWindowStatus{ObservedPlaybackRate: rate, ObservedConfidence: confidence,
+		RecentDownloadRate: download, DownloadRateSamples: samples,
 		TargetBufferSeconds: g.seconds, ForwardWindowPieces: g.pieces}
 }
 
@@ -117,6 +124,7 @@ func (c *Cache) FlowWindow(group string) FlowWindowStatus {
 // Call with flowMu held; it never takes readersMu.
 func (c *Cache) refreshFlowWindowLocked(now time.Time) {
 	c.flowLastRefresh = now
+	c.flowDownload, _ = c.flowRates.Mean(now)
 	f := settings.CurrentFlow()
 	if !f.Enabled || !f.AdaptiveReadAhead {
 		c.flowAhead.Store(0)
@@ -124,7 +132,7 @@ func (c *Cache) refreshFlowWindowLocked(now time.Time) {
 	}
 	_, maxAhead := c.baseReaderWindowPieces()
 	maxPieces := 0
-	waitP95 := c.flowCounters.Snapshot().PieceWaitP95Ms
+	waitP95 := c.flowCounters.Snapshot().RecentPieceWaitP95Ms
 	for key, g := range c.flowGroups {
 		if now.Sub(g.seen) > time.Duration(f.WarmSessionTimeoutSec)*time.Second {
 			delete(c.flowGroups, key)
@@ -140,9 +148,25 @@ func (c *Cache) refreshFlowWindowLocked(now time.Time) {
 		g.seconds, g.pieces = flow.AdaptiveWindow(rate, c.flowDownload, waitP95,
 			f.TargetBufferSeconds, f.MaxBufferSeconds, f.StartupSafetyFactorPct,
 			c.PieceLength, maxAhead)
+		g.pieces = g.smoother.Apply(g.pieces, maxAhead, now)
 		if g.pieces > maxPieces {
 			maxPieces = g.pieces
 		}
 	}
 	c.flowAhead.Store(int64(maxPieces))
+}
+
+// ResetFlowWindow is called for a classified seek, never for ServeContent's
+// sizing seeks or an older overlapping request finishing behind the playhead.
+func (c *Cache) ResetFlowWindow(group string, fileIndex int) {
+	if c == nil {
+		return
+	}
+	c.flowMu.Lock()
+	if g := c.flowGroups[group]; g != nil && g.fileIndex == fileIndex {
+		g.smoother.Reset()
+		g.tracker.Reset()
+		c.refreshFlowWindowLocked(time.Now())
+	}
+	c.flowMu.Unlock()
 }

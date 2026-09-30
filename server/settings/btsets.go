@@ -2,12 +2,14 @@ package settings
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"io/fs"
 
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"server/log"
 )
@@ -171,11 +173,17 @@ func BTsets() *BTSets { return btSets.Load() }
 func StoreBTsets(s *BTSets) { btSets.Store(s) }
 
 func SetBTSets(sets *BTSets) {
+	if err := SetBTSetsChecked(sets); err != nil {
+		log.TLogln("Cannot save settings:", err)
+	}
+}
+
+func SetBTSetsChecked(sets *BTSets) error {
 	if ReadOnly {
-		return
+		return errors.New("database is read-only")
 	}
 	if sets == nil {
-		return
+		return errors.New("settings are required")
 	}
 	if sets.Flow == nil {
 		if old := BTsets(); old != nil && old.Flow != nil {
@@ -217,9 +225,11 @@ func SetBTSets(sets *BTSets) {
 	if sets.TorrentsSavePath == "" {
 		sets.UseDisk = false
 	} else if sets.UseDisk {
-		StoreBTsets(sets)
-
-		go filepath.WalkDir(sets.TorrentsSavePath, func(path string, d fs.DirEntry, err error) error {
+		deadline := time.Now().Add(3 * time.Second)
+		filepath.WalkDir(sets.TorrentsSavePath, func(path string, d fs.DirEntry, err error) error {
+			if time.Now().After(deadline) {
+				return filepath.SkipAll
+			}
 			if err != nil {
 				return err
 			}
@@ -235,13 +245,15 @@ func SetBTSets(sets *BTSets) {
 		})
 	}
 
-	StoreBTsets(sets)
 	buf, err := json.Marshal(sets)
 	if err != nil {
-		log.TLogln("Error marshal btsets", err)
-		return
+		return err
 	}
-	tdb.Set("Settings", "BitTorr", buf)
+	if err := putChecked(tdb, "Settings", "BitTorr", buf); err != nil {
+		return err
+	}
+	StoreBTsets(sets)
+	return nil
 }
 
 func SetDefaultConfig() {

@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "stable_approved": false,
+  "evidence": [],
+  "remaining": ["Representative real-phone playback matrix", "Multi-hour resource acceptance", "Windows boot, sleep and network recovery acceptance"]
+}

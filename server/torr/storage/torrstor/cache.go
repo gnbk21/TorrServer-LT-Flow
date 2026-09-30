@@ -73,6 +73,7 @@ type Cache struct {
 	flowMu          sync.Mutex
 	flowGroups      map[string]*flowGroup
 	flowDownload    float64
+	flowRates       flow.RateWindow
 	flowLastRefresh time.Time
 	flowAhead       atomic.Int64 // zero retains the upstream window
 

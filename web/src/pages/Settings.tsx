@@ -17,6 +17,7 @@ import { Button } from "../components/common/Button";
 import { Modal } from "../components/common/Modal";
 import { Loading, RequestError } from "../components/common/RequestState";
 import IntegrationSettings from "../components/settings/IntegrationSettings";
+import { MaintenancePanel } from "../components/settings/MaintenancePanel";
 const groups: Record<string, string[]> = {
   general: [
     "CacheSize",
@@ -373,6 +374,7 @@ export default function Settings() {
         </div>
       </form>
       <IntegrationSettings tab={tab} onDirty={setIntegrationDirty} />
+      {tab === "advanced" && <MaintenancePanel dirty={dirty} />}
       {tab === "advanced" && (
         <section className="panel border-rose-900 space-y-3">
           <h2>{t("settings.danger")}</h2>

@@ -50,7 +50,10 @@ func settings(c *gin.Context) {
 			abortWithJSONError(c, http.StatusBadRequest, errors.New("sets is required"))
 			return
 		}
-		torr.SetSettings(req.Sets)
+		if err := torr.SetSettings(req.Sets); err != nil {
+			abortWithJSONError(c, http.StatusServiceUnavailable, err)
+			return
+		}
 		dlna.Stop()
 		if req.Sets.EnableDLNA {
 			dlna.Start()

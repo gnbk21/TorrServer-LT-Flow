@@ -1,0 +1,42 @@
+name: Flow branch checks
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop, master]
+permissions:
+  contents: read
+jobs:
+  portable:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - working-directory: server
+        run: go test ./flow ./diagnostics ./web/pages/template
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: python -m unittest discover -s build -p '*_test.py'
+      - name: Parse Windows distribution scripts
+        shell: pwsh
+        run: |
+          $errors = @()
+          Get-ChildItem distribution/*.ps1 | ForEach-Object {
+            $tokens = $null
+            $parseErrors = $null
+            [void][Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$parseErrors)
+            $errors += $parseErrors
+          }
+          if ($errors.Count) { throw ($errors | Out-String) }
+  web:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/build-web.yml
+    with:
+      artifact-name: flow-web-develop

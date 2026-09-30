@@ -71,6 +71,8 @@ type FlowSessionStatus struct {
 	BitrateEstimateSource     string           `json:"bitrate_estimate_source"`
 	BitrateEstimateConfidence string           `json:"bitrate_estimate_confidence"`
 	DownloadRate              float64          `json:"download_rate"`
+	RecentDownloadRate        float64          `json:"recent_download_rate"`
+	DownloadRateSamples       int              `json:"download_rate_samples"`
 	UploadRate                float64          `json:"upload_rate"`
 	SustainabilityRatio       float64          `json:"sustainability_ratio"`
 	CacheUsed                 int64            `json:"cache_used"`
@@ -150,6 +152,9 @@ func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Requ
 			s.lastWarmSeq = s.RangeRequestCount + 1
 		}
 		if purpose == "SEEK" {
+			if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+				cache.ResetFlowWindow(group, file.Index)
+			}
 			s.SeekCount++
 			s.lastSeekSeq = s.RangeRequestCount + 1
 			s.State = "SEEK_RECOVERY"
@@ -315,6 +320,11 @@ func (t *Torrent) FlowStatus() []FlowSessionStatus {
 		t.mu.Unlock()
 		if probeFile != s.FileIndex {
 			bitrate, duration = "", 0
+			if key, ok := t.probeKey(s.FileIndex); ok {
+				if cached, ok := mediaProbes.Get(key, time.Now()); ok {
+					bitrate, duration = cached.BitRate, cached.Duration
+				}
+			}
 		}
 		e := flow.MediaEstimate(s.FileSize, duration, bitrate)
 		s.EstimatedMediaBitrate = e.BytesPerSecond * 8
@@ -324,6 +334,7 @@ func (t *Torrent) FlowStatus() []FlowSessionStatus {
 		s.BitrateEstimateSource, s.BitrateEstimateConfidence = e.Source, e.Confidence
 		if cache != nil {
 			w := cache.FlowWindow(s.Group)
+			s.RecentDownloadRate, s.DownloadRateSamples = w.RecentDownloadRate, w.DownloadRateSamples
 			s.ObservedPlaybackRate, s.ObservedConfidence = w.ObservedPlaybackRate, w.ObservedConfidence
 			s.TargetBufferSeconds, s.ForwardWindowPieces = w.TargetBufferSeconds, w.ForwardWindowPieces
 		}
@@ -332,7 +343,11 @@ func (t *Torrent) FlowStatus() []FlowSessionStatus {
 			s.PlaybackConsumptionRate = s.ObservedPlaybackRate
 		}
 		s.DownloadRate, s.UploadRate, s.ConnectedPeers = status.DownloadSpeed, status.UploadSpeed, status.ActivePeers
-		s.SustainabilityRatio = flow.Sustainability(status.DownloadSpeed,
+		rate := s.DownloadRate
+		if s.DownloadRateSamples > 0 {
+			rate = s.RecentDownloadRate
+		}
+		s.SustainabilityRatio = flow.Sustainability(rate,
 			flow.Estimate{BytesPerSecond: s.PlaybackConsumptionRate})
 		if cache == nil || cache.PieceLength <= 0 {
 			continue
@@ -350,8 +365,8 @@ func (t *Torrent) FlowStatus() []FlowSessionStatus {
 		s.BufferAheadBytes = cache.ContiguousAvailable(start, end)
 		s.BufferAheadSeconds = flow.BufferSeconds(s.BufferAheadBytes,
 			flow.Estimate{BytesPerSecond: s.PlaybackConsumptionRate})
-		if s.ActiveReaders > 0 && s.PlaybackOffsetBytes > 0 {
-			if seconds, known := flow.BufferExhaustionSeconds(s.BufferAheadBytes, s.PlaybackConsumptionRate, s.DownloadRate); known {
+		if s.ActiveReaders > 0 && s.PlaybackOffsetBytes > 0 && s.BufferAheadBytes < end-start {
+			if seconds, known := flow.BufferExhaustionSeconds(s.BufferAheadBytes, s.PlaybackConsumptionRate, rate); known {
 				s.BufferExhaustionSeconds = &seconds
 				s.BufferWarning = seconds < 30
 			}

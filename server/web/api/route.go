@@ -82,6 +82,11 @@ func SetupRoute(route gin.IRouter) {
 	authorized.GET("/flow/status/:hash", flowStatus)
 	authorized.GET("/flow/network", flowNetwork)
 	authorized.GET("/flow/tray", flowTray)
+	authorized.POST("/flow/maintenance", flowMaintenance)
+	authorized.GET("/flow/support", supportReport)
+	authorized.GET("/flow/backup", portableBackup)
+	authorized.POST("/flow/backup/preview", backupPreview)
+	authorized.POST("/flow/backup/apply", backupApply)
 	authorized.POST("/flow/control", flowControl)
 
 	authorized.GET("/ffp/status", ffprobeStatus)

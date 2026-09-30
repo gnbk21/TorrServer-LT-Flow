@@ -54,3 +54,6 @@ rutor.ls
 /web/test-results/
 /web-legacy/node_modules/
 /web-legacy/build/
+# Python verification outputs
+__pycache__/
+*.pyc

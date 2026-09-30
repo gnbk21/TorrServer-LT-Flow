@@ -5,6 +5,67 @@ import (
 	"time"
 )
 
+// WindowSmoother caps changes in an existing cache window. Growth responds
+// immediately, contraction needs ten seconds; tiny fluctuations are ignored.
+// Reset for a new file/seek. A reduced hard budget always applies immediately.
+type WindowSmoother struct {
+	pieces  int
+	changed time.Time
+}
+
+func (h *WindowSmoother) Reset() { *h = WindowSmoother{} }
+func (h *WindowSmoother) Apply(want, maximum int, now time.Time) int {
+	want = max(0, min(want, maximum))
+	if h.pieces == 0 || h.pieces > maximum {
+		h.pieces = want
+		h.changed = now
+		return want
+	}
+	delta := want - h.pieces
+	step := max(1, h.pieces/4)
+	if delta > max(1, h.pieces/10) {
+		h.pieces += min(step, delta)
+		h.changed = now
+	} else if delta < -max(1, h.pieces/10) && now.Sub(h.changed) >= 10*time.Second {
+		h.pieces -= min(step, -delta)
+		h.changed = now
+	}
+	return min(maximum, h.pieces)
+}
+
+// RateWindow uses one observation per second and expires idle history. Samples
+// with no download are retained for reporting but not treated as proof of loss.
+type RateWindow struct {
+	samples [60]struct {
+		second int64
+		rate   float64
+	}
+}
+
+func (r *RateWindow) Observe(rate float64, now time.Time) {
+	if rate < 0 || math.IsNaN(rate) || math.IsInf(rate, 0) || now.Unix() <= 0 {
+		return
+	}
+	i := now.Unix() % 60
+	r.samples[i].second = now.Unix()
+	r.samples[i].rate = rate
+}
+func (r *RateWindow) Mean(now time.Time) (float64, int) {
+	var total float64
+	count := 0
+	for _, s := range r.samples {
+		age := now.Unix() - s.second
+		if s.second > 0 && age >= 0 && age < 60 {
+			total += s.rate
+			count++
+		}
+	}
+	if count == 0 {
+		return 0, 0
+	}
+	return total / float64(count), count
+}
+
 // ConsumptionTracker samples forward progress over wall-clock time. Short
 // Range bursts are accumulated; large jumps and idle gaps are excluded so a
 // seek or a resume does not masquerade as sustained playback consumption.

@@ -27,6 +27,14 @@ export interface FlowStartup {
 }
 
 export interface FlowSession {
+  recent_window_seconds?: number;
+  recent_cache_hit_bytes?: number;
+  recent_cache_miss_bytes?: number;
+  recent_piece_wait_count?: number;
+  recent_piece_wait_p95_ms?: number;
+  recent_server_read_stalls?: number;
+  recent_download_rate?: number;
+  download_rate_samples?: number;
   cache_hit_bytes: number;
   cache_miss_bytes: number;
   piece_wait_count: number;
