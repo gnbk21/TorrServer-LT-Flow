@@ -52,7 +52,7 @@ Service installation requires an elevated terminal and `-AsService`. The SCM
 installation uses an explicit executable and state path. Do not install from a
 temporary or user-writable download folder on a shared computer.
 The service uses `NT SERVICE\TorrServer-Flow` with a restricted service SID;
-its state directory receives Modify access and its executable directory receives
+its state directory receives Modify access and its executable receives
 Read/Execute access for that service. Registration rolls back if these grants
 fail. Keep the tray companion under the interactive user account.
 

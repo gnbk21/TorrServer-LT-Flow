@@ -318,6 +318,9 @@ jobs:
       - name: Authenticated update and startup failure rollback
         shell: pwsh
         run: ./build/test-windows-update.ps1 -Baseline ./update-fixture/TorrServer-LT-windows-amd64.exe -Candidate ./service-binary/TorrServer-LT-windows-amd64.exe -OutputDirectory ./update-test-state -Commit '${{ github.sha }}'
+      - name: Restricted service update and migration rollback
+        shell: pwsh
+        run: ./build/test-windows-update.ps1 -Baseline ./update-fixture/TorrServer-LT-windows-amd64.exe -Candidate ./service-binary/TorrServer-LT-windows-amd64.exe -OutputDirectory ./service-update-test-state -Commit '${{ github.sha }}' -AsService
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -326,6 +329,8 @@ jobs:
             service-test-state/service-test.json
             service-test-state/flow.log
             update-test-state/report.json
+            service-update-test-state/report.json
+            service-update-test-state/state/flow.log
 
   # Assemble + push the multi-arch GHCR image straight from the linux binaries
   # the matrix just cross-built — no recompile and no QEMU for the binary (only

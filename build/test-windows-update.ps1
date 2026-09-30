@@ -2,9 +2,11 @@ param(
     [Parameter(Mandatory)][string]$Baseline,
     [Parameter(Mandatory)][string]$Candidate,
     [Parameter(Mandatory)][string]$OutputDirectory,
-    [string]$Commit = ''
+    [string]$Commit = '',
+    [switch]$AsService
 )
 $ErrorActionPreference = 'Stop'
+if ($AsService -and ($env:GITHUB_ACTIONS -ne 'true' -or (Get-Service -Name 'TorrServer-Flow' -ErrorAction SilentlyContinue))) { throw 'Service update verification requires a disposable CI runner with no existing Flow service.' }
 $root = Split-Path $PSScriptRoot -Parent
 $baselinePath = (Resolve-Path -LiteralPath $Baseline).Path
 $candidatePath = (Resolve-Path -LiteralPath $Candidate).Path
@@ -71,6 +73,15 @@ function Start-Process {
     }
     Microsoft.PowerShell.Management\Start-Process @PSBoundParameters
 }
+function Move-Item {
+    [CmdletBinding()]param([string]$LiteralPath,[string]$Destination,[switch]$Force)
+    Microsoft.PowerShell.Management\Move-Item @PSBoundParameters
+    if ($AsService -and $global:flowUpdateTestfailNextStart -and $Destination -eq $exe -and [IO.Path]::GetFileName($LiteralPath).StartsWith('download-')) {
+        $global:flowUpdateTestfailNextStart=$false
+        [IO.File]::WriteAllBytes((Join-Path $state 'config.db'),[Text.Encoding]::ASCII.GetBytes('candidate-migration-fixture'))
+        [IO.File]::WriteAllText((Join-Path $state 'candidate-only.json'),'{"migration":"fixture"}')
+    }
+}
 function Health([string]$Version) {
     $deadline=[DateTime]::UtcNow.AddSeconds(30)
     do {
@@ -90,11 +101,18 @@ function CheckState {
     if (-not $record.http_auth -or @($record.listen_addresses).Count -ne 1 -or $record.listen_addresses[0] -ne '127.0.0.1') { throw 'Authentication/listener configuration was lost.' }
 }
 try {
-    & (Join-Path $root 'distribution/Install-Flow.ps1') -Channel preview -InstallDirectory $install -StateDirectory $state -Port $port -HttpAuth -ListenAddress '127.0.0.1'
+    & (Join-Path $root 'distribution/Install-Flow.ps1') -Channel preview -InstallDirectory $install -StateDirectory $state -Port $port -HttpAuth -ListenAddress '127.0.0.1' -AsService:$AsService
     $arguments='--path "'+$state+'" --port '+$port+' --ip 127.0.0.1 --httpauth'
-    Microsoft.PowerShell.Management\Start-Process -FilePath $exe -ArgumentList $arguments -WindowStyle Hidden
+    if ($AsService) {
+        & $exe --service start
+        if ($LASTEXITCODE -ne 0) { throw 'Owned test service did not start.' }
+    } else { Microsoft.PowerShell.Management\Start-Process -FilePath $exe -ArgumentList $arguments -WindowStyle Hidden }
     Health $oldManifest.Version
     CheckState
+    if ($AsService) {
+        $service=Get-CimInstance Win32_Service -Filter "Name='TorrServer-Flow'"
+        if ($service.StartName -ne 'NT SERVICE\TorrServer-Flow' -or $service.PathName -notmatch '--httpauth' -or $service.PathName -notmatch '--ip 127\.0\.0\.1') { throw 'Service update lost its identity or listener/authentication flags.' }
+    }
     $global:flowUpdateTestfixtureManifest=$newManifest; $global:flowUpdateTestfixtureBinary=$candidatePath
     $lease=Microsoft.PowerShell.Utility\Invoke-RestMethod -Uri "$baseUri/flow/maintenance" -Method Post -Body '{"enabled":true}' -ContentType 'application/json' -Headers $headers
     $busyRejected=$false
@@ -135,4 +153,8 @@ try {
     try { Microsoft.PowerShell.Utility\Invoke-RestMethod -Uri "$baseUri/shutdown" -Headers $headers -TimeoutSec 2 | Out-Null } catch { }
     $owned=@(Get-Process -Name 'TorrServer-LT-windows-amd64' -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq $exe})
     foreach ($process in $owned) { if (-not $process.WaitForExit(30000)) { $process.Kill(); $process.WaitForExit() } }
+    if ($AsService -and (Get-Service -Name 'TorrServer-Flow' -ErrorAction SilentlyContinue)) {
+        & $exe --service uninstall
+        if ($LASTEXITCODE -ne 0) { throw 'Owned test service cleanup failed.' }
+    }
 }

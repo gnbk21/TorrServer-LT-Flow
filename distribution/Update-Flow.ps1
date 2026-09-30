@@ -63,6 +63,12 @@ $previous = Join-Path $install ('previous-' + [guid]::NewGuid().ToString('N') + 
 $quiesced = $false; $swapped = $false; $stopped = $false; $backup = $null
 try {
     Save-FlowBinary $manifest $temporary -RequireAttestation:$RequireAttestation
+    if ($record.service) {
+        # Replacement files do not inherit the previous executable's explicit
+        # virtual-account grant. Preserve read/execute access before the swap.
+        & icacls.exe $temporary /grant 'NT SERVICE\TorrServer-Flow:RX' | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Cannot grant the restricted service access to the candidate executable.' }
+    }
     # No replacement until the server atomically rejects new playback and confirms idle.
     $maintenance = Set-FlowMaintenance $true
     if (-not $maintenance.enabled -or $maintenance.active_requests -ne 0) { throw 'Server is not idle.' }
