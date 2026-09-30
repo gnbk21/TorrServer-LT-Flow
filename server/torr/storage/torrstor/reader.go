@@ -392,6 +392,16 @@ func (r *Reader) Read(p []byte) (int, error) {
 			end = want
 		}
 		n, err := r.cache.readPiece(piece, pieceOff, p[written:int(end)])
+		if n == 0 && (err == nil || err == io.EOF || err == errOutOfPiece) {
+			if written > 0 {
+				break
+			}
+			if r.ctx != nil && r.ctx.Err() != nil {
+				return 0, r.ctx.Err()
+			}
+			r.ensuredAtMs = 0 // availability changed between inspection and copying
+			continue          // a cache eviction is not the end of the media file
+		}
 		if n > 0 {
 			if settings.CurrentFlow().MetricsEnabled && r.group != ProbeReaderGroup {
 				if miss {
@@ -534,7 +544,10 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 		r.cache.applyStreamPriorities()
 	}
 	waitStarted := time.Now()
-	ready := r.cache.WaitForBytes(ctx, piece, pieceOff)
+	ready := r.cache.waitForBytes(ctx, piece, pieceOff, func() {
+		r.cache.lastApplyMs.Store(0)
+		r.cache.applyStreamPriorities()
+	})
 	if settings.CurrentFlow().MetricsEnabled && r.group != ProbeReaderGroup {
 		r.cache.flowCounters.Wait(time.Since(waitStarted))
 	}

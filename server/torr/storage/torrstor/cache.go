@@ -427,6 +427,19 @@ func (c *Cache) WaitForPiece(ctx context.Context, piece int) bool {
 // its first blocks arrive over the wire instead of after the whole piece
 // downloads and hashes.
 func (c *Cache) WaitForBytes(ctx context.Context, piece int, off int64) bool {
+	return c.waitForBytes(ctx, piece, off, nil)
+}
+
+// A blocked HTTP Read holds its reader mutex, so its normal priority ticker
+// cannot run. Reconcile periodically while parked: a late native hash result
+// may restore a have bit after the corresponding cache data was evicted.
+func (c *Cache) waitForBytes(ctx context.Context, piece int, off int64, reconcile func()) bool {
+	var ticks <-chan time.Time
+	if reconcile != nil {
+		timer := time.NewTicker(2 * time.Second)
+		defer timer.Stop()
+		ticks = timer.C
+	}
 	for {
 		if c.readableAt(piece, off) > 0 {
 			return true
@@ -437,6 +450,8 @@ func (c *Cache) WaitForBytes(ctx context.Context, piece int, off int64) bool {
 		}
 		select {
 		case <-ch:
+		case <-ticks:
+			reconcile()
 		case <-ctx.Done():
 			return false
 		}
