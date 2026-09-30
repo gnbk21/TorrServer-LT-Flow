@@ -42,9 +42,11 @@
 // methods we call are unchanged and native_handle() already returns the
 // aux type, so only the include paths differ).
 #include <libtorrent/aux_/piece_picker.hpp>
+#include <libtorrent/aux_/peer_list.hpp>
 #include <libtorrent/aux_/torrent.hpp>
 #else
 #include <libtorrent/piece_picker.hpp>
+#include <libtorrent/peer_list.hpp>
 #include <libtorrent/torrent.hpp>
 #endif
 #include <libtorrent/aux_/session_interface.hpp>
@@ -109,9 +111,18 @@ void libtorrent::torrent::flow_forget_piece(piece_index_t const index,
     if (had_piece) inc_stats_counter(counters::num_have_pieces, -1);
     // is_seed() also consults m_state. Leaving that at seeding makes priority
     // updates no-ops and disconnects the very seed needed for the cache miss.
-    if (state() == torrent_status::seeding) set_state(torrent_status::finished);
+    if (state() == torrent_status::seeding)
+        set_state(m_picker->is_finished() ? torrent_status::finished : torrent_status::downloading);
     update_gauge();
     update_peer_interest(was_finished);
+    // A finished torrent may have zero cached connect candidates because all
+    // known peers are seeds. Refresh this count before want_peers() checks it;
+    // otherwise it never calls connect_one_peer(), which normally refreshes it.
+    if (m_peer_list) {
+        auto peer_state = get_peer_list_state();
+        m_peer_list->flow_refresh_connect_candidates(&peer_state);
+    }
+    update_want_peers();
     set_need_save_resume(torrent_handle::if_download_progress);
     state_updated();
 }

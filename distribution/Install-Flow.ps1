@@ -5,12 +5,18 @@ param(
     [ValidateRange(1, 65535)][int]$Port = 8090,
     [switch]$AsService,
     [switch]$HttpAuth,
+    [string[]]$ListenAddress = @(),
     [switch]$RequireAttestation
 )
 . (Join-Path $PSScriptRoot 'FlowRelease.ps1')
 $install = [IO.Path]::GetFullPath($InstallDirectory)
 $state = [IO.Path]::GetFullPath($StateDirectory)
 if ($install -eq $state) { throw 'Use separate executable and state directories.' }
+foreach ($address in $ListenAddress) {
+    $parsed = $null
+    if (-not [Net.IPAddress]::TryParse($address,[ref]$parsed)) { throw 'Listen addresses must be IP literals.' }
+}
+if ($ListenAddress.Count -and '127.0.0.1' -notin $ListenAddress -and '0.0.0.0' -notin $ListenAddress) { throw 'Managed updates require a loopback listener; include 127.0.0.1 in -ListenAddress.' }
 if (Test-Path -LiteralPath (Join-Path $install 'TorrServer-LT-windows-amd64.exe')) { throw 'Use Update-Flow.ps1 for an existing installation.' }
 $manifest = Get-FlowRelease $Channel
 [void](New-Item -ItemType Directory -Path $install -Force)
@@ -28,11 +34,12 @@ try {
     if ($AsService) {
         $arguments = @('--service','install','--path',$state,'--port',[string]$Port)
         if ($HttpAuth) { $arguments += '--httpauth' }
+        foreach ($address in $ListenAddress) { $arguments += @('--ip',$address) }
         & $exe @arguments
         if ($LASTEXITCODE -ne 0) { throw 'Service installation failed. The downloaded executable is retained.' }
     }
-    Write-FlowInstallRecord $install $state $Port $manifest ([bool]$AsService) ([bool]$HttpAuth)
+    Write-FlowInstallRecord $install $state $Port $manifest ([bool]$AsService) ([bool]$HttpAuth) $ListenAddress
     Write-Output "Installed $($manifest.Version). State: $state. Port: $Port."
     if ($AsService) { Write-Output 'Start using --service start from an elevated terminal.' }
-    else { $authArgument=''; if ($HttpAuth) { $authArgument=' --httpauth' }; Write-Output "Start: & '$exe' --path '$state' --port $Port$authArgument" }
+    else { $extra=''; if ($HttpAuth) { $extra=' --httpauth' }; foreach ($address in $ListenAddress) { $extra += " --ip $address" }; Write-Output "Start: & '$exe' --path '$state' --port $Port$extra" }
 } finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary } }

@@ -10,12 +10,24 @@ $recordPath = Join-Path $install 'flow-install.json'
 $record = Get-Content -LiteralPath $recordPath -Raw | ConvertFrom-Json
 if ($record.schema_version -ne 1) { throw 'Unsupported installation record.' }
 $httpAuth = ($record.PSObject.Properties.Name -contains 'http_auth') -and [bool]$record.http_auth
+$listenAddresses = @()
+if ($record.PSObject.Properties.Name -contains 'listen_addresses') { $listenAddresses = @($record.listen_addresses) }
+foreach ($address in $listenAddresses) {
+    $parsed = $null
+    if (-not [Net.IPAddress]::TryParse([string]$address,[ref]$parsed)) { throw 'Invalid recorded listener address.' }
+}
 if ($httpAuth -and -not $Credential) { throw 'This installation requires -Credential for authenticated health and maintenance checks.' }
 $exe = Join-Path $install 'TorrServer-LT-windows-amd64.exe'
 $manifest = Get-FlowRelease $Channel
 if ($manifest.Version -eq $record.version) { Write-Output 'This release is already installed.'; return }
 $request = @{ TimeoutSec = 5; ErrorAction = 'Stop' }
-if ($Credential) { $request.Credential = $Credential }
+if ($Credential) {
+    # PowerShell 7 forbids -Credential on HTTP. Send Basic only to the fixed
+    # loopback endpoint, preserving compatibility with PowerShell 5.1.
+    $authentication = $Credential.GetNetworkCredential()
+    $request.Headers = @{ Authorization = 'Basic '+[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($authentication.UserName+':'+$authentication.Password)) }
+    $authentication = $null
+}
 $baseUri = 'http://127.0.0.1:' + [int]$record.port
 $maintenanceToken = ''
 function Set-FlowMaintenance([bool]$Enabled) {
@@ -30,6 +42,7 @@ function Start-InstalledFlow {
         if ([string]$record.state_directory -match '["\r\n]') { throw 'Invalid state path.' }
         $arguments = '--path "' + ([string]$record.state_directory).TrimEnd('\') + '" --port ' + [int]$record.port
         if ($httpAuth) { $arguments += ' --httpauth' }
+        foreach ($address in $listenAddresses) { $arguments += ' --ip '+$address }
         Start-Process -FilePath $exe -ArgumentList $arguments -WorkingDirectory $install -WindowStyle Hidden | Out-Null
     }
 }
@@ -83,7 +96,7 @@ try {
     $swapped = $true
     Start-InstalledFlow
     Wait-FlowHealth $manifest.Version
-    Write-FlowInstallRecord $install ([string]$record.state_directory) ([int]$record.port) $manifest ([bool]$record.service) $httpAuth
+    Write-FlowInstallRecord $install ([string]$record.state_directory) ([int]$record.port) $manifest ([bool]$record.service) $httpAuth $listenAddresses
     Write-Output "Updated to $($manifest.Version). Previous executable: $previous. Configuration backup: $backup."
 } catch {
     $failure = $_

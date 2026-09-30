@@ -262,6 +262,20 @@ jobs:
             _out/pgo-training/report.json
             _out/pgo-comparison/report.json
 
+      # Primary artifacts are already uploaded. Build a differently stamped
+      # native fixture for updater lifecycle tests; never publish this fixture.
+      - name: Build update lifecycle fixture
+        if: matrix.target == 'windows-amd64'
+        env:
+          TS_VERSION: MatriX.145.Flow-dev-${{ github.sha }}-update-fixture
+        run: bash build/windows-amd64.sh
+      - uses: actions/upload-artifact@v4
+        if: matrix.target == 'windows-amd64'
+        with:
+          name: flow-windows-update-fixture
+          path: _out/TorrServer-LT-windows-amd64.exe
+          if-no-files-found: error
+
   windows-service:
     needs: cross
     runs-on: windows-latest
@@ -274,6 +288,13 @@ jobs:
       - name: Restricted account lifecycle
         shell: pwsh
         run: ./build/test-windows-service.ps1 -Executable ./service-binary/TorrServer-LT-windows-amd64.exe -OutputDirectory ./service-test-state
+      - uses: actions/download-artifact@v4
+        with:
+          name: flow-windows-update-fixture
+          path: update-fixture
+      - name: Authenticated update and startup failure rollback
+        shell: pwsh
+        run: ./build/test-windows-update.ps1 -Baseline ./update-fixture/TorrServer-LT-windows-amd64.exe -Candidate ./service-binary/TorrServer-LT-windows-amd64.exe -OutputDirectory ./update-test-state -Commit '${{ github.sha }}'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -281,6 +302,7 @@ jobs:
           path: |
             service-test-state/service-test.json
             service-test-state/flow.log
+            update-test-state/report.json
 
   # Assemble + push the multi-arch GHCR image straight from the linux binaries
   # the matrix just cross-built — no recompile and no QEMU for the binary (only

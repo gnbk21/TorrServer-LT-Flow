@@ -42,7 +42,7 @@ function Save-FlowBinary {
 }
 
 function Write-FlowInstallRecord {
-    param([string]$Directory, [string]$StateDirectory, [int]$Port, $Manifest, [bool]$Service, [bool]$HttpAuth = $false)
-    $record = @{ schema_version = 1; version = $Manifest.Version; channel = $Manifest.channel; commit = $Manifest.commit; state_directory = $StateDirectory; port = $Port; service = $Service; http_auth = $HttpAuth }
+    param([string]$Directory, [string]$StateDirectory, [int]$Port, $Manifest, [bool]$Service, [bool]$HttpAuth = $false, [string[]]$ListenAddress = @())
+    $record = @{ schema_version = 1; version = $Manifest.Version; channel = $Manifest.channel; commit = $Manifest.commit; state_directory = $StateDirectory; port = $Port; service = $Service; http_auth = $HttpAuth; listen_addresses = @($ListenAddress) }
     $record | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Directory 'flow-install.json') -Encoding UTF8
 }

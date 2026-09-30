@@ -10,20 +10,27 @@ import os
 from pathlib import Path
 
 
-def patch(directory):
-    path = directory / "include/libtorrent/aux_/torrent.hpp"
-    if not path.is_file():
-        path = directory / "include/libtorrent/torrent.hpp"
+def extend(path, anchor, declaration):
     source = path.read_text(encoding="utf-8")
-    declaration = "\t\tvoid flow_forget_piece(piece_index_t index, download_priority_t priority);"
     if declaration in source:
         return
-    anchor = "\t\tvoid set_piece_priority(piece_index_t index, download_priority_t priority);"
     if source.count(anchor) != 1:
         raise ValueError("Pinned libtorrent cache extension anchor not found exactly once")
     temporary = path.with_suffix(".flow-tmp")
     temporary.write_text(source.replace(anchor, anchor+"\n"+declaration),encoding="utf-8")
     os.replace(temporary,path)
+
+
+def patch(directory):
+    include = directory / "include/libtorrent/aux_"
+    if not (include / "torrent.hpp").is_file():
+        include = directory / "include/libtorrent"
+    extend(include / "torrent.hpp",
+           "\t\tvoid set_piece_priority(piece_index_t index, download_priority_t priority);",
+           "\t\tvoid flow_forget_piece(piece_index_t index, download_priority_t priority);")
+    extend(include / "peer_list.hpp",
+           "\t\tvoid set_max_failcount(torrent_state* st);",
+           "\t\tvoid flow_refresh_connect_candidates(torrent_state* state) { recalculate_connect_candidates(state); }")
 
 
 if __name__ == "__main__":

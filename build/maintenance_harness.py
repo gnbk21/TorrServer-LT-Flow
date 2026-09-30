@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Authenticated, isolated native API/restore/doctor regression check."""
 import argparse
+import http.client
 import json
 from pathlib import Path
 import subprocess
+import time
 import urllib.error
-from playback_harness import OwnedServer
+from playback_harness import OwnedServer, upload
+from controlled_peer import LocalSwarm
 
 
 def expect_status(server, path, status, data=None, headers=None):
@@ -38,6 +41,30 @@ def run(executable, output):
         expect_status(server,"/flow/backup/apply",409,{"backup":backup,"digest":preview["digest"]})
         expect_status(server,"/flow/maintenance",409,{"enabled":False,"token":"wrong"})
         server.json("/flow/maintenance",{"enabled":False,"token":maintenance["token"]})
+        # Actual streaming work must prevent an update lease. A slow original
+        # byte fixture holds the HTTP request open without external media.
+        payload=output / "owned-payload.bin"
+        payload.write_bytes(bytes(range(256))*16384)
+        with LocalSwarm([payload],16384,0,0) as swarm:
+            status=upload(server,swarm)
+            connection=http.client.HTTPConnection("127.0.0.1",server.port,timeout=30)
+            try:
+                connection.request("GET",f"/play/{status['hash']}/1?play",headers={"Range":"bytes=0-4194303"})
+                response=connection.getresponse()
+                if response.status!=206 or response.read(1)!=b'\0': raise AssertionError("Owned busy playback did not start")
+                expect_status(server,"/flow/maintenance",409,{"enabled":True})
+            finally:
+                connection.close()
+                if "response" in locals(): response.close()
+        deadline=time.monotonic()+10
+        while True:
+            try:
+                idle=server.json("/flow/maintenance",{"enabled":True})
+                server.json("/flow/maintenance",{"enabled":False,"token":idle["token"]})
+                break
+            except urllib.error.HTTPError as error:
+                if error.code!=409 or time.monotonic()>=deadline: raise
+                time.sleep(.1)
         expect_status(server,"/flow/backup/apply",400,{"backup":backup,"digest":"0"*64})
         restored = server.json("/flow/backup/apply",{"backup":backup,"digest":preview["digest"]},timeout=30)
         server.ready()
@@ -53,7 +80,7 @@ def run(executable, output):
             raise AssertionError("Doctor missed occupied listener")
         if "fixture-secret-key" in doctor.stdout.decode() or "local-fixture-only" in doctor.stdout.decode():
             raise AssertionError("Doctor leaked credentials")
-        result = {"passed":True,"authenticated":True,"maintenance_exclusive":True,"restore_recovery":True,"doctor_busy_listener":True,"support_bytes":len(json.dumps(support))}
+        result = {"passed":True,"authenticated":True,"maintenance_exclusive":True,"active_playback_rejected":True,"restore_recovery":True,"doctor_busy_listener":True,"support_bytes":len(json.dumps(support))}
         (output / "report.json").write_text(json.dumps(result,indent=2)+"\n",encoding="utf-8")
         print(json.dumps(result))
     finally:
