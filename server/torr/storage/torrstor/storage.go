@@ -198,6 +198,18 @@ func (s *Storage) callbackEvict(storage int64, piece int) bool {
 func (s *Storage) callbackSize(storage int64, totalSize int64) {
 	if c := s.lookup(storage); c != nil {
 		c.totalSize.Store(totalSize)
+		// Preserve the existing disk-resume size policy, now with the exact
+		// final-piece length. Open scanned these files before Size was known.
+		c.mu.RLock()
+		p := c.pieces[c.NumPieces-1]
+		c.mu.RUnlock()
+		if p != nil {
+			p.mu.Lock()
+			if p.disk != nil && len(p.avail) == 0 && p.size > 0 && p.size == p.expectedSize() {
+				p.complete = true
+			}
+			p.mu.Unlock()
+		}
 	}
 }
 
