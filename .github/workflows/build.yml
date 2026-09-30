@@ -107,6 +107,16 @@ jobs:
             android-*)     echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV" ;;
           esac
 
+      - name: Preserve static toolchain runtime notices
+        if: matrix.target == 'windows-amd64' || startsWith(matrix.target, 'android-')
+        run: python3 build/runtime_notices.py --target '${{ matrix.target }}' --output '_out/RUNTIME_NOTICES-${{ matrix.target }}.txt'
+      - uses: actions/upload-artifact@v4
+        if: matrix.target == 'windows-amd64' || startsWith(matrix.target, 'android-')
+        with:
+          name: flow-runtime-notices-${{ matrix.target }}
+          path: _out/RUNTIME_NOTICES-${{ matrix.target }}.txt
+          if-no-files-found: error
+
       - name: Build
         env:
           TS_VERSION: ${{ inputs.version || format('MatriX.145.Flow-dev-{0}', github.sha) }}

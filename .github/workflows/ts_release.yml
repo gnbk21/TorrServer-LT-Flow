@@ -60,6 +60,10 @@ jobs:
           path: artifacts
       - uses: actions/download-artifact@v4
         with:
+          pattern: flow-runtime-notices-*
+          path: artifacts
+      - uses: actions/download-artifact@v4
+        with:
           name: flow-web-cross
           path: server/web/pages/template
       - uses: actions/cache@v4
@@ -93,7 +97,7 @@ jobs:
           prerelease: ${{ needs.classify.outputs.channel == 'preview' }}
           make_latest: ${{ needs.classify.outputs.channel == 'stable' }}
           generate_release_notes: true
-          body_path: ${{ github.ref_name == 'MatriX.145.Flow-v0.2.0-preview.3' && 'PREVIEW_2_NOTES.md' || 'DISTRIBUTION.md' }}
+          body_path: ${{ github.ref_name == 'MatriX.145.Flow-v0.2.0-preview.4' && 'PREVIEW_2_NOTES.md' || 'DISTRIBUTION.md' }}
   docker:
     needs: [classify, release]
     permissions:

@@ -5,6 +5,9 @@ existing HTTP API; `-gst` binaries additionally require GStreamer libraries.
 The included license and original Go, native and frontend notices accompany
 every platform package. Dependencies are pinned in `build/_common.sh`,
 `server/go.mod` and `web/yarn.lock`.
+Windows MinGW/GCC and Android NDK static runtime notices are collected from
+the toolchains used in CI; their digests are recorded in `BUILDINFO.json` and
+their original text is included in `NATIVE_AND_GO_NOTICES.txt`.
 
 ## Channels
 

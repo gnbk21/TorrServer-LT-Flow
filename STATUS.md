@@ -26,8 +26,12 @@ duplicates. The `MatriX.145.Flow-v0.2.0-preview.2` release passed packaging and
 provenance publication, but live installer validation found a PowerShell
 JSON-array enumeration defect. Its native binaries are unaffected; its managed
 scripts must be replaced. The selector and transport fixtures now preserve the
-real API response shape. The next candidate is `MatriX.145.Flow-v0.2.0-preview.3`;
-earlier tags are retained for traceability.
+real API response shape. The `MatriX.145.Flow-v0.2.0-preview.3` publication was
+cancelled during the final notice review: statically linked Windows/Android
+toolchain runtimes also need their original notices. CI now collects those from
+the actual compiler/NDK installation and packaging requires all three copies.
+The next candidate is `MatriX.145.Flow-v0.2.0-preview.4`; earlier tags are
+retained for traceability.
 The complete packager passed locally using all 13 native artifacts from
 `815d5bee`, authentic pinned dependency notices, all eight platform archives,
 and two identical checksum inventories. Published transport is still a gate.

@@ -96,8 +96,16 @@ def package(artifact_dir, output, tag, commit, native_root):
                   "source_url": f"https://github.com/{REPOSITORY}/tree/{commit}"}
     provenance["native_build_pins"] = (root / "build/_common.sh").read_text(encoding="utf-8")
     provenance["native_cache_extension"] = {"version": 2, "declarations_sha256": digest(root / "build/patch_libtorrent_header.py"), "implementation_sha256": digest(root / "server/lt/lt_shim.cpp")}
+    runtime_notices = {platform: find_binary(artifact_dir, f"RUNTIME_NOTICES-{platform}.txt") for platform in ("windows-amd64", "android-arm64", "android-armv7")}
+    provenance["toolchain_runtime_notices"] = {platform: {"sha256": digest(path), "size": path.stat().st_size} for platform, path in runtime_notices.items()}
     (output / "BUILDINFO.json").write_text(json.dumps(provenance, indent=2) + "\n", encoding="utf-8")
-    (output / "NATIVE_AND_GO_NOTICES.txt").write_text(module_notices(binaries, native_root), encoding="utf-8")
+    notices = module_notices(binaries, native_root)
+    for platform, path in runtime_notices.items():
+        text = path.read_text(encoding="utf-8")
+        if not text.strip():
+            raise ValueError(f"Empty original toolchain runtime notice: {platform}")
+        notices += f"\n\n{'=' * 72}\nStatic toolchain runtime: {platform}\n{'=' * 72}\n{text}"
+    (output / "NATIVE_AND_GO_NOTICES.txt").write_text(notices, encoding="utf-8")
     for name in ("LICENSE", "DISTRIBUTION.md"):
         (output / name).write_bytes((root / name).read_bytes())
     (output / "THIRD_PARTY_NOTICES.txt").write_bytes((root / "server/web/pages/template/pages/THIRD_PARTY_NOTICES.txt").read_bytes())
