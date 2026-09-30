@@ -124,6 +124,38 @@ jobs:
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
         run: go vet ./flow/ ./ffprobe/ ./settings/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/api/
 
+      - name: Export actual API contracts
+        if: matrix.target == 'linux-amd64'
+        working-directory: server
+        env:
+          CGO_ENABLED: '1'
+          PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
+          FLOW_CONTRACT_OUTPUT: ${{ github.workspace }}/_out/api-contracts.json
+        run: go test ./web/api -run '^TestExportFrontendContracts$' -count=1
+
+      - uses: actions/setup-node@v4
+        if: matrix.target == 'linux-amd64'
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+      - name: Verify API contracts with frontend validators
+        if: matrix.target == 'linux-amd64'
+        working-directory: web
+        env:
+          FLOW_CONTRACT_INPUT: ${{ github.workspace }}/_out/api-contracts.json
+        run: |
+          yarn install --frozen-lockfile
+          yarn vitest run src/api/contracts.test.ts
+      - uses: actions/upload-artifact@v4
+        if: matrix.target == 'linux-amd64'
+        with:
+          name: flow-api-contracts
+          path: _out/api-contracts.json
+          if-no-files-found: error
+
       - name: Race tests and reachable Go vulnerability scan
         if: matrix.target == 'linux-amd64'
         working-directory: server
@@ -142,6 +174,22 @@ jobs:
         run: |
           _out/TorrServer-LT-linux-amd64 --version
           _out/TorrServer-LT-linux-amd64-gst --version
+
+      - name: Controlled peer playback and resource cycles
+        if: matrix.target == 'linux-amd64'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          python3 build/playback_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/controlled-playback --duration 20
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.target == 'linux-amd64'
+        with:
+          name: flow-controlled-playback
+          path: |
+            _out/controlled-playback/report.json
+            _out/controlled-playback/fixtures/fixtures.json
+            _out/controlled-playback/*/server-output.log
+          if-no-files-found: warn
 
       - uses: actions/upload-artifact@v4
         with:

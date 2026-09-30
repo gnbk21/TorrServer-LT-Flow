@@ -14,20 +14,20 @@ import (
 	"github.com/gin-gonic/gin"
 	"server/diagnostics"
 	"server/flow"
-	"server/settings"
+	sets "server/settings"
 	"server/torr"
 )
 
 var backupMu sync.Mutex
 
 func portableBackup(c *gin.Context) {
-	backup, err := settings.ExportBackup()
+	backup, err := sets.ExportBackup()
 	if err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
 		return
 	}
 	data, err := json.MarshalIndent(backup, "", "  ")
-	if err != nil || len(data) > settings.BackupLimit {
+	if err != nil || len(data) > sets.BackupLimit {
 		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "backup exceeds export limit"})
 		return
 	}
@@ -53,13 +53,13 @@ func backupPreview(c *gin.Context) {
 	if !sameOriginMaintenance(c) {
 		return
 	}
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, settings.BackupLimit)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, sets.BackupLimit)
 	data, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "backup exceeds import limit"})
 		return
 	}
-	backup, err := settings.ParseBackup(data)
+	backup, err := sets.ParseBackup(data)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -79,11 +79,11 @@ func backupApply(c *gin.Context) {
 	}
 	backupMu.Lock()
 	defer backupMu.Unlock()
-	if settings.ReadOnly {
+	if sets.ReadOnly {
 		c.JSON(http.StatusConflict, gin.H{"error": "database is read-only"})
 		return
 	}
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, settings.BackupLimit+4096)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, sets.BackupLimit+4096)
 	var request struct {
 		Backup json.RawMessage `json:"backup"`
 		Digest string          `json:"digest"`
@@ -92,7 +92,7 @@ func backupApply(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid restore request"})
 		return
 	}
-	backup, err := settings.ParseBackup(request.Backup)
+	backup, err := sets.ParseBackup(request.Backup)
 	if err != nil || backup.Digest() != request.Digest {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "backup does not match the preview"})
 		return
@@ -107,13 +107,13 @@ func backupApply(c *gin.Context) {
 		return
 	}
 	defer flow.Maintenance.Set(false)
-	recovery := settings.CaptureRecovery()
+	recovery := sets.CaptureRecovery()
 	recoveryData, err := json.Marshal(recovery)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot capture recovery backup"})
 		return
 	}
-	directory := filepath.Join(settings.Path, "flow-backups")
+	directory := filepath.Join(sets.Path, "flow-backups")
 	if err = os.MkdirAll(directory, 0700); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot create recovery directory"})
 		return
@@ -128,11 +128,11 @@ func backupApply(c *gin.Context) {
 		err = torr.SetSettings(merged)
 	}
 	if err == nil {
-		err = settings.WriteLibraryBatch(backup.MergedLibrary(recovery.Library), false)
+		err = sets.WriteLibraryBatch(backup.MergedLibrary(recovery.Library), false)
 	}
 	if err != nil {
 		settingsErr := torr.SetSettings(recovery.Settings)
-		libraryErr := settings.WriteLibraryBatch(recovery.Library, true)
+		libraryErr := sets.WriteLibraryBatch(recovery.Library, true)
 		if settingsErr != nil || libraryErr != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "restore and recovery failed; use the local pre-apply backup", "recovery_backup": name})
 			return

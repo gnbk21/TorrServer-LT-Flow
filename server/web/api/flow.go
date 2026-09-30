@@ -6,6 +6,14 @@ import (
 	"server/torr"
 )
 
+type FlowStatusResponse struct {
+	Hash     string                       `json:"hash"`
+	Startup  torr.FlowStartupStatus       `json:"startup"`
+	Sessions []torr.FlowSessionStatus     `json:"sessions"`
+	Trackers []torr.FlowTrackerDiagnostic `json:"trackers"`
+	Network  torr.FlowNetworkStatus       `json:"network"`
+}
+
 // flowStatus exposes a bounded diagnostic snapshot for one live torrent.
 // It shares the existing API authentication middleware.
 func flowStatus(c *gin.Context) {
@@ -16,7 +24,7 @@ func flowStatus(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "torrent not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"hash": c.Param("hash"), "startup": t.FlowStartup(), "sessions": t.FlowStatus(), "trackers": t.FlowTrackers(), "network": torr.NetworkStatusSnapshot()})
+	c.JSON(http.StatusOK, FlowStatusResponse{c.Param("hash"), t.FlowStartup(), t.FlowStatus(), t.FlowTrackers(), torr.NetworkStatusSnapshot()})
 }
 
 func flowNetwork(c *gin.Context) {
