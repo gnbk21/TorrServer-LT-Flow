@@ -61,6 +61,7 @@ extern void tsl_install_disk_io_on(libtorrent::session_params& params);
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
@@ -1177,6 +1178,16 @@ int lt_torrent_we_dont_have(lt_torrent tid, int piece_idx, int prio) {
     lt::io_context& ioc = tor->session().get_context();
     lt::post(ioc, [tor, piece_idx, prio]() {
         lt::piece_index_t const pi{piece_idx};
+        // A stale eviction marker must not reset a newer in-flight download.
+        // In particular, clearing its hash/write bookkeeping can make a valid
+        // peer look corrupt when a queued hash reads a replaced cache entry.
+        if (tor->valid_metadata() && tor->has_picker() && piece_idx >= 0
+            && pi < tor->torrent_file().end_piece()
+            && !tor->picker().is_piece_flushed(pi)) {
+            tor->set_piece_priority(pi,
+                static_cast<lt::download_priority_t>(static_cast<std::uint8_t>(prio)));
+            return;
+        }
         tor->flow_forget_piece(pi,
             static_cast<lt::download_priority_t>(static_cast<std::uint8_t>(prio)));
     });
@@ -1224,6 +1235,39 @@ int lt_torrent_prune_partial(lt_torrent tid, int piece_idx) {
 #endif
     return LT_OK;
     WRAP_END(LT_ERR_INTERNAL)
+}
+
+int lt_torrent_evict_complete(lt_torrent tid, int piece_idx) {
+    WRAP_BEGIN
+    auto h = get_torrent(tid);
+    if (!h.is_valid()) return 0;
+#ifdef TSL_HAVE_LT_INTERNALS
+    auto tor = h.native_handle();
+    if (!tor) return 0;
+    auto result = std::make_shared<std::promise<int>>();
+    auto ready = result->get_future();
+    lt::post(tor->session().get_context(), [tor, piece_idx, result]() {
+        lt::piece_index_t const pi{piece_idx};
+        int removed = 0;
+        if (tor->valid_metadata() && tor->has_storage() && piece_idx >= 0
+            && pi < tor->torrent_file().end_piece()
+            && (!tor->has_picker() || tor->picker().is_piece_flushed(pi))) {
+            // Hash/write completions and cache removal share this context.
+            // Keep the native have bit; reconciliation remains lazy on demand.
+            using U = typename lt::aux::underlying_index_t<lt::storage_index_t>::type;
+            removed = lt_storage_evict_complete(
+                static_cast<int64_t>(static_cast<U>(tor->storage())), piece_idx);
+        }
+        result->set_value(removed);
+    });
+    // A concurrently closing session may stop its context before this task.
+    // Do not strand the Go eviction goroutine during shutdown.
+    if (ready.wait_for(std::chrono::seconds(2)) != std::future_status::ready) return 0;
+    return ready.get();
+#else
+    return 0;
+#endif
+    WRAP_END(0)
 }
 
 int lt_torrent_set_piece_deadline(lt_torrent tid, int piece_idx, int deadline_ms, int alert_when_ready) {

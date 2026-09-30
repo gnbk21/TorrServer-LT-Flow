@@ -208,6 +208,7 @@ int lt_torrent_set_file_priority(lt_torrent t, int file_idx, int prio);
  * session network thread). Also clears any deadline on the piece. */
 int lt_torrent_we_dont_have(lt_torrent t, int piece_idx, int prio);
 int lt_torrent_prune_partial(lt_torrent t, int piece_idx);
+int lt_torrent_evict_complete(lt_torrent t, int piece_idx);
 
 /* ----- status & stats -----
  * status_json output schema (subset used by Go state.TorrentStatus):

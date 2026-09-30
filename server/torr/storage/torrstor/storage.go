@@ -57,6 +57,8 @@ func (s *Storage) Install() error {
 		Write:   s.callbackWrite,
 		Have:    s.callbackHave,
 		Prune:   s.callbackPrune,
+		Evict:   s.callbackEvict,
+		Size:    s.callbackSize,
 	})
 }
 
@@ -186,6 +188,17 @@ func (s *Storage) callbackHave(storage int64, piece int) bool {
 func (s *Storage) callbackPrune(storage int64, piece int) bool {
 	c := s.lookup(storage)
 	return c != nil && c.prunePartial(piece)
+}
+
+func (s *Storage) callbackEvict(storage int64, piece int) bool {
+	c := s.lookup(storage)
+	return c != nil && c.evictComplete(piece)
+}
+
+func (s *Storage) callbackSize(storage int64, totalSize int64) {
+	if c := s.lookup(storage); c != nil {
+		c.totalSize.Store(totalSize)
+	}
 }
 
 func (s *Storage) lookup(storage int64) *Cache {

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -530,12 +531,28 @@ func TestCacheRefetchLeavesSeedingState(t *testing.T) {
 		return nil
 	}
 	wait(func(st *Status) bool { return st.State == "seeding" && tor.HasPiece(0) })
+	// Exercise the production shim's ownership gate. The callback records
+	// removal requests; a newer unflushed download must never reach it.
+	previousCallbacks := storageSnapshot()
+	var evictionCalls atomic.Int32
+	callbacks := previousCallbacks
+	callbacks.Evict = func(int64, int) bool { evictionCalls.Add(1); return true }
+	if err := RegisterStorageCallbacks(callbacks); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = RegisterStorageCallbacks(previousCallbacks) })
+	if !tor.EvictPiece(0) || evictionCalls.Load() != 1 {
+		t.Fatal("native flushed piece did not reach eviction callback")
+	}
 	if err := tor.WeDontHave(0, 7); err != nil {
 		t.Fatal(err)
 	}
 	status := wait(func(st *Status) bool { return st.State == "downloading" && !st.IsFinished && !tor.HasPiece(0) })
 	if status.TotalDone != 0 {
 		t.Fatalf("forgotten data still counted as resident: %d", status.TotalDone)
+	}
+	if tor.EvictPiece(0) || evictionCalls.Load() != 1 {
+		t.Fatal("native unflushed piece reached eviction callback")
 	}
 	// Eviction is lazy. A later reader can restore demand through either a
 	// single priority, the declarative vector, or an urgent deadline.

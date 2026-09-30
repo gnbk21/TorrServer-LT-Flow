@@ -97,12 +97,9 @@ func (p *Piece) WriteAt(b []byte, off int64) (int, error) {
 
 // markAvailLocked flags the 16 KiB blocks FULLY covered by the write [off,
 // off+n) as available. Called with p.mu held (from WriteAt). Only whole blocks
-// count: a short write into the torrent's very last piece (whose real length is
-// below PieceLength, which we don't know here) leaves its tail block unmarked,
-// so reads there simply fall back to waiting for the hash-verified complete
-// flag — one piece per torrent, always preloaded/pinned anyway (EOF index).
+// count, except for a write covering the exact short final block from metadata.
 func (p *Piece) markAvailLocked(off, n int64) {
-	plen := p.cache.PieceLength
+	plen := p.expectedSize()
 	if plen <= 0 || n <= 0 {
 		return
 	}
@@ -129,7 +126,7 @@ func (p *Piece) markAvailLocked(off, n int64) {
 func (p *Piece) availableFrom(off int64) int64 {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	plen := p.cache.PieceLength
+	plen := p.expectedSize()
 	if plen <= 0 || off < 0 || off >= plen {
 		return 0
 	}
@@ -180,7 +177,36 @@ func (p *Piece) ReadAt(b []byte, off int64) (int, error) {
 // expectedSize accounts for the final piece being potentially shorter
 // than PieceLength.
 func (p *Piece) expectedSize() int64 {
+	if total := p.cache.totalSize.Load(); total > 0 && p.Id == p.cache.NumPieces-1 {
+		return total - int64(p.Id)*p.cache.PieceLength
+	}
 	return p.cache.PieceLength
+}
+
+// An alert can outlive eviction and refer to an older incarnation of this
+// piece. Never let it mark a new partial buffer complete or expose its holes.
+func (p *Piece) markVerifiedComplete() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	expected := p.expectedSize()
+	if p.cache.totalSize.Load() == 0 && p.Id == p.cache.NumPieces-1 {
+		// Standalone callers without metadata retain short-final-piece support.
+		expected = p.size
+	}
+	if expected <= 0 || p.size < expected {
+		return
+	}
+	blocks := int((expected + pieceBlockSize - 1) / pieceBlockSize)
+	for b := 0; b < blocks; b++ {
+		if p.cache.totalSize.Load() == 0 && p.Id == p.cache.NumPieces-1 &&
+			int64(b+1)*pieceBlockSize > expected {
+			break
+		}
+		if b>>6 >= len(p.avail) || p.avail[b>>6]&(1<<uint(b&63)) == 0 {
+			return
+		}
+	}
+	p.complete = true
 }
 
 // release frees the in-memory buffer only. The on-disk file (if any)

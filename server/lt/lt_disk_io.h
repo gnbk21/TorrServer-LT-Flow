@@ -30,12 +30,17 @@ struct tsl_storage_callbacks {
     int  (*have)   (int64_t storage_id, int piece);
     // Optional: remove a stale partial after native write/hash work settles.
     int  (*prune)  (int64_t storage_id, int piece);
+    // Optional: remove a complete LRU entry after native I/O settles.
+    int  (*evict)  (int64_t storage_id, int piece);
+    // Exact metadata size, including the short final piece.
+    void (*size)   (int64_t storage_id, int64_t total_size);
 };
 
 // Install / clear the Go callbacks. Pass NULL to revert to default
 // libtorrent disk_io on the next session_new. Returns LT_OK on success.
 int lt_install_storage_callbacks_full(const struct tsl_storage_callbacks* cb);
 int lt_storage_prune_partial(int64_t storage_id, int piece);
+int lt_storage_evict_complete(int64_t storage_id, int piece);
 
 #ifdef __cplusplus
 }

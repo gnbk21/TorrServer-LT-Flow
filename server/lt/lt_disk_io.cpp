@@ -128,6 +128,11 @@ extern "C" int lt_storage_prune_partial(int64_t storage_id, int piece) {
     return cb.prune ? cb.prune(storage_id, piece) : 0;
 }
 
+extern "C" int lt_storage_evict_complete(int64_t storage_id, int piece) {
+    auto cb = current_callbacks();
+    return cb.evict ? cb.evict(storage_id, piece) : 0;
+}
+
 namespace {
 
 struct storage_state {
@@ -194,6 +199,7 @@ public:
         auto raw = sha1_raw_from(p.info_hash);
         cb_.open(idx, reinterpret_cast<uint8_t const*>(raw.data()),
                  ss.num_pieces, ss.piece_length);
+        if (cb_.size) cb_.size(idx, p.files.total_size());
 
         auto storage_idx = lt::storage_index_t(static_cast<int>(idx));
         return lt::storage_holder(storage_idx, *this);

@@ -519,6 +519,12 @@ func (t *Torrent) PrunePartial(piece int) error {
 	return codeToErr(C.lt_torrent_prune_partial(t.id, C.int(piece)))
 }
 
+// EvictPiece removes complete cache data only after native write/hash ownership
+// settles. Never call while holding a cache lock or from a storage callback.
+func (t *Torrent) EvictPiece(piece int) bool {
+	return C.lt_torrent_evict_complete(t.id, C.int(piece)) == 1
+}
+
 // SetPieceDeadline sets a soft deadline (in ms) for a piece, optionally
 // asking for an alert when the piece is ready.
 func (t *Torrent) SetPieceDeadline(piece, deadlineMs int, alertWhenReady bool) error {
@@ -770,6 +776,10 @@ type StorageCallbacks struct {
 	// Prune removes an old, unprotected partial on the native network thread.
 	// It must not call back into libtorrent.
 	Prune func(storage int64, piece int) bool
+	// Evict removes an unprotected complete LRU entry on the network thread.
+	// Size records the exact torrent length at storage creation.
+	Evict func(storage int64, piece int) bool
+	Size  func(storage int64, totalSize int64)
 }
 
 var (
@@ -792,7 +802,7 @@ func storageSnapshot() StorageCallbacks {
 // sessions keep whichever disk_io they were started with.
 func RegisterStorageCallbacks(cb StorageCallbacks) error {
 	empty := cb.Open == nil && cb.Close == nil && cb.Deleted == nil &&
-		cb.Read == nil && cb.Write == nil && cb.Have == nil && cb.Prune == nil
+		cb.Read == nil && cb.Write == nil && cb.Have == nil && cb.Prune == nil && cb.Evict == nil && cb.Size == nil
 	storageMu.Lock()
 	storage = cb
 	storageMu.Unlock()
@@ -891,4 +901,21 @@ func tsl_storage_prune_go(storage C.longlong, piece C.int) C.int {
 		return 1
 	}
 	return 0
+}
+
+//export tsl_storage_evict_go
+func tsl_storage_evict_go(storage C.longlong, piece C.int) C.int {
+	cb := storageSnapshot()
+	if cb.Evict != nil && cb.Evict(int64(storage), int(piece)) {
+		return 1
+	}
+	return 0
+}
+
+//export tsl_storage_size_go
+func tsl_storage_size_go(storage C.longlong, totalSize C.longlong) {
+	cb := storageSnapshot()
+	if cb.Size != nil {
+		cb.Size(int64(storage), int64(totalSize))
+	}
 }

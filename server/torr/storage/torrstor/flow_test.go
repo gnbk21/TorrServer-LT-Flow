@@ -67,6 +67,40 @@ func TestPartialPruneRechecksActivityAndStoresLateBlocks(t *testing.T) {
 	}
 }
 
+func TestCompletionAlertCannotCompleteReplacementWithHoles(t *testing.T) {
+	s := NewStorage()
+	s.callbackOpen(32, mkHash(0xD8), 2, 4*pieceBlockSize)
+	s.callbackSize(32, 5*pieceBlockSize+123)
+	c := s.lookup(32)
+	block := bytes.Repeat([]byte{0x74}, pieceBlockSize)
+	// A delayed completion from the previous incarnation arrives after only
+	// the last block of the replacement buffer has been downloaded.
+	_, _ = s.callbackWrite(32, 0, 3*pieceBlockSize, block)
+	c.SignalPieceComplete(0)
+	if c.Have(0) || c.readableAt(0, 0) != 0 {
+		t.Fatal("stale alert completed a replacement buffer containing holes")
+	}
+	for b := 0; b < 3; b++ {
+		_, _ = s.callbackWrite(32, 0, int64(b*pieceBlockSize), block)
+	}
+	c.SignalPieceComplete(0)
+	if !c.Have(0) {
+		t.Fatal("resident verified piece was not completed")
+	}
+	// The final piece has one full block and a short block. Knowing its exact
+	// length must neither expose zero-filled padding nor suppress completion.
+	_, _ = s.callbackWrite(32, 1, pieceBlockSize, block[:123])
+	c.SignalPieceComplete(1)
+	if c.Have(1) || c.readableAt(1, 0) != 0 {
+		t.Fatal("short final piece with a hole was completed")
+	}
+	_, _ = s.callbackWrite(32, 1, 0, block)
+	c.SignalPieceComplete(1)
+	if !c.Have(1) || c.readableAt(1, 0) != pieceBlockSize+123 || c.readableAt(1, pieceBlockSize+123) != 0 {
+		t.Fatal("short final piece availability does not match metadata")
+	}
+}
+
 func TestContiguousAvailableStopsAtPartialPieceHole(t *testing.T) {
 	old := settings.BTsets()
 	settings.StoreBTsets(&settings.BTSets{CacheSize: 64 * flow.MiB})

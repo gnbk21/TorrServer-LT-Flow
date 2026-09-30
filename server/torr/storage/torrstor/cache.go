@@ -80,6 +80,7 @@ type Cache struct {
 	StorageID   int64
 	InfoHash    [20]byte
 	NumPieces   int
+	totalSize   atomic.Int64 // exact metadata length; zero for legacy test callers
 	PieceLength int64
 
 	mu     sync.RWMutex
@@ -357,7 +358,7 @@ func (c *Cache) SignalPieceComplete(piece int) {
 	p := c.pieces[piece]
 	c.mu.RUnlock()
 	if p != nil {
-		p.setComplete(true)
+		p.markVerifiedComplete()
 	}
 	c.signalPieceProgress(piece)
 }
@@ -1587,6 +1588,39 @@ func (c *Cache) prunePartial(piece int) bool {
 	return true
 }
 
+// evictComplete is called on the native network thread after verifying that
+// this piece is flushed. Recheck capacity and current protection at removal.
+// No libtorrent calls are allowed while inside this storage callback.
+func (c *Cache) evictComplete(piece int) bool {
+	protect := c.readerProtectRanges()
+	cap := c.capacityFor(protect)
+	if cap <= 0 || c.Filled() <= cap || pieceInRanges(piece, protect) {
+		return false
+	}
+	c.readersMu.Lock()
+	defer c.readersMu.Unlock()
+	for reader := range c.readers {
+		if reader.currentPiece() == piece || int(reader.waitPiece.Load()) == piece {
+			return false
+		}
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	p := c.pieces[piece]
+	if p == nil {
+		return false
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.complete || p.size == 0 {
+		return false
+	}
+	delete(c.pieces, piece)
+	c.markEvictedLocked(piece)
+	p.wipeLocked()
+	return true
+}
+
 func (c *Cache) markEvictedLocked(piece int) {
 	if c.evicted == nil {
 		c.evicted = map[int]bool{}
@@ -1679,6 +1713,16 @@ func (c *Cache) evictPass() (evictedAny bool) {
 	}
 
 	evict := func(p *Piece) bool {
+		if h := c.handle.Load(); h != nil {
+			// Completion alerts are delivered asynchronously. A Go complete bit
+			// alone does not prove that native hash/write jobs have finished with
+			// this entry. Serialize production eviction with that bookkeeping.
+			removed := h.EvictPiece(p.Id)
+			if removed {
+				evictedAny = true
+			}
+			return removed
+		}
 		// The pass's protection snapshot can predate a newly attached reader.
 		// Keep registration stable through removal and recheck its current target.
 		c.readersMu.Lock()
@@ -2044,18 +2088,9 @@ func (c *Cache) Have(piece int) bool {
 	return p != nil && p.Complete()
 }
 
-// MarkComplete is invoked when libtorrent emits a piece_finished_alert
-// for this storage; the BTServer alert-pump wires the call. Currently
-// the Piece auto-flips Complete once enough bytes are written, but the
-// explicit signal lets us tighten the criterion in Etap 6 (e.g. after a
-// successful hash check).
+// MarkComplete shares the verified completion path; raw writes never set Have.
 func (c *Cache) MarkComplete(piece int) {
-	c.mu.RLock()
-	p := c.pieces[piece]
-	c.mu.RUnlock()
-	if p != nil {
-		p.setComplete(true)
-	}
+	c.SignalPieceComplete(piece)
 }
 
 // PiecesSnapshot returns a copy of the per-piece state map for diagnostic
