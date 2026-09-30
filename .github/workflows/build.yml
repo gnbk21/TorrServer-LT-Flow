@@ -86,7 +86,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: _deps/${{ matrix.target }}
-          key: deps-${{ matrix.target }}-boost1.85.0-lt2.1.0-ossl3.5.7-v1
+          key: deps-${{ matrix.target }}-boost1.85.0-lt2.1.0-ossl3.5.7-flowrefetch-v2
+          restore-keys: deps-${{ matrix.target }}-boost1.85.0-lt2.1.0-ossl3.5.7-v1
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -216,7 +217,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
-          python3 build/playback_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/controlled-playback --duration 20
+          python3 build/playback_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/controlled-playback --duration 20 --debug
       - uses: actions/upload-artifact@v4
         if: always() && matrix.target == 'linux-amd64'
         with:
@@ -225,6 +226,7 @@ jobs:
             _out/controlled-playback/report.json
             _out/controlled-playback/fixtures/fixtures.json
             _out/controlled-playback/*/server-output.log
+            _out/controlled-playback/*/failure.json
             _out/maintenance-check/report.json
             _out/library-upsert-benchmark.txt
           if-no-files-found: warn

@@ -12,11 +12,15 @@ test("large library remains searchable with bounded rendering", async ({
     torrent_size: 12345678,
     category: "Fixtures",
   }));
+  let libraryRequests = 0;
   await page.route("**/*", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/echo")
       return route.fulfill({ body: "MatriX.145.Flow-test" });
-    if (path === "/torrents") return route.fulfill({ json: library });
+    if (path === "/torrents") {
+      libraryRequests++;
+      return route.fulfill({ json: library });
+    }
     if (path === "/flow/tray")
       return route.fulfill({
         json: {
@@ -79,4 +83,9 @@ test("large library remains searchable with bounded rendering", async ({
     .getByRole("textbox", { name: "Search", exact: true })
     .fill("absent fixture");
   await expect(page.getByRole("article")).toHaveCount(0);
+  if (!process.env.FLOW_LIBRARY_BASELINE) {
+    await page.waitForTimeout(6000);
+    expect(libraryRequests).toBeGreaterThanOrEqual(2);
+    expect(libraryRequests).toBeLessThanOrEqual(3);
+  }
 });

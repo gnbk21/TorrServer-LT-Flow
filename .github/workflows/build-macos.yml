@@ -75,7 +75,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: _deps/darwin-${{ matrix.arch }}
-          key: deps-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.0-ossl3.5.7-v1
+          key: deps-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.0-ossl3.5.7-flowrefetch-v2
+          restore-keys: deps-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.0-ossl3.5.7-v1
 
       - name: Set up Go
         uses: actions/setup-go@v5

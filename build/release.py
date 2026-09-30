@@ -91,6 +91,7 @@ def package(artifact_dir, output, tag, commit, native_root):
                   "version": tag, "channel": channel, "binaries": files,
                   "source_url": f"https://github.com/{REPOSITORY}/tree/{commit}"}
     provenance["native_build_pins"] = (root / "build/_common.sh").read_text(encoding="utf-8")
+    provenance["native_cache_extension"] = {"version": 1, "declarations_sha256": digest(root / "build/patch_libtorrent_header.py"), "implementation_sha256": digest(root / "server/lt/lt_shim.cpp")}
     (output / "BUILDINFO.json").write_text(json.dumps(provenance, indent=2) + "\n", encoding="utf-8")
     (output / "NATIVE_AND_GO_NOTICES.txt").write_text(module_notices(binaries, native_root), encoding="utf-8")
     for name in ("LICENSE", "DISTRIBUTION.md"):

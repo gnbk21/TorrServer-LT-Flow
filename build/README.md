@@ -20,6 +20,16 @@ trackers, WebRTC browser peers) work on every target. libdatachannel's Jamfile
 would build usrsctp/libjuice with the HOST compiler; `_deps.sh` cross-builds
 them itself and patches that Jamfile to consume the prebuilt archives.
 
+Flow also declares a narrow, non-virtual cache-refetch extension in the pinned
+libtorrent headers. Its implementation is in `server/lt/lt_shim.cpp`: it clears
+completed-state flags, corrects file progress and refreshes seed connect
+candidates when previously downloaded media has been evicted. Native source and
+installed headers receive identical declarations before compilation. Old cache
+trees rebuild libtorrent once; `.flow-cache-extension-v1` identifies the new
+recipe. The extension changes no object layout or swarm-profile settings. A
+shared distro libtorrent without the internal API retains the documented limited
+refetch fallback; use the supplied static builds for full Flow behavior.
+
 ```
 build/
   _common.sh         paths + pinned versions (Boost 1.85.0, libtorrent v2.1.0, OpenSSL 3.5.7)

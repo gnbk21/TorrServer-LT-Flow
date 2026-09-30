@@ -547,6 +547,21 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 	ready := r.cache.waitForBytes(ctx, piece, pieceOff, func() {
 		r.cache.lastApplyMs.Store(0)
 		r.cache.applyStreamPriorities()
+		if r.handle != nil {
+			// A late hash completion can reassert ownership after the initial
+			// on-demand reset. Reconcile this exact parked offset independently
+			// of the group's held anchor and refresh its urgent deadline last.
+			if r.cache.readableAt(piece, pieceOff) == 0 && r.handle.HasPiece(piece) {
+				_ = r.handle.WeDontHave(piece, ltTopPriority)
+			}
+			_ = r.handle.SetPieceDeadline(piece, 0, false)
+			if s := settings.BTsets(); s != nil && s.EnableDebug {
+				if status, err := r.handle.Status(); err == nil {
+					log.TLogln("torrstor.Reader: parked reconcile piece", piece, "state", status.State,
+						"have", r.handle.HasPiece(piece), "peers", status.NumPeers, "candidates", status.ConnectCandidates)
+				}
+			}
+		}
 	})
 	if settings.CurrentFlow().MetricsEnabled && r.group != ProbeReaderGroup {
 		r.cache.flowCounters.Wait(time.Since(waitStarted))

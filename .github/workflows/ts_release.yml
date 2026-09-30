@@ -71,6 +71,13 @@ jobs:
           FLOW_TAG: ${{ github.ref_name }}
           FLOW_COMMIT: ${{ github.sha }}
         run: python3 build/release.py --tag "$FLOW_TAG" --commit "$FLOW_COMMIT" --artifacts artifacts --native-sources _src --output dist
+      - name: Verify reproducible packaging
+        env:
+          FLOW_TAG: ${{ github.ref_name }}
+          FLOW_COMMIT: ${{ github.sha }}
+        run: |
+          python3 build/release.py --tag "$FLOW_TAG" --commit "$FLOW_COMMIT" --artifacts artifacts --native-sources _src --output reproducibility-check
+          cmp dist/SHA256SUMS reproducibility-check/SHA256SUMS
       - name: Attest release artifacts
         uses: actions/attest-build-provenance@v2
         with:

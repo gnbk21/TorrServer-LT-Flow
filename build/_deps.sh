@@ -177,7 +177,7 @@ build_webrtc_deps() {
 # --- libtorrent (+ boost_system) via b2 ------------------------------
 build_libtorrent() {
     local deps="$1"
-    if [[ -f "$deps/lib/pkgconfig/libtorrent-rasterbar.pc" ]]; then
+    if [[ -f "$deps/lib/pkgconfig/libtorrent-rasterbar.pc" && -f "$deps/.flow-cache-extension-v1" ]]; then
         log "libtorrent already installed for $TARGET"
         return
     fi
@@ -203,6 +203,10 @@ build_libtorrent() {
     else
         cp -al "$LT_DIR" "$ltwork"
     fi
+    # Apply the same non-virtual declarations to the native build and CGo's
+    # installed headers. Do not mix an old library with a different class
+    # definition; cached trees without the marker must rebuild libtorrent.
+    python3 "$ROOT/build/patch_libtorrent_header.py" "$ltwork"
 
     # Rewrite libdatachannel's usrsctp/libjuice build actions to copy the
     # archives cross-built by build_webrtc_deps() instead of running its own
@@ -285,6 +289,7 @@ PYEOF
              next;
          }
          { print }' "$pc" > "$pc.tsl" && mv "$pc.tsl" "$pc"
+    touch "$deps/.flow-cache-extension-v1"
 }
 
 # --- Go binary -------------------------------------------------------
@@ -302,7 +307,6 @@ gst_variant_wanted() {
 
 go_build() {
     local deps="$1"
-    python3 "$ROOT/build/patch_libtorrent_header.py" "$deps"
     local out="$OUT_DIR/TorrServer-LT-${TARGET}${BINEXT:-}"
     # -gst suffix BEFORE the .exe extension; the suffix form keeps the CI
     # artifact globs (TorrServer-LT-<target>*) picking both variants up.
@@ -314,7 +318,7 @@ go_build() {
     # .pc into CGO_CFLAGS as a harmless unused -D define: the stamp changes with
     # the .pc, busting the cache exactly when needed (and a cache hit otherwise).
     local pc_stamp
-    pc_stamp=$( { cat "$deps/lib/pkgconfig/libtorrent-rasterbar.pc"; echo "${EXTRA_CGO_LDFLAGS:-}"; } | sha1sum | cut -c1-12 )
+    pc_stamp=$( { cat "$deps/lib/pkgconfig/libtorrent-rasterbar.pc" "$ROOT/build/patch_libtorrent_header.py"; echo "${EXTRA_CGO_LDFLAGS:-}"; } | sha1sum | cut -c1-12 )
 
     log "go build ($TARGET)"
     # Opt-in only: native libtorrent work is not optimized by Go PGO.
