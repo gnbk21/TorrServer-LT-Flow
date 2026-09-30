@@ -215,7 +215,17 @@ jobs:
           go test ./flow -run '^$' -fuzz '^FuzzRangeHint$' -fuzztime=10s -parallel=2
           go test ./settings -run '^$' -fuzz '^FuzzBackupImport$' -fuzztime=10s -parallel=2
           go test ./settings -run '^$' -fuzz '^FuzzFlowSettings$' -fuzztime=10s -parallel=2
-          go test ./torr -run '^$' -fuzz '^FuzzTrackerURLRedaction$' -fuzztime=10s -parallel=2
+          # A timed coordinator shutdown intermittently returned "context
+          # deadline exceeded" without a failing input. Use a larger fixed
+          # execution budget; the test timeout still catches hung targets.
+          go test ./torr -run '^$' -fuzz '^FuzzTrackerURLRedaction$' -fuzztime=100000x -timeout=180s -parallel=2
+      - name: Retain minimized fuzz failures
+        if: failure() && matrix.target == 'linux-amd64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: flow-fuzz-failures
+          path: server/**/testdata/fuzz/**
+          if-no-files-found: ignore
 
       - name: Authenticated backup, maintenance and startup diagnostics
         if: matrix.target == 'linux-amd64'
