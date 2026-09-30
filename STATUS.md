@@ -6,11 +6,12 @@ describe the revisions tested at those dates and do not override this table.
 | Area | Current state | Remaining gate |
 | --- | --- | --- |
 | Public distribution | Preview 1 is published from exact commit `847f6b4f` | Preview 2 release packaging, download and attestation validation |
-| Preview 2 integration | [Draft PR #3](https://github.com/gnbk21/TorrServer-LT-Flow/pull/3) | Final native playback stress, service and full CI gates |
+| Preview 2 integration | [Draft PR #3](https://github.com/gnbk21/TorrServer-LT-Flow/pull/3) | Final native playback stress and full CI gates |
 | Modern UI | Type checking/lint/unit tests and 30 browser scenarios passed; large-library pagination, compact telemetry and all seven languages retained | Real Android layout and player launch acceptance |
 | Portable maintenance | Native authenticated backup/restore/support, active-playback rejection and startup doctor passed | Hardware acceptance remains separate |
 | Windows updater | Actual native install/update, corruption rejection, maintenance ownership, startup-failure rollback and protected backups passed in PowerShell 5.1 and 7 with controlled release transport | Live release transport and provenance validation |
-| Cache refetch | Initial three-scenario native churn passed; extended profiling exposed unsafe incomplete-piece discard; native serialized pruning implemented | Rerun extended stress and PGO training before Preview 2 publication |
+| Restricted Windows service | Native SCM install/restart/stop/uninstall and authenticated update/configuration rollback passed in disposable CI | Physical boot/sleep/network acceptance remains separate |
+| Cache refetch | Windows extended stress passed; later Linux churn exposed completion/eviction ordering; complete eviction now checks native flushed ownership and delayed alerts cannot complete buffers with holes | Rerun native stress and PGO training before Preview 2 publication |
 | Swarm profiles | Legacy, Conservative, Balanced, Aggressive streaming and bounded Custom; translated explanations | No comparative speed ranking established |
 | Resource/performance evidence | Legal generated-media harness, resource runner and measured library optimization | Multi-hour representative-media runs; PGO/SSE decisions use measured evidence |
 | Stable Flow / Modern Web 1.0 | Not approved; stable publication is gated by `RELEASE_ACCEPTANCE.json` | Representative phone/A-B evidence, multi-hour resources, Windows boot/sleep/network recovery |

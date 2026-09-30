@@ -46,7 +46,7 @@ An item is complete only after implementation and relevant verification.
 - [x] Swarm profile explanations beside settings in all maintained languages.
 - [x] Playback troubleshooting panel based on known observations.
 - [x] Measured large-library rendering/status optimization decision and implementation if warranted.
-- [ ] Restricted Windows service installation, explicit paths and boot/sleep/network recovery tests or exact external gates.
+- [x] Restricted Windows service installation, explicit paths and boot/sleep/network recovery tests or exact external gates.
 - [ ] Artifact attestations; optional Authenticode signing when a signing identity is available.
 - [x] Measured bounded SSE evaluation, with polling fallback and implementation if warranted.
 
@@ -74,12 +74,13 @@ See MEASUREMENTS.md for workloads, exact numbers and limitations.
 Unchecked distribution items still require a tagged pipeline run, reproducible
 package comparison, actual published-download and attestation verification.
 The controlled-playback and Range items await extended profiling stress after
-an incomplete-piece eviction race was reproduced and fixed; the short initial
-matrix alone is insufficient. The PGO driver exists and normal builds remain
+partial and complete-piece eviction races were reproduced and ownership checks
+implemented; the short initial matrix alone is insufficient. The PGO driver exists and normal builds remain
 explicitly off, but its generated training/comparison must finish successfully;
 representative real-media adoption remains conditional. Restricted service
-update/rollback must pass its corrected native CI assertion. Those gates also
-keep idle-only update and service ledger items unchecked until reconciliation.
+update/rollback passed disposable Windows run `36753656101`, including restored
+configuration, private migration quarantine and preserved account/listeners.
+Idle-only update still awaits actual published transport/provenance validation.
 
 The resource-cycle runner is verified with short samples. Checking that runner
 item does not claim multi-hour representative playback acceptance. Physical

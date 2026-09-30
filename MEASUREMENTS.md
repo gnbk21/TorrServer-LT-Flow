@@ -84,8 +84,16 @@ resource cycles per case and warm expiry after 25.3 seconds. A subsequent
 extended profiling stress run exposed another race: stale incomplete pieces
 were discarded while late blocks were acknowledged without storing their data.
 The resulting hash mismatch banned the valid seed. Native serialized partial
-pruning and normal retention of late blocks address that defect; extended stress
-verification remains required before publication.
+pruning and normal retention of late blocks address that discard path. The
+Windows `e351e7af` build then passed 256 initial switches plus 115 additional
+switching cycles during CPU/trace collection, with no hash failures or peer bans.
+Linux runs `36753657916` and `36754783800` still failed subsequent churn: complete
+eviction and delayed completion alerts also needed native ownership checks.
+Complete eviction is now serialized after native flush; stale markers do not
+reset an in-flight download and delayed alerts cannot complete buffers with
+holes. Exact metadata length covers the short final piece. Actual storage
+failures are reported without fabricating corrupt hashes or acknowledging lost
+writes. These changes require a fresh native stress pass before publication.
 
 The native 1,000-entry library upsert benchmark in run `36747207599` measured
 319.6 ms / 11.65 MB / 81,099 allocations per whole-library rewrite versus
@@ -160,6 +168,10 @@ another maintenance owner, credential preservation and listener flags.
 The rollback fixture also corrupts the owned configuration database after the
 pre-update backup, then injects an actual candidate startup failure. The previous
 server returns healthy with its private setting restored from the protected copy.
+Disposable Windows run `36753656101` passed the service update variant as well:
+restricted service identity, authenticated update, listener preservation, private
+backups, restored configuration and quarantined candidate migration files. It
+does not establish physical boot or sleep/resume behavior on the user's PC.
 `build/maintenance_harness.py` separately verifies that actual active playback
 rejects maintenance. Live release download/attestation verification remains a
 distribution gate. Authenticode requires the maintainer's signing identity.

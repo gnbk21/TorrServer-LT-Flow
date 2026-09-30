@@ -90,4 +90,4 @@ jobs:
           prerelease: ${{ needs.classify.outputs.channel == 'preview' }}
           make_latest: ${{ needs.classify.outputs.channel == 'stable' }}
           generate_release_notes: true
-          body_path: DISTRIBUTION.md
+          body_path: PREVIEW_2_NOTES.md
