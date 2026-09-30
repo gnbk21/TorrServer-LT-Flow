@@ -41,9 +41,20 @@ retained; installations are never inferred from whichever process owns a port.
 & C:\Flow\bin\TorrServer-LT-windows-amd64.exe --path C:\Flow\state --port 8090
 ```
 
+For an existing `accs.db` account map, add `-HttpAuth`. For an explicit listener,
+use `-ListenAddress 127.0.0.1,<PC-LAN-IP>` and repeat those `--ip` values when
+starting manually. Managed updates retain both authentication and listener
+choices. A restricted installation must include an IPv4 loopback listener for
+local maintenance/health checks. With no listener override the upstream default
+binds all interfaces; retain private-LAN/VPN deployment restrictions.
+
 Service installation requires an elevated terminal and `-AsService`. The SCM
 installation uses an explicit executable and state path. Do not install from a
 temporary or user-writable download folder on a shared computer.
+The service uses `NT SERVICE\TorrServer-Flow` with a restricted service SID;
+its state directory receives Modify access and its executable directory receives
+Read/Execute access for that service. Registration rolls back if these grants
+fail. Keep the tray companion under the interactive user account.
 
 ## Updates and rollback
 
@@ -57,6 +68,28 @@ binary and rechecks health. Credentials are passed in memory via `-Credential`.
 ```powershell
 .\Update-Flow.ps1 -InstallDirectory C:\Flow\bin -Channel preview -RequireAttestation
 ```
+
+For authentication, add `-Credential (Get-Credential)`. The credential is used
+only for the fixed loopback management endpoint and is not written to the install
+record. Recovery directories are protected before configuration/account files
+are copied, granting access only to the updating user, SYSTEM and Administrators.
+Keep backups private. Maintenance uses an exclusive, expiring lease; an updater
+cannot release another updater's lease. A crash before shutdown releases the
+lease on expiry rather than leaving playback permanently blocked.
+
+Export portable backups from **Settings → Advanced**. Exported settings/library
+omit account files, provider keys, private tracker/source URLs and local paths.
+Import requires a validated preview and explicit confirmation; it merges portable
+preferences and library entries, retains local secrets, and saves a protected
+full local recovery snapshot before the engine restarts. The recovery snapshot
+contains private state and is not a shareable backup. The support download in the
+same tab instead contains bounded, redacted observations.
+
+Use `--doctor --path <state> --port <port> --ip <address>` (and `--httpauth` when
+applicable) for a read-only startup check. It checks configured bind addresses,
+port availability, account-file validity and optional FFmpeg/FFprobe availability.
+An occupied port while your server is running is expected; this is not a server
+health failure. See [measurement and acceptance guidance](MEASUREMENTS.md).
 
 Installations using HTTPS redirects, additional CLI overrides, custom wrappers,
 or Preview 1 (which lacks maintenance and `release.json`) use manual upgrades:

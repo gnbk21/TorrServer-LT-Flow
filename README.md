@@ -2,7 +2,7 @@
 
 TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps TorrServer-LT's libtorrent engine, web interface, and HTTP API.
 
-> **Development status:** [Preview 1](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-preview.1) is the first public prerelease, including Flow and the modern interface. It is a tested development snapshot, not a validated Flow 1.0. Flow and the modern interface are integrated into `develop`, the default branch; `master` remains reserved for stable releases. Real phone, long-session and controlled performance acceptance remain pending.
+> **Development status:** [Preview 1](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-preview.1) is the published prerelease. Preview 2 is under verification in [PR #3](https://github.com/gnbk21/TorrServer-LT-Flow/pull/3). See the [current status and exact remaining gates](STATUS.md). `develop` is the default integration branch; `master` is reserved for accepted stable releases. Neither preview is a validated Flow 1.0.
 
 ## Run on Windows
 
@@ -26,6 +26,15 @@ The artifact also contains a `-gst` executable for optional GStreamer HLS transc
 - **Warm mobile sessions:** briefly protects data around the last playhead after a player disconnects, so a quick reconnect can resume from cached pieces.
 - **Seek and Range diagnostics:** tracks startup, buffering, piece waits, seek recovery, and HTTP Range timing. A torrent card opens live diagnostics; detailed Range traces are opt-in.
 - **Windows background operation:** includes a service mode and a separate tray companion. See [Flow development notes](FLOW.md) for service and tray commands.
+
+Preview 2 also provides rolling 60-second health metrics, smoother adaptive
+windows, bounded per-file probe reuse, process/cache memory observations,
+redacted support downloads, portable backup/import, a startup doctor and an
+idle-only Windows updater with integrity checks and rollback. Advanced settings
+contain maintenance tools; importing settings requires preview/confirmation and
+retains local credentials. The library renders 50 cards per page while searching
+all entries. See [distribution guidance](DISTRIBUTION.md) and
+[measurements](MEASUREMENTS.md) for usage and verification limits.
 
 Flow settings are in the web interface's **Flow** tab and under `BitTorr.Flow` in `settings.json`. Flow is enabled by default. Saving settings restarts the torrent engine and interrupts active streams. `GET /flow/status/<torrent-hash>` exposes per-torrent diagnostics; `/flow/network` reports network readiness. Both follow the server's HTTP authentication setting. See [FLOW.md](FLOW.md) for defaults, endpoint behavior, and the comparison procedure.
 
@@ -59,7 +68,7 @@ offers a selectable LAN address and QR code; playback links include Just Player,
 VLC and ordinary HTTP open/copy fallbacks. Seven interface languages are retained.
 Ordinary LAN HTTP works without installing a PWA or service worker.
 
-The verified Windows build is available in
+The historical Preview 1 Windows build is available in
 [CI run 36631696935](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/36631696935)
 as `TorrServer-LT-windows-amd64`. It passed an isolated Windows UI/API smoke check;
 real phone and long playback acceptance remain pending.

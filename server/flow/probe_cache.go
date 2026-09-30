@@ -19,13 +19,15 @@ type ProbeResult struct {
 	Duration float64
 }
 type probeEntry struct {
+	lease         uint64
 	result        ProbeResult
 	ready         bool
 	expires, used time.Time
 }
 type ProbeCache struct {
-	mu      sync.Mutex
-	entries map[ProbeKey]probeEntry
+	mu       sync.Mutex
+	entries  map[ProbeKey]probeEntry
+	sequence uint64
 }
 
 const probeCacheCapacity = 128
@@ -44,14 +46,14 @@ func (c *ProbeCache) Get(key ProbeKey, now time.Time) (ProbeResult, bool) {
 
 // Begin reserves one bounded probe lease. Failures back off for a minute;
 // abandoned leases expire after 35 seconds, beyond the 30-second probe timeout.
-func (c *ProbeCache) Begin(key ProbeKey, now time.Time) bool {
+func (c *ProbeCache) Begin(key ProbeKey, now time.Time) uint64 {
 	if key.Hash == "" || key.Size <= 0 {
-		return false
+		return 0
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if e, ok := c.entries[key]; ok && now.Before(e.expires) {
-		return false
+		return 0
 	}
 	if c.entries == nil {
 		c.entries = make(map[ProbeKey]probeEntry)
@@ -66,15 +68,19 @@ func (c *ProbeCache) Begin(key ProbeKey, now time.Time) bool {
 		}
 		delete(c.entries, oldest)
 	}
-	c.entries[key] = probeEntry{expires: now.Add(35 * time.Second), used: now}
-	return true
+	c.sequence++
+	if c.sequence == 0 {
+		c.sequence++
+	}
+	c.entries[key] = probeEntry{lease: c.sequence, expires: now.Add(35 * time.Second), used: now}
+	return c.sequence
 }
 
-func (c *ProbeCache) Finish(key ProbeKey, result ProbeResult, success bool, now time.Time) {
+func (c *ProbeCache) Finish(key ProbeKey, lease uint64, result ProbeResult, success bool, now time.Time) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	// An evicted lease cannot repopulate the map and exceed its capacity.
-	if _, ok := c.entries[key]; !ok {
+	if entry, ok := c.entries[key]; !ok || lease == 0 || entry.lease != lease {
 		return
 	}
 	success = success && result.Duration >= 0 && !math.IsNaN(result.Duration) && !math.IsInf(result.Duration, 0) && (result.Duration > 0 || result.BitRate != "")

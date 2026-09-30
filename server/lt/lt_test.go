@@ -537,6 +537,22 @@ func TestCacheRefetchLeavesSeedingState(t *testing.T) {
 	if status.TotalDone != 0 {
 		t.Fatalf("forgotten data still counted as resident: %d", status.TotalDone)
 	}
+	// Eviction is lazy. A later reader can restore demand through either a
+	// single priority, the declarative vector, or an urgent deadline.
+	for name, demand := range map[string]func() error{
+		"priority": func() error { return tor.SetPiecePriority(0, 7) },
+		"vector":   func() error { return tor.PrioritizePieces([]int{7}) },
+		"deadline": func() error { return tor.SetPieceDeadline(0, 0, false) },
+	} {
+		if err := tor.WeDontHave(0, 0); err != nil {
+			t.Fatal(err)
+		}
+		wait(func(st *Status) bool { return st.IsFinished && st.State == "finished" })
+		if err := demand(); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		wait(func(st *Status) bool { return !st.IsFinished && st.State == "downloading" })
+	}
 }
 
 // ---------- alerts ----------

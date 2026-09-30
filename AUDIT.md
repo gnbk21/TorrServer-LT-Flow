@@ -1,5 +1,9 @@
 # Flow audit — 27 September 2026
 
+**Historical record.** See [current project status](STATUS.md) for Preview 2
+changes and present gates. The observations and missing features below refer to
+the revisions named in this audit; they are not a current feature inventory.
+
 This document records the core audit and historical acceptance boundaries.
 For the modern interface implemented on `feature/modern-web`, see
 [WEB_AUDIT.md](WEB_AUDIT.md), [the implementation ledger](MODERNIZATION_CHECKLIST.md)

@@ -177,7 +177,7 @@ build_webrtc_deps() {
 # --- libtorrent (+ boost_system) via b2 ------------------------------
 build_libtorrent() {
     local deps="$1"
-    if [[ -f "$deps/lib/pkgconfig/libtorrent-rasterbar.pc" && -f "$deps/.flow-cache-extension-v1" ]]; then
+    if [[ -f "$deps/lib/pkgconfig/libtorrent-rasterbar.pc" && -f "$deps/.flow-cache-extension-v2" ]]; then
         log "libtorrent already installed for $TARGET"
         return
     fi
@@ -289,7 +289,7 @@ PYEOF
              next;
          }
          { print }' "$pc" > "$pc.tsl" && mv "$pc.tsl" "$pc"
-    touch "$deps/.flow-cache-extension-v1"
+    touch "$deps/.flow-cache-extension-v2"
 }
 
 # --- Go binary -------------------------------------------------------

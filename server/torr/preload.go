@@ -783,11 +783,15 @@ func (t *Torrent) probeMediaInfo(index int) {
 		return
 	}
 	key, valid := t.probeKey(index)
-	if !valid || !mediaProbes.Begin(key, time.Now()) {
+	if !valid {
+		return
+	}
+	lease := mediaProbes.Begin(key, time.Now())
+	if lease == 0 {
 		return
 	}
 	result, success := flow.ProbeResult{}, false
-	defer func() { mediaProbes.Finish(key, result, success, time.Now()) }()
+	defer func() { mediaProbes.Finish(key, lease, result, success, time.Now()) }()
 	// stat=ffprobe tags this loopback reader as internal (see streamGroupKey /
 	// ProbeReaderGroup) so it isn't counted as a playback client by the preload's
 	// hand-off gate while the fill is still running.

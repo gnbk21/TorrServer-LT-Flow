@@ -25,7 +25,7 @@ if ($Credential) {
     # PowerShell 7 forbids -Credential on HTTP. Send Basic only to the fixed
     # loopback endpoint, preserving compatibility with PowerShell 5.1.
     $authentication = $Credential.GetNetworkCredential()
-    $request.Headers = @{ Authorization = 'Basic '+[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($authentication.UserName+':'+$authentication.Password)) }
+    $request.Headers = @{ Authorization = 'Basic '+[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Credential.UserName+':'+$authentication.Password)) }
     $authentication = $null
 }
 $baseUri = 'http://127.0.0.1:' + [int]$record.port
@@ -67,6 +67,7 @@ try {
     $maintenance = Set-FlowMaintenance $true
     if (-not $maintenance.enabled -or $maintenance.active_requests -ne 0) { throw 'Server is not idle.' }
     $quiesced = $true
+    if ($maintenance.PSObject.Properties.Name -notcontains 'token' -or -not $maintenance.token) { throw 'This server lacks maintenance leases; release maintenance and use a manual upgrade.' }
     $maintenanceToken = $maintenance.token
     $processes = @(Get-Process -Name 'TorrServer-LT-windows-amd64' -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe })
     if (-not $record.service -and $processes.Count -ne 1) { throw 'Expected exactly one managed server process.' }

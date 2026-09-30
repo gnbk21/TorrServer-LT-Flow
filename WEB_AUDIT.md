@@ -1,5 +1,9 @@
 # Modern interface audit and acceptance record
 
+See [current project status](STATUS.md) for Preview 2 maintenance, telemetry and
+large-library changes. Dated validation below records earlier revisions; the
+real-device and stable-release gates remain independent of browser CI.
+
 Specification: supplied Modern Web Interface plan, revision 2.0, sections 1–100.
 Integration branch: develop. Implementation began on feature/modern-web. This
 is an implementation record, not a Modern Web 1.0 release approval.

@@ -38,7 +38,8 @@ function Save-FlowBinary {
         if ($LASTEXITCODE -ne 0) { throw 'GitHub build provenance verification failed.' }
     }
     $version = (& $Destination --version | Out-String).Trim()
-    if ($LASTEXITCODE -ne 0 -or $version -notlike ('*' + $Manifest.Version + '*')) { throw 'Executable version does not match the release.' }
+    $exactVersion = '(?<![A-Za-z0-9.-])'+[regex]::Escape([string]$Manifest.Version)+'(?![A-Za-z0-9.-])'
+    if ($LASTEXITCODE -ne 0 -or $version -notmatch $exactVersion) { throw 'Executable version does not match the release.' }
 }
 
 function Write-FlowInstallRecord {

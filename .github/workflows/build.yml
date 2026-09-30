@@ -86,8 +86,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: _deps/${{ matrix.target }}
-          key: deps-${{ matrix.target }}-boost1.85.0-lt2.1.0-ossl3.5.7-flowrefetch-v2
-          restore-keys: deps-${{ matrix.target }}-boost1.85.0-lt2.1.0-ossl3.5.7-v1
+          key: deps-${{ matrix.target }}-boost1.85.0-lt2.1.0-ossl3.5.7-flowrefetch-v3
+          restore-keys: deps-${{ matrix.target }}-boost1.85.0-lt2.1.0-ossl3.5.7-
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -113,6 +113,15 @@ jobs:
         run: bash build/${{ matrix.target }}.sh
 
       # Only linux-amd64 runs on the x86 host; use it as the test + smoke gate.
+      - name: Native upload cache-miss regression
+        if: matrix.target == 'linux-amd64'
+        env:
+          PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+        run: |
+          g++ -std=c++17 -O2 build/test_disk_upload.cpp -o _out/test-disk-upload -L"$PWD/_deps/linux-amd64/lib" $(pkg-config --cflags --libs libtorrent-rasterbar) -pthread
+          _out/test-disk-upload
+
       - name: Unit tests
         if: matrix.target == 'linux-amd64'
         working-directory: server

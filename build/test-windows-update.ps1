@@ -62,6 +62,9 @@ function Start-Process {
     $global:flowUpdateTeststartArguments += $ArgumentList
     if ($global:flowUpdateTestfailNextStart) {
         $global:flowUpdateTestfailNextStart=$false
+        # Simulate a candidate migration after the pre-update snapshot. The
+        # rollback must restore data as well as the previous executable.
+        [IO.File]::WriteAllBytes((Join-Path $state 'config.db'),[Text.Encoding]::ASCII.GetBytes('candidate-migration-fixture'))
         # Inject a CLI parsing failure into the actual staged executable.
         $PSBoundParameters.ArgumentList += ' --port invalid'
     }
@@ -123,7 +126,7 @@ try {
         if (-not $acl.AreAccessRulesProtected) { throw 'Recovery directory inherits unsafe access.' }
         if ($acl.Access | Where-Object {$_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -in @('S-1-1-0','S-1-5-11','S-1-5-32-545')}) { throw 'Recovery backup is readable by general users.' }
     }
-    @{passed=$true;native_executables=$true;release_transport='controlled fixture';maintenance_owner_rejection=$true;integrity_rejection=$true;authenticated_update=$true;startup_failure_rollback=$true;state_preserved=$true;listener_preserved=$true;protected_backups=$true} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'report.json')
+    @{passed=$true;native_executables=$true;release_transport='controlled fixture';maintenance_owner_rejection=$true;integrity_rejection=$true;authenticated_update=$true;startup_failure_rollback=$true;configuration_mutation_rollback=$true;state_preserved=$true;listener_preserved=$true;protected_backups=$true} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'report.json')
 } finally {
     try { Microsoft.PowerShell.Utility\Invoke-RestMethod -Uri "$baseUri/shutdown" -Headers $headers -TimeoutSec 2 | Out-Null } catch { }
     $owned=@(Get-Process -Name 'TorrServer-LT-windows-amd64' -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq $exe})

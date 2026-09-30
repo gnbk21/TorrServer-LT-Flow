@@ -115,18 +115,42 @@ void libtorrent::torrent::flow_forget_piece(piece_index_t const index,
         set_state(m_picker->is_finished() ? torrent_status::finished : torrent_status::downloading);
     update_gauge();
     update_peer_interest(was_finished);
-    // A finished torrent may have zero cached connect candidates because all
-    // known peers are seeds. Refresh this count before want_peers() checks it;
-    // otherwise it never calls connect_one_peer(), which normally refreshes it.
+    flow_refresh_connect_candidates();
+    set_need_save_resume(torrent_handle::if_download_progress);
+    state_updated();
+}
+
+#if LIBTORRENT_VERSION_NUM >= 20100
+void libtorrent::aux::torrent::flow_refresh_connect_candidates()
+#else
+void libtorrent::torrent::flow_refresh_connect_candidates()
+#endif
+{
+    if (m_abort) return;
+    // Ordinary priority/deadline changes can also transition finished to
+    // downloading after an eviction left the missing piece at priority zero.
+    // Refresh after every demand change, not only when clearing a have bit.
     if (m_peer_list) {
         auto peer_state = get_peer_list_state();
         m_peer_list->flow_refresh_connect_candidates(&peer_state);
     }
     update_want_peers();
-    set_need_save_resume(torrent_handle::if_download_progress);
-    state_updated();
 }
 #endif
+
+static void refresh_connect_candidates(lt::torrent_handle const& h) {
+#ifdef TSL_HAVE_LT_INTERNALS
+    auto tor = h.native_handle();
+    if (!tor) return;
+    // torrent_handle enqueues its priority operation on this same context.
+    // Posting afterwards observes the resulting state without racing it.
+    lt::post(tor->session().get_context(), [tor]() {
+        tor->flow_refresh_connect_candidates();
+    });
+#else
+    (void)h;
+#endif
+}
 using json = nlohmann::json;
 
 // nlohmann::json::dump() defaults to error_handler_t::strict, which THROWS
@@ -1067,6 +1091,7 @@ int lt_torrent_set_piece_priority(lt_torrent tid, int piece_idx, int prio) {
     if (prio < 0 || prio > 7) return set_err(LT_ERR_INVALID, "prio out of range");
     h.piece_priority(lt::piece_index_t{piece_idx},
                      static_cast<lt::download_priority_t>(static_cast<std::uint8_t>(prio)));
+    refresh_connect_candidates(h);
     return LT_OK;
     WRAP_END(LT_ERR_INTERNAL)
 }
@@ -1085,6 +1110,7 @@ int lt_torrent_set_all_pieces_priority(lt_torrent tid, int prio) {
         static_cast<std::size_t>(ti->num_pieces()),
         static_cast<lt::download_priority_t>(static_cast<std::uint8_t>(prio)));
     h.prioritize_pieces(v);
+    refresh_connect_candidates(h);
     return LT_OK;
     WRAP_END(LT_ERR_INTERNAL)
 }
@@ -1112,6 +1138,7 @@ int lt_torrent_prioritize_pieces(lt_torrent tid, const int* prios, int count) {
         v.push_back(static_cast<lt::download_priority_t>(static_cast<std::uint8_t>(p)));
     }
     h.prioritize_pieces(v);
+    refresh_connect_candidates(h);
     return LT_OK;
     WRAP_END(LT_ERR_INTERNAL)
 }
@@ -1169,6 +1196,7 @@ int lt_torrent_set_piece_deadline(lt_torrent tid, int piece_idx, int deadline_ms
     lt::deadline_flags_t flags = {};
     if (alert_when_ready) flags |= lt::torrent_handle::alert_when_available;
     h.set_piece_deadline(lt::piece_index_t{piece_idx}, deadline_ms, flags);
+    refresh_connect_candidates(h);
     return LT_OK;
     WRAP_END(LT_ERR_INTERNAL)
 }

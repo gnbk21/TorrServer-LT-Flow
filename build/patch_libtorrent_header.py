@@ -28,6 +28,9 @@ def patch(directory):
     extend(include / "torrent.hpp",
            "\t\tvoid set_piece_priority(piece_index_t index, download_priority_t priority);",
            "\t\tvoid flow_forget_piece(piece_index_t index, download_priority_t priority);")
+    extend(include / "torrent.hpp",
+           "\t\tvoid flow_forget_piece(piece_index_t index, download_priority_t priority);",
+           "\t\tvoid flow_refresh_connect_candidates();")
     extend(include / "peer_list.hpp",
            "\t\tvoid set_max_failcount(torrent_state* st);",
            "\t\tvoid flow_refresh_connect_candidates(torrent_state* state) { recalculate_connect_candidates(state); }")
