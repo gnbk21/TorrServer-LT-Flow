@@ -115,6 +115,15 @@ try {
         Move-Item -LiteralPath $exe -Destination $failed
         Move-Item -LiteralPath $previous -Destination $exe
         # Undo migrations of files captured after the old server closed cleanly.
+        $originalNames = @(Get-ChildItem -LiteralPath $backup -File | ForEach-Object { $_.Name })
+        $createdFiles = @(Get-ChildItem -LiteralPath ([string]$record.state_directory) -File | Where-Object { $_.Extension -in @('.db','.json','.txt') -and $_.Name -notin $originalNames })
+        if ($createdFiles.Count) {
+            # Preserve new migration files privately, but remove them from the
+            # old server's state namespace before restoring its snapshot.
+            $failedState = Join-Path $backup 'failed-state'
+            [void](New-Item -ItemType Directory -Path $failedState)
+            foreach ($file in $createdFiles) { Move-Item -LiteralPath $file.FullName -Destination (Join-Path $failedState $file.Name) }
+        }
         Get-ChildItem -LiteralPath $backup -File | Copy-Item -Destination ([string]$record.state_directory) -Force
         Start-InstalledFlow
         Wait-FlowHealth ([string]$record.version)

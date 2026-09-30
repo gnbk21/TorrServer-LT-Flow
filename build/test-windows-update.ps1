@@ -65,6 +65,7 @@ function Start-Process {
         # Simulate a candidate migration after the pre-update snapshot. The
         # rollback must restore data as well as the previous executable.
         [IO.File]::WriteAllBytes((Join-Path $state 'config.db'),[Text.Encoding]::ASCII.GetBytes('candidate-migration-fixture'))
+        [IO.File]::WriteAllText((Join-Path $state 'candidate-only.json'),'{"migration":"fixture"}')
         # Inject a CLI parsing failure into the actual staged executable.
         $PSBoundParameters.ArgumentList += ' --port invalid'
     }
@@ -116,6 +117,9 @@ try {
     if (-not $rolledBack) { throw 'Injected startup failure did not trigger rollback.' }
     Health $newManifest.Version
     CheckState
+    if (Test-Path -LiteralPath (Join-Path $state 'candidate-only.json')) { throw 'Failed candidate migration file remained in active state.' }
+    $retainedMigration = @(Get-ChildItem -LiteralPath (Join-Path $state 'upgrade-backups') -Recurse -File -Filter 'candidate-only.json')
+    if ($retainedMigration.Count -ne 1 -or $retainedMigration[0].Directory.Name -ne 'failed-state') { throw 'Failed migration data was not preserved privately.' }
     foreach ($arguments in $global:flowUpdateTeststartArguments) {
         if ($arguments -notmatch '--httpauth' -or $arguments -notmatch '--ip 127\.0\.0\.1') { throw 'Restart changed authentication or listener flags.' }
     }
