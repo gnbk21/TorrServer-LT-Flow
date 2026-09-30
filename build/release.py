@@ -29,6 +29,13 @@ def digest(path):
         return hashlib.file_digest(source, "sha256").hexdigest()
 
 
+def find_binary(artifact_dir, name):
+    found = [path for path in artifact_dir.rglob(name) if path.is_file()]
+    if len(found) != 1:
+        raise ValueError(f"Expected exactly one {name}")
+    return found[0]
+
+
 def module_notices(binaries, native_root):
     modules = set()
     for binary in binaries:
@@ -76,10 +83,7 @@ def package(artifact_dir, output, tag, commit, native_root):
         if platform in GST:
             names.append(f"TorrServer-LT-{platform}-gst" + (".exe" if platform.startswith("windows") else ""))
         for name in names:
-            found = list(artifact_dir.rglob(name))
-            if len(found) != 1:
-                raise ValueError(f"Expected exactly one {name}")
-            binary = found[0]
+            binary = find_binary(artifact_dir, name)
             info = subprocess.check_output(["go", "version", "-m", str(binary)], text=True)
             if f"vcs.revision={commit}" not in info or f"server/version.Version={tag}" not in info:
                 raise ValueError(f"Binary identity mismatch: {name}")

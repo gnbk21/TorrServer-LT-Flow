@@ -93,7 +93,7 @@ jobs:
           prerelease: ${{ needs.classify.outputs.channel == 'preview' }}
           make_latest: ${{ needs.classify.outputs.channel == 'stable' }}
           generate_release_notes: true
-          body_path: ${{ github.ref_name == 'MatriX.145.Flow-v0.2.0-preview.1' && 'PREVIEW_2_NOTES.md' || 'DISTRIBUTION.md' }}
+          body_path: ${{ github.ref_name == 'MatriX.145.Flow-v0.2.0-preview.2' && 'PREVIEW_2_NOTES.md' || 'DISTRIBUTION.md' }}
   docker:
     needs: [classify, release]
     permissions:

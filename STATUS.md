@@ -1,6 +1,6 @@
 # Current project status
 
-Updated 30 September 2026. This is the current status; dated audit sections
+Updated 1 October 2026. This is the current status; dated audit sections
 describe the revisions tested at those dates and do not override this table.
 
 | Area | Current state | Remaining gate |
@@ -18,8 +18,15 @@ describe the revisions tested at those dates and do not override this table.
 
 The initial `MatriX.145.Flow-preview.2` tag failed its updater fixture gate in
 run `36762628271`; no GitHub release was published. Strict channel selection
-correctly rejected that fixture's development identity. The corrected attempt
-uses `MatriX.145.Flow-v0.2.0-preview.1`; the failed tag is retained for traceability.
+correctly rejected that fixture's development identity. The next attempt,
+`MatriX.145.Flow-v0.2.0-preview.1` in run `36766807632`, passed every native/service
+gate but found a packager bug: artifact directories were counted as files.
+Regression tests now distinguish directories from files and still reject real
+duplicates. The next candidate is `MatriX.145.Flow-v0.2.0-preview.2`; failed tags
+are retained for traceability.
+The complete packager passed locally using all 13 native artifacts from
+`815d5bee`, authentic pinned dependency notices, all eight platform archives,
+and two identical checksum inventories. Published transport is still a gate.
 Container publication now follows all native, service, macOS, packaging and
 provenance gates. The earlier failed attempt's container tag is not an accepted
 release. Public package visibility remains to be checked with owner access.

@@ -17,6 +17,14 @@ every platform package. Dependencies are pinned in `build/_common.sh`,
 
 Docker `latest` follows stable releases; `preview` follows prereleases. A
 version-specific image remains available. Choosing a preview is explicit.
+Container publication follows native/service/macOS checks, verified packaging
+and GitHub release provenance. Every container architecture is checked for
+runtime linkage and its exact version before pushing.
+
+GitHub package visibility is separate from repository visibility. If anonymous
+GHCR pulls are denied, the owner must enable public visibility in the package's
+settings before public container downloads can be verified. See
+[GitHub package access guidance](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility).
 
 ## Integrity and provenance
 
