@@ -12,6 +12,7 @@ int read_fixture(int64_t, int, int64_t, uint8_t* buffer, int length) {
     if (supplied > 0) std::memset(buffer, 0x5a, std::min(supplied, length));
     return supplied;
 }
+int write_fixture(int64_t, int, int64_t, uint8_t const*, int) { return supplied; }
 }
 
 int main() {
@@ -20,6 +21,7 @@ int main() {
     lt::counters counters;
     tsl_storage_callbacks callbacks{};
     callbacks.read = read_fixture;
+    callbacks.write = write_fixture;
     tsl_disk_io disk(io, settings, counters, callbacks);
     for (int count : {-1, 0, 99, 100}) {
         supplied = count;
@@ -39,6 +41,18 @@ int main() {
         io.run();
         if (!completed) throw std::runtime_error("disk completion missing");
         io.restart();
+        completed = false;
+        char payload[100]{};
+        disk.async_write(lt::storage_index_t{0}, {lt::piece_index_t{0}, 0, 100}, payload, {},
+            [&](lt::storage_error const& error) {
+                completed = true;
+                if (bool(error.ec) != (count != 100))
+                    throw std::runtime_error("missing or partial cache write was acknowledged");
+            });
+        if (completed) throw std::runtime_error("reentrant write completion");
+        io.run();
+        if (!completed) throw std::runtime_error("write completion missing");
+        io.restart();
     }
-    std::cout << "Missing, partial and complete native upload reads passed\n";
+    std::cout << "Missing, partial and complete native reads/writes passed\n";
 }
