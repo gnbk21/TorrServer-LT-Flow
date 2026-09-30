@@ -271,7 +271,7 @@ jobs:
           TS_VERSION: ${{ inputs.version || format('MatriX.145.Flow-dev-{0}', github.sha) }}
         run: |
           cp _out/TorrServer-LT-linux-amd64 _out/TorrServer-LT-linux-amd64-baseline
-          python3 build/playback_harness.py --executable _out/TorrServer-LT-linux-amd64-baseline --output _out/pgo-training --fixtures _out/controlled-playback/fixtures --cases fast --profile
+          python3 build/playback_harness.py --executable _out/TorrServer-LT-linux-amd64-baseline --output _out/pgo-training --fixtures _out/controlled-playback/fixtures --cases fast --profile --debug
           go tool pprof -top _out/TorrServer-LT-linux-amd64-baseline _out/pgo-training/fast/profile.pprof > _out/pgo-training/cpu-top.txt
           TS_PGO_PROFILE="$PWD/_out/pgo-training/fast/profile.pprof" bash build/linux-amd64.sh
           python3 build/pgo_compare.py --baseline _out/TorrServer-LT-linux-amd64-baseline --candidate _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/pgo-comparison
@@ -283,7 +283,11 @@ jobs:
             _out/pgo-training/cpu-top.txt
             _out/pgo-training/fast/*.pprof
             _out/pgo-training/report.json
+            _out/pgo-training/fast/failure.json
+            _out/pgo-training/fast/server-output.log
             _out/pgo-comparison/report.json
+            _out/pgo-comparison/*/failure.json
+            _out/pgo-comparison/*/server-output.log
 
       # Primary artifacts are already uploaded. Build a differently stamped
       # native fixture for updater lifecycle tests; never publish this fixture.
