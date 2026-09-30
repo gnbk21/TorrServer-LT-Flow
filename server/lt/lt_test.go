@@ -500,6 +500,39 @@ func TestStatus(t *testing.T) {
 	}
 }
 
+func TestCacheRefetchLeavesSeedingState(t *testing.T) {
+	s := newSession(t)
+	tor, err := s.AddTorrent(AddTorrentParams{InfoBytes: minimalTorrent(), SavePath: t.TempDir(), HavePieces: []byte{1}, PieceCount: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wait := func(predicate func(*Status) bool) *Status {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		var status *Status
+		for time.Now().Before(deadline) {
+			status, err = tor.Status()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if predicate(status) {
+				return status
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		t.Fatalf("native state did not converge: %+v", status)
+		return nil
+	}
+	wait(func(st *Status) bool { return st.State == "seeding" && tor.HasPiece(0) })
+	if err := tor.WeDontHave(0, 7); err != nil {
+		t.Fatal(err)
+	}
+	status := wait(func(st *Status) bool { return st.State == "downloading" && !st.IsFinished && !tor.HasPiece(0) })
+	if status.TotalDone != 0 {
+		t.Fatalf("forgotten data still counted as resident: %d", status.TotalDone)
+	}
+}
+
 // ---------- alerts ----------
 
 func TestAlerts_AfterAdd(t *testing.T) {

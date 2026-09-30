@@ -166,6 +166,11 @@ func TestCorruptJSONDatabaseCannotBeSilentlyOverwritten(t *testing.T) {
 	if err := database.PutChecked("Settings", "BitTorr", []byte(`{"CacheSize":123}`)); err == nil {
 		t.Fatal("corrupt database overwritten")
 	}
+	cache := NewDBReadCache(database)
+	cache.Set("Settings", "BitTorr", []byte(`{"CacheSize":123}`))
+	if got := cache.Get("Settings", "BitTorr"); len(got) != 0 {
+		t.Fatal("failed durable write was published in the read cache")
+	}
 	contents, _ := os.ReadFile(file)
 	if string(contents) != `{"broken"` {
 		t.Fatal("original data lost")
