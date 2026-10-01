@@ -25,23 +25,28 @@ var consoleWriter *console.Writer
 var restoreConsole func()
 
 var consoleStopMu sync.Mutex
-var consoleStop func()
+var consoleStop *consoleStopper
+
+type consoleStopper struct {
+	once sync.Once
+	stop func()
+}
 
 // SetConsoleStop lets the console owner join its reporter before any process
 // exit path closes logs or restores the terminal, including API shutdown.
 func SetConsoleStop(stop func()) {
 	consoleStopMu.Lock()
-	consoleStop = stop
+	consoleStop = &consoleStopper{stop: stop}
 	consoleStopMu.Unlock()
 }
 
 func StopConsoleStatus() {
 	consoleStopMu.Lock()
 	stop := consoleStop
-	consoleStop = nil
 	consoleStopMu.Unlock()
-	if stop != nil {
-		stop()
+	if stop != nil && stop.stop != nil {
+		// Concurrent exit paths must also wait for the first join to finish.
+		stop.once.Do(stop.stop)
 	}
 }
 

@@ -2,6 +2,8 @@ package log
 
 import (
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -60,4 +62,24 @@ func TestConsoleStopOnce(t *testing.T) {
 	if count != 1 {
 		t.Fatalf("reporter stopped %d times", count)
 	}
+}
+
+func TestConcurrentConsoleStopJoins(t *testing.T) {
+	started, release := make(chan struct{}), make(chan struct{})
+	var joined atomic.Bool
+	SetConsoleStop(func() { close(started); <-release; joined.Store(true) })
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			StopConsoleStatus()
+			if !joined.Load() {
+				t.Error("stop returned before reporter joined")
+			}
+		}()
+	}
+	<-started
+	close(release)
+	wg.Wait()
 }
