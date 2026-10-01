@@ -67,6 +67,8 @@ func ConfigureConsole(mode string, service bool) bool {
 }
 
 func ConsolePanel(title string, sections []console.Section) {
+	closeMu.Lock()
+	defer closeMu.Unlock()
 	if consoleWriter != nil {
 		if err := consoleWriter.Panel(title, sections); err != nil {
 			fmt.Fprintln(os.Stderr, "Flow console output:", err)
@@ -147,19 +149,35 @@ func applyServerLog(ff *os.File) {
 	log.SetOutput(ff)
 }
 
-func Close() {
+// CloseConsole restores console output without closing file loggers. The API
+// shutdown shortcut exits directly while other HTTP handlers can still finish;
+// their file loggers must remain valid until the OS closes process handles.
+func CloseConsole() {
 	StopConsoleStatus()
 	closeMu.Lock()
 	defer closeMu.Unlock()
-	if restoreConsole != nil {
-		restoreConsole()
-		restoreConsole = nil
-	}
+	closeConsoleOutput()
+}
+
+// Called with closeMu held. SetOutput joins an in-flight standard log write
+// before restoring console mode, so its final ANSI reset is still interpreted.
+func closeConsoleOutput() {
 	if consoleWriter != nil {
 		log.SetOutput(os.Stderr)
 		log.SetFlags(log.LstdFlags)
 		consoleWriter = nil
 	}
+	if restoreConsole != nil {
+		restoreConsole()
+		restoreConsole = nil
+	}
+}
+
+func Close() {
+	StopConsoleStatus()
+	closeMu.Lock()
+	defer closeMu.Unlock()
+	closeConsoleOutput()
 	if logFile != nil {
 		logFile.Close()
 		if webLogFile == logFile {

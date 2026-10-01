@@ -1,6 +1,7 @@
 package log
 
 import (
+	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -95,5 +96,22 @@ func TestConcurrentConsoleCloseRestoresOnce(t *testing.T) {
 	wg.Wait()
 	if restored.Load() != 1 {
 		t.Fatalf("terminal restored %d times", restored.Load())
+	}
+}
+
+func TestAPIConsoleCleanupKeepsAccessLogUsable(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "access.log")
+	Init("", path)
+	defer Close()
+	writer := webLog
+	CloseConsole()
+	if webLog != writer || webLogFile == nil {
+		t.Fatal("console cleanup closed the HTTP access logger")
+	}
+	WebLogln("handler finished after console cleanup")
+	contents, err := os.ReadFile(path)
+	if err != nil || len(contents) == 0 {
+		t.Fatalf("access log unavailable: %v", err)
 	}
 }

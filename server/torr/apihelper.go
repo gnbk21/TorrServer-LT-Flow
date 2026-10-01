@@ -363,7 +363,7 @@ func Shutdown() {
 	case <-time.After(15 * time.Second):
 		log.Event("WARN", "Server", "Teardown timed out; forcing exit.")
 	}
-	log.Close()
+	log.CloseConsole()
 	os.Exit(0)
 }
 
