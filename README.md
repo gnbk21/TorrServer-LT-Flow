@@ -44,6 +44,8 @@ seconds. Services and `--logpath` retain their existing UTC file logs without
 the console summary or heartbeat. `--version` and `--doctor` remain machine
 readable. For a clean shutdown, use **Settings → Advanced → Shut down** in the
 web interface. The console does not accept interactive commands.
+See the [console verification record](CONSOLE_AUDIT.md) for the exact native
+source, executable identity and compatibility checks.
 
 ## What Flow adds
 
