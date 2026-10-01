@@ -220,11 +220,10 @@ func main() {
 		return
 	}
 	server.Start()
-	stopConsole := func() {}
 	if web.ListenersReady() && diagnostics.Startup().EngineReady {
 		if consoleEnabled {
 			consoleStartup()
-			stopConsole = startConsoleStatus(params.ConsoleInterval)
+			log.SetConsoleStop(startConsoleStatus(params.ConsoleInterval))
 		}
 		if params.UI {
 			scheme, port := "http", settings.Port
@@ -239,7 +238,7 @@ func main() {
 		}
 	}
 	err := server.WaitServer()
-	stopConsole()
+	log.StopConsoleStatus()
 	exitCode := 0
 	if err != "" {
 		log.Event("ERROR", "Server", err)

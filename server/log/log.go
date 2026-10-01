@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"server/console"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,6 +23,27 @@ var webLog *log.Logger
 
 var consoleWriter *console.Writer
 var restoreConsole func()
+
+var consoleStopMu sync.Mutex
+var consoleStop func()
+
+// SetConsoleStop lets the console owner join its reporter before any process
+// exit path closes logs or restores the terminal, including API shutdown.
+func SetConsoleStop(stop func()) {
+	consoleStopMu.Lock()
+	consoleStop = stop
+	consoleStopMu.Unlock()
+}
+
+func StopConsoleStatus() {
+	consoleStopMu.Lock()
+	stop := consoleStop
+	consoleStop = nil
+	consoleStopMu.Unlock()
+	if stop != nil {
+		stop()
+	}
+}
 
 // ConfigureConsole is called once after Init. File logs and services retain
 // their UTC log format; only interactive/redirected console output is styled.
@@ -120,6 +142,7 @@ func applyServerLog(ff *os.File) {
 }
 
 func Close() {
+	StopConsoleStatus()
 	if restoreConsole != nil {
 		restoreConsole()
 		restoreConsole = nil

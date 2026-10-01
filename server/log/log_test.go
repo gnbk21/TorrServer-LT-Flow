@@ -50,3 +50,14 @@ func TestCloseSharedLogPathOnce(t *testing.T) {
 		t.Fatal("expected log handles to be cleared after Close")
 	}
 }
+
+func TestConsoleStopOnce(t *testing.T) {
+	count := 0
+	SetConsoleStop(func() { count++ })
+	StopConsoleStatus()
+	StopConsoleStatus()
+	Close()
+	if count != 1 {
+		t.Fatalf("reporter stopped %d times", count)
+	}
+}

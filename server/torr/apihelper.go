@@ -349,6 +349,8 @@ func dropAllTorrent() {
 // announces, and a wedged teardown must not leave a half-dead server that
 // still answers HTTP but can never be stopped via the API.
 func Shutdown() {
+	log.StopConsoleStatus()
+	log.Event("INFO", "Server", "Stopping...")
 	done := make(chan struct{})
 	go func() {
 		bts.Disconnect()
@@ -357,10 +359,11 @@ func Shutdown() {
 	}()
 	select {
 	case <-done:
+		log.Event("INFO", "Server", "Stopped.")
 	case <-time.After(15 * time.Second):
-		log.TLogln("torr.Shutdown: teardown timed out — forcing exit")
+		log.Event("WARN", "Server", "Teardown timed out; forcing exit.")
 	}
-	log.TLogln("torr.Shutdown: received shutdown — quit")
+	log.Close()
 	os.Exit(0)
 }
 
