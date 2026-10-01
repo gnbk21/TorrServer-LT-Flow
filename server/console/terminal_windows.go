@@ -1,8 +1,9 @@
 package console
 
 import (
-	"golang.org/x/sys/windows"
 	"os"
+
+	"golang.org/x/sys/windows"
 )
 
 // ConfigureColor restores the console mode on normal shutdown. Pipes, old

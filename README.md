@@ -25,10 +25,12 @@ The standard executable prints a grouped startup summary with web/LAN connection
 addresses, state directory, cache budget, Flow/swarm settings and startup timing.
 Logs have local timestamps and severity labels. Compatible terminals use subtle
 colors; redirected output and `NO_COLOR` stay plain. Periodic status shows uptime,
-engine/address/tracker state, active stream requests, resident cache, process RSS,
+engine/address/tracker state, active stream requests, cache data, process RSS,
 Go heap and goroutines. State changes are sampled every five seconds; otherwise
 the default heartbeat is 30 seconds. Cache/memory totals are collected only when
-a status report is due. The web Dashboard provides detailed throughput and buffer
+a status report is due. Cache data counts cached piece extents in the selected
+RAM/disk store; it is not process memory or a measure of playable buffer.
+The web Dashboard provides detailed throughput and buffer
 graphs. LAN candidates can include VPN adapters; tracker waiting does not prove
 an Internet outage, especially when no torrent is active.
 

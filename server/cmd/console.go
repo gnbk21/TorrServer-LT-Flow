@@ -100,7 +100,7 @@ func consoleStatus() string {
 	if memory.RSSAvailable {
 		rss = console.Bytes(memory.RSSBytes)
 	}
-	message := fmt.Sprintf("Uptime %s | engine %s | addresses %s | trackers %s\nStreams %d | Flow paused %t | cache resident %s (%d active, %d warm)\nProcess RSS %s | Go heap %s | goroutines %d",
+	message := fmt.Sprintf("Uptime %s | engine %s | addresses %s | trackers %s\nStreams %d | Flow paused %t | cache data %s (%d active, %d warm)\nProcess RSS %s | Go heap %s | goroutines %d",
 		time.Since(startup.StartedAt).Truncate(time.Second), engine, network.State, network.Connectivity,
 		streams, paused, console.Bytes(uint64(max(0, cache.ResidentBytes))), cache.ActiveCaches, cache.WarmCaches,
 		rss, console.Bytes(memory.GoHeapBytes), memory.Goroutines)

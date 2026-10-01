@@ -55,7 +55,9 @@ def run(executable, output):
                     if process.poll() is not None:
                         raise RuntimeError(f"{name}: startup exit {process.returncode}; see {capture}")
                     try:
-                        if request(base + "/flow/network", tls):
+                        # Unlike /flow/network, this endpoint waits for the
+                        # engine gate, including in legacy and file-log cases.
+                        if request(base + "/runtime/status", tls):
                             text = capture.read_text(encoding="utf-8", errors="replace")
                             if name in ("legacy", "file-log") or "QUICK HELP" in text:
                                 break
@@ -94,7 +96,7 @@ def run(executable, output):
         if not heartbeat and count:
             raise AssertionError(f"{name}: disabled status emitted")
         if heartbeat:
-            for expected in ("Streams 0", "cache resident", "Process RSS", "Go heap", "goroutines"):
+            for expected in ("Streams 0", "cache data", "Process RSS", "Go heap", "goroutines"):
                 if expected not in text:
                     raise AssertionError(f"{name}: missing status field {expected}")
             if text.rfind("[Status]") > text.rfind("[Server] Stopped."):
