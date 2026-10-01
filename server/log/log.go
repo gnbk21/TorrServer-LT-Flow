@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"server/console"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +19,36 @@ var (
 )
 
 var webLog *log.Logger
+
+var consoleWriter *console.Writer
+var restoreConsole func()
+
+// ConfigureConsole is called once after Init. File logs and services retain
+// their UTC log format; only interactive/redirected console output is styled.
+func ConfigureConsole(mode string, service bool) bool {
+	if mode == "off" || logFile != nil || service {
+		return false
+	}
+	color, restore := console.ConfigureColor(os.Stdout, mode)
+	restoreConsole = restore
+	consoleWriter = console.New(os.Stdout, color)
+	log.SetFlags(0)
+	log.SetPrefix("")
+	log.SetOutput(consoleWriter)
+	return true
+}
+
+func ConsolePanel(title string, sections []console.Section) {
+	if consoleWriter != nil {
+		if err := consoleWriter.Panel(title, sections); err != nil {
+			fmt.Fprintln(os.Stderr, "Flow console output:", err)
+		}
+	}
+}
+
+func Event(level, component, message string) {
+	log.Printf("[%s] [%s] %s", level, component, message)
+}
 
 var (
 	logFile    *os.File
@@ -89,6 +120,15 @@ func applyServerLog(ff *os.File) {
 }
 
 func Close() {
+	if restoreConsole != nil {
+		restoreConsole()
+		restoreConsole = nil
+	}
+	if consoleWriter != nil {
+		log.SetOutput(os.Stderr)
+		log.SetFlags(log.LstdFlags)
+		consoleWriter = nil
+	}
 	if logFile != nil {
 		logFile.Close()
 		if webLogFile == logFile {

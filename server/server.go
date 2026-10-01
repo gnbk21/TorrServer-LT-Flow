@@ -40,7 +40,7 @@ func Start() {
 		}
 		log.TLogln("Check web ssl port", settings.Args.SslPort)
 		if err := netbind.CheckPort(settings.Args.IPs, settings.Args.SslPort); err != nil {
-			log.TLogln("Port", settings.Args.SslPort, "already in use! Please set different ssl port for HTTPS. Abort")
+			log.Event("ERROR", "HTTPS", "Cannot bind port "+settings.Args.SslPort+": "+err.Error()+". Choose another --sslport or stop the other listener.")
 			os.Exit(1)
 		}
 	}
@@ -51,7 +51,7 @@ func Start() {
 
 	log.TLogln("Check web port", settings.Args.Port, "on", netbind.Normalize(settings.Args.IPs))
 	if err := netbind.CheckPort(settings.Args.IPs, settings.Args.Port); err != nil {
-		log.TLogln("Cannot bind HTTP port", settings.Args.Port+":", err)
+		log.Event("ERROR", "HTTP", "Cannot bind port "+settings.Args.Port+": "+err.Error()+". Choose another --port or stop the other listener.")
 		os.Exit(1)
 	}
 	// remove old disk caches

@@ -142,7 +142,7 @@ jobs:
           PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
-        run: go test -count=1 -timeout 180s ./diagnostics/ ./flow/ ./ffprobe/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/api/ ./web/pages/template/ ./dlna/ ./cmd/
+        run: go test -count=1 -timeout 180s ./console/ ./diagnostics/ ./flow/ ./ffprobe/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/api/ ./web/pages/template/ ./dlna/ ./cmd/
 
       - name: Go vet
         if: matrix.target == 'linux-amd64'
@@ -154,7 +154,7 @@ jobs:
           PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
-        run: go vet ./flow/ ./ffprobe/ ./settings/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/api/
+        run: go vet ./console/ ./cmd/ ./flow/ ./ffprobe/ ./settings/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/api/
 
       - name: Export actual API contracts
         if: matrix.target == 'linux-amd64'
@@ -201,7 +201,7 @@ jobs:
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
         run: |
-          go test -race -count=1 -timeout 180s ./flow/ ./settings/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/api/
+          go test -race -count=1 -timeout 180s ./console/ ./flow/ ./settings/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/api/
           go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
           govulncheck ./...
 
@@ -240,6 +240,16 @@ jobs:
       - name: Authenticated backup, maintenance and startup diagnostics
         if: matrix.target == 'linux-amd64'
         run: python3 build/maintenance_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/maintenance-check
+
+      - name: Console presentation and command compatibility
+        if: matrix.target == 'linux-amd64'
+        run: python3 build/console_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/console-check
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.target == 'linux-amd64'
+        with:
+          name: flow-console-check
+          path: _out/console-check
+          if-no-files-found: ignore
 
       - name: Library persistence measurement
         if: matrix.target == 'linux-amd64'

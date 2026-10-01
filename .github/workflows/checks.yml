@@ -19,7 +19,7 @@ jobs:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
       - working-directory: server
-        run: go test ./flow ./diagnostics ./web/pages/template
+        run: go test ./console ./flow ./diagnostics ./web/pages/template
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'

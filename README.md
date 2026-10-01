@@ -19,6 +19,30 @@ Keep Flow and another TorrServer instance on **different ports and data director
 
 The artifact also contains a `-gst` executable for optional GStreamer HLS transcoding. Direct playback uses the standard executable and does not require GStreamer. The `-gst` variant needs GStreamer installed separately at runtime.
 
+## Console display (development builds after Preview 2 `.5`)
+
+The standard executable prints a grouped startup summary with web/LAN connection
+addresses, state directory, cache budget, Flow/swarm settings and startup timing.
+Logs have local timestamps and severity labels. Compatible terminals use subtle
+colors; redirected output and `NO_COLOR` stay plain. Periodic status shows uptime,
+engine/address/tracker state, active stream requests, resident cache, process RSS,
+Go heap and goroutines. State changes are sampled every five seconds; otherwise
+the default heartbeat is 30 seconds. Cache/memory totals are collected only when
+a status report is due. The web Dashboard provides detailed throughput and buffer
+graphs. LAN candidates can include VPN adapters; tracker waiting does not prove
+an Internet outage, especially when no torrent is active.
+
+```powershell
+.\TorrServer-LT-windows-amd64.exe --console plain --console-interval 60
+```
+
+Use `--console-interval 0` to disable status reports while keeping the startup
+summary, or `--console off` for legacy log presentation. Intervals are 5–3600
+seconds. Services and `--logpath` retain their existing UTC file logs without
+the console summary or heartbeat. `--version` and `--doctor` remain machine
+readable. For a clean shutdown, use **Settings → Advanced → Shut down** in the
+web interface. The console does not accept interactive commands.
+
 ## What Flow adds
 
 - **Adaptive startup:** schedules a bounded head buffer and the container index/tail; an optional `ffprobe` result can refine the startup target without blocking playback indefinitely.
