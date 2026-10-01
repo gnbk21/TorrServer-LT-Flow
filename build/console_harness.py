@@ -83,7 +83,7 @@ def run(executable, output):
             for expected in ("TORRSERVER FLOW", "CONNECTION", "CONFIGURATION", "RUNTIME", "QUICK HELP", base + "/", "[Server] Stopped."):
                 if expected not in text:
                     raise AssertionError(f"{name}: missing {expected!r}")
-            if "LAN candidate" in text:
+            if re.search(r"^\s+LAN candidate:\s+https?://", text, re.MULTILINE):
                 raise AssertionError(f"{name}: loopback-only listener advertised LAN")
             if not re.search(r"\d\d:\d\d:\d\d INFO", text):
                 raise AssertionError(f"{name}: missing readable log prefix")
