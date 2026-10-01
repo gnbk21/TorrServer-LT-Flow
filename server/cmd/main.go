@@ -207,13 +207,15 @@ func main() {
 	}
 
 	if params.ForceHTTPS && !params.Ssl {
-		log.TLogln("Error: --force-https requires --ssl")
+		log.Event("ERROR", "Server", "--force-https requires --ssl")
+		log.Close()
 		os.Exit(1)
 	}
 
 	if params.Service == "run" {
 		if err := runWindowsService(); err != nil {
 			log.TLogln("Flow service error:", err)
+			log.Close()
 			os.Exit(1)
 		}
 		log.Close()

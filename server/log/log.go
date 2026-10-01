@@ -26,6 +26,7 @@ var restoreConsole func()
 
 var consoleStopMu sync.Mutex
 var consoleStop *consoleStopper
+var closeMu sync.Mutex
 
 type consoleStopper struct {
 	once sync.Once
@@ -148,6 +149,8 @@ func applyServerLog(ff *os.File) {
 
 func Close() {
 	StopConsoleStatus()
+	closeMu.Lock()
+	defer closeMu.Unlock()
 	if restoreConsole != nil {
 		restoreConsole()
 		restoreConsole = nil

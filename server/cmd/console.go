@@ -74,7 +74,7 @@ func consoleStartup() {
 			"--help: all options | --doctor: local prerequisite checks (server stopped).",
 			"--console plain: no colors | --console off: legacy logs",
 			"--console-interval 0: no periodic status (default: 30 seconds)",
-			"LAN candidates may include VPN adapters. No tracker reply yet is normal when idle.",
+			"LAN candidates can include VPN adapters. Idle tracker waiting is normal.",
 		}},
 	})
 }
@@ -100,9 +100,9 @@ func consoleStatus() string {
 	if memory.RSSAvailable {
 		rss = console.Bytes(memory.RSSBytes)
 	}
-	message := fmt.Sprintf("Uptime %s | engine %s | addresses %s | trackers %s\nStreams %d | Flow paused %t | cache data %s (%d active, %d warm)\nProcess RSS %s | Go heap %s | goroutines %d",
-		time.Since(startup.StartedAt).Truncate(time.Second), engine, network.State, network.Connectivity,
-		streams, paused, console.Bytes(uint64(max(0, cache.ResidentBytes))), cache.ActiveCaches, cache.WarmCaches,
+	message := fmt.Sprintf("Uptime %s | engine %s | Streams %d\nNetwork %s | trackers %s\ncache data %s (%d active, %d warm) | Flow paused %t\nProcess RSS %s | Go heap %s | goroutines %d",
+		time.Since(startup.StartedAt).Truncate(time.Second), engine, streams, network.State, network.Connectivity,
+		console.Bytes(uint64(max(0, cache.ResidentBytes))), cache.ActiveCaches, cache.WarmCaches, paused,
 		rss, console.Bytes(memory.GoHeapBytes), memory.Goroutines)
 	return message
 }

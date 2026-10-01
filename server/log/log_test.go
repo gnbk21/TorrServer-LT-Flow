@@ -83,3 +83,17 @@ func TestConcurrentConsoleStopJoins(t *testing.T) {
 	close(release)
 	wg.Wait()
 }
+
+func TestConcurrentConsoleCloseRestoresOnce(t *testing.T) {
+	var restored atomic.Int32
+	restoreConsole = func() { restored.Add(1) }
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Add(1)
+		go func() { defer wg.Done(); Close() }()
+	}
+	wg.Wait()
+	if restored.Load() != 1 {
+		t.Fatalf("terminal restored %d times", restored.Load())
+	}
+}
