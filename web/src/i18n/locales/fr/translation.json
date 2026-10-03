@@ -639,7 +639,7 @@
       "legacy": "Conserve le comportement des connexions de TorrServer-LT. Choix par défaut en attendant des comparaisons mesurées.",
       "conservative": "Réduit la pression des connexions et allonge les délais. Peut réduire la charge sans garantir une meilleure lecture.",
       "balanced": "Connexions et délais modérés pour un usage général. Comparez sur vos propres essaims.",
-      "aggressive": "Accélère les connexions et réduit les délais. Peut accélérer la découverte au prix de reconnexions et d’une charge accrues.",
+      "aggressive": "100 tentatives de connexion par seconde et un démarrage avec 80 pairs, avec les délais par défaut de libtorrent. Peut accélérer la découverte au prix de reconnexions et d’une charge accrues.",
       "custom": "Applique vos six paramètres personnalisés. Zéro laisse le réglage libtorrent correspondant inchangé."
     },
     "storageFields": {

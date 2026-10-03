@@ -633,7 +633,7 @@
       "legacy": "Păstrează comportamentul conexiunilor TorrServer-LT. Implicit până când comparațiile măsurate justifică schimbarea.",
       "conservative": "Reduce presiunea conexiunilor și mărește timpii de așteptare. Poate reduce încărcarea, fără a garanta o redare mai bună.",
       "balanced": "Ritm moderat al conexiunilor și al timpilor de așteptare pentru uz general. Compară pe propriile roiuri.",
-      "aggressive": "Accelerează conectarea și scurtează timpii de așteptare. Poate grăbi descoperirea cu prețul reconectărilor și al încărcării.",
+      "aggressive": "100 de încercări de conectare pe secundă și un impuls inițial de 80 de peers, cu timpii de așteptare impliciți ai libtorrent. Poate grăbi descoperirea cu prețul reconectărilor și al încărcării.",
       "custom": "Aplică cei șase parametri personalizați. Zero lasă neschimbată setarea libtorrent corespunzătoare."
     },
     "storageFields": {

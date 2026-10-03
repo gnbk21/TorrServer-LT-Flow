@@ -658,7 +658,7 @@
       "legacy": "Retains TorrServer-LT connection behavior. Default until measured comparisons justify a change.",
       "conservative": "Lowers connection pressure with longer timeouts. May reduce overhead; it does not guarantee better playback.",
       "balanced": "Moderate connection ramp and timeouts for general use. Compare using your own swarms.",
-      "aggressive": "Faster connection ramp and shorter timeouts. May improve discovery at the cost of churn and overhead.",
+      "aggressive": "100 connection attempts per second and an 80-peer initial boost, with libtorrent's default timeouts. May improve discovery at the cost of churn and overhead.",
       "custom": "Applies your six custom controls. Zero leaves the corresponding libtorrent setting unchanged."
     },
     "invalidGst": "Enter valid GStreamer values: positive durations and bitrates, nonnegative counts, version 1.22 or newer, and source stream or play.",
