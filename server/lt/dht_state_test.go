@@ -42,18 +42,44 @@ func TestDHTStateNativeRoundTripAndIsolation(t *testing.T) {
 }
 
 func TestDHTRestoredNodeIsContactedWithoutPublicBootstrap(t *testing.T) {
-	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.ParseIP("127.0.0.1")})
+	// Libtorrent excludes loopback-only DHT sockets. Use a local interface,
+	// with no public bootstrap nodes and no dependency on Internet access.
+	var local net.IP
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addresses, _ := iface.Addrs()
+		for _, address := range addresses {
+			ip, _, parseErr := net.ParseCIDR(address.String())
+			if parseErr == nil && ip.To4() != nil && !ip.IsLoopback() && !ip.IsLinkLocalUnicast() {
+				local = ip.To4()
+				break
+			}
+		}
+		if local != nil {
+			break
+		}
+	}
+	if local == nil {
+		t.Fatal("DHT fixture requires a local IPv4 interface")
+	}
+	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: local})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer conn.Close()
 	port := conn.LocalAddr().(*net.UDPAddr).Port
-	endpoint := []byte{127, 0, 0, 1, byte(port >> 8), byte(port)}
+	endpoint := append(append([]byte(nil), local...), byte(port>>8), byte(port))
 	state, err := NormalizeDHTState(dhtFixture(endpoint))
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := NewSessionWithDHT(SessionConfig{"enable_dht": true, "enable_upnp": false, "enable_natpmp": false, "dht_bootstrap_nodes": "", "dht_ignore_dark_internet": false, "listen_interfaces": "0.0.0.0:0"}, state)
+	s, err := NewSessionWithDHT(SessionConfig{"enable_dht": true, "enable_upnp": false, "enable_natpmp": false, "dht_bootstrap_nodes": "", "dht_ignore_dark_internet": false, "listen_interfaces": net.JoinHostPort(local.String(), "0"), "alert_mask": 0x7fffffff}, state)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,6 +88,12 @@ func TestDHTRestoredNodeIsContactedWithoutPublicBootstrap(t *testing.T) {
 	buf := make([]byte, 2048)
 	n, _, err := conn.ReadFromUDP(buf)
 	if err != nil {
+		alerts, _ := s.PopAlerts()
+		for _, alert := range alerts {
+			if alert.Type == "dht_log" || alert.Type == "listen_failed" || alert.Type == "listen_succeeded" {
+				t.Log(alert.Type, alert.Message)
+			}
+		}
 		t.Fatalf("restored DHT node on port %s was not contacted: %v", strconv.Itoa(port), err)
 	}
 	if !bytes.Contains(buf[:n], []byte("1:q")) {
