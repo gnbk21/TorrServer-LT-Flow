@@ -84,20 +84,67 @@ func TestDHTRestoredNodeIsContactedWithoutPublicBootstrap(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	deadline := time.Now().Add(10 * time.Second)
+	began := time.Now()
 	buf := make([]byte, 2048)
-	n, _, err := conn.ReadFromUDP(buf)
+	var n int
+	var sender *net.UDPAddr
+	var trace []Alert
+	for time.Now().Before(deadline) {
+		alerts, _ := s.PopAlerts() // production's existing alert pump drives readiness
+		trace = append(trace, alerts...)
+		conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+		n, sender, err = conn.ReadFromUDP(buf)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
-		alerts, _ := s.PopAlerts()
-		for _, alert := range alerts {
+		for _, alert := range trace {
 			if alert.Type == "dht_log" || alert.Type == "listen_failed" || alert.Type == "listen_succeeded" {
 				t.Log(alert.Type, alert.Message)
 			}
 		}
 		t.Fatalf("restored DHT node on port %s was not contacted: %v", strconv.Itoa(port), err)
 	}
+	t.Logf("restored local DHT node contacted in %s, without public bootstrap", time.Since(began))
 	if !bytes.Contains(buf[:n], []byte("1:q")) {
 		t.Fatal("not a DHT query")
+	}
+	// Answer the native query so the snapshot contains a verified routing node,
+	// rather than merely accepting a syntactically valid empty state.
+	i := bytes.Index(buf[:n], []byte("1:t")) + 3
+	if i < 3 {
+		t.Fatal("missing transaction ID")
+	}
+	colon := bytes.IndexByte(buf[i:n], ':')
+	if colon < 1 {
+		t.Fatal("invalid transaction length")
+	}
+	length, parseErr := strconv.Atoi(string(buf[i : i+colon]))
+	if parseErr != nil || length < 1 || length > 8 || i+colon+1+length > n {
+		t.Fatal("invalid transaction ID")
+	}
+	tx := buf[i+colon+1 : i+colon+1+length]
+	reply := append([]byte("d1:rd2:id20:"), bytes.Repeat([]byte{1}, 20)...)
+	reply = append(reply, []byte("5:nodes0:e1:t"+strconv.Itoa(length)+":")...)
+	reply = append(reply, tx...)
+	reply = append(reply, []byte("1:y1:re")...)
+	if _, err := conn.WriteToUDP(reply, sender); err != nil {
+		t.Fatal(err)
+	}
+	routingDeadline := time.Now().Add(3 * time.Second)
+	for {
+		s.PopAlerts()
+		data, snapshotErr := s.DHTState()
+		nodes, countErr := DHTStateNodes(data)
+		if snapshotErr == nil && countErr == nil && nodes > 0 {
+			break
+		}
+		if time.Now().After(routingDeadline) {
+			t.Fatalf("verified routing node was not saved: %v %v", snapshotErr, countErr)
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 	if data, err := s.DHTState(); err != nil || len(data) == 0 {
 		t.Fatalf("native snapshot: %v", err)

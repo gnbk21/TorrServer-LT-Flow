@@ -284,6 +284,7 @@ namespace {
 struct session_slot {
     std::unique_ptr<lt::session> s;
     std::mutex pump_mu; // serializes wait_alert+pop_alerts on this session
+    std::vector<lt::udp::endpoint> restored_dht_nodes; // <=32 per address family
 };
 
 std::shared_mutex g_sess_mu;
@@ -720,6 +721,15 @@ lt_session lt_session_new_with_dht(const char* settings_json, const char* state,
         // never exchanges peers. The add_default_plugins ctor flag has no effect on the
         // session_params overload, so the plugin set is governed solely by .extensions.
         auto slot = std::make_shared<session_slot>();
+        // In 2.1, DHT may start before listen sockets exist. A late socket's
+        // bootstrap then receives no saved nodes. Retain a bounded set of native
+        // hints and reintroduce them through the public API after UDP readiness.
+        auto retain_hints = [&](auto const& nodes) {
+            for (size_t i = 0; i < std::min<size_t>(32, nodes.size()); ++i)
+                slot->restored_dht_nodes.push_back(nodes[i]);
+        };
+        retain_hints(params.dht_state.nodes);
+        retain_hints(params.dht_state.nodes6);
         if (disable_pex) {
             params.extensions.clear();
             slot->s = std::make_unique<lt::session>(std::move(params));
@@ -1452,12 +1462,26 @@ char* lt_session_pop_alerts_json_alloc(lt_session sid, size_t* out_len) {
         if (!slot) { set_err(LT_ERR_NOT_FOUND, "session not found"); return nullptr; }
 
         std::vector<lt::alert*> alerts;
-        {
-            std::lock_guard<std::mutex> lk(slot->pump_mu);
-            slot->s->pop_alerts(&alerts);
-        }
+        // Borrowed alert pointers and the hint queue stay protected until JSON
+        // conversion finishes; a concurrent pop must not invalidate the batch.
+        std::lock_guard<std::mutex> lk(slot->pump_mu);
+        slot->s->pop_alerts(&alerts);
         json arr = json::array();
         for (auto* a : alerts) {
+            if (auto* ready = lt::alert_cast<lt::listen_succeeded_alert>(a)) {
+                if (ready->socket_type == lt::socket_type_t::utp
+                    && !ready->address.is_loopback()
+                    && !slot->restored_dht_nodes.empty()) {
+                    bool enabled = slot->s->get_settings().get_bool(lt::settings_pack::enable_dht);
+                    auto& nodes = slot->restored_dht_nodes;
+                    nodes.erase(std::remove_if(nodes.begin(), nodes.end(), [&](auto const& ep) {
+                        if (!enabled) return true;
+                        if (ep.address().is_v4() != ready->address.is_v4()) return false;
+                        slot->s->add_dht_node({ep.address().to_string(), ep.port()});
+                        return true;
+                    }), nodes.end());
+                }
+            }
             try { arr.push_back(alert_to_json(a)); }
             catch (std::exception const&) { /* skip malformed */ }
         }
