@@ -303,12 +303,23 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	// (NewReader -> ClearPreloadReserve) once that window covers the head. Clear
 	// here only when the preload did NOT complete, so an abandoned/timed-out
 	// preload never leaks its reservation.
+	var reserveMu sync.Mutex
+	var moovRange [2]int
+	moovKnown := false
 	cache.SetPreloadReserve([][2]int{{headFirst, headLast}, {tailFirst, tailLast}})
 	preloadOK := false
 	parentCtx := ctx
 	var warmPieces []int
 	defer func() {
-		cache.ReleasePreloadDemand(append(gatePieces, warmPieces...))
+		pieces := append(append([]int(nil), gatePieces...), warmPieces...)
+		reserveMu.Lock()
+		if moovKnown {
+			for p := moovRange[0]; p <= moovRange[1]; p++ {
+				pieces = append(pieces, p)
+			}
+		}
+		reserveMu.Unlock()
+		cache.ReleasePreloadDemand(pieces)
 		if (!preloadOK || parentCtx.Err() != nil) && cache.StreamingReaders() == 0 {
 			cache.ClearPreloadReserve()
 		}
@@ -337,9 +348,6 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	// ramp starts after the tail (tailExtra), so the head is raced right behind the
 	// index, and the head's non-deadlined remainder fills in piece order via the
 	// sequential picker. Also called later by moov detection to refine the range.
-	var reserveMu sync.Mutex
-	var moovRange [2]int
-	moovKnown := false
 	prioritiseTail := func(tf, tl int) {
 		currentHeadLast := int(headLastForTail.Load())
 		var tailPieces []int
@@ -816,6 +824,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 // pieces, so the probe has a separate timeout and never gates playback forever.
 // A recover keeps probe failure from aborting the preload.
 func (t *Torrent) probeMediaInfo(index int) {
+	probeBegan := time.Now()
 	defer func() {
 		if t != nil {
 			t.mu.Lock()
@@ -823,7 +832,13 @@ func (t *Torrent) probeMediaInfo(index int) {
 			if t.flowStartup.FileIndex == index {
 				t.flowStartup.ProbeCompleteMs = time.Since(t.flowStartupStarted).Milliseconds()
 			}
+			success := t.ProbeFileID == index && (t.BitRate != "" || t.DurationSeconds > 0)
 			t.mu.Unlock()
+			stage := "FAILED"
+			if success {
+				stage = "READY"
+			}
+			t.historyEvent(flow.HistoryEvent{Type: "probe", Stage: stage, File: index, ElapsedMs: time.Since(probeBegan).Milliseconds()})
 		}
 	}()
 	defer func() {

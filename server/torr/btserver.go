@@ -92,7 +92,8 @@ func (bt *BTServer) Connect() error {
 			}
 		}
 	}
-	dhtEnabled := settings.CurrentFlow().Enabled && settings.CurrentFlow().DHTStatePersistence && !settings.BTsets().DisableDHT
+	sets := settings.BTsets()
+	dhtEnabled := settings.CurrentFlow().Enabled && settings.CurrentFlow().DHTStatePersistence && (sets == nil || !sets.DisableDHT)
 	bt.dhtRestored.Store(false)
 	var dhtState []byte
 	if dhtEnabled {

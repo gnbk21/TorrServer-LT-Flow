@@ -53,7 +53,7 @@ func TestDHTRestoredNodeIsContactedWithoutPublicBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := NewSessionWithDHT(SessionConfig{"enable_dht": true, "enable_upnp": false, "enable_natpmp": false, "dht_bootstrap_nodes": "", "dht_ignore_dark_internet": false, "listen_interfaces": "127.0.0.1:0"}, state)
+	s, err := NewSessionWithDHT(SessionConfig{"enable_dht": true, "enable_upnp": false, "enable_natpmp": false, "dht_bootstrap_nodes": "", "dht_ignore_dark_internet": false, "listen_interfaces": "0.0.0.0:0"}, state)
 	if err != nil {
 		t.Fatal(err)
 	}

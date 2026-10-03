@@ -3,6 +3,7 @@ package torr
 import (
 	"server/flow"
 	"server/lt"
+	"server/settings"
 	"time"
 )
 
@@ -15,6 +16,11 @@ func (bt *BTServer) saveDHTLifecycle(s *lt.Session, stop <-chan struct{}, done c
 		return
 	}
 	save := func() {
+		f := settings.CurrentFlow()
+		sets := settings.BTsets()
+		if settings.ReadOnly || !f.Enabled || !f.DHTStatePersistence || (sets != nil && sets.DisableDHT) {
+			return
+		}
 		data, err := s.DHTState()
 		if err == nil {
 			nodes, countErr := lt.DHTStateNodes(data)
