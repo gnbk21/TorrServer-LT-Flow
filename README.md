@@ -47,6 +47,11 @@ web interface. The console does not accept interactive commands.
 See the [console verification record](CONSOLE_AUDIT.md) for the exact native
 source, executable identity and compatibility checks.
 
+For a saved session log, add `--logpath .\flow.log` to your usual launch command.
+This writes UTC file logs instead of the console panel. Console output alone is
+not retained after exit. See [startup delay findings and improvements](PERFORMANCE_AUDIT.md)
+for the peer-retention fix, controlled measurements and diagnostic guidance.
+
 ## What Flow adds
 
 - **Adaptive startup:** schedules a bounded head buffer and the container index/tail; an optional `ffprobe` result can refine the startup target without blocking playback indefinitely.

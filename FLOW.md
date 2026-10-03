@@ -153,7 +153,11 @@ the default until a controlled benchmark supports changing the default.
 `ConnectionSpeed`, `TorrentConnectBoost`, `PeerConnectTimeout`, `PieceTimeout`,
 `RequestQueueTime`, and `MinReconnectTime`; zero leaves that libtorrent value
 untouched. Cache limits, proxy settings, upload choices, and active-torrent
-queue protection are retained for every profile.
+queue protection are retained for every profile. Development builds after
+Preview 2 `.5` also retain healthy seeders while a lazy/warm torrent has zero
+piece demand. Preload raises priorities without a pause/resume disconnect.
+See [the startup investigation](PERFORMANCE_AUDIT.md) for controlled before/after
+measurements and the remaining real-player validation.
 
 The authenticated `/flow/status/<hash>` response also includes a bounded
 tracker event summary by protocol and host. Its identifiers hash the original

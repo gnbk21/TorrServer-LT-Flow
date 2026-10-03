@@ -1,6 +1,6 @@
 # Current project status
 
-Updated 1 October 2026. This is the current status; dated audit sections
+Updated 3 October 2026. This is the current status; dated audit sections
 describe the revisions tested at those dates and do not override this table.
 
 | Area | Current state | Remaining gate |
@@ -8,6 +8,7 @@ describe the revisions tested at those dates and do not override this table.
 | Public distribution | Preview 2 tag `MatriX.145.Flow-v0.2.0-preview.5`, source `e0307c6d`, is published; all eight targets, packages/provenance, live Windows transport and three container architectures passed | None for this prerelease distribution |
 | Preview 2 integration | [PR #3](https://github.com/gnbk21/TorrServer-LT-Flow/pull/3), ready for review; implementation and final tagged verification complete | Merge into `develop`; stable acceptance is separate |
 | Console presentation | Development source `034d4bf5` adds grouped startup information, severity/color formatting and bounded status; Windows/Linux seven-case native checks and real-executable Windows ConPTY restoration passed; [verification record](CONSOLE_AUDIT.md) | Integration/next distribution; published `.5` predates this feature |
+| Startup peer retention | Development source `db4f12dd` removes preload peer churn and preserves lazy/warm seeders across profiles; `4eed4944` also corrects translated profile help. Matched final Windows buffer readiness improved from 29.4 s to 0.22 s in Custom and 10.0 s to 0.22 s in Legacy; final native/macOS/portable gates passed; [investigation and next work](PERFORMANCE_AUDIT.md) | Confirm on the user's episode; include in next distribution |
 | Modern UI | Type checking/lint, 42 distinct frontend cases including actual Go contracts, 31 browser scenarios and actual packaged Windows UI smoke passed | Real Android layout and player launch acceptance |
 | Portable maintenance | Native authenticated backup/restore/support, active-playback rejection and startup doctor passed | Hardware acceptance remains separate |
 | Windows updater | Native failure/rollback regressions passed; final packaged scripts passed live GitHub download and required provenance under PowerShell 5.1 and 7 | None for managed distribution; physical acceptance remains separate |
