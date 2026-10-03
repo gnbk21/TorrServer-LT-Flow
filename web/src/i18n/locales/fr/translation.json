@@ -558,6 +558,32 @@
       "waiting": "Une lecture serveur a attendu au moins 500 ms durant les 60 dernières secondes. Cela ne prouve pas un blocage du décodage.",
       "idle": "Aucune requête du lecteur n’est active. Il peut être en pause, déconnecté ou utiliser son propre buffer.",
       "peers": "Aucun pair connecté et aucun octet contigu disponible. Vérifiez le réseau local et les trackers."
+    },
+    "startupWait": "Attente au démarrage",
+    "startupTimingHint": "Métadonnées : depuis l’ajout du torrent ; autres durées : depuis le préchargement. Un tiret signifie non observé.",
+    "startupStages": {
+      "METADATA": "Métadonnées du torrent",
+      "PEERS": "Recherche de pairs",
+      "FIRST_BLOCK": "Attente des premières données",
+      "HEAD_INDEX": "Chargement de l’en-tête et de l’index",
+      "PREBUFFER": "Remplissage du tampon",
+      "PROBE_GRACE": "Courte attente de l’analyse",
+      "READY": "Tampon prêt",
+      "PLAYING": "Lecture",
+      "CANCELLED": "Annulé",
+      "TIMEOUT": "Délai dépassé",
+      "FAILED": "Échec"
+    },
+    "metrics": {
+      "wait_reason": "Motif de l’attente",
+      "stage_started_ms": "Début de l’étape",
+      "elapsed_ms": "Durée du préchargement",
+      "metadata_ready_ms": "Métadonnées (depuis l’ajout)",
+      "first_dht_peer_ms": "Premier pair DHT (depuis l’ajout)",
+      "first_peer_ms": "Premier pair connecté",
+      "first_useful_block_ms": "Premières données observées",
+      "diagnostic_history": "Historique de diagnostic",
+      "dht_state_restored": "État DHT restauré"
     }
   },
   "search": {
@@ -680,7 +706,9 @@
           "PieceTimeout": "Délai de bloc (secondes)",
           "RequestQueueTime": "Durée de la file de requêtes (secondes)",
           "MinReconnectTime": "Intervalle minimal de reconnexion (secondes)"
-        }
+        },
+        "DiagnosticHistory": "Conserver l’historique de diagnostic",
+        "DHTStatePersistence": "Réutiliser l’état de routage DHT"
       }
     },
     "maintenance": {
@@ -701,6 +729,8 @@
       "activeCache": "Cache actif",
       "warmCache": "Cache conservé",
       "memoryHint": "La mémoire du processus comprend les allocations natives. La capacité du cache et la limite Go ne limitent pas toute la RAM du processus."
-    }
+    },
+    "historyHint": "Diagnostics de démarrage locaux (4 Mio maximum), sans URL, jetons, titres ni adresses des clients.",
+    "dhtHint": "Réutiliser les nœuds DHT connus après redémarrage. Respecte la désactivation du DHT."
   }
 }

@@ -29,6 +29,8 @@ export interface FlowSettings {
   RangeClassification: boolean;
   MetricsEnabled: boolean;
   DebugFlow: boolean;
+  DiagnosticHistory?: boolean;
+  DHTStatePersistence?: boolean;
 }
 
 export interface TMDBSettings {

@@ -499,6 +499,32 @@
       "waiting": "A server read waited at least 500 ms within the last 60 seconds. This does not prove a player decoding stall.",
       "idle": "No player request is active. The player may be paused, disconnected, or consuming its own buffer.",
       "peers": "No connected peers and no contiguous bytes are available. Check local network readiness and tracker status."
+    },
+    "startupWait": "Startup wait",
+    "startupTimingHint": "Metadata time is measured from torrent registration; other times from preload. A dash means not observed.",
+    "startupStages": {
+      "METADATA": "Torrent metadata",
+      "PEERS": "Discovering peers",
+      "FIRST_BLOCK": "Waiting for first media data",
+      "HEAD_INDEX": "Loading header and index",
+      "PREBUFFER": "Filling playback buffer",
+      "PROBE_GRACE": "Brief media-probe grace",
+      "READY": "Buffer ready",
+      "PLAYING": "Playing",
+      "CANCELLED": "Cancelled",
+      "TIMEOUT": "Timed out",
+      "FAILED": "Failed"
+    },
+    "metrics": {
+      "wait_reason": "Wait reason",
+      "stage_started_ms": "Stage started",
+      "elapsed_ms": "Preload elapsed",
+      "metadata_ready_ms": "Metadata ready (since add)",
+      "first_dht_peer_ms": "First DHT peer (since add)",
+      "first_peer_ms": "First connected peer",
+      "first_useful_block_ms": "First media data observed",
+      "diagnostic_history": "Diagnostic history",
+      "dht_state_restored": "DHT state restored"
     }
   },
   "torrent": {
@@ -691,7 +717,9 @@
           "PieceTimeout": "Piece timeout (seconds)",
           "RequestQueueTime": "Request queue time (seconds)",
           "MinReconnectTime": "Minimum reconnect interval (seconds)"
-        }
+        },
+        "DiagnosticHistory": "Retain diagnostic history",
+        "DHTStatePersistence": "Reuse DHT routing state"
       }
     },
     "maintenance": {
@@ -712,7 +740,9 @@
       "activeCache": "Active cache bytes",
       "warmCache": "Warm cache bytes",
       "memoryHint": "Process memory includes native allocations. Cache capacity and the Go memory limit are not a process RAM limit."
-    }
+    },
+    "historyHint": "Save private startup diagnostics locally (up to 4 MiB). No URLs, tokens, media names or client addresses.",
+    "dhtHint": "Reuse known DHT nodes after a restart. Disabled DHT is always respected."
   },
   "runtime": {
     "torrents": "Torrents",

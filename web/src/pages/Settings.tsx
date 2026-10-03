@@ -275,6 +275,16 @@ export default function Settings() {
               >
                 <label htmlFor={field(key)}>{label}</label>
                 {key === "CacheSize" && <span>{t("B")}</span>}
+                {key === "Flow.DiagnosticHistory" && (
+                  <span className="text-xs text-slate-400">
+                    {t("settings.historyHint")}
+                  </span>
+                )}
+                {key === "Flow.DHTStatePersistence" && (
+                  <span className="text-xs text-slate-400">
+                    {t("settings.dhtHint")}
+                  </span>
+                )}
                 {key === "PreloadCache" && <span>%</span>}
                 {t(`SettingsDialog.${key}Hint`, { defaultValue: "" }) && (
                   <span className="text-xs text-slate-400">

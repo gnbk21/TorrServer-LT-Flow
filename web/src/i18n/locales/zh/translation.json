@@ -558,6 +558,32 @@
       "waiting": "最近 60 秒内某次服务器读取等待至少 500 毫秒。这不能证明播放器解码停顿。",
       "idle": "没有活动的播放器请求。播放器可能已暂停、断开连接，或正在使用自身缓冲。",
       "peers": "没有已连接节点，也没有连续可用字节。请检查本地网络就绪情况和追踪器状态。"
+    },
+    "startupWait": "启动等待原因",
+    "startupTimingHint": "元数据耗时从添加种子开始计算，其他耗时从预加载开始计算。横线表示尚未观察到。",
+    "startupStages": {
+      "METADATA": "种子元数据",
+      "PEERS": "发现节点",
+      "FIRST_BLOCK": "等待首批媒体数据",
+      "HEAD_INDEX": "加载文件头和索引",
+      "PREBUFFER": "填充播放缓冲区",
+      "PROBE_GRACE": "短暂等待媒体分析",
+      "READY": "缓冲区就绪",
+      "PLAYING": "正在播放",
+      "CANCELLED": "已取消",
+      "TIMEOUT": "已超时",
+      "FAILED": "失败"
+    },
+    "metrics": {
+      "wait_reason": "等待原因",
+      "stage_started_ms": "阶段开始时间",
+      "elapsed_ms": "预加载耗时",
+      "metadata_ready_ms": "元数据就绪（从添加起）",
+      "first_dht_peer_ms": "首个 DHT 节点（从添加起）",
+      "first_peer_ms": "首个已连接节点",
+      "first_useful_block_ms": "首次观察到媒体数据",
+      "diagnostic_history": "诊断历史",
+      "dht_state_restored": "已恢复 DHT 状态"
     }
   },
   "search": {
@@ -680,7 +706,9 @@
           "PieceTimeout": "分片超时 (秒)",
           "RequestQueueTime": "请求队列时间 (秒)",
           "MinReconnectTime": "最短重连间隔 (秒)"
-        }
+        },
+        "DiagnosticHistory": "保留诊断历史",
+        "DHTStatePersistence": "重用 DHT 路由状态"
       }
     },
     "maintenance": {
@@ -701,6 +729,8 @@
       "activeCache": "活动缓存",
       "warmCache": "保温缓存",
       "memoryHint": "进程内存包含原生分配。缓存容量和 Go 内存限制不等于进程总内存限制。"
-    }
+    },
+    "historyHint": "在本地保存启动诊断（最多 4 MiB），不包含网址、令牌、媒体名称或客户端地址。",
+    "dhtHint": "重启后重用已知的 DHT 节点；始终遵守禁用 DHT 的设置。"
   }
 }

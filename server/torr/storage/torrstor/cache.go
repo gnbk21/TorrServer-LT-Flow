@@ -2185,3 +2185,27 @@ func hashHex(h [20]byte) string {
 
 // touch is a placeholder for the LRU bookkeeping that lands in 4.2.
 func (c *Cache) touch(_ int) { _ = time.Now() }
+
+// ReleasePreloadDemand serializes handoff with the existing declarative reader
+// scheduler. A joining reader's demand is rebuilt immediately, never zeroed by
+// the old preload. Cached reservation ownership remains with that reader.
+func (c *Cache) ReleasePreloadDemand(pieces []int) {
+	if c == nil {
+		return
+	}
+	c.priMu.Lock()
+	if c.StreamingReaders() == 0 {
+		if h := c.handle.Load(); h != nil {
+			for _, p := range pieces {
+				_ = h.SetPiecePriority(p, 0)
+				delete(c.deadlined, p)
+			}
+		}
+	}
+	c.lastPrios = nil
+	c.lastApplyMs.Store(0)
+	c.priMu.Unlock()
+	if c.StreamingReaders() > 0 {
+		c.applyStreamPriorities()
+	}
+}

@@ -22,14 +22,14 @@ def run(executable, fixtures, output, assert_fast=False, profile="legacy"):
         "EnableDebug": True, "DisableUTP": True,
         "Flow": {"Enabled": True, "BootstrapHeadMB": 1, "ProbeGraceMs": 0,
                  "StartupBufferMinMB": 1, "StartupBufferMaxMB": 8,
-                 "SwarmProfile": profile, "SwarmCustom": {"MinReconnectTime": 30}}})
+                 "DiagnosticHistory": True, "SwarmProfile": profile, "SwarmCustom": {"MinReconnectTime": 30}}})
     report = {"scenario": "peer discovered before explicit preload", "profile": profile,
               "executable_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(), "passed": False}
     try:
         server.ready()
         with server.request("/echo") as response:
             report["version"] = response.read().decode()
-        with LocalSwarm([fixtures / "head.mp4"]) as swarm:
+        with LocalSwarm([fixtures / "head.mp4", fixtures / "tail.mp4"]) as swarm:
             upload(server, swarm)
             deadline = time.monotonic() + 15
             while swarm.status()["connections"] == 0:
@@ -43,8 +43,8 @@ def run(executable, fixtures, output, assert_fast=False, profile="legacy"):
             started = time.monotonic()
             path = "/stream/generated?" + urlencode({"link": swarm.info_hash.hex(), "index": 1, "preload": "", "stat": ""})
             # Lampa polls status after its preload request's read timeout. The
-            # endpoint may retain an eight-second warm handoff grace, which is
-            # distinct from the point where the buffer becomes playable.
+            # endpoint returns at readiness while its owned background worker
+            # retains the bounded warm handoff.
             with ThreadPoolExecutor(max_workers=1) as pool:
                 def preload():
                     with server.request(path, timeout=80) as response:
@@ -69,9 +69,50 @@ def run(executable, fixtures, output, assert_fast=False, profile="legacy"):
                 raise AssertionError("Healthy connected peer startup exceeded 5 seconds")
             if assert_fast and report["after"]["connections"] != report["before"]["connections"]:
                 raise AssertionError("Preload discarded an already connected peer")
+            if assert_fast and report["preload_response_ms"] > report["buffer_ready_ms"] + 1000:
+                raise AssertionError("Preload response still waits for the warm grace")
+            if report["startup"].get("first_useful_block_ms", -1) < 0:
+                raise AssertionError("First useful media data was not observed")
+            # Same-file requests coalesce with the already-ready warm owner.
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                began = time.monotonic()
+                responses = list(pool.map(lambda _: server.json(path), range(4)))
+                report["concurrent_preload_ms"] = (time.monotonic()-began)*1000
+                if any(r.get("preloaded_bytes",0) < r.get("preload_size",1) for r in responses):
+                    raise AssertionError("Concurrent preload lost its buffer")
+                if report["concurrent_preload_ms"] > 1000:
+                    raise AssertionError("Concurrent preload waited for background handoff")
+            # A new episode supersedes and joins the old scheduling owner.
+            switch_path = "/stream/generated?" + urlencode({"link":swarm.info_hash.hex(),"index":2,"preload":"","stat":""})
+            switched = server.json(switch_path, timeout=10)
+            if switched.get("preloaded_bytes",0) < switched.get("preload_size",1):
+                raise AssertionError("Episode switch did not complete its buffer")
+            play_path = "/stream/generated?" + urlencode({"link":swarm.info_hash.hex(),"index":2,"play":""})
+            with server.request(play_path,headers={"Range":"bytes=0-65535"},timeout=10) as response:
+                if response.status != 206 or response.read() != (fixtures/"tail.mp4").read_bytes()[:65536]:
+                    raise AssertionError("Warm handoff corrupted a live reader")
+            history_status = server.json("/flow/network")["diagnostic_history"]
+            if not history_status["enabled"] or history_status["errors"]:
+                raise AssertionError("Diagnostic recorder failed during playback")
+            report["history"] = history_status
+            # Remove while a fresh explicit preload is still holding its warm
+            # grace. Removal must join that owner without waiting eight seconds.
+            server.json(path, timeout=10)
+            removing = time.monotonic()
+            server.json("/torrents", {"action":"rem", "hash":swarm.info_hash.hex()})
+            report["remove_during_handoff_ms"] = (time.monotonic()-removing)*1000
+            if report["remove_during_handoff_ms"] > 2000:
+                raise AssertionError("Removal waited for the warm grace")
             report["passed"] = True
     finally:
         server.close()
+        history = output / "state" / "flow-history.jsonl"
+        if report["passed"]:
+            records = [json.loads(line) for line in history.read_text(encoding="utf-8").splitlines()]
+            if not any(r["type"] == "engine_stopped" for r in records):
+                raise AssertionError("Shutdown did not drain history")
+            if "generated" in history.read_text(encoding="utf-8") or swarm.info_hash.hex() in history.read_text(encoding="utf-8"):
+                raise AssertionError("History retained media identity")
         (output / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
 

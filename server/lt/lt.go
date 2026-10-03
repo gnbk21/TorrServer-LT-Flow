@@ -193,6 +193,11 @@ type SessionConfig map[string]any
 // NewSession constructs a libtorrent session with the given settings.
 // Pass nil for defaults.
 func NewSession(cfg SessionConfig) (*Session, error) {
+	return NewSessionWithDHT(cfg, nil)
+}
+
+// NewSessionWithDHT restores only native DHT routing state before networking starts.
+func NewSessionWithDHT(cfg SessionConfig, state []byte) (*Session, error) {
 	var cs *C.char
 	if cfg != nil {
 		b, err := json.Marshal(cfg)
@@ -202,11 +207,46 @@ func NewSession(cfg SessionConfig) (*Session, error) {
 		cs = C.CString(string(b))
 		defer C.free(unsafe.Pointer(cs))
 	}
-	id := C.lt_session_new(cs)
+	if len(state) > 1<<20 {
+		return nil, ErrInvalid
+	}
+	var ptr *C.char
+	if len(state) > 0 {
+		ptr = (*C.char)(unsafe.Pointer(&state[0]))
+	}
+	id := C.lt_session_new_with_dht(cs, ptr, C.size_t(len(state)))
 	if id == 0 {
 		return nil, lastError()
 	}
 	return &Session{id: id}, nil
+}
+
+// NormalizeDHTState validates bounded native state and strips every non-DHT field.
+func NormalizeDHTState(state []byte) ([]byte, error) {
+	if len(state) == 0 || len(state) > 1<<20 {
+		return nil, ErrInvalid
+	}
+	return cAlloc(func(n *C.size_t) *C.char {
+		return C.lt_dht_state_normalize((*C.char)(unsafe.Pointer(&state[0])), C.size_t(len(state)), n)
+	})
+}
+
+func DHTStateNodes(state []byte) (int, error) {
+	if len(state) == 0 || len(state) > 1<<20 {
+		return 0, ErrInvalid
+	}
+	n := int(C.lt_dht_state_nodes((*C.char)(unsafe.Pointer(&state[0])), C.size_t(len(state))))
+	if n < 0 {
+		return 0, codeToErr(C.int(n))
+	}
+	return n, nil
+}
+
+func (s *Session) DHTState() ([]byte, error) {
+	if s == nil || s.id == 0 {
+		return nil, ErrInvalid
+	}
+	return cAlloc(func(n *C.size_t) *C.char { return C.lt_session_dht_state(s.id, n) })
 }
 
 // Close destroys the session and drops all torrents (without persisting).
@@ -613,16 +653,19 @@ func (t *Torrent) Status() (*Status, error) {
 
 // Alert is one entry produced by the shim's alert pump.
 type Alert struct {
-	Type        string `json:"type"`
-	Category    uint32 `json:"category"`
-	Message     string `json:"message"`
-	Torrent     int64  `json:"torrent,omitempty"`
-	TorrentHash string `json:"torrent_hash,omitempty"`
-	Piece       int    `json:"piece,omitempty"`
-	Block       int    `json:"block,omitempty"`
-	URL         string `json:"url,omitempty"`
-	Peers       int    `json:"peers,omitempty"`
-	Error       string `json:"error,omitempty"`
+	Type             string `json:"type"`
+	Category         uint32 `json:"category"`
+	ErrorCode        int    `json:"error_code,omitempty"`
+	Operation        int    `json:"operation,omitempty"`
+	DisconnectReason string `json:"disconnect_reason,omitempty"`
+	Message          string `json:"message"`
+	Torrent          int64  `json:"torrent,omitempty"`
+	TorrentHash      string `json:"torrent_hash,omitempty"`
+	Piece            int    `json:"piece,omitempty"`
+	Block            int    `json:"block,omitempty"`
+	URL              string `json:"url,omitempty"`
+	Peers            int    `json:"peers,omitempty"`
+	Error            string `json:"error,omitempty"`
 	// Counters is only set on session_stats alerts: metric name → value,
 	// as serialized by the shim from lt::session_stats_metrics().
 	Counters map[string]int64 `json:"counters,omitempty"`

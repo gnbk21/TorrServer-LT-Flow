@@ -105,6 +105,11 @@ size_t lt_engine_version(char* buf, size_t cap);
 /* ----- session lifecycle ----- */
 /* settings_json may be NULL or "{}" for defaults. */
 lt_session lt_session_new(const char* settings_json);
+/* Bounded, DHT-only native session state; no settings/proxy/plugin state. */
+lt_session lt_session_new_with_dht(const char* settings_json, const char* state, size_t len);
+char* lt_session_dht_state(lt_session s, size_t* len);
+int lt_dht_state_nodes(const char* state, size_t len);
+char* lt_dht_state_normalize(const char* state, size_t len, size_t* out_len);
 
 /* Apply a JSON dict to the session_pack. Unknown keys are ignored with a
  * warning recorded as last_error (but the call still returns LT_OK). */

@@ -14,12 +14,16 @@ import (
 	"github.com/anacrolix/publicip"
 	"github.com/wlynxg/anet"
 
+	"os"
+	"path/filepath"
 	"server/diagnostics"
+	"server/flow"
 	"server/lt"
 	"server/settings"
 	"server/torr/storage/torrstor"
 	"server/torr/utils"
 	"server/version"
+	"sync/atomic"
 )
 
 // BTServer is the engine adapter. Owns the libtorrent session, the per-
@@ -35,6 +39,9 @@ type BTServer struct {
 	networkMu     sync.Mutex
 	networkStatus FlowNetworkStatus
 	networkDone   chan struct{}
+	dhtDone       chan struct{}
+	dhtRestored   atomic.Bool
+	history       atomic.Pointer[flow.History]
 
 	// Latest session_stats counters snapshot, refreshed by the alert pump
 	// whenever a session_stats alert arrives (requested via SessionStats).
@@ -73,12 +80,44 @@ func (bt *BTServer) Connect() error {
 		return fmt.Errorf("torr.BTServer.Connect: install storage: %w", err)
 	}
 
-	s, err := lt.NewSession(cfg)
+	// Recorder failures are nonfatal and never affect ordinary file logging.
+	if bt.history.Load() == nil || bt.history.Load().Close(time.Second) {
+		bt.history.Store(nil)
+		if settings.CurrentFlow().DiagnosticHistory && !settings.ReadOnly {
+			history, historyErr := flow.NewHistory(settings.Path)
+			bt.history.Store(history)
+			err = historyErr
+			if err != nil {
+				log.Println("Flow diagnostic history unavailable")
+			}
+		}
+	}
+	dhtEnabled := settings.CurrentFlow().Enabled && settings.CurrentFlow().DHTStatePersistence && !settings.BTsets().DisableDHT
+	bt.dhtRestored.Store(false)
+	var dhtState []byte
+	if dhtEnabled {
+		raw, readErr := flow.ReadDHTFile(filepath.Join(settings.Path, "flow-dht.bin"))
+		if readErr == nil {
+			dhtState, err = lt.NormalizeDHTState(raw)
+			if err != nil {
+				bt.history.Load().Record(flow.HistoryEvent{Type: "dht", Stage: "DHT_IGNORED"})
+			}
+		} else if !os.IsNotExist(readErr) {
+			bt.history.Load().Record(flow.HistoryEvent{Type: "dht", Stage: "DHT_IGNORED"})
+		}
+	}
+	s, err := lt.NewSessionWithDHT(cfg, dhtState)
 	if err != nil {
 		_ = torrstor.Global().Uninstall()
+		bt.history.Load().Close(time.Second)
 		return fmt.Errorf("torr.BTServer.Connect: %w", err)
 	}
 	bt.session = s
+	if len(dhtState) > 0 {
+		bt.dhtRestored.Store(true)
+		bt.history.Load().Record(flow.HistoryEvent{Type: "dht", Stage: "DHT_RESTORED", Bytes: int64(len(dhtState))})
+	}
+	bt.history.Load().Record(flow.HistoryEvent{Type: "engine_started"})
 	bt.torrents = map[Hash]*Torrent{}
 
 	if filterText, _ := utils.ReadBlockedIPText(); filterText != "" {
@@ -93,6 +132,8 @@ func (bt *BTServer) Connect() error {
 	go bt.expireWatch(bt.stopAlert)
 	bt.networkDone = make(chan struct{})
 	go bt.networkLifecycle(bt.stopAlert, bt.networkDone)
+	bt.dhtDone = make(chan struct{})
+	go bt.saveDHTLifecycle(s, bt.stopAlert, bt.dhtDone, dhtEnabled && !settings.ReadOnly, filepath.Join(settings.Path, "flow-dht.bin"), bt.history.Load())
 
 	InitApiHelper(bt)
 	diagnostics.MarkEngineReady(true)
@@ -107,13 +148,14 @@ func (bt *BTServer) Disconnect() {
 	// alertDone deadlocks whenever the pump is mid-batch — observed as
 	// /shutdown hanging forever under steady alert traffic (DHT churn).
 	bt.mu.Lock()
-	stop, done, networkDone := bt.stopAlert, bt.alertDone, bt.networkDone
+	stop, done, networkDone, dhtDone := bt.stopAlert, bt.alertDone, bt.networkDone, bt.dhtDone
 	bt.stopAlert = nil
 	bt.mu.Unlock()
 	if stop != nil {
 		close(stop)
 		<-done
 		<-networkDone
+		<-dhtDone
 	}
 
 	bt.mu.Lock()
@@ -125,6 +167,8 @@ func (bt *BTServer) Disconnect() {
 		t.markClosed()
 	}
 	bt.torrents = map[Hash]*Torrent{}
+	bt.history.Load().Record(flow.HistoryEvent{Type: "engine_stopped"})
+	bt.history.Load().Close(time.Second)
 	_ = bt.session.Close()
 	bt.session = nil
 	// Drop the disk callbacks so subsequent NewSession calls (in tests
@@ -310,6 +354,23 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 		bt.recordTrackerConnectivity(a.Type)
 	case "metadata_received", "metadata_received_alert", "add_torrent":
 		t.signalGotInfo()
+	case "dht_reply", "dht_reply_alert":
+		if a.Peers > 0 {
+			t.mu.Lock()
+			if t.flowStartup.FirstDHTPeerMs < 0 {
+				t.flowStartup.FirstDHTPeerMs = time.Since(t.flowAddedAt).Milliseconds()
+				t.historyEvent(flow.HistoryEvent{Type: "dht_peer", ElapsedMs: t.flowStartup.FirstDHTPeerMs, Code: a.Peers})
+			}
+			t.mu.Unlock()
+		}
+	case "peer_connect", "peer_connect_alert":
+		t.mu.Lock()
+		if t.flowStartup.FirstPeerMs < 0 && !t.flowStartupStarted.IsZero() {
+			t.flowStartup.FirstPeerMs = time.Since(t.flowStartupStarted).Milliseconds()
+		}
+		t.mu.Unlock()
+	case "peer_disconnected", "peer_disconnected_alert":
+		t.historyEvent(flow.HistoryEvent{Type: "peer_disconnected", Code: a.ErrorCode, Operation: a.Operation, Stage: a.DisconnectReason})
 	case "torrent_finished":
 		t.signalGotInfo()
 	case "torrent_error", "file_error":

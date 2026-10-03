@@ -26,7 +26,7 @@ MIB = 1024 * 1024
 
 
 class OwnedServer:
-    def __init__(self, executable, state, profile=False, auth=False, extra_settings=None):
+    def __init__(self, executable, state, profile=False, auth=False, extra_settings=None, seed_files=None):
         self.executable, self.state = executable.resolve(), state.resolve()
         state.mkdir(parents=True, exist_ok=False)
         with socket.socket() as reservation:
@@ -49,6 +49,10 @@ class OwnedServer:
             (state / "accs.db").write_text(json.dumps({"fixture": "local-fixture-only"}), encoding="utf-8")
             self.authorization = "Basic " + base64.b64encode(b"fixture:local-fixture-only").decode()
         (state / "settings.json").write_text(json.dumps({"BitTorr": config}), encoding="utf-8")
+        for name, data in (seed_files or {}).items():
+            if Path(name).name != name:
+                raise ValueError("State fixture must be a plain file name")
+            (state / name).write_bytes(data)
         self.log = (state / "server-output.log").open("wb")
         flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         arguments = [str(self.executable), "--path", str(self.state), "--port", str(self.port), "--ip", "127.0.0.1"]

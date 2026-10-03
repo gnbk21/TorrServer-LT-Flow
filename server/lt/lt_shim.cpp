@@ -11,6 +11,7 @@
 #include "third_party/nlohmann/json.hpp"
 
 #include <libtorrent/add_torrent_params.hpp>
+#include <libtorrent/bdecode.hpp>
 #include <libtorrent/alert.hpp>
 #include <libtorrent/alert_types.hpp>
 #include <libtorrent/error_code.hpp>
@@ -67,6 +68,7 @@ extern void tsl_install_disk_io_on(libtorrent::session_params& params);
 #include <shared_mutex>
 #include <sstream>
 #include <string>
+#include <stdexcept>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -526,6 +528,13 @@ json alert_to_json(lt::alert const* a) {
         j["file"] = static_cast<int>(fa->index);
     } else if (auto const* fa = lt::alert_cast<lt::hash_failed_alert>(a)) {
         j["piece"] = static_cast<int>(fa->piece_index);
+    } else if (auto const* fa = lt::alert_cast<lt::peer_disconnected_alert>(a)) {
+        j["error_code"] = fa->error.value();
+        j["operation"] = static_cast<int>(fa->op);
+        j["disconnect_reason"] = fa->error == lt::errors::torrent_paused ? "PAUSED"
+            : fa->error == lt::errors::upload_upload_connection ? "REDUNDANT" : "OTHER";
+    } else if (auto const* fa = lt::alert_cast<lt::dht_reply_alert>(a)) {
+        j["peers"] = fa->num_peers;
     } else if (auto const* fa = lt::alert_cast<lt::tracker_reply_alert>(a)) {
         j["url"]   = std::string(fa->tracker_url());
         j["peers"] = fa->num_peers;
@@ -609,10 +618,75 @@ size_t lt_engine_version(char* buf, size_t cap) {
 
 // ----- session lifecycle -----
 
+static lt::session_params decode_dht_state(const char* state, size_t len) {
+    if (!state || len == 0 || len > 1024 * 1024)
+        throw std::invalid_argument("invalid DHT state size");
+    lt::error_code ec;
+    auto root = lt::bdecode(lt::span<char const>(state, len), ec, nullptr, 16, 16384);
+    if (ec || root.type() != lt::bdecode_node::dict_t || root.data_section().size() != len)
+        throw std::invalid_argument("invalid DHT state encoding");
+    auto dht = root.dict_find_dict("dht state");
+    if (!dht) throw std::invalid_argument("missing DHT state");
+    for (auto key : {"nodes", "nodes6", "node-id"}) {
+        auto list = dht.dict_find(key);
+        if (!list) continue;
+        if (list.type() != lt::bdecode_node::list_t || list.list_size() > 4096)
+            throw std::invalid_argument("invalid DHT state list");
+        for (int i = 0; i < list.list_size(); ++i) {
+            auto item = list.list_at(i);
+            if (item.type() != lt::bdecode_node::string_t)
+                throw std::invalid_argument("invalid DHT state entry");
+            int n = item.string_length();
+            bool ok = std::strcmp(key, "nodes") == 0 ? n == 6
+                : std::strcmp(key, "nodes6") == 0 ? n == 18 : n == 24 || n == 36;
+            if (!ok) throw std::invalid_argument("invalid DHT endpoint length");
+        }
+    }
+    return lt::read_session_params(root, lt::session_handle::save_dht_state);
+}
+
+static char* encode_dht_state(lt::session_params const& params, size_t* len) {
+    auto buf = lt::write_session_params_buf(params, lt::session_handle::save_dht_state);
+    if (buf.size() > 1024 * 1024) { set_err(LT_ERR_INVALID, "DHT state too large"); return nullptr; }
+    auto* out = static_cast<char*>(std::malloc(buf.size()));
+    if (!out) { set_err(LT_ERR_INTERNAL, "DHT allocation failed"); return nullptr; }
+    std::memcpy(out, buf.data(), buf.size());
+    if (len) *len = buf.size();
+    return out;
+}
+
+int lt_dht_state_nodes(const char* state, size_t len) {
+    try {
+        auto params = decode_dht_state(state, len);
+        return static_cast<int>(params.dht_state.nodes.size() + params.dht_state.nodes6.size());
+    } catch (std::exception const&) { return set_err(LT_ERR_PARSE, "invalid DHT state"); }
+}
+
+char* lt_dht_state_normalize(const char* state, size_t len, size_t* out_len) {
+    set_err(LT_OK, "");
+    try { return encode_dht_state(decode_dht_state(state, len), out_len); }
+    catch (std::exception const&) { set_err(LT_ERR_PARSE, "invalid DHT state"); return nullptr; }
+}
+
+char* lt_session_dht_state(lt_session id, size_t* len) {
+    set_err(LT_OK, "");
+    try {
+        auto slot = get_session(id);
+        if (!slot) { set_err(LT_ERR_NOT_FOUND, "session not found"); return nullptr; }
+        auto params = slot->s->session_state(lt::session_handle::save_dht_state);
+        return encode_dht_state(params, len);
+    } catch (std::exception const&) { set_err(LT_ERR_INTERNAL, "DHT snapshot failed"); return nullptr; }
+}
+
 lt_session lt_session_new(const char* settings_json) {
+    return lt_session_new_with_dht(settings_json, nullptr, 0);
+}
+
+lt_session lt_session_new_with_dht(const char* settings_json, const char* state, size_t len) {
     set_err(LT_OK, "");
     try {
         lt::session_params params;
+        if (len != 0) params.dht_state = decode_dht_state(state, len).dht_state;
         params.settings.set_int(lt::settings_pack::alert_mask, LT_ALERT_DEFAULT);
 
         // PEX (peer exchange) is libtorrent's ut_pex PLUGIN, not a settings_pack

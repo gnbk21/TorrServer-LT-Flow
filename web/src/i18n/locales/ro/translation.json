@@ -552,6 +552,32 @@
       "waiting": "O citire a serverului a așteptat cel puțin 500 ms în ultimele 60 de secunde. Aceasta nu dovedește blocarea decodării.",
       "idle": "Nicio cerere a playerului nu este activă. Acesta poate fi în pauză, deconectat sau poate folosi propriul buffer.",
       "peers": "Nu există peer-i conectați și nici octeți contigui disponibili. Verifică rețeaua locală și trackerele."
+    },
+    "startupWait": "Așteptare la pornire",
+    "startupTimingHint": "Metadatele sunt măsurate de la adăugarea torrentului; restul, de la preîncărcare. Liniuța indică lipsa observației.",
+    "startupStages": {
+      "METADATA": "Metadatele torrentului",
+      "PEERS": "Descoperirea partenerilor",
+      "FIRST_BLOCK": "Așteptarea primelor date",
+      "HEAD_INDEX": "Încărcarea antetului și indexului",
+      "PREBUFFER": "Umplerea bufferului",
+      "PROBE_GRACE": "Scurtă așteptare a analizei",
+      "READY": "Buffer pregătit",
+      "PLAYING": "Redare",
+      "CANCELLED": "Anulat",
+      "TIMEOUT": "Timp expirat",
+      "FAILED": "Eșec"
+    },
+    "metrics": {
+      "wait_reason": "Motivul așteptării",
+      "stage_started_ms": "Începutul etapei",
+      "elapsed_ms": "Durata preîncărcării",
+      "metadata_ready_ms": "Metadate (de la adăugare)",
+      "first_dht_peer_ms": "Primul partener DHT (de la adăugare)",
+      "first_peer_ms": "Primul partener conectat",
+      "first_useful_block_ms": "Primele date observate",
+      "diagnostic_history": "Istoric de diagnostic",
+      "dht_state_restored": "Stare DHT restaurată"
     }
   },
   "search": {
@@ -674,7 +700,9 @@
           "PieceTimeout": "Timp de așteptare pentru fragment (secunde)",
           "RequestQueueTime": "Durata cozii de cereri (secunde)",
           "MinReconnectTime": "Interval minim de reconectare (secunde)"
-        }
+        },
+        "DiagnosticHistory": "Păstrează istoricul de diagnostic",
+        "DHTStatePersistence": "Reutilizează starea de rutare DHT"
       }
     },
     "maintenance": {
@@ -695,6 +723,8 @@
       "activeCache": "Cache activ",
       "warmCache": "Cache păstrat",
       "memoryHint": "Memoria procesului include alocări native. Capacitatea cache-ului și limita Go nu limitează întreaga memorie RAM a procesului."
-    }
+    },
+    "historyHint": "Diagnostic local de pornire (maximum 4 MiB), fără URL-uri, tokenuri, titluri sau adrese de clienți.",
+    "dhtHint": "Reutilizează nodurile DHT cunoscute după repornire. Respectă dezactivarea DHT."
   }
 }

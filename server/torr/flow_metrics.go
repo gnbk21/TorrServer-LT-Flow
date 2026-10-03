@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"server/flow"
@@ -26,7 +27,17 @@ type FlowRangeTrace struct {
 	Classification string    `json:"classification"`
 }
 
+var diagnosticSequence atomic.Uint64
+
 type FlowStartupStatus struct {
+	WaitReason         string `json:"wait_reason"`
+	StageStartedMs     int64  `json:"stage_started_ms"`
+	ElapsedMs          int64  `json:"elapsed_ms"`
+	FirstDHTPeerMs     int64  `json:"first_dht_peer_ms"`
+	MetadataReadyMs    int64  `json:"metadata_ready_ms"`
+	FirstPeerMs        int64  `json:"first_peer_ms"`
+	FirstUsefulBlockMs int64  `json:"first_useful_block_ms"`
+
 	FileIndex                int    `json:"file_index"`
 	State                    string `json:"state"`
 	BootstrapHeadTargetBytes int64  `json:"bootstrap_head_target_bytes"`
@@ -47,7 +58,44 @@ func (t *Torrent) FlowStartup() FlowStartupStatus {
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return t.flowStartup
+	s := t.flowStartup
+	if !t.flowStartupStarted.IsZero() && s.WaitReason != "READY" && s.WaitReason != "PLAYING" && s.WaitReason != "FAILED" && s.WaitReason != "TIMEOUT" && s.WaitReason != "CANCELLED" {
+		s.ElapsedMs = time.Since(t.flowStartupStarted).Milliseconds()
+	}
+	return s
+}
+
+func (t *Torrent) historyEvent(e flow.HistoryEvent) {
+	if t == nil || t.bt == nil {
+		return
+	}
+	e.Torrent = t.diagnosticID
+	t.bt.history.Load().Record(e)
+}
+
+func (t *Torrent) startupStage(stage string) {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	if t.flowStartup.WaitReason == stage {
+		t.mu.Unlock()
+		return
+	}
+	t.flowStartup.WaitReason = stage
+	elapsed := int64(0)
+	if !t.flowStartupStarted.IsZero() {
+		elapsed = time.Since(t.flowStartupStarted).Milliseconds()
+	}
+	t.flowStartup.StageStartedMs, t.flowStartup.ElapsedMs = elapsed, elapsed
+	switch stage {
+	case "READY", "PLAYING", "FAILED", "TIMEOUT", "CANCELLED":
+		t.flowStartup.State = stage
+	}
+	file := t.flowStartup.FileIndex
+	loaded := t.PreloadedBytes
+	t.mu.Unlock()
+	t.historyEvent(flow.HistoryEvent{Type: "startup", Stage: stage, File: file, ElapsedMs: elapsed, Bytes: loaded})
 }
 
 type FlowSessionStatus struct {
@@ -114,6 +162,7 @@ func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Requ
 		t.warmIdleSince = time.Time{}
 		if t.flowStartup.FileIndex == fileID {
 			t.flowStartup.State = "PLAYING"
+			t.flowStartup.WaitReason = "PLAYING"
 		}
 		t.mu.Unlock()
 	}
@@ -277,6 +326,7 @@ func (t *Torrent) flowFirstByte(fileID int, group string, seq uint64, started ti
 		t.flowStartup.TimeToFirstByteMs = started.Sub(t.flowStartupStarted).Milliseconds() + ttfb.Milliseconds()
 	}
 	t.mu.Unlock()
+	t.historyEvent(flow.HistoryEvent{Type: "first_byte", File: fileID, ElapsedMs: ttfb.Milliseconds()})
 	t.flowMu.Lock()
 	if s := t.flowSessions[fmt.Sprintf("%d/%s", fileID, group)]; s != nil {
 		if seq == s.lastSeekSeq {

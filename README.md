@@ -91,6 +91,41 @@ sets piece priorities without pausing and disconnecting the swarm. Saving a
 profile restarts the torrent engine and stops active streams. Keep **Legacy**
 unless testing shows another profile works better for your network and torrents.
 
+## Startup diagnostics in development builds
+
+The next development revision returns explicit preload requests when the buffer
+is ready; an owned worker keeps the existing eight-second warm handoff in the
+background. Same-file requests share that worker, and an episode switch or
+removal cancels and joins the old owner. Reader windows continue to own playback
+priorities. These changes are not yet in published Preview 2 `.5`.
+
+**Settings → Flow → Retain diagnostic history** is opt-in and takes effect when
+settings are applied (which restarts the engine). It saves `flow-history.jsonl`
+in the server's state directory, with three rotating archives: at most 4 MiB
+and a 256-event queue. Producers never wait for disk; dropped events and write
+errors appear in Flow network diagnostics. Records contain UTC timestamps,
+process-local torrent IDs, file indices, stage timings and numeric disconnect
+codes. URLs, passkeys, credentials, media names/hashes and client addresses are
+excluded. Existing console/file/access logging is separate and unchanged; raw
+access logs can contain private URLs.
+
+The diagnostics drawer explains metadata, peer discovery, first data,
+header/index, prebuffer and bounded probe-grace waits. Metadata and first-DHT-peer
+times start at torrent registration; other startup times start at preload.
+Unobserved new timings show a dash. First media data is sampled from the existing
+cache every 200 ms; a cached start may measure zero. These are server observations,
+not the phone's decoded first frame or proof of Internet availability.
+
+**Reuse DHT routing state** defaults on when Flow and DHT are enabled. Native
+libtorrent saves only useful DHT nodes and node IDs to `flow-dht.bin`, every five
+minutes and on graceful stop. State is bounded to 1 MiB, validated, and replaced
+atomically; corrupt state is ignored without blocking local startup. Empty
+routing snapshots do not erase previous useful nodes. Read-only mode prevents
+writes; disabling DHT prevents loading and saving it. The binary routing file
+contains network addresses and should not be included in shared diagnostic logs.
+Persisted nodes are discovery hints; normal network-change recovery still applies.
+Public-swarm and phone performance comparisons remain acceptance work.
+
 ## Build and project status
 
 ### Modern web interface

@@ -13,6 +13,13 @@ export interface FlowRangeTrace {
 }
 
 export interface FlowStartup {
+  wait_reason?: string;
+  stage_started_ms?: number;
+  elapsed_ms?: number;
+  metadata_ready_ms?: number;
+  first_dht_peer_ms?: number;
+  first_peer_ms?: number;
+  first_useful_block_ms?: number;
   file_index: number;
   state: string;
   bootstrap_head_target_bytes: number;

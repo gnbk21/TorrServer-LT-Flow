@@ -13,25 +13,27 @@ import (
 // FlowNetworkStatus reports local address readiness. ADDRESS_READY does not
 // assert that DNS, trackers or the Internet are reachable.
 type FlowNetworkStatus struct {
-	StartedAt                time.Time `json:"started_at"`
-	AddressReadyMs           int64     `json:"address_ready_ms"`
-	TransitionCount          uint64    `json:"transition_count"`
-	RetryCount               uint64    `json:"retry_count"`
-	LastCheckDurationMs      int64     `json:"last_check_duration_ms"`
-	LastReannounceDurationMs int64     `json:"last_reannounce_duration_ms"`
-	LastAddressRecoveryMs    int64     `json:"last_address_recovery_ms"`
-	LastTrackerRecoveryMs    int64     `json:"last_tracker_recovery_ms"`
-	State                    string    `json:"state"`
-	Connectivity             string    `json:"connectivity"`
-	Addresses                []string  `json:"addresses"`
-	CheckedAt                time.Time `json:"checked_at"`
-	ChangedAt                time.Time `json:"changed_at"`
-	NextCheckSeconds         int       `json:"next_check_seconds"`
-	ReannounceCount          uint64    `json:"reannounce_count"`
-	LastTrackerReply         time.Time `json:"last_tracker_reply,omitempty"`
-	LastTrackerError         time.Time `json:"last_tracker_error,omitempty"`
-	ConnectivityLostAt       time.Time `json:"connectivity_lost_at,omitempty"`
-	LastError                string    `json:"last_error,omitempty"`
+	DiagnosticHistory        flow.HistoryStatus `json:"diagnostic_history"`
+	DHTStateRestored         bool               `json:"dht_state_restored"`
+	StartedAt                time.Time          `json:"started_at"`
+	AddressReadyMs           int64              `json:"address_ready_ms"`
+	TransitionCount          uint64             `json:"transition_count"`
+	RetryCount               uint64             `json:"retry_count"`
+	LastCheckDurationMs      int64              `json:"last_check_duration_ms"`
+	LastReannounceDurationMs int64              `json:"last_reannounce_duration_ms"`
+	LastAddressRecoveryMs    int64              `json:"last_address_recovery_ms"`
+	LastTrackerRecoveryMs    int64              `json:"last_tracker_recovery_ms"`
+	State                    string             `json:"state"`
+	Connectivity             string             `json:"connectivity"`
+	Addresses                []string           `json:"addresses"`
+	CheckedAt                time.Time          `json:"checked_at"`
+	ChangedAt                time.Time          `json:"changed_at"`
+	NextCheckSeconds         int                `json:"next_check_seconds"`
+	ReannounceCount          uint64             `json:"reannounce_count"`
+	LastTrackerReply         time.Time          `json:"last_tracker_reply,omitempty"`
+	LastTrackerError         time.Time          `json:"last_tracker_error,omitempty"`
+	ConnectivityLostAt       time.Time          `json:"connectivity_lost_at,omitempty"`
+	LastError                string             `json:"last_error,omitempty"`
 }
 
 type networkTracker struct {
@@ -56,6 +58,8 @@ func (bt *BTServer) FlowNetworkStatus() FlowNetworkStatus {
 	bt.networkMu.Lock()
 	defer bt.networkMu.Unlock()
 	s := bt.networkStatus
+	s.DiagnosticHistory = bt.history.Load().Status()
+	s.DHTStateRestored = bt.dhtRestored.Load()
 	s.Addresses = append([]string(nil), s.Addresses...)
 	if s.State == "" {
 		s.State = "UNKNOWN"
