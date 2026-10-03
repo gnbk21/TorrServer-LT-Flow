@@ -284,7 +284,7 @@ namespace {
 struct session_slot {
     std::unique_ptr<lt::session> s;
     std::mutex pump_mu; // serializes wait_alert+pop_alerts on this session
-    std::vector<lt::udp::endpoint> restored_dht_nodes; // <=32 per address family
+    std::vector<lt::udp::endpoint> restored_dht_nodes; // <=32 per address family; pump_mu
 };
 
 std::shared_mutex g_sess_mu;
@@ -675,6 +675,16 @@ char* lt_session_dht_state(lt_session id, size_t* len) {
         auto slot = get_session(id);
         if (!slot) { set_err(LT_ERR_NOT_FOUND, "session not found"); return nullptr; }
         auto params = slot->s->session_state(lt::session_handle::save_dht_state);
+        // Keep useful native hints for later address/socket changes too. An
+        // offline or empty snapshot must not erase the last known nodes.
+        if (!params.dht_state.nodes.empty() || !params.dht_state.nodes6.empty()) {
+            std::lock_guard<std::mutex> lk(slot->pump_mu);
+            slot->restored_dht_nodes.clear();
+            for (auto const* nodes : {&params.dht_state.nodes, &params.dht_state.nodes6}) {
+                for (size_t i = 0; i < std::min<size_t>(32, nodes->size()); ++i)
+                    slot->restored_dht_nodes.push_back((*nodes)[i]);
+            }
+        }
         return encode_dht_state(params, len);
     } catch (std::exception const&) { set_err(LT_ERR_INTERNAL, "DHT snapshot failed"); return nullptr; }
 }
@@ -1473,13 +1483,12 @@ char* lt_session_pop_alerts_json_alloc(lt_session sid, size_t* out_len) {
                     && !ready->address.is_loopback()
                     && !slot->restored_dht_nodes.empty()) {
                     bool enabled = slot->s->get_settings().get_bool(lt::settings_pack::enable_dht);
-                    auto& nodes = slot->restored_dht_nodes;
-                    nodes.erase(std::remove_if(nodes.begin(), nodes.end(), [&](auto const& ep) {
-                        if (!enabled) return true;
-                        if (ep.address().is_v4() != ready->address.is_v4()) return false;
-                        slot->s->add_dht_node({ep.address().to_string(), ep.port()});
-                        return true;
-                    }), nodes.end());
+                    if (enabled) {
+                        for (auto const& ep : slot->restored_dht_nodes) {
+                            if (ep.address().is_v4() == ready->address.is_v4())
+                                slot->s->add_dht_node({ep.address().to_string(), ep.port()});
+                        }
+                    }
                 }
             }
             try { arr.push_back(alert_to_json(a)); }

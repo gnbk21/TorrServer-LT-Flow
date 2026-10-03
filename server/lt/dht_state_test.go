@@ -146,6 +146,31 @@ func TestDHTRestoredNodeIsContactedWithoutPublicBootstrap(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
+	// Rebind the live session without rebuilding it. Restored/verified hints
+	// must also bootstrap the new UDP socket after a network/listener change.
+	reservation, err := net.ListenUDP("udp4", &net.UDPAddr{IP: local})
+	if err != nil {
+		t.Fatal(err)
+	}
+	newPort := reservation.LocalAddr().(*net.UDPAddr).Port
+	reservation.Close()
+	if err := s.ApplySettings(SessionConfig{"listen_interfaces": net.JoinHostPort(local.String(), strconv.Itoa(newPort))}); err != nil {
+		t.Fatal(err)
+	}
+	recoveryDeadline := time.Now().Add(5 * time.Second)
+	recovered := false
+	for time.Now().Before(recoveryDeadline) {
+		s.PopAlerts()
+		conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+		n, sender, err = conn.ReadFromUDP(buf)
+		if err == nil && sender.Port == newPort && bytes.Contains(buf[:n], []byte("1:q")) {
+			recovered = true
+			break
+		}
+	}
+	if !recovered {
+		t.Fatal("new UDP listener did not reuse verified DHT hints")
+	}
 	if data, err := s.DHTState(); err != nil || len(data) == 0 {
 		t.Fatalf("native snapshot: %v", err)
 	}
