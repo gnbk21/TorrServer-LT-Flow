@@ -58,40 +58,33 @@ const staleReaderSec = 2
 // stranded seek leftovers, untouched well past this window, are reaped.
 const abandonEvictSec = 4
 
-// hashGraceSec is the (much longer) grace for a FULLY-SIZED incomplete piece. It
-// has all its blocks and is only waiting on libtorrent's hash worker, which is a
-// bounded pool and can lag well past abandonEvictSec under load. Reaping it would
-// wipe the RAM that async_hash is about to read back — a short read there is read
-// as a (synthetic) disk fault and pauses the torrent. The long grace lets the
-// hash always win; a genuinely stranded PARTIAL stays on the short timer.
+// hashGraceSec gives fully-sized incomplete pieces extra time to finish.
+// Size alone does not prove that all blocks arrived. Native pruning additionally
+// refuses pieces owned by an outstanding write or hash job, regardless of age.
 const hashGraceSec = 30
 
 // Cache holds every Piece for a single torrent.
 type Cache struct {
+	// Recent eviction markers distinguish missing native blocks from a new
+	// download. They contain no media data and are bounded to 2048 entries.
+	evicted         map[int]bool // guarded by mu
 	storage         *Storage
 	flowCounters    flow.Counters
 	flowMu          sync.Mutex
 	flowGroups      map[string]*flowGroup
 	flowDownload    float64
+	flowRates       flow.RateWindow
 	flowLastRefresh time.Time
 	flowAhead       atomic.Int64 // zero retains the upstream window
 
 	StorageID   int64
 	InfoHash    [20]byte
 	NumPieces   int
+	totalSize   atomic.Int64 // exact metadata length; zero for legacy test callers
 	PieceLength int64
 
 	mu     sync.RWMutex
 	pieces map[int]*Piece
-
-	// abandoned records pieces proactively forgotten on a seek (un-had via
-	// WeDontHave, then wiped) and when, guarded by mu. A block that was already
-	// in flight when we abandoned the piece still lands afterwards and would
-	// re-create the incomplete piece, only for the next eviction pass to reap it
-	// again. writePiece drops such a straggler block instead of resurrecting the
-	// piece, so a seek's leftovers go away in one pass. A reader that genuinely
-	// needs the piece again (seek back) clears the mark via clearAbandoned.
-	abandoned map[int]int64
 
 	// per-piece progress channels: closed (= broadcast) by SignalPieceComplete
 	// when libtorrent's piece_finished_alert arrives AND by writePiece on every
@@ -249,7 +242,6 @@ func newCache(s *Storage, sid int64, hash [20]byte, numPieces int, pieceLength i
 		NumPieces:   numPieces,
 		PieceLength: pieceLength,
 		pieces:      map[int]*Piece{},
-		abandoned:   map[int]int64{},
 		waiters:     map[int]chan struct{}{},
 		readers:     map[*Reader]struct{}{},
 		groups:      map[string]*group{},
@@ -366,7 +358,7 @@ func (c *Cache) SignalPieceComplete(piece int) {
 	p := c.pieces[piece]
 	c.mu.RUnlock()
 	if p != nil {
-		p.setComplete(true)
+		p.markVerifiedComplete()
 	}
 	c.signalPieceProgress(piece)
 }
@@ -426,6 +418,19 @@ func (c *Cache) WaitForPiece(ctx context.Context, piece int) bool {
 // its first blocks arrive over the wire instead of after the whole piece
 // downloads and hashes.
 func (c *Cache) WaitForBytes(ctx context.Context, piece int, off int64) bool {
+	return c.waitForBytes(ctx, piece, off, nil)
+}
+
+// A blocked HTTP Read holds its reader mutex, so its normal priority ticker
+// cannot run. Reconcile periodically while parked: a late native hash result
+// may restore a have bit after the corresponding cache data was evicted.
+func (c *Cache) waitForBytes(ctx context.Context, piece int, off int64, reconcile func()) bool {
+	var ticks <-chan time.Time
+	if reconcile != nil {
+		timer := time.NewTicker(2 * time.Second)
+		defer timer.Stop()
+		ticks = timer.C
+	}
 	for {
 		if c.readableAt(piece, off) > 0 {
 			return true
@@ -436,6 +441,8 @@ func (c *Cache) WaitForBytes(ctx context.Context, piece int, off int64) bool {
 		}
 		select {
 		case <-ch:
+		case <-ticks:
+			reconcile()
 		case <-ctx.Done():
 			return false
 		}
@@ -1529,18 +1536,6 @@ func (c *Cache) writePiece(piece int, offset int64, src []byte) (int, error) {
 	c.mu.Lock()
 	p := c.pieces[piece]
 	if p == nil {
-		// A block that was in flight when we abandoned this piece on a seek still
-		// lands here. Drop it (report it written, but don't resurrect the piece) so
-		// the seek's leftovers don't keep coming back. The mark expires so a stale
-		// id can't suppress a real re-download forever; a seek back clears it sooner
-		// via clearAbandoned.
-		if t, ok := c.abandoned[piece]; ok {
-			if time.Now().Unix()-t < abandonEvictSec {
-				c.mu.Unlock()
-				return len(src), nil
-			}
-			delete(c.abandoned, piece)
-		}
 		p = newPiece(c, piece)
 		c.pieces[piece] = p
 	}
@@ -1557,16 +1552,94 @@ func (c *Cache) writePiece(piece int, offset int64, src []byte) (int, error) {
 	return n, err
 }
 
-// clearAbandoned removes a piece's abandoned mark so a writePiece for it stores
-// the block instead of dropping it. Called when a reader genuinely needs the
-// piece again (a seek back into a forgotten region), so its re-download isn't
-// suppressed by the straggler-drop guard.
-func (c *Cache) clearAbandoned(piece int) {
-	c.mu.Lock()
-	if len(c.abandoned) > 0 {
-		delete(c.abandoned, piece)
+// prunePartial runs only on the native network thread after the picker confirms
+// that no deferred write or hash job owns this piece. Recheck the current cache
+// and readers here, rather than acting on an earlier eviction-pass snapshot.
+// Do not invoke libtorrent from this callback.
+func (c *Cache) prunePartial(piece int) bool {
+	if pieceInRanges(piece, c.readerProtectRanges()) {
+		return false
 	}
-	c.mu.Unlock()
+	c.readersMu.Lock()
+	defer c.readersMu.Unlock()
+	for reader := range c.readers {
+		if reader.currentPiece() == piece || int(reader.waitPiece.Load()) == piece {
+			return false
+		}
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	p := c.pieces[piece]
+	if p == nil {
+		return false
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	grace := int64(abandonEvictSec)
+	if p.size >= c.PieceLength {
+		grace = hashGraceSec
+	}
+	if p.complete || p.size == 0 || time.Now().Unix()-p.accessed.Load() <= grace {
+		return false
+	}
+	delete(c.pieces, piece)
+	c.markEvictedLocked(piece)
+	p.wipeLocked()
+	return true
+}
+
+// evictComplete is called on the native network thread after verifying that
+// this piece is flushed. Recheck capacity and current protection at removal.
+// No libtorrent calls are allowed while inside this storage callback.
+func (c *Cache) evictComplete(piece int) bool {
+	protect := c.readerProtectRanges()
+	cap := c.capacityFor(protect)
+	if cap <= 0 || c.Filled() <= cap || pieceInRanges(piece, protect) {
+		return false
+	}
+	c.readersMu.Lock()
+	defer c.readersMu.Unlock()
+	for reader := range c.readers {
+		if reader.currentPiece() == piece || int(reader.waitPiece.Load()) == piece {
+			return false
+		}
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	p := c.pieces[piece]
+	if p == nil {
+		return false
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.complete || p.size == 0 {
+		return false
+	}
+	delete(c.pieces, piece)
+	c.markEvictedLocked(piece)
+	p.wipeLocked()
+	return true
+}
+
+func (c *Cache) markEvictedLocked(piece int) {
+	if c.evicted == nil {
+		c.evicted = map[int]bool{}
+	}
+	if len(c.evicted) >= 2048 {
+		for id := range c.evicted {
+			delete(c.evicted, id)
+			break
+		}
+	}
+	c.evicted[piece] = true
+}
+
+func (c *Cache) consumeEvicted(piece int) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	evicted := c.evicted[piece]
+	delete(c.evicted, piece)
+	return evicted
 }
 
 // evictIfOverCapacity drops the least-recently-used complete pieces until
@@ -1639,7 +1712,26 @@ func (c *Cache) evictPass() (evictedAny bool) {
 		}
 	}
 
-	evict := func(p *Piece) {
+	evict := func(p *Piece) bool {
+		if h := c.handle.Load(); h != nil {
+			// Completion alerts are delivered asynchronously. A Go complete bit
+			// alone does not prove that native hash/write jobs have finished with
+			// this entry. Serialize production eviction with that bookkeeping.
+			removed := h.EvictPiece(p.Id)
+			if removed {
+				evictedAny = true
+			}
+			return removed
+		}
+		// The pass's protection snapshot can predate a newly attached reader.
+		// Keep registration stable through removal and recheck its current target.
+		c.readersMu.Lock()
+		defer c.readersMu.Unlock()
+		for reader := range c.readers {
+			if reader.currentPiece() == p.Id || int(reader.waitPiece.Load()) == p.Id {
+				return false
+			}
+		}
 		// We deliberately do NOT WeDontHave here: un-having every evicted piece
 		// churns the piece_picker and stalls the whole download once eviction
 		// starts mid-stream. The have-bitfield is reconciled lazily, on demand, by
@@ -1653,11 +1745,17 @@ func (c *Cache) evictPass() (evictedAny bool) {
 				"size", p.SizeBytes()>>20, "MB win", winLo, "..", winHi,
 				"filled", int(filled>>20), "cap", int(cap>>20))
 		}
-		p.wipe()
 		c.mu.Lock()
+		if c.pieces[p.Id] != p {
+			c.mu.Unlock()
+			return false
+		}
 		delete(c.pieces, p.Id)
+		c.markEvictedLocked(p.Id)
 		c.mu.Unlock()
+		p.wipe()
 		evictedAny = true
+		return true
 	}
 	// Never evict an INCOMPLETE piece during the capacity trim: its blocks live only
 	// in this cache and libtorrent may finish it later (end-game, an unchoke, a
@@ -1668,12 +1766,9 @@ func (c *Cache) evictPass() (evictedAny bool) {
 	// bounded, and a stranded one is reaped separately below once abandoned.
 	evictable := func(p *Piece) bool { return p.SizeBytes() > 0 && p.Complete() }
 
-	// First, reap STRANDED INCOMPLETE leftovers: a seek leaves partial pieces in the
-	// abandoned playback region; they get no more blocks (Accessed stops advancing)
-	// and complete-only eviction can't touch them, so they'd linger forever. Once
-	// untouched past abandonEvictSec and OUTSIDE the protected window, forget them
-	// (WeDontHave priority 0 so the picker won't re-request — makes the wipe safe)
-	// and drop them.
+	// Request pruning of stale partials. Actual removal and picker reset happen
+	// together on the native network thread after write/hash ownership settles.
+	// This pass must not wipe data before that asynchronous check has run.
 	nowU := time.Now().Unix()
 	for _, p := range pieces {
 		if p.SizeBytes() <= 0 || p.Complete() || pieceInRanges(p.Id, protect) {
@@ -1689,12 +1784,8 @@ func (c *Cache) evictPass() (evictedAny bool) {
 		}
 		if nowU-p.Accessed() > grace {
 			if h := c.handle.Load(); h != nil {
-				_ = h.WeDontHave(p.Id, 0)
+				_ = h.PrunePartial(p.Id)
 			}
-			c.mu.Lock()
-			c.abandoned[p.Id] = nowU
-			c.mu.Unlock()
-			evict(p)
 		}
 	}
 
@@ -1726,8 +1817,9 @@ func (c *Cache) evictPass() (evictedAny bool) {
 			continue
 		}
 		sz := p.SizeBytes()
-		evict(p)
-		needFree -= sz
+		if evict(p) {
+			needFree -= sz
+		}
 	}
 	return evictedAny
 }
@@ -1996,18 +2088,9 @@ func (c *Cache) Have(piece int) bool {
 	return p != nil && p.Complete()
 }
 
-// MarkComplete is invoked when libtorrent emits a piece_finished_alert
-// for this storage; the BTServer alert-pump wires the call. Currently
-// the Piece auto-flips Complete once enough bytes are written, but the
-// explicit signal lets us tighten the criterion in Etap 6 (e.g. after a
-// successful hash check).
+// MarkComplete shares the verified completion path; raw writes never set Have.
 func (c *Cache) MarkComplete(piece int) {
-	c.mu.RLock()
-	p := c.pieces[piece]
-	c.mu.RUnlock()
-	if p != nil {
-		p.setComplete(true)
-	}
+	c.SignalPieceComplete(piece)
 }
 
 // PiecesSnapshot returns a copy of the per-piece state map for diagnostic
@@ -2102,3 +2185,41 @@ func hashHex(h [20]byte) string {
 
 // touch is a placeholder for the LRU bookkeeping that lands in 4.2.
 func (c *Cache) touch(_ int) { _ = time.Now() }
+
+// ReleasePreloadDemand serializes handoff with the existing declarative reader
+// scheduler. A joining reader's demand is rebuilt immediately, never zeroed by
+// the old preload. Cached reservation ownership remains with that reader.
+func (c *Cache) ReleasePreloadDemand(pieces []int) {
+	if c == nil {
+		return
+	}
+	c.priMu.Lock()
+	if c.StreamingReaders() == 0 {
+		if h := c.handle.Load(); h != nil {
+			for _, p := range pieces {
+				_ = h.SetPiecePriority(p, 0)
+				delete(c.deadlined, p)
+			}
+		}
+	}
+	c.lastPrios = nil
+	c.lastApplyMs.Store(0)
+	c.priMu.Unlock()
+	if c.StreamingReaders() > 0 {
+		c.applyStreamPriorities()
+	}
+}
+
+// StreamingReadersForFile excludes probes and viewers of another episode. Only
+// a reader of this file can take its preload scheduling over.
+func (c *Cache) StreamingReadersForFile(offset, length int64) int {
+	c.readersMu.Lock()
+	defer c.readersMu.Unlock()
+	n := 0
+	for r := range c.readers {
+		if !r.internal && r.file.Offset == offset && r.file.Length == length {
+			n++
+		}
+	}
+	return n
+}

@@ -392,8 +392,18 @@ func (r *Reader) Read(p []byte) (int, error) {
 			end = want
 		}
 		n, err := r.cache.readPiece(piece, pieceOff, p[written:int(end)])
+		if n == 0 && (err == nil || err == io.EOF || err == errOutOfPiece) {
+			if written > 0 {
+				break
+			}
+			if r.ctx != nil && r.ctx.Err() != nil {
+				return 0, r.ctx.Err()
+			}
+			r.ensuredAtMs = 0 // availability changed between inspection and copying
+			continue          // a cache eviction is not the end of the media file
+		}
 		if n > 0 {
-			if settings.CurrentFlow().MetricsEnabled {
+			if settings.CurrentFlow().MetricsEnabled && r.group != ProbeReaderGroup {
 				if miss {
 					r.cache.flowCounters.Miss(n)
 				} else {
@@ -461,9 +471,6 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 	if !fresh {
 		r.ensuredPiece = piece
 		r.ensuredAtMs = nowMs
-		// This reader genuinely needs the piece now (e.g. a seek back into a region we
-		// abandoned): lift any straggler-drop suppression so its blocks are stored.
-		r.cache.clearAbandoned(piece)
 		if r.handle != nil {
 			// On-demand have/cache reconciliation: if libtorrent thinks it already has
 			// this piece but our cache doesn't (we evicted it, or a seek landed in an
@@ -471,7 +478,7 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 			// until timeout. Un-have just this one piece so the picker re-downloads it.
 			// This replaces un-having on every eviction, which churned the picker and
 			// stalled the whole download once the cache started evicting mid-stream.
-			if r.handle.HasPiece(piece) {
+			if r.cache.consumeEvicted(piece) || r.handle.HasPiece(piece) {
 				// Un-have it and leave it at top priority (applied atomically inside
 				// WeDontHave) so the picker re-requests it immediately.
 				if s := settings.BTsets(); s != nil && s.EnableDebug {
@@ -534,8 +541,26 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 		r.cache.applyStreamPriorities()
 	}
 	waitStarted := time.Now()
-	ready := r.cache.WaitForBytes(ctx, piece, pieceOff)
-	if settings.CurrentFlow().MetricsEnabled {
+	ready := r.cache.waitForBytes(ctx, piece, pieceOff, func() {
+		r.cache.lastApplyMs.Store(0)
+		r.cache.applyStreamPriorities()
+		if r.handle != nil {
+			// A late hash completion can reassert ownership after the initial
+			// on-demand reset. Reconcile this exact parked offset independently
+			// of the group's held anchor and refresh its urgent deadline last.
+			if r.cache.readableAt(piece, pieceOff) == 0 && r.handle.HasPiece(piece) {
+				_ = r.handle.WeDontHave(piece, ltTopPriority)
+			}
+			_ = r.handle.SetPieceDeadline(piece, 0, false)
+			if s := settings.BTsets(); s != nil && s.EnableDebug {
+				if status, err := r.handle.Status(); err == nil {
+					log.TLogln("torrstor.Reader: parked reconcile piece", piece, "state", status.State,
+						"have", r.handle.HasPiece(piece), "peers", status.NumPeers, "candidates", status.ConnectCandidates)
+				}
+			}
+		}
+	})
+	if settings.CurrentFlow().MetricsEnabled && r.group != ProbeReaderGroup {
 		r.cache.flowCounters.Wait(time.Since(waitStarted))
 	}
 	if !ready {

@@ -21,7 +21,9 @@ export const torrentSchema = z
   .passthrough();
 export const settingsSchema = z
   .object({
-    CacheSize: z.number().positive(),
+    // Persisted legacy/partial configurations can report zero. Read it without
+    // preventing settings repair; Apply still validates a positive budget.
+    CacheSize: z.number().nonnegative(),
     ReaderReadAHead: z.number(),
     PreloadCache: z.number(),
     Flow: z
@@ -37,6 +39,11 @@ export const settingsSchema = z
   .passthrough();
 export const flowSessionSchema = z
   .object({
+    recent_window_seconds: z.number().int().nonnegative().optional(),
+    recent_piece_wait_p95_ms: z.number().nonnegative().optional(),
+    recent_server_read_stalls: z.number().int().nonnegative().optional(),
+    recent_download_rate: z.number().nonnegative().optional(),
+    download_rate_samples: z.number().int().nonnegative().optional(),
     group: z.string(),
     file_index: z.number().int(),
     state: z.string(),
@@ -73,3 +80,11 @@ export const networkSchema = z
     reannounce_count: z.number(),
   })
   .passthrough();
+
+export const runtimeSchema = z.object({
+  dlna_enabled: z.boolean(), bonjour_enabled: z.boolean(), friendly_name: z.string(),
+  webdav_enabled: z.boolean(), webdav_path: z.string(), fuse_path: z.string(), fuse_enabled: z.boolean(),
+  memory: z.object({ rss_bytes: z.number().nonnegative(), rss_available: z.boolean(), go_heap_bytes: z.number().nonnegative(), goroutines: z.number().int().nonnegative() }).passthrough().optional(),
+  cache_allocation: z.object({ resident_bytes: z.number().nonnegative(), active_readers: z.number().int().nonnegative(), warm_caches: z.number().int().nonnegative() }).passthrough().optional(),
+  startup: z.object({ listeners_ready: z.boolean(), engine_ready: z.boolean() }).passthrough().optional(),
+}).passthrough();

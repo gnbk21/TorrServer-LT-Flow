@@ -1,7 +1,10 @@
 package log
 
 import (
+	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -48,5 +51,67 @@ func TestCloseSharedLogPathOnce(t *testing.T) {
 
 	if logFile != nil || webLogFile != nil || webLog != nil {
 		t.Fatal("expected log handles to be cleared after Close")
+	}
+}
+
+func TestConsoleStopOnce(t *testing.T) {
+	count := 0
+	SetConsoleStop(func() { count++ })
+	StopConsoleStatus()
+	StopConsoleStatus()
+	Close()
+	if count != 1 {
+		t.Fatalf("reporter stopped %d times", count)
+	}
+}
+
+func TestConcurrentConsoleStopJoins(t *testing.T) {
+	started, release := make(chan struct{}), make(chan struct{})
+	var joined atomic.Bool
+	SetConsoleStop(func() { close(started); <-release; joined.Store(true) })
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			StopConsoleStatus()
+			if !joined.Load() {
+				t.Error("stop returned before reporter joined")
+			}
+		}()
+	}
+	<-started
+	close(release)
+	wg.Wait()
+}
+
+func TestConcurrentConsoleCloseRestoresOnce(t *testing.T) {
+	var restored atomic.Int32
+	restoreConsole = func() { restored.Add(1) }
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Add(1)
+		go func() { defer wg.Done(); Close() }()
+	}
+	wg.Wait()
+	if restored.Load() != 1 {
+		t.Fatalf("terminal restored %d times", restored.Load())
+	}
+}
+
+func TestAPIConsoleCleanupKeepsAccessLogUsable(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "access.log")
+	Init("", path)
+	defer Close()
+	writer := webLog
+	CloseConsole()
+	if webLog != writer || webLogFile == nil {
+		t.Fatal("console cleanup closed the HTTP access logger")
+	}
+	WebLogln("handler finished after console cleanup")
+	contents, err := os.ReadFile(path)
+	if err != nil || len(contents) == 0 {
+		t.Fatalf("access log unavailable: %v", err)
 	}
 }

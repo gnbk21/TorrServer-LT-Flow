@@ -7,7 +7,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"server/console"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,6 +20,65 @@ var (
 )
 
 var webLog *log.Logger
+
+var consoleWriter *console.Writer
+var restoreConsole func()
+
+var consoleStopMu sync.Mutex
+var consoleStop *consoleStopper
+var closeMu sync.Mutex
+
+type consoleStopper struct {
+	once sync.Once
+	stop func()
+}
+
+// SetConsoleStop lets the console owner join its reporter before any process
+// exit path closes logs or restores the terminal, including API shutdown.
+func SetConsoleStop(stop func()) {
+	consoleStopMu.Lock()
+	consoleStop = &consoleStopper{stop: stop}
+	consoleStopMu.Unlock()
+}
+
+func StopConsoleStatus() {
+	consoleStopMu.Lock()
+	stop := consoleStop
+	consoleStopMu.Unlock()
+	if stop != nil && stop.stop != nil {
+		// Concurrent exit paths must also wait for the first join to finish.
+		stop.once.Do(stop.stop)
+	}
+}
+
+// ConfigureConsole is called once after Init. File logs and services retain
+// their UTC log format; only interactive/redirected console output is styled.
+func ConfigureConsole(mode string, service bool) bool {
+	if mode == "off" || logFile != nil || service {
+		return false
+	}
+	color, restore := console.ConfigureColor(os.Stdout, mode)
+	restoreConsole = restore
+	consoleWriter = console.New(os.Stdout, color)
+	log.SetFlags(0)
+	log.SetPrefix("")
+	log.SetOutput(consoleWriter)
+	return true
+}
+
+func ConsolePanel(title string, sections []console.Section) {
+	closeMu.Lock()
+	defer closeMu.Unlock()
+	if consoleWriter != nil {
+		if err := consoleWriter.Panel(title, sections); err != nil {
+			fmt.Fprintln(os.Stderr, "Flow console output:", err)
+		}
+	}
+}
+
+func Event(level, component, message string) {
+	log.Printf("[%s] [%s] %s", level, component, message)
+}
 
 var (
 	logFile    *os.File
@@ -88,7 +149,35 @@ func applyServerLog(ff *os.File) {
 	log.SetOutput(ff)
 }
 
+// CloseConsole restores console output without closing file loggers. The API
+// shutdown shortcut exits directly while other HTTP handlers can still finish;
+// their file loggers must remain valid until the OS closes process handles.
+func CloseConsole() {
+	StopConsoleStatus()
+	closeMu.Lock()
+	defer closeMu.Unlock()
+	closeConsoleOutput()
+}
+
+// Called with closeMu held. SetOutput joins an in-flight standard log write
+// before restoring console mode, so its final ANSI reset is still interpreted.
+func closeConsoleOutput() {
+	if consoleWriter != nil {
+		log.SetOutput(os.Stderr)
+		log.SetFlags(log.LstdFlags)
+		consoleWriter = nil
+	}
+	if restoreConsole != nil {
+		restoreConsole()
+		restoreConsole = nil
+	}
+}
+
 func Close() {
+	StopConsoleStatus()
+	closeMu.Lock()
+	defer closeMu.Unlock()
+	closeConsoleOutput()
 	if logFile != nil {
 		logFile.Close()
 		if webLogFile == logFile {

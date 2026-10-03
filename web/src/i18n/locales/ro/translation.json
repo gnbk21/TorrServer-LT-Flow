@@ -436,7 +436,11 @@
       "4": "Închis",
       "5": "În baza de date"
     },
-    "title": "Titlu"
+    "title": "Titlu",
+    "pagination": "Paginile bibliotecii",
+    "previousPage": "Pagina precedentă",
+    "nextPage": "Pagina următoare",
+    "pageCount": "Pagina {{page}} din {{pages}}"
   },
   "runtime": {
     "torrents": "Torrente",
@@ -539,6 +543,42 @@
       "STALLED": "Serverul raportează un flux blocat.",
       "WARM_IDLE": "Redarea este deconectată sau întreruptă; cache-ul rămâne protejat pentru reluare.",
       "UNKNOWN": "Nu există suficientă telemetrie pentru a evalua bufferul."
+    },
+    "troubleshooting": {
+      "title": "Diagnosticarea redării",
+      "delivery": "Poziția livrată este sfârșitul octeților trimiși de server, nu poziția decodată de player. Secundele de buffer sunt estimări.",
+      "estimate": "Bitrate-ul este provizoriu sau necunoscut. ffprobe, opțional, îmbunătățește estimarea; bitrate-ul variabil rămâne imprecis.",
+      "draining": "Descărcarea măsurată este sub consumul estimat și bufferul scade. Verifică peer-ii și conexiunea de rețea.",
+      "waiting": "O citire a serverului a așteptat cel puțin 500 ms în ultimele 60 de secunde. Aceasta nu dovedește blocarea decodării.",
+      "idle": "Nicio cerere a playerului nu este activă. Acesta poate fi în pauză, deconectat sau poate folosi propriul buffer.",
+      "peers": "Nu există peer-i conectați și nici octeți contigui disponibili. Verifică rețeaua locală și trackerele."
+    },
+    "startupWait": "Așteptare la pornire",
+    "startupTimingHint": "Metadatele sunt măsurate de la adăugarea torrentului; restul, de la preîncărcare. Liniuța indică lipsa observației.",
+    "startupStages": {
+      "METADATA": "Metadatele torrentului",
+      "PEERS": "Descoperirea partenerilor",
+      "FIRST_BLOCK": "Așteptarea primelor date",
+      "HEAD_INDEX": "Încărcarea antetului și indexului",
+      "PREBUFFER": "Umplerea bufferului",
+      "PROBE_GRACE": "Scurtă așteptare a analizei",
+      "READY": "Buffer pregătit",
+      "PLAYING": "Redare",
+      "CANCELLED": "Anulat",
+      "TIMEOUT": "Timp expirat",
+      "FAILED": "Eșec",
+      "READER_WINDOW": "Cititorul activ controlează bufferul"
+    },
+    "metrics": {
+      "wait_reason": "Motivul așteptării",
+      "stage_started_ms": "Începutul etapei",
+      "elapsed_ms": "Durata preîncărcării",
+      "metadata_ready_ms": "Metadate (de la adăugare)",
+      "first_dht_peer_ms": "Primul partener DHT (de la adăugare)",
+      "first_peer_ms": "Primul partener conectat",
+      "first_useful_block_ms": "Primele date observate",
+      "diagnostic_history": "Istoric de diagnostic",
+      "dht_state_restored": "Stare DHT restaurată"
     }
   },
   "search": {
@@ -620,7 +660,7 @@
       "legacy": "Păstrează comportamentul conexiunilor TorrServer-LT. Implicit până când comparațiile măsurate justifică schimbarea.",
       "conservative": "Reduce presiunea conexiunilor și mărește timpii de așteptare. Poate reduce încărcarea, fără a garanta o redare mai bună.",
       "balanced": "Ritm moderat al conexiunilor și al timpilor de așteptare pentru uz general. Compară pe propriile roiuri.",
-      "aggressive": "Accelerează conectarea și scurtează timpii de așteptare. Poate grăbi descoperirea cu prețul reconectărilor și al încărcării.",
+      "aggressive": "100 de încercări de conectare pe secundă și un impuls inițial de 80 de peers, cu timpii de așteptare impliciți ai libtorrent. Poate grăbi descoperirea cu prețul reconectărilor și al încărcării.",
       "custom": "Aplică cei șase parametri personalizați. Zero lasă neschimbată setarea libtorrent corespunzătoare."
     },
     "storageFields": {
@@ -661,8 +701,31 @@
           "PieceTimeout": "Timp de așteptare pentru fragment (secunde)",
           "RequestQueueTime": "Durata cozii de cereri (secunde)",
           "MinReconnectTime": "Interval minim de reconectare (secunde)"
-        }
+        },
+        "DiagnosticHistory": "Păstrează istoricul de diagnostic",
+        "DHTStatePersistence": "Reutilizează starea de rutare DHT"
       }
-    }
+    },
+    "maintenance": {
+      "title": "Întreținere și restaurare",
+      "exclusions": "Copiile portabile exclud parolele, trackerele private, căile, posterele și datele clienților. Rapoartele exclud și numele și hash-urile.",
+      "support": "Descarcă raportul",
+      "export": "Exportă copia",
+      "import": "Previzualizează importul",
+      "tooLarge": "Copia depășește 16 MiB.",
+      "dirty": "Salvează sau anulează modificările înainte de restaurare.",
+      "preview": "Previzualizare restaurare",
+      "summary": "Combină {{torrents}} înregistrări și {{fields}} câmpuri de setări.",
+      "confirmHint": "Oprește redarea. Motorul repornește; parolele și căile locale se păstrează. Înainte de aplicare se salvează o copie locală protejată.",
+      "restore": "Restaurează copia",
+      "restored": "Restaurat. Copie locală: {{name}}",
+      "rss": "Memorie rezidentă a procesului",
+      "heap": "Heap Go",
+      "activeCache": "Cache activ",
+      "warmCache": "Cache păstrat",
+      "memoryHint": "Memoria procesului include alocări native. Capacitatea cache-ului și limita Go nu limitează întreaga memorie RAM a procesului."
+    },
+    "historyHint": "Diagnostic local de pornire (maximum 4 MiB), fără URL-uri, tokenuri, titluri sau adrese de clienți.",
+    "dhtHint": "Reutilizează nodurile DHT cunoscute după repornire. Respectă dezactivarea DHT."
   }
 }

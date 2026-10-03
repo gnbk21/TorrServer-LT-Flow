@@ -3,6 +3,7 @@ package torr
 import (
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestNetworkTrackerRecoversAfterAddressChanges(t *testing.T) {
@@ -29,6 +30,21 @@ func TestNetworkTrackerRecoversAfterAddressChanges(t *testing.T) {
 	tracker.observe([]string{"192.168.1.20"}, nil)
 	if !tracker.needAnnounce {
 		t.Fatal("recovery should request an announce")
+	}
+}
+
+func TestTrackerRecoveryUsesConnectivityLossRatherThanAddressAge(t *testing.T) {
+	bt := &BTServer{networkStatus: FlowNetworkStatus{State: "ADDRESS_READY", Connectivity: "DEGRADED", ChangedAt: time.Now().Add(-time.Hour), ConnectivityLostAt: time.Now().Add(-2 * time.Second)}}
+	bt.recordTrackerConnectivity("tracker_reply")
+	s := bt.FlowNetworkStatus()
+	if s.LastTrackerRecoveryMs < 1900 || s.LastTrackerRecoveryMs > 3000 || !s.ConnectivityLostAt.IsZero() {
+		t.Fatal(s)
+	}
+	bt.recordTrackerConnectivity("tracker_error")
+	first := bt.FlowNetworkStatus().ConnectivityLostAt
+	bt.recordTrackerConnectivity("tracker_error")
+	if !bt.FlowNetworkStatus().ConnectivityLostAt.Equal(first) {
+		t.Fatal("repeated errors reset recovery clock")
 	}
 }
 

@@ -63,3 +63,14 @@ func TestProbeReader_NeverRecordsWindow(t *testing.T) {
 		t.Fatalf("winFirst=%d after read, want -1 (internal reader must not schedule a window)", got)
 	}
 }
+
+func TestPreloadHandoffIsScopedToItsFile(t *testing.T) {
+	c := &Cache{readers: map[*Reader]struct{}{
+		&Reader{file: FileInfo{Offset: 0, Length: 100}}:                   {},
+		&Reader{file: FileInfo{Offset: 100, Length: 200}}:                 {},
+		&Reader{file: FileInfo{Offset: 100, Length: 200}, internal: true}: {},
+	}}
+	if c.StreamingReadersForFile(0, 100) != 1 || c.StreamingReadersForFile(100, 200) != 1 || c.StreamingReadersForFile(300, 100) != 0 {
+		t.Fatal("another episode or a media probe can take preload over")
+	}
+}

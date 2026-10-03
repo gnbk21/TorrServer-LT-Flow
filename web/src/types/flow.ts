@@ -13,6 +13,13 @@ export interface FlowRangeTrace {
 }
 
 export interface FlowStartup {
+  wait_reason?: string;
+  stage_started_ms?: number;
+  elapsed_ms?: number;
+  metadata_ready_ms?: number;
+  first_dht_peer_ms?: number;
+  first_peer_ms?: number;
+  first_useful_block_ms?: number;
   file_index: number;
   state: string;
   bootstrap_head_target_bytes: number;
@@ -27,6 +34,14 @@ export interface FlowStartup {
 }
 
 export interface FlowSession {
+  recent_window_seconds?: number;
+  recent_cache_hit_bytes?: number;
+  recent_cache_miss_bytes?: number;
+  recent_piece_wait_count?: number;
+  recent_piece_wait_p95_ms?: number;
+  recent_server_read_stalls?: number;
+  recent_download_rate?: number;
+  download_rate_samples?: number;
   cache_hit_bytes: number;
   cache_miss_bytes: number;
   piece_wait_count: number;

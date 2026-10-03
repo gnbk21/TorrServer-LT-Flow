@@ -13,6 +13,7 @@ func TestFlowSwarmProfilesPreserveCompatibilityAndUserSettings(t *testing.T) {
 			"connection_speed": 250, "torrent_connect_boost": 100,
 			"peer_connect_timeout": 7, "strict_end_game_mode": true,
 			"active_limit": -1, "proxy_type": 2,
+			"close_redundant_connections": false,
 		}
 	}
 	legacy := base()
@@ -39,7 +40,7 @@ func TestFlowSwarmProfilesPreserveCompatibilityAndUserSettings(t *testing.T) {
 		if _, ok := cfg["peer_connect_timeout"]; ok {
 			t.Fatalf("%s retained shortened peer timeout", tc.profile)
 		}
-		if cfg["active_limit"] != -1 || cfg["proxy_type"] != 2 {
+		if cfg["active_limit"] != -1 || cfg["proxy_type"] != 2 || cfg["close_redundant_connections"] != false {
 			t.Fatalf("%s lost unrelated settings", tc.profile)
 		}
 	}
@@ -53,5 +54,8 @@ func TestFlowSwarmProfilesPreserveCompatibilityAndUserSettings(t *testing.T) {
 	}
 	if _, ok := cfg["torrent_connect_boost"]; ok {
 		t.Fatalf("unset custom override should use libtorrent default: %v", cfg)
+	}
+	if cfg["close_redundant_connections"] != false {
+		t.Fatal("custom profile discarded lazy/warm streaming peer retention")
 	}
 }

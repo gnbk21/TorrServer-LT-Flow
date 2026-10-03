@@ -12,6 +12,7 @@ import (
 	"errors"
 	"io"
 	"sync"
+	"time"
 
 	"server/lt"
 )
@@ -55,6 +56,9 @@ func (s *Storage) Install() error {
 		Read:    s.callbackRead,
 		Write:   s.callbackWrite,
 		Have:    s.callbackHave,
+		Prune:   s.callbackPrune,
+		Evict:   s.callbackEvict,
+		Size:    s.callbackSize,
 	})
 }
 
@@ -69,6 +73,56 @@ func (s *Storage) CacheByHash(hash [20]byte) *Cache {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.byHash[hash]
+}
+
+type AllocationStatus struct {
+	Caches                 int   `json:"caches"`
+	ActiveCaches           int   `json:"active_caches"`
+	IdleCaches             int   `json:"idle_caches"`
+	WarmCaches             int   `json:"warm_caches"`
+	WarmResidentBytes      int64 `json:"warm_resident_bytes"`
+	ResidentBytes          int64 `json:"resident_bytes"`
+	ActiveResidentBytes    int64 `json:"active_resident_bytes"`
+	IdleResidentBytes      int64 `json:"idle_resident_bytes"`
+	EffectiveCapacityBytes int64 `json:"effective_capacity_bytes"`
+	ProtectedBytes         int64 `json:"protected_bytes"`
+	ActiveReaders          int   `json:"active_readers"`
+}
+
+// Count each cache once, regardless of how many sessions share it. Capacities
+// are eviction budgets; they are not process RSS or a global RAM hard limit.
+func (s *Storage) Allocations() AllocationStatus {
+	s.mu.RLock()
+	caches := make([]*Cache, 0, len(s.caches))
+	for _, c := range s.caches {
+		caches = append(caches, c)
+	}
+	s.mu.RUnlock()
+	var out AllocationStatus
+	for _, c := range caches {
+		filled := c.Filled()
+		readers := c.StreamingReaders()
+		out.Caches++
+		out.ResidentBytes += filled
+		out.EffectiveCapacityBytes += c.capacity()
+		out.ProtectedBytes += c.streamingReserve()
+		out.ActiveReaders += readers
+		if readers > 0 {
+			out.ActiveCaches++
+			out.ActiveResidentBytes += filled
+		} else {
+			out.IdleCaches++
+			out.IdleResidentBytes += filled
+			c.preloadMu.Lock()
+			warm := time.Now().Before(c.warmUntil)
+			c.preloadMu.Unlock()
+			if warm {
+				out.WarmCaches++
+				out.WarmResidentBytes += filled
+			}
+		}
+	}
+	return out
 }
 
 // ----- lt.StorageCallbacks dispatch -----
@@ -129,6 +183,34 @@ func (s *Storage) callbackHave(storage int64, piece int) bool {
 		return false
 	}
 	return c.Have(piece)
+}
+
+func (s *Storage) callbackPrune(storage int64, piece int) bool {
+	c := s.lookup(storage)
+	return c != nil && c.prunePartial(piece)
+}
+
+func (s *Storage) callbackEvict(storage int64, piece int) bool {
+	c := s.lookup(storage)
+	return c != nil && c.evictComplete(piece)
+}
+
+func (s *Storage) callbackSize(storage int64, totalSize int64) {
+	if c := s.lookup(storage); c != nil {
+		c.totalSize.Store(totalSize)
+		// Preserve the existing disk-resume size policy, now with the exact
+		// final-piece length. Open scanned these files before Size was known.
+		c.mu.RLock()
+		p := c.pieces[c.NumPieces-1]
+		c.mu.RUnlock()
+		if p != nil {
+			p.mu.Lock()
+			if p.disk != nil && len(p.avail) == 0 && p.size > 0 && p.size == p.expectedSize() {
+				p.complete = true
+			}
+			p.mu.Unlock()
+		}
+	}
 }
 
 func (s *Storage) lookup(storage int64) *Cache {

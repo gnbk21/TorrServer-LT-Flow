@@ -21,7 +21,6 @@ var legacySwarmKeys = []string{
 	"dht_announce_interval", "auto_scrape_interval", "auto_scrape_min_interval",
 	"stop_tracker_timeout", "seed_choking_algorithm",
 	"rate_limit_ip_overhead", "send_buffer_low_watermark",
-	"close_redundant_connections",
 }
 
 func applyFlowSwarmProfile(cfg lt.SessionConfig, f *settings.FlowSettings, disableEndGame bool) {
@@ -31,6 +30,13 @@ func applyFlowSwarmProfile(cfg lt.SessionConfig, f *settings.FlowSettings, disab
 	for _, key := range legacySwarmKeys {
 		delete(cfg, key)
 	}
+	// Keep the shared streaming retention setting close_redundant_connections
+	// false. A lazy torrent has all piece priorities at zero between metadata
+	// and playback (and in warm idle), so libtorrent considers it finished and
+	// otherwise drops its seeders. The next preload then waits for the normal
+	// reconnect backoff even though those peers were healthy. This is a cache
+	// lifecycle requirement, like the active_* queue overrides, not swarm ramp
+	// tuning. Peer caps and torrent expiry still bound retained connections.
 	if disableEndGame {
 		cfg["strict_end_game_mode"] = false
 	}

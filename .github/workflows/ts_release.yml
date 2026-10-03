@@ -1,57 +1,108 @@
 name: Build and Release
-
-# On a tag, reuse the cross-compile (build.yml) and macOS (build-macos.yml)
-# workflows to produce the 8 TorrServer-LT binaries with the tag stamped in,
-# then publish them to a GitHub Release. Matches the names in release.json.
-
 on:
   push:
-    tags:
-      - "*"
-
+    tags: ['MatriX.145.Flow-*']
 permissions:
-  contents: write
-  packages: write   # the reused build.yml docker job pushes the GHCR image on tags
-
+  contents: read
 jobs:
-  # linux amd64/arm64/armv7, windows-amd64, android arm64/armv7
+  classify:
+    runs-on: ubuntu-latest
+    outputs:
+      channel: ${{ steps.tag.outputs.channel }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: tag
+        env:
+          FLOW_TAG: ${{ github.ref_name }}
+        run: |
+          channel=$(python3 build/release.py --classify --tag "$FLOW_TAG")
+          if [ "$channel" = stable ]; then
+            git merge-base --is-ancestor HEAD origin/master
+            python3 -c 'import json; a=json.load(open("RELEASE_ACCEPTANCE.json")); assert a["stable_approved"] is True and a["evidence"] and not a["remaining"], "Stable acceptance is incomplete"'
+          fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+      - run: python3 -m unittest discover -s build -p '*_test.py'
+      - name: Verify installer channel selection
+        shell: pwsh
+        run: ./build/test-release-channels.ps1
   cross:
+    needs: classify
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/build.yml
     with:
       version: ${{ github.ref_name }}
-
-  # darwin arm64 (native) + amd64 (x86_64 cross via Rosetta)
+      release_channel: ${{ needs.classify.outputs.channel }}
   macos:
+    needs: classify
     uses: ./.github/workflows/build-macos.yml
     with:
       version: ${{ github.ref_name }}
-
   release:
-    needs: [cross, macos]
+    needs: [classify, cross, macos]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
-      - name: Download the binary artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          # Binaries only — skip the docker job's `<repo>.dockerbuild` build-record
-          # artifact (it would pollute the release and its download is flaky).
-          pattern: TorrServer-LT-*
-          path: ./dist
-          merge-multiple: true
-
-      - name: List release assets
-        run: ls -lhR ./dist
-
-      - name: Download Flow tray companion
-        uses: actions/download-artifact@v4
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - uses: actions/download-artifact@v4
         with:
-          name: TorrServer-Flow-Tray
-          path: ./dist
-
-      - name: Publish GitHub Release
+          pattern: TorrServer-*
+          path: artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: flow-runtime-notices-*
+          path: artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: flow-web-cross
+          path: server/web/pages/template
+      - uses: actions/cache@v4
+        with:
+          path: _src
+          key: src-boost1.85.0-lt2.1.0-ossl3.5.7-v1
+      - run: bash build/_fetch_sources.sh
+      - working-directory: server
+        run: go mod download
+      - name: Verify identity and package binaries
+        env:
+          FLOW_TAG: ${{ github.ref_name }}
+          FLOW_COMMIT: ${{ github.sha }}
+        run: python3 build/release.py --tag "$FLOW_TAG" --commit "$FLOW_COMMIT" --artifacts artifacts --native-sources _src --output dist
+      - name: Verify reproducible packaging
+        env:
+          FLOW_TAG: ${{ github.ref_name }}
+          FLOW_COMMIT: ${{ github.sha }}
+        run: |
+          python3 build/release.py --tag "$FLOW_TAG" --commit "$FLOW_COMMIT" --artifacts artifacts --native-sources _src --output reproducibility-check
+          cmp dist/SHA256SUMS reproducibility-check/SHA256SUMS
+      - name: Attest release artifacts
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-checksums: dist/SHA256SUMS
+      - name: Publish channel-aware release
         uses: softprops/action-gh-release@v2
         with:
-          files: ./dist/*
+          files: dist/*
+          fail_on_unmatched_files: true
+          prerelease: ${{ needs.classify.outputs.channel == 'preview' }}
+          make_latest: ${{ needs.classify.outputs.channel == 'stable' }}
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          body_path: ${{ github.ref_name == 'MatriX.145.Flow-v0.2.0-preview.5' && 'PREVIEW_2_NOTES.md' || 'DISTRIBUTION.md' }}
+  docker:
+    needs: [classify, release]
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-docker.yml
+    with:
+      release_channel: ${{ needs.classify.outputs.channel }}

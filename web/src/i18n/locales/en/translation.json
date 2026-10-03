@@ -490,7 +490,43 @@
       "UNKNOWN": "There is not enough playback telemetry to judge buffer health."
     },
     "pause": "Pause engine",
-    "resume": "Resume engine"
+    "resume": "Resume engine",
+    "troubleshooting": {
+      "title": "Playback troubleshooting",
+      "delivery": "The delivery position is the end of bytes sent by the server, not the player’s decoded position. Buffer seconds are estimates.",
+      "estimate": "Media bitrate is provisional or unavailable. An optional ffprobe result improves the estimate; variable bitrate still causes variation.",
+      "draining": "Measured download is below estimated demand and the buffer is draining. Check swarm peers and the network connection.",
+      "waiting": "A server read waited at least 500 ms within the last 60 seconds. This does not prove a player decoding stall.",
+      "idle": "No player request is active. The player may be paused, disconnected, or consuming its own buffer.",
+      "peers": "No connected peers and no contiguous bytes are available. Check local network readiness and tracker status."
+    },
+    "startupWait": "Startup wait",
+    "startupTimingHint": "Metadata time is measured from torrent registration; other times from preload. A dash means not observed.",
+    "startupStages": {
+      "METADATA": "Torrent metadata",
+      "PEERS": "Discovering peers",
+      "FIRST_BLOCK": "Waiting for first media data",
+      "HEAD_INDEX": "Loading header and index",
+      "PREBUFFER": "Filling playback buffer",
+      "PROBE_GRACE": "Brief media-probe grace",
+      "READY": "Buffer ready",
+      "PLAYING": "Playing",
+      "CANCELLED": "Cancelled",
+      "TIMEOUT": "Timed out",
+      "FAILED": "Failed",
+      "READER_WINDOW": "The active reader controls buffering"
+    },
+    "metrics": {
+      "wait_reason": "Wait reason",
+      "stage_started_ms": "Stage started",
+      "elapsed_ms": "Preload elapsed",
+      "metadata_ready_ms": "Metadata ready (since add)",
+      "first_dht_peer_ms": "First DHT peer (since add)",
+      "first_peer_ms": "First connected peer",
+      "first_useful_block_ms": "First media data observed",
+      "diagnostic_history": "Diagnostic history",
+      "dht_state_restored": "DHT state restored"
+    }
   },
   "torrent": {
     "justPlayer": "Play in Just Player",
@@ -542,7 +578,11 @@
     "tmdbUnavailable": "Configure TMDB in Settings to search for posters.",
     "tmdbFailed": "Poster search failed. You can enter a poster URL manually.",
     "selectPoster": "Select poster",
-    "fileCount": "{{count}} files"
+    "fileCount": "{{count}} files",
+    "pagination": "Library pages",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "pageCount": "Page {{page}} of {{pages}}"
   },
   "pairing": {
     "title": "Connect your phone",
@@ -645,7 +685,7 @@
       "legacy": "Retains TorrServer-LT connection behavior. Default until measured comparisons justify a change.",
       "conservative": "Lowers connection pressure with longer timeouts. May reduce overhead; it does not guarantee better playback.",
       "balanced": "Moderate connection ramp and timeouts for general use. Compare using your own swarms.",
-      "aggressive": "Faster connection ramp and shorter timeouts. May improve discovery at the cost of churn and overhead.",
+      "aggressive": "100 connection attempts per second and an 80-peer initial boost, with libtorrent's default timeouts. May improve discovery at the cost of churn and overhead.",
       "custom": "Applies your six custom controls. Zero leaves the corresponding libtorrent setting unchanged."
     },
     "invalidGst": "Enter valid GStreamer values: positive durations and bitrates, nonnegative counts, version 1.22 or newer, and source stream or play.",
@@ -678,9 +718,32 @@
           "PieceTimeout": "Piece timeout (seconds)",
           "RequestQueueTime": "Request queue time (seconds)",
           "MinReconnectTime": "Minimum reconnect interval (seconds)"
-        }
+        },
+        "DiagnosticHistory": "Retain diagnostic history",
+        "DHTStatePersistence": "Reuse DHT routing state"
       }
-    }
+    },
+    "maintenance": {
+      "title": "Maintenance and recovery",
+      "exclusions": "Portable backups omit credentials, private trackers, paths, posters and custom client data. Support reports also omit names and hashes.",
+      "support": "Download support report",
+      "export": "Export backup",
+      "import": "Preview backup import",
+      "tooLarge": "The backup exceeds 16 MiB.",
+      "dirty": "Save or discard your changes before restoring a backup.",
+      "preview": "Restore preview",
+      "summary": "Merge {{torrents}} library records and {{fields}} settings fields.",
+      "confirmHint": "Stop playback first. The engine restarts; existing credentials and host paths are retained. A protected local recovery backup is saved before applying.",
+      "restore": "Restore backup",
+      "restored": "Restored. Local recovery backup: {{name}}",
+      "rss": "Process resident memory",
+      "heap": "Go heap",
+      "activeCache": "Active cache bytes",
+      "warmCache": "Warm cache bytes",
+      "memoryHint": "Process memory includes native allocations. Cache capacity and the Go memory limit are not a process RAM limit."
+    },
+    "historyHint": "Save private startup diagnostics locally (up to 4 MiB). No URLs, tokens, media names or client addresses.",
+    "dhtHint": "Reuse known DHT nodes after a restart. Disabled DHT is always respected."
   },
   "runtime": {
     "torrents": "Torrents",

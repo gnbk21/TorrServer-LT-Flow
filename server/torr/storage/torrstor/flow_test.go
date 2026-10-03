@@ -2,11 +2,104 @@ package torrstor
 
 import (
 	"bytes"
+	"context"
 	"testing"
+	"time"
 
 	"server/flow"
 	"server/settings"
 )
+
+func TestParkedReadReconcilesLateCompletionAndCancels(t *testing.T) {
+	old := settings.BTsets()
+	settings.StoreBTsets(&settings.BTSets{CacheSize: 64 * flow.MiB})
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	s := NewStorage()
+	h := mkHash(0xE3)
+	s.callbackOpen(3, h, 4, pieceBlockSize)
+	c := s.CacheByHash(h)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	count := 0
+	if !c.waitForBytes(ctx, 0, 0, func() { count++; _, _ = s.callbackWrite(3, 0, 0, bytes.Repeat([]byte{7}, pieceBlockSize)) }) || count != 1 {
+		t.Fatal("parked read did not reconcile missing data")
+	}
+	ctx, cancel = context.WithCancel(context.Background())
+	cancel()
+	if c.waitForBytes(ctx, 1, 0, func() { t.Fatal("reconciled cancelled request") }) {
+		t.Fatal("cancelled reader continued waiting")
+	}
+}
+
+func TestPartialPruneRechecksActivityAndStoresLateBlocks(t *testing.T) {
+	old := settings.BTsets()
+	settings.StoreBTsets(&settings.BTSets{CacheSize: 64 * flow.MiB})
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	s := NewStorage()
+	s.callbackOpen(31, mkHash(0xD7), 128, 4*pieceBlockSize)
+	c := s.lookup(31)
+	block := bytes.Repeat([]byte{0x73}, pieceBlockSize)
+	_, _ = s.callbackWrite(31, 50, 0, block)
+	p := c.pieces[50]
+	if s.callbackPrune(31, 50) {
+		t.Fatal("recent block was discarded")
+	}
+	p.accessed.Store(time.Now().Unix() - abandonEvictSec - 2)
+	r := NewReader(c, nil, FileInfo{Offset: 50 * c.PieceLength, Length: c.PieceLength}, "phone")
+	if s.callbackPrune(31, 50) {
+		t.Fatal("new reader's target was discarded")
+	}
+	_ = r.Close()
+	// Drop the closed reader's warm reservation for this isolated prune check.
+	c.groupsMu.Lock()
+	c.groups = map[string]*group{}
+	c.groupsMu.Unlock()
+	if !s.callbackPrune(31, 50) || !c.consumeEvicted(50) {
+		t.Fatal("settled stale partial was not discarded and marked")
+	}
+	_, _ = s.callbackWrite(31, 50, pieceBlockSize, block)
+	dst := make([]byte, pieceBlockSize)
+	if n, err := s.callbackRead(31, 50, pieceBlockSize, dst); err != nil || n != len(dst) || !bytes.Equal(dst, block) {
+		t.Fatal("late native block was acknowledged without retaining its bytes")
+	}
+	if c.readableAt(50, 0) != 0 {
+		t.Fatal("unwritten earlier block became readable")
+	}
+}
+
+func TestCompletionAlertCannotCompleteReplacementWithHoles(t *testing.T) {
+	s := NewStorage()
+	s.callbackOpen(32, mkHash(0xD8), 2, 4*pieceBlockSize)
+	s.callbackSize(32, 5*pieceBlockSize+123)
+	c := s.lookup(32)
+	block := bytes.Repeat([]byte{0x74}, pieceBlockSize)
+	// A delayed completion from the previous incarnation arrives after only
+	// the last block of the replacement buffer has been downloaded.
+	_, _ = s.callbackWrite(32, 0, 3*pieceBlockSize, block)
+	c.SignalPieceComplete(0)
+	if c.Have(0) || c.readableAt(0, 0) != 0 {
+		t.Fatal("stale alert completed a replacement buffer containing holes")
+	}
+	for b := 0; b < 3; b++ {
+		_, _ = s.callbackWrite(32, 0, int64(b*pieceBlockSize), block)
+	}
+	c.SignalPieceComplete(0)
+	if !c.Have(0) {
+		t.Fatal("resident verified piece was not completed")
+	}
+	// The final piece has one full block and a short block. Knowing its exact
+	// length must neither expose zero-filled padding nor suppress completion.
+	_, _ = s.callbackWrite(32, 1, pieceBlockSize, block[:123])
+	c.SignalPieceComplete(1)
+	if c.Have(1) || c.readableAt(1, 0) != 0 {
+		t.Fatal("short final piece with a hole was completed")
+	}
+	_, _ = s.callbackWrite(32, 1, 0, block)
+	c.SignalPieceComplete(1)
+	if !c.Have(1) || c.readableAt(1, 0) != pieceBlockSize+123 || c.readableAt(1, pieceBlockSize+123) != 0 {
+		t.Fatal("short final piece availability does not match metadata")
+	}
+}
 
 func TestContiguousAvailableStopsAtPartialPieceHole(t *testing.T) {
 	old := settings.BTsets()

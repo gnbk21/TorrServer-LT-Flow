@@ -36,3 +36,21 @@ func TestFlowSwarmSettingsNormalize(t *testing.T) {
 		t.Fatalf("normalized swarm settings: %+v", f)
 	}
 }
+
+func TestFlowHistoryAndDHTMigration(t *testing.T) {
+	var migrated FlowSettings
+	if err := json.Unmarshal([]byte(`{"Enabled":true}`), &migrated); err != nil {
+		t.Fatal(err)
+	}
+	if migrated.DiagnosticHistory || !migrated.DHTStatePersistence {
+		t.Fatal("incorrect new-field defaults")
+	}
+	var explicit FlowSettings
+	if err := json.Unmarshal([]byte(`{"DiagnosticHistory":true,"DHTStatePersistence":false}`), &explicit); err != nil {
+		t.Fatal(err)
+	}
+	explicit.Normalize()
+	if !explicit.DiagnosticHistory || explicit.DHTStatePersistence {
+		t.Fatal("explicit choices changed")
+	}
+}

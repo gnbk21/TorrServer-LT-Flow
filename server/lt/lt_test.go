@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -497,6 +498,77 @@ func TestStatus(t *testing.T) {
 	}
 	if st.TotalSize != 100 {
 		t.Fatalf("TotalSize: got %d, want 100", st.TotalSize)
+	}
+}
+
+func TestCacheRefetchLeavesSeedingState(t *testing.T) {
+	if !CacheReconciliationSupported() {
+		if os.Getenv("FLOW_REQUIRE_CACHE_EXTENSION") == "1" {
+			t.Fatal("release-path tests require native cache reconciliation")
+		}
+		t.Skip("shared libtorrent does not supply cache reconciliation")
+	}
+	s := newSession(t)
+	tor, err := s.AddTorrent(AddTorrentParams{InfoBytes: minimalTorrent(), SavePath: t.TempDir(), HavePieces: []byte{1}, PieceCount: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wait := func(predicate func(*Status) bool) *Status {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		var status *Status
+		for time.Now().Before(deadline) {
+			status, err = tor.Status()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if predicate(status) {
+				return status
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		t.Fatalf("native state did not converge: %+v", status)
+		return nil
+	}
+	wait(func(st *Status) bool { return st.State == "seeding" && tor.HasPiece(0) })
+	// Exercise the production shim's ownership gate. The callback records
+	// removal requests; a newer unflushed download must never reach it.
+	previousCallbacks := storageSnapshot()
+	var evictionCalls atomic.Int32
+	callbacks := previousCallbacks
+	callbacks.Evict = func(int64, int) bool { evictionCalls.Add(1); return true }
+	if err := RegisterStorageCallbacks(callbacks); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = RegisterStorageCallbacks(previousCallbacks) })
+	if !tor.EvictPiece(0) || evictionCalls.Load() != 1 {
+		t.Fatal("native flushed piece did not reach eviction callback")
+	}
+	if err := tor.WeDontHave(0, 7); err != nil {
+		t.Fatal(err)
+	}
+	status := wait(func(st *Status) bool { return st.State == "downloading" && !st.IsFinished && !tor.HasPiece(0) })
+	if status.TotalDone != 0 {
+		t.Fatalf("forgotten data still counted as resident: %d", status.TotalDone)
+	}
+	if tor.EvictPiece(0) || evictionCalls.Load() != 1 {
+		t.Fatal("native unflushed piece reached eviction callback")
+	}
+	// Eviction is lazy. A later reader can restore demand through either a
+	// single priority, the declarative vector, or an urgent deadline.
+	for name, demand := range map[string]func() error{
+		"priority": func() error { return tor.SetPiecePriority(0, 7) },
+		"vector":   func() error { return tor.PrioritizePieces([]int{7}) },
+		"deadline": func() error { return tor.SetPieceDeadline(0, 0, false) },
+	} {
+		if err := tor.WeDontHave(0, 0); err != nil {
+			t.Fatal(err)
+		}
+		wait(func(st *Status) bool { return st.IsFinished && st.State == "finished" })
+		if err := demand(); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		wait(func(st *Status) bool { return !st.IsFinished && st.State == "downloading" })
 	}
 }
 

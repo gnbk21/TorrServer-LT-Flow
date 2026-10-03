@@ -37,6 +37,7 @@ extern "C" {
 /* ----- types ----- */
 typedef int64_t lt_session;
 typedef int64_t lt_torrent;
+int lt_cache_reconciliation_supported(void);
 
 /* ----- error codes ----- */
 #define LT_OK              0
@@ -104,6 +105,11 @@ size_t lt_engine_version(char* buf, size_t cap);
 /* ----- session lifecycle ----- */
 /* settings_json may be NULL or "{}" for defaults. */
 lt_session lt_session_new(const char* settings_json);
+/* Bounded, DHT-only native session state; no settings/proxy/plugin state. */
+lt_session lt_session_new_with_dht(const char* settings_json, const char* state, size_t len);
+char* lt_session_dht_state(lt_session s, size_t* len);
+int lt_dht_state_nodes(const char* state, size_t len);
+char* lt_dht_state_normalize(const char* state, size_t len, size_t* out_len);
 
 /* Apply a JSON dict to the session_pack. Unknown keys are ignored with a
  * warning recorded as last_error (but the call still returns LT_OK). */
@@ -206,6 +212,8 @@ int lt_torrent_set_file_priority(lt_torrent t, int file_idx, int prio);
  * public torrent_handle equivalent — this pokes the internal picker on the
  * session network thread). Also clears any deadline on the piece. */
 int lt_torrent_we_dont_have(lt_torrent t, int piece_idx, int prio);
+int lt_torrent_prune_partial(lt_torrent t, int piece_idx);
+int lt_torrent_evict_complete(lt_torrent t, int piece_idx);
 
 /* ----- status & stats -----
  * status_json output schema (subset used by Go state.TorrentStatus):

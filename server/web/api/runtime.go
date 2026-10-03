@@ -5,8 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"server/diagnostics"
 	sets "server/settings"
 	"server/torr"
+	"server/torr/storage/torrstor"
 )
 
 // RuntimeStatus is a read-only snapshot for the web UI: integration flags plus
@@ -21,7 +23,10 @@ type RuntimeStatus struct {
 	FuseEnabled    bool   `json:"fuse_enabled"`
 
 	// BitTorrent client (structured alternative to plaintext GET /stat).
-	BT *torr.ClientStatusSnapshot `json:"bt,omitempty"`
+	BT              *torr.ClientStatusSnapshot `json:"bt,omitempty"`
+	Memory          diagnostics.MemoryStatus   `json:"memory"`
+	CacheAllocation torrstor.AllocationStatus  `json:"cache_allocation"`
+	Startup         diagnostics.StartupStatus  `json:"startup"`
 }
 
 // runtimeStatus godoc
@@ -52,13 +57,16 @@ func runtimeStatus(c *gin.Context) {
 
 	bt := torr.SnapshotClientStatus()
 	c.JSON(http.StatusOK, RuntimeStatus{
-		DLNAEnabled:    dlna,
-		BonjourEnabled: bonjour,
-		FriendlyName:   friendly,
-		WebDAVEnabled:  webdav,
-		WebDAVPath:     "/dav",
-		FusePath:       fusePath,
-		FuseEnabled:    fusePath != "",
-		BT:             &bt,
+		DLNAEnabled:     dlna,
+		BonjourEnabled:  bonjour,
+		FriendlyName:    friendly,
+		WebDAVEnabled:   webdav,
+		WebDAVPath:      "/dav",
+		FusePath:        fusePath,
+		FuseEnabled:     fusePath != "",
+		BT:              &bt,
+		Memory:          diagnostics.Memory(),
+		CacheAllocation: torrstor.Global().Allocations(),
+		Startup:         diagnostics.Startup(),
 	})
 }

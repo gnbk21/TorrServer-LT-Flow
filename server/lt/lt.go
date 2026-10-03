@@ -193,6 +193,11 @@ type SessionConfig map[string]any
 // NewSession constructs a libtorrent session with the given settings.
 // Pass nil for defaults.
 func NewSession(cfg SessionConfig) (*Session, error) {
+	return NewSessionWithDHT(cfg, nil)
+}
+
+// NewSessionWithDHT restores only native DHT routing state before networking starts.
+func NewSessionWithDHT(cfg SessionConfig, state []byte) (*Session, error) {
 	var cs *C.char
 	if cfg != nil {
 		b, err := json.Marshal(cfg)
@@ -202,11 +207,46 @@ func NewSession(cfg SessionConfig) (*Session, error) {
 		cs = C.CString(string(b))
 		defer C.free(unsafe.Pointer(cs))
 	}
-	id := C.lt_session_new(cs)
+	if len(state) > 1<<20 {
+		return nil, ErrInvalid
+	}
+	var ptr *C.char
+	if len(state) > 0 {
+		ptr = (*C.char)(unsafe.Pointer(&state[0]))
+	}
+	id := C.lt_session_new_with_dht(cs, ptr, C.size_t(len(state)))
 	if id == 0 {
 		return nil, lastError()
 	}
 	return &Session{id: id}, nil
+}
+
+// NormalizeDHTState validates bounded native state and strips every non-DHT field.
+func NormalizeDHTState(state []byte) ([]byte, error) {
+	if len(state) == 0 || len(state) > 1<<20 {
+		return nil, ErrInvalid
+	}
+	return cAlloc(func(n *C.size_t) *C.char {
+		return C.lt_dht_state_normalize((*C.char)(unsafe.Pointer(&state[0])), C.size_t(len(state)), n)
+	})
+}
+
+func DHTStateNodes(state []byte) (int, error) {
+	if len(state) == 0 || len(state) > 1<<20 {
+		return 0, ErrInvalid
+	}
+	n := int(C.lt_dht_state_nodes((*C.char)(unsafe.Pointer(&state[0])), C.size_t(len(state))))
+	if n < 0 {
+		return 0, codeToErr(C.int(n))
+	}
+	return n, nil
+}
+
+func (s *Session) DHTState() ([]byte, error) {
+	if s == nil || s.id == 0 {
+		return nil, ErrInvalid
+	}
+	return cAlloc(func(n *C.size_t) *C.char { return C.lt_session_dht_state(s.id, n) })
 }
 
 // Close destroys the session and drops all torrents (without persisting).
@@ -450,6 +490,10 @@ func (t *Torrent) HasPiece(piece int) bool {
 	return C.lt_torrent_have_piece(t.id, C.int(piece)) == 1
 }
 
+// CacheReconciliationSupported reports the static build's native cache API.
+// Shared distro builds may omit the required internal symbols.
+func CacheReconciliationSupported() bool { return C.lt_cache_reconciliation_supported() == 1 }
+
 // PieceLength returns the piece length in bytes (0 before metadata).
 func (t *Torrent) PieceLength() int64 { return int64(C.lt_torrent_piece_length(t.id)) }
 
@@ -508,6 +552,17 @@ func (t *Torrent) PrioritizePieces(prios []int) error {
 // a top priority (7) to re-download it now, 0 to leave it lazy.
 func (t *Torrent) WeDontHave(piece, prio int) error {
 	return codeToErr(C.lt_torrent_we_dont_have(t.id, C.int(piece), C.int(prio)))
+}
+
+// PrunePartial schedules pruning after native write/hash work has settled.
+func (t *Torrent) PrunePartial(piece int) error {
+	return codeToErr(C.lt_torrent_prune_partial(t.id, C.int(piece)))
+}
+
+// EvictPiece removes complete cache data only after native write/hash ownership
+// settles. Never call while holding a cache lock or from a storage callback.
+func (t *Torrent) EvictPiece(piece int) bool {
+	return C.lt_torrent_evict_complete(t.id, C.int(piece)) == 1
 }
 
 // SetPieceDeadline sets a soft deadline (in ms) for a piece, optionally
@@ -598,16 +653,19 @@ func (t *Torrent) Status() (*Status, error) {
 
 // Alert is one entry produced by the shim's alert pump.
 type Alert struct {
-	Type        string          `json:"type"`
-	Category    uint32          `json:"category"`
-	Message     string          `json:"message"`
-	Torrent     int64           `json:"torrent,omitempty"`
-	TorrentHash string          `json:"torrent_hash,omitempty"`
-	Piece       int             `json:"piece,omitempty"`
-	Block       int             `json:"block,omitempty"`
-	URL         string          `json:"url,omitempty"`
-	Peers       int             `json:"peers,omitempty"`
-	Error       string          `json:"error,omitempty"`
+	Type             string `json:"type"`
+	Category         uint32 `json:"category"`
+	ErrorCode        int    `json:"error_code,omitempty"`
+	Operation        int    `json:"operation,omitempty"`
+	DisconnectReason string `json:"disconnect_reason,omitempty"`
+	Message          string `json:"message"`
+	Torrent          int64  `json:"torrent,omitempty"`
+	TorrentHash      string `json:"torrent_hash,omitempty"`
+	Piece            int    `json:"piece,omitempty"`
+	Block            int    `json:"block,omitempty"`
+	URL              string `json:"url,omitempty"`
+	Peers            int    `json:"peers,omitempty"`
+	Error            string `json:"error,omitempty"`
 	// Counters is only set on session_stats alerts: metric name → value,
 	// as serialized by the shim from lt::session_stats_metrics().
 	Counters map[string]int64 `json:"counters,omitempty"`
@@ -758,6 +816,13 @@ type StorageCallbacks struct {
 	// Have reports whether the piece is locally complete (used in Etap 4.2
 	// resume scan).
 	Have func(storage int64, piece int) bool
+	// Prune removes an old, unprotected partial on the native network thread.
+	// It must not call back into libtorrent.
+	Prune func(storage int64, piece int) bool
+	// Evict removes an unprotected complete LRU entry on the network thread.
+	// Size records the exact torrent length at storage creation.
+	Evict func(storage int64, piece int) bool
+	Size  func(storage int64, totalSize int64)
 }
 
 var (
@@ -780,7 +845,7 @@ func storageSnapshot() StorageCallbacks {
 // sessions keep whichever disk_io they were started with.
 func RegisterStorageCallbacks(cb StorageCallbacks) error {
 	empty := cb.Open == nil && cb.Close == nil && cb.Deleted == nil &&
-		cb.Read == nil && cb.Write == nil && cb.Have == nil
+		cb.Read == nil && cb.Write == nil && cb.Have == nil && cb.Prune == nil && cb.Evict == nil && cb.Size == nil
 	storageMu.Lock()
 	storage = cb
 	storageMu.Unlock()
@@ -870,4 +935,30 @@ func tsl_storage_have_go(storage C.longlong, piece C.int) C.int {
 		return 1
 	}
 	return 0
+}
+
+//export tsl_storage_prune_go
+func tsl_storage_prune_go(storage C.longlong, piece C.int) C.int {
+	cb := storageSnapshot()
+	if cb.Prune != nil && cb.Prune(int64(storage), int(piece)) {
+		return 1
+	}
+	return 0
+}
+
+//export tsl_storage_evict_go
+func tsl_storage_evict_go(storage C.longlong, piece C.int) C.int {
+	cb := storageSnapshot()
+	if cb.Evict != nil && cb.Evict(int64(storage), int(piece)) {
+		return 1
+	}
+	return 0
+}
+
+//export tsl_storage_size_go
+func tsl_storage_size_go(storage C.longlong, totalSize C.longlong) {
+	cb := storageSnapshot()
+	if cb.Size != nil {
+		cb.Size(int64(storage), int64(totalSize))
+	}
 }

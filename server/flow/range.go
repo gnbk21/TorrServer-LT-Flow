@@ -66,7 +66,7 @@ func Classify(method string, internal bool, hint RangeHint, size, previous int64
 	if size > 0 && hint.Start >= size-8*MiB {
 		return "TAIL_INDEX"
 	}
-	if hadPrevious && previous > 0 && (hint.Start > previous+16*MiB || hint.Start+16*MiB < previous) {
+	if hadPrevious && previous > 0 && (hint.Start-previous > 16*MiB || previous-hint.Start > 16*MiB) {
 		return "SEEK"
 	}
 	if hint.Start == 0 && hadPrevious {

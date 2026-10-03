@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"server/flow"
 	"server/log"
 	"server/lt"
 	"server/settings"
@@ -77,6 +78,10 @@ type Torrent struct {
 	ProbeFileID            int
 	flowProbeFinishedIndex int
 	flowStartupStarted     time.Time
+	flowAddedAt            time.Time
+	diagnosticID           uint64
+	preloadWorkMu          sync.Mutex
+	preloadWork            *preloadOperation
 	flowStartup            FlowStartupStatus
 
 	flowMu       sync.Mutex
@@ -181,8 +186,10 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 		Stat:          state.TorrentAdded,
 		Timestamp:     time.Now().Unix(),
 		lastTimeSpeed: time.Now(),
-		gotInfoCh:     make(chan struct{}),
-		closeCh:       make(chan struct{}),
+		flowAddedAt:   time.Now(), diagnosticID: diagnosticSequence.Add(1),
+		flowStartup: FlowStartupStatus{State: "METADATA", WaitReason: "METADATA", MetadataReadyMs: -1, FirstDHTPeerMs: -1, FirstPeerMs: -1, FirstUsefulBlockMs: -1},
+		gotInfoCh:   make(chan struct{}),
+		closeCh:     make(chan struct{}),
 	}
 	bt.torrents[spec.InfoHash] = t
 	bt.mu.Unlock()
@@ -269,6 +276,12 @@ func (t *Torrent) signalGotInfo() {
 		return
 	}
 	t.gotInfoOnce.Do(func() {
+		t.mu.Lock()
+		t.flowStartup.MetadataReadyMs = time.Since(t.flowAddedAt).Milliseconds()
+		t.flowStartup.WaitReason = ""
+		t.flowStartup.State = "IDLE"
+		t.mu.Unlock()
+		t.historyEvent(flow.HistoryEvent{Type: "metadata", ElapsedMs: time.Since(t.flowAddedAt).Milliseconds()})
 		// Switch to lazy/streaming mode: download nothing until a Reader's
 		// window or Preload bumps the specific pieces it needs.
 		_ = lh.SetAllPiecesPriority(0)
@@ -433,10 +446,14 @@ func (t *Torrent) Close() bool {
 	if t == nil {
 		return false
 	}
+	t.mu.Lock()
 	if t.Stat == state.TorrentClosed {
+		t.mu.Unlock()
+		t.markClosed()
 		return true
 	}
 	t.Stat = state.TorrentClosed
+	t.mu.Unlock()
 	t.markClosed()
 	if t.lh != nil && t.bt != nil && t.bt.session != nil {
 		// Only remove the libtorrent torrent if no OTHER live instance owns
@@ -449,7 +466,9 @@ func (t *Torrent) Close() bool {
 			_ = t.lh.Remove(false)
 		}
 	}
+	t.mu.Lock()
 	t.lh = nil
+	t.mu.Unlock()
 	return true
 }
 
@@ -459,6 +478,7 @@ func (t *Torrent) markClosed() {
 			close(t.closeCh)
 		}
 	})
+	t.stopPreload()
 }
 
 // ----- accessors -----

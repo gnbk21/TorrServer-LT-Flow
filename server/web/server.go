@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -28,6 +29,8 @@ import (
 	"server/settings"
 	"server/web/msx"
 
+	"server/diagnostics"
+	"server/flow"
 	"server/log"
 	"server/lt"
 	"server/mcp"
@@ -90,6 +93,7 @@ func Start() {
 	route := gin.New()
 	route.Use(log.WebLogger(), waf.WAF(), gin.Recovery(), cors.New(corsCfg), location.Default())
 	engineReady.Store(false)
+	diagnostics.MarkEngineReady(false)
 	route.Use(func(c *gin.Context) {
 		if !engineReady.Load() && c.Request.URL.Path != "/echo" && c.Request.URL.Path != "/flow/network" {
 			c.AbortWithStatus(http.StatusServiceUnavailable)
@@ -98,6 +102,20 @@ func Start() {
 		c.Next()
 	})
 	auth.SetupAuth(route)
+	route.Use(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		if path == "/flow/maintenance" || strings.HasPrefix(path, "/flow/backup") || path == "/echo" || path == "/flow/tray" || path == "/flow/network" || path == "/runtime/status" || strings.HasPrefix(path, "/shutdown") || path == "/" || strings.HasPrefix(path, "/assets/") {
+			c.Next()
+			return
+		}
+		if !flow.Maintenance.Enter() {
+			c.Header("Retry-After", "30")
+			c.AbortWithStatus(http.StatusServiceUnavailable)
+			return
+		}
+		defer flow.Maintenance.Leave()
+		c.Next()
+	})
 
 	route.GET("/echo", echo)
 
@@ -149,11 +167,13 @@ func Start() {
 		}
 	}
 	listenersReady.Store(true)
+	diagnostics.MarkListenersReady(true)
 	if err := BTS.Connect(); err != nil {
 		startupError(err)
 		return
 	}
 	engineReady.Store(true)
+	diagnostics.MarkEngineReady(true)
 	rutor.Start()
 	if settings.BTsets().EnableDLNA {
 		dlna.Start()
@@ -180,6 +200,7 @@ func Stop() {
 	defer lifecycleMu.Unlock()
 	listenersReady.Store(false)
 	engineReady.Store(false)
+	diagnostics.MarkEngineReady(false)
 	shutdownListeners()
 	gstreamer.Stop()
 	dlna.Stop()

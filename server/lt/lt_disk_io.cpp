@@ -123,6 +123,16 @@ constexpr lt::status_t tsl_status_ok = lt::status_t::no_error;
 // ============================================================================
 // the custom disk_interface
 // ============================================================================
+extern "C" int lt_storage_prune_partial(int64_t storage_id, int piece) {
+    auto cb = current_callbacks();
+    return cb.prune ? cb.prune(storage_id, piece) : 0;
+}
+
+extern "C" int lt_storage_evict_complete(int64_t storage_id, int piece) {
+    auto cb = current_callbacks();
+    return cb.evict ? cb.evict(storage_id, piece) : 0;
+}
+
 namespace {
 
 struct storage_state {
@@ -189,6 +199,7 @@ public:
         auto raw = sha1_raw_from(p.info_hash);
         cb_.open(idx, reinterpret_cast<uint8_t const*>(raw.data()),
                  ss.num_pieces, ss.piece_length);
+        if (cb_.size) cb_.size(idx, p.files.total_size());
 
         auto storage_idx = lt::storage_index_t(static_cast<int>(idx));
         return lt::storage_holder(storage_idx, *this);
@@ -222,25 +233,11 @@ public:
         }
         int got = cb_.read(storage_id_of(s), static_cast<int>(r.piece),
                            r.start, reinterpret_cast<uint8_t*>(buf), r.length);
-        // A short/empty read means the piece was evicted from the streaming
-        // cache (we only keep the reader's window + recently-played pieces).
-        // async_read is libtorrent's UPLOAD path — our own HTTP Reader reads the
-        // cache directly and hashing uses async_hash — so a miss here must NOT
-        // fault the torrent: returning a storage_error makes libtorrent treat it
-        // as disk corruption and pause playback. Zero-fill the gap and report
-        // success instead; at worst we feed a peer a bad block, never killing our
-        // own download or stream.
-        //
-        // On eviction we now also call WeDontHave (piece_picker un-have) so
-        // libtorrent stops advertising evicted pieces and peers stop requesting
-        // them — but that un-have is posted to the network thread, so there is a
-        // brief window where a request for a just-evicted piece can still arrive.
-        // This zero-fill safety net covers that race.
-        if (got < 0) got = 0;
-        if (got < r.length) {
-            std::memset(buf + got, 0, static_cast<size_t>(r.length - got));
-        }
+        // Upload requests can race cache eviction. Reject missing data rather
+        // than fabricating a corrupt block. libtorrent 2.1's upload completion
+        // sends dont-have/reject on a read error; it does not pause the torrent.
         lt::storage_error err;
+        if (got != r.length) err = make_io_error("read");
         // Do the I/O inline (like posix_disk_io) but deliver the completion
         // handler via the session's io_context. libtorrent requires disk
         // handlers to be posted, not invoked re-entrantly — calling them
@@ -265,15 +262,13 @@ public:
     {
         // cb_.write copies the block into the cache synchronously, so `buf`
         // need not outlive this call; only the completion handler is deferred.
-        (void)cb_.write(storage_id_of(s), static_cast<int>(r.piece),
+        int const written = cb_.write(storage_id_of(s), static_cast<int>(r.piece),
                         r.start, reinterpret_cast<uint8_t const*>(buf), r.length);
-        // Never fault on a short write. This is an in-RAM cache: a short copy only
-        // happens if the piece was evicted out from under us (the same eviction race
-        // async_read guards). Returning a storage_error makes libtorrent treat it as
-        // fatal disk corruption and pause the torrent; instead report success. A block
-        // that didn't stick leaves the piece incomplete, so libtorrent re-requests it
-        // (or the hash mismatch below forces a re-download) — never a dead stream.
+        // Cache eviction is serialized with native ownership. A remaining short
+        // write is an actual storage failure; never acknowledge bytes we lost
+        // and then blame the supplying peer for the resulting hash mismatch.
         lt::storage_error err;
+        if (written != r.length) err = make_io_error("write");
         lt::post(io_, [h = std::move(handler), err]() mutable { h(err); });
         return false;
     }
@@ -419,16 +414,19 @@ private:
             }
             piece_actual = static_cast<int>(it->second.files->piece_size(job.piece));
         }
-        std::vector<char> data(static_cast<size_t>(piece_actual)); // zero-initialised
+        std::vector<char> data(static_cast<size_t>(piece_actual));
         int got = cb_.read(storage_id_of(job.s), static_cast<int>(job.piece),
                            0, reinterpret_cast<uint8_t*>(data.data()), piece_actual);
-        // A short read means the piece was evicted from the RAM cache between its
-        // last write and this hash (the bounded hash pool can lag the reap). Do NOT
-        // fault: a storage_error here is read as fatal disk corruption and pauses the
-        // torrent. Instead hash whatever we read, zero-padded — the digest then won't
-        // match the expected hash, so libtorrent simply re-downloads the piece. An
-        // in-RAM cache must never be able to pause the torrent over an eviction.
-        (void)got;
+        // Never manufacture a corrupt digest from missing cache bytes. The
+        // native ownership checks keep normal eviction out of this interval;
+        // any remaining read failure must be reported as storage, not peer data.
+        if (got != piece_actual) {
+            auto err = make_io_error("hash:short-read");
+            lt::post(io_, [h = std::move(job.handler), piece = job.piece, err]() mutable {
+                h(piece, lt::sha1_hash{}, err);
+            });
+            return;
+        }
         lt::hasher h;
         h.update(lt::span<char const>(data.data(), piece_actual));
         auto digest = h.final();

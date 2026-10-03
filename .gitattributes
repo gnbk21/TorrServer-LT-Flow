@@ -1,0 +1,8 @@
+# Preserve portable build scripts and identical embedded text across hosts.
+*.go text eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+.github/** text eol=lf
+distribution/** text eol=lf
+web/** text=auto eol=lf
+server/web/pages/template/** text=auto eol=lf

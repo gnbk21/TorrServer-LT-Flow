@@ -43,28 +43,12 @@ func AddTorrent(torr *TorrentDB) {
 	if torr == nil || torr.TorrentSpec == nil {
 		return
 	}
-	list := ListTorrent()
+	dbMigrationLock.RLock()
+	defer dbMigrationLock.RUnlock()
 	mu.Lock()
 	defer mu.Unlock()
-	find := -1
-	for i, db := range list {
-		if db.TorrentSpec != nil && db.TorrentSpec.InfoHash == torr.TorrentSpec.InfoHash {
-			find = i
-			break
-		}
-	}
-	if find != -1 {
-		list[find] = torr
-	} else {
-		list = append(list, torr)
-	}
-	for _, db := range list {
-		if db == nil || db.TorrentSpec == nil {
-			continue
-		}
-		if buf, err := json.Marshal(db); err == nil {
-			tdb.Set("Torrents", db.TorrentSpec.InfoHash, buf)
-		}
+	if buf, err := json.Marshal(torr); err == nil {
+		tdb.Set("Torrents", torr.InfoHash, buf)
 	}
 }
 

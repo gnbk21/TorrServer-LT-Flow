@@ -1,6 +1,7 @@
 package torr
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -278,10 +279,10 @@ func DropTorrent(hashHex string) {
 }
 
 // SetSettings applies a new settings_pack and bounces the session.
-func SetSettings(set *sets.BTSets) {
+func SetSettings(set *sets.BTSets) error {
 	if sets.ReadOnly {
 		log.TLogln("torr.SetSettings: read-only DB mode")
-		return
+		return errors.New("database is read-only")
 	}
 	// The storage-backend preferences (json vs config.db for Settings/Viewed)
 	// are owned exclusively by the /storage/settings switch endpoint, which
@@ -298,7 +299,9 @@ func SetSettings(set *sets.BTSets) {
 			trackersChanged = set.TrackersListURL != cur.TrackersListURL || set.DefaultTrackers != cur.DefaultTrackers
 		}
 	}
-	sets.SetBTSets(set)
+	if err := sets.SetBTSetsChecked(set); err != nil {
+		return err
+	}
 	if trackersChanged {
 		utils.InvalidateTrackersCache()
 	}
@@ -310,7 +313,9 @@ func SetSettings(set *sets.BTSets) {
 	log.TLogln("torr.SetSettings: reconnect")
 	if err := bts.Connect(); err != nil {
 		log.TLogln("torr.SetSettings: connect:", err)
+		return err
 	}
+	return nil
 }
 
 // SetDefSettings resets settings to defaults and bounces the session.
@@ -344,6 +349,8 @@ func dropAllTorrent() {
 // announces, and a wedged teardown must not leave a half-dead server that
 // still answers HTTP but can never be stopped via the API.
 func Shutdown() {
+	log.StopConsoleStatus()
+	log.Event("INFO", "Server", "Stopping...")
 	done := make(chan struct{})
 	go func() {
 		bts.Disconnect()
@@ -352,10 +359,11 @@ func Shutdown() {
 	}()
 	select {
 	case <-done:
+		log.Event("INFO", "Server", "Stopped.")
 	case <-time.After(15 * time.Second):
-		log.TLogln("torr.Shutdown: teardown timed out — forcing exit")
+		log.Event("WARN", "Server", "Teardown timed out; forcing exit.")
 	}
-	log.TLogln("torr.Shutdown: received shutdown — quit")
+	log.CloseConsole()
 	os.Exit(0)
 }
 

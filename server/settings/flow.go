@@ -29,6 +29,8 @@ type FlowSettings struct {
 	RangeClassification    bool
 	MetricsEnabled         bool
 	DebugFlow              bool
+	DiagnosticHistory      bool
+	DHTStatePersistence    bool
 }
 
 // Zero custom values leave libtorrent's own setting unchanged.
@@ -64,7 +66,7 @@ func DefaultFlowSettings() *FlowSettings {
 		WarmSessionTimeoutSec: 600, RangeClassification: true,
 		NetworkRetryMinSec: 2, NetworkRetryMaxSec: 60,
 		SwarmProfile:   "legacy",
-		MetricsEnabled: true,
+		MetricsEnabled: true, DHTStatePersistence: true,
 	}
 }
 

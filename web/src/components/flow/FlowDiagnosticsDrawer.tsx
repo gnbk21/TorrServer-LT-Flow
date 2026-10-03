@@ -2,6 +2,8 @@ import { redactDiagnostic } from "../../lib/redact";
 import { useTranslation } from "react-i18next";
 import { Modal } from "../common/Modal";
 import type { FlowStatusResponse } from "../../types/flow";
+import { useFlowDiagnostics } from "../../hooks/queries";
+import { RequestError } from "../common/RequestState";
 export interface FlowDiagnosticsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -11,10 +13,12 @@ export interface FlowDiagnosticsDrawerProps {
 export function FlowDiagnosticsDrawer({
   isOpen,
   onClose,
-  status,
+  status: summary,
   torrentTitle,
 }: FlowDiagnosticsDrawerProps) {
   const { t } = useTranslation();
+  const diagnostics = useFlowDiagnostics(summary?.hash, isOpen);
+  const status = diagnostics.data ?? summary;
   return (
     <Modal
       isOpen={isOpen}
@@ -23,10 +27,30 @@ export function FlowDiagnosticsDrawer({
       subtitle={torrentTitle}
       maxWidth="4xl"
     >
+      {diagnostics.error && (
+        <RequestError
+          error={diagnostics.error}
+          stale={!!status}
+          retry={() => diagnostics.refetch()}
+        />
+      )}
       {!status ? (
         <p>{t("flow.noMetrics")}</p>
       ) : (
         <div className="space-y-5">
+          {status.startup?.wait_reason && (
+            <section className="panel" aria-live="polite">
+              <h3 className="font-semibold">{t("flow.startupWait")}</h3>
+              <p>
+                {t(`flow.startupStages.${status.startup.wait_reason}`, {
+                  defaultValue: "—",
+                })}
+              </p>
+              <p className="text-sm text-slate-400 mt-2">
+                {t("flow.startupTimingHint")}
+              </p>
+            </section>
+          )}
           {Object.entries({
             startup: status.startup,
             network: status.network,
@@ -37,12 +61,22 @@ export function FlowDiagnosticsDrawer({
                 {Object.entries(data || {}).map(([key, value]) => (
                   <div key={key}>
                     <dt className="text-sm text-slate-400">
-                      {t(`metrics.${key}`, {
+                      {t(`flow.metrics.${key}`, {
                         defaultValue: key.replaceAll("_", " "),
                       })}
                     </dt>
                     <dd className="font-mono break-all">
-                      {redactDiagnostic(value)}
+                      {key.endsWith("_ms") && typeof value === "number"
+                        ? value < 0
+                          ? "—"
+                          : `${value} ms`
+                        : key === "wait_reason" && typeof value === "string"
+                          ? t(`flow.startupStages.${value}`, {
+                              defaultValue: "—",
+                            })
+                          : typeof value === "object" && value !== null
+                            ? redactDiagnostic(JSON.stringify(value))
+                            : redactDiagnostic(value)}
                     </dd>
                   </div>
                 ))}
@@ -61,7 +95,7 @@ export function FlowDiagnosticsDrawer({
                   .map(([key, value]) => (
                     <div key={key}>
                       <dt className="text-sm text-slate-400">
-                        {t(`metrics.${key}`, {
+                        {t(`flow.metrics.${key}`, {
                           defaultValue: key.replaceAll("_", " "),
                         })}
                       </dt>

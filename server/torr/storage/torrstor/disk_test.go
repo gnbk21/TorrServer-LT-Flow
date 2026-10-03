@@ -148,6 +148,30 @@ func TestScanHavePieces_OffWhenUseDiskFalse(t *testing.T) {
 	}
 }
 
+func TestDiskResumeUsesExactFinalPieceSize(t *testing.T) {
+	dir := withDiskCache(t, 0)
+	h := mkHash(0xD9)
+	root := filepath.Join(dir, hashHex(h))
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data := bytes.Repeat([]byte{0x75}, 123)
+	if err := os.WriteFile(filepath.Join(root, "1"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := NewStorage()
+	s.callbackOpen(33, h, 2, pieceLen)
+	s.callbackSize(33, pieceLen+123)
+	c := s.lookup(33)
+	if !c.Have(1) || c.readableAt(1, 0) != 123 || c.readableAt(1, 123) != 0 {
+		t.Fatal("persisted short final piece did not retain bounded resume availability")
+	}
+	dst := make([]byte, 123)
+	if n, err := s.callbackRead(33, 1, 0, dst); err != nil || n != len(data) || !bytes.Equal(dst, data) {
+		t.Fatal("persisted final piece content changed")
+	}
+}
+
 func TestCache_LRUEvictsOldestWhenOverCapacity(t *testing.T) {
 	// Capacity = 2 pieces; write 4 → expect at least 2 evictions.
 	withDiskCache(t, 2*pieceLen)
@@ -247,6 +271,9 @@ func TestCache_EvictionSparesReaderWindow(t *testing.T) {
 	for _, gone := range []int{2, 10, 17, 18, 23, 25, 33} {
 		if present(gone) {
 			t.Fatalf("unprotected piece %d should have been evicted", gone)
+		}
+		if !c.consumeEvicted(gone) || c.consumeEvicted(gone) {
+			t.Fatalf("piece %d needs exactly one on-demand picker reset", gone)
 		}
 	}
 	if c.Filled() > c.capacity() {
@@ -606,14 +633,14 @@ func TestTailPiecesFor(t *testing.T) {
 		plen int64
 		want int
 	}{
-		{8 * MB, 1},  // > 5 MB -> one whole chunk
-		{6 * MB, 1},  // > 5 MB -> one whole chunk
-		{5 * MB, 1},  // == 5 MB -> the chunk already covers it
-		{4 * MB, 2},  // < 5 MB -> ceil(5/4) = 2
-		{2 * MB, 3},  // < 5 MB -> ceil(5/2) = 3
-		{1 * MB, 5},  // < 5 MB -> ceil(5/1) = 5
+		{8 * MB, 1},                   // > 5 MB -> one whole chunk
+		{6 * MB, 1},                   // > 5 MB -> one whole chunk
+		{5 * MB, 1},                   // == 5 MB -> the chunk already covers it
+		{4 * MB, 2},                   // < 5 MB -> ceil(5/4) = 2
+		{2 * MB, 3},                   // < 5 MB -> ceil(5/2) = 3
+		{1 * MB, 5},                   // < 5 MB -> ceil(5/1) = 5
 		{16 * 1024, maxTailPinPieces}, // tiny piece -> capped
-		{0, 1},       // no metadata yet
+		{0, 1},                        // no metadata yet
 	}
 	for _, c := range cases {
 		if got := TailPiecesFor(c.plen); got != c.want {
