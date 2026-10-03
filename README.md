@@ -78,7 +78,13 @@ Select a profile in **Settings → Flow → Swarm profile**. `connection_speed` 
 | **Aggressive streaming** | Starts from Conservative, then sets 100 connection attempts/second and an 80-peer connect boost. It ramps up faster than Balanced, but less than Legacy on these two settings; it is not proven faster overall. |
 | **Custom** | Starts from Conservative and applies only positive values entered for connection speed, connect boost, peer connect timeout, piece timeout, request queue time, and minimum reconnect time. `0` leaves that field at libtorrent's default. Use it for controlled experiments. |
 
-All profiles retain your cache, proxy, upload, and active-torrent settings. Saving a profile restarts the torrent engine and stops active streams. Keep **Legacy** unless testing shows another profile works better for your network and torrents.
+All profiles retain your cache, proxy, upload, and active-torrent settings.
+Development builds after Preview 2 `.5` also preserve healthy peers while a
+lazy/warm torrent has no requested pieces; Conservative uses libtorrent defaults
+for swarm tuning with these shared streaming lifecycle controls. Startup preload
+sets piece priorities without pausing and disconnecting the swarm. Saving a
+profile restarts the torrent engine and stops active streams. Keep **Legacy**
+unless testing shows another profile works better for your network and torrents.
 
 ## Build and project status
 

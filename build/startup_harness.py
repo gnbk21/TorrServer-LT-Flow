@@ -67,7 +67,7 @@ def run(executable, fixtures, output, assert_fast=False, profile="legacy"):
                 raise AssertionError("Preload returned without completing its buffer")
             if assert_fast and report["buffer_ready_ms"] >= 5000:
                 raise AssertionError("Healthy connected peer startup exceeded 5 seconds")
-            if assert_fast and profile == "legacy" and report["after"]["connections"] != report["before"]["connections"]:
+            if assert_fast and report["after"]["connections"] != report["before"]["connections"]:
                 raise AssertionError("Preload discarded an already connected peer")
             report["passed"] = True
     finally:

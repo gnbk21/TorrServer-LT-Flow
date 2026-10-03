@@ -270,6 +270,7 @@ jobs:
           sudo apt-get install -y ffmpeg
           python3 build/playback_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/controlled-playback --duration 20 --debug
           python3 build/startup_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/startup-check --assert-fast
+          python3 build/startup_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/startup-custom-check --profile custom --assert-fast
       - uses: actions/upload-artifact@v4
         if: always() && matrix.target == 'linux-amd64'
         with:
@@ -281,6 +282,8 @@ jobs:
             _out/controlled-playback/*/failure.json
             _out/startup-check/report.json
             _out/startup-check/state/server-output.log
+            _out/startup-custom-check/report.json
+            _out/startup-custom-check/state/server-output.log
             _out/maintenance-check/report.json
             _out/library-upsert-benchmark.txt
           if-no-files-found: warn
