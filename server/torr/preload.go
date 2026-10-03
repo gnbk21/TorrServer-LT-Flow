@@ -756,7 +756,9 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	}
 	t.mu.Unlock()
 
-	ready() // endpoint is released; this worker still owns the warm handoff.
+	if probe && preloadOK {
+		ready() // explicit preload is released; this worker owns the warm handoff.
+	}
 
 	// Poll-gap prefetch (&preload path only). Keep the burst alive and build a
 	// readahead window PAST the head while the polling client launches its player,

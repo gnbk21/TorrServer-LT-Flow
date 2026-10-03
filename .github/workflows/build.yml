@@ -285,6 +285,8 @@ jobs:
             _out/startup-check/state/server-output.log
             _out/startup-custom-check/report.json
             _out/startup-custom-check/state/server-output.log
+            _out/discovery-check/report.json
+            _out/discovery-check/*/server-output.log
             _out/maintenance-check/report.json
             _out/library-upsert-benchmark.txt
           if-no-files-found: warn

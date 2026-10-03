@@ -99,7 +99,10 @@ def run(executable, fixtures, output, assert_fast=False, profile="legacy"):
             # grace. Removal must join that owner without waiting eight seconds.
             server.json(path, timeout=10)
             removing = time.monotonic()
-            server.json("/torrents", {"action":"rem", "hash":swarm.info_hash.hex()})
+            with server.request("/torrents", {"action":"rem", "hash":swarm.info_hash.hex()}) as response:
+                if response.status != 200:
+                    raise AssertionError("Torrent removal failed")
+                response.read()
             report["remove_during_handoff_ms"] = (time.monotonic()-removing)*1000
             if report["remove_during_handoff_ms"] > 2000:
                 raise AssertionError("Removal waited for the warm grace")
