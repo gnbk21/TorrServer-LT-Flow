@@ -2209,3 +2209,17 @@ func (c *Cache) ReleasePreloadDemand(pieces []int) {
 		c.applyStreamPriorities()
 	}
 }
+
+// StreamingReadersForFile excludes probes and viewers of another episode. Only
+// a reader of this file can take its preload scheduling over.
+func (c *Cache) StreamingReadersForFile(offset, length int64) int {
+	c.readersMu.Lock()
+	defer c.readersMu.Unlock()
+	n := 0
+	for r := range c.readers {
+		if !r.internal && r.file.Offset == offset && r.file.Length == length {
+			n++
+		}
+	}
+	return n
+}

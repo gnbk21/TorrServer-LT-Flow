@@ -566,7 +566,8 @@
       "PLAYING": "Redare",
       "CANCELLED": "Anulat",
       "TIMEOUT": "Timp expirat",
-      "FAILED": "Eșec"
+      "FAILED": "Eșec",
+      "READER_WINDOW": "Cititorul activ controlează bufferul"
     },
     "metrics": {
       "wait_reason": "Motivul așteptării",

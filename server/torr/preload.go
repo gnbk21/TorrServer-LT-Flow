@@ -308,6 +308,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	moovKnown := false
 	cache.SetPreloadReserve([][2]int{{headFirst, headLast}, {tailFirst, tailLast}})
 	preloadOK := false
+	readerTookOver := false
 	parentCtx := ctx
 	var warmPieces []int
 	defer func() {
@@ -717,7 +718,8 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 				break
 			}
 		}
-		if cache.StreamingReaders() > 0 && headComplete {
+		if cache.StreamingReadersForFile(f.Offset, f.Length) > 0 && headComplete {
+			readerTookOver = true
 			break
 		}
 		select {
@@ -735,6 +737,9 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	outcome := "READY"
 	if !preloadOK {
 		outcome = "FAILED"
+		if readerTookOver {
+			outcome = "READER_WINDOW"
+		}
 		if ctx.Err() == context.DeadlineExceeded {
 			outcome = "TIMEOUT"
 		} else if ctx.Err() != nil {

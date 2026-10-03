@@ -513,7 +513,8 @@
       "PLAYING": "Playing",
       "CANCELLED": "Cancelled",
       "TIMEOUT": "Timed out",
-      "FAILED": "Failed"
+      "FAILED": "Failed",
+      "READER_WINDOW": "The active reader controls buffering"
     },
     "metrics": {
       "wait_reason": "Wait reason",

@@ -59,7 +59,7 @@ func (t *Torrent) FlowStartup() FlowStartupStatus {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	s := t.flowStartup
-	if !t.flowStartupStarted.IsZero() && s.WaitReason != "READY" && s.WaitReason != "PLAYING" && s.WaitReason != "FAILED" && s.WaitReason != "TIMEOUT" && s.WaitReason != "CANCELLED" {
+	if !t.flowStartupStarted.IsZero() && s.WaitReason != "READER_WINDOW" && s.WaitReason != "READY" && s.WaitReason != "PLAYING" && s.WaitReason != "FAILED" && s.WaitReason != "TIMEOUT" && s.WaitReason != "CANCELLED" {
 		s.ElapsedMs = time.Since(t.flowStartupStarted).Milliseconds()
 	}
 	return s
@@ -89,6 +89,8 @@ func (t *Torrent) startupStage(stage string) {
 	}
 	t.flowStartup.StageStartedMs, t.flowStartup.ElapsedMs = elapsed, elapsed
 	switch stage {
+	case "READER_WINDOW":
+		t.flowStartup.State = "PLAYING"
 	case "READY", "PLAYING", "FAILED", "TIMEOUT", "CANCELLED":
 		t.flowStartup.State = stage
 	}

@@ -572,7 +572,8 @@
       "PLAYING": "正在播放",
       "CANCELLED": "已取消",
       "TIMEOUT": "已超时",
-      "FAILED": "失败"
+      "FAILED": "失败",
+      "READER_WINDOW": "活动读取连接正在控制缓冲"
     },
     "metrics": {
       "wait_reason": "等待原因",

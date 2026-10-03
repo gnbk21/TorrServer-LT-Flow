@@ -572,7 +572,8 @@
       "PLAYING": "Lecture",
       "CANCELLED": "Annulé",
       "TIMEOUT": "Délai dépassé",
-      "FAILED": "Échec"
+      "FAILED": "Échec",
+      "READER_WINDOW": "Le lecteur actif contrôle le tampon"
     },
     "metrics": {
       "wait_reason": "Motif de l’attente",
