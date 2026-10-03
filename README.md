@@ -93,7 +93,7 @@ unless testing shows another profile works better for your network and torrents.
 
 ## Startup diagnostics in development builds
 
-The next development revision returns explicit preload requests when the buffer
+Current development builds return explicit preload requests when the buffer
 is ready; an owned worker keeps the existing eight-second warm handoff in the
 background. Same-file requests share that worker, and an episode switch or
 removal cancels and joins the old owner. Reader windows continue to own playback
@@ -123,7 +123,10 @@ atomically; corrupt state is ignored without blocking local startup. Empty
 routing snapshots do not erase previous useful nodes. Read-only mode prevents
 writes; disabling DHT prevents loading and saving it. The binary routing file
 contains network addresses and should not be included in shared diagnostic logs.
-Persisted nodes are discovery hints; normal network-change recovery still applies.
+Persisted nodes are discovery hints. A bounded set (up to 32 per address family)
+is reintroduced through libtorrent's public API after UDP listener readiness,
+including listener changes; this handles late sockets without replacing native
+discovery or network-change recovery.
 Public-swarm and phone performance comparisons remain acceptance work.
 
 ## Build and project status

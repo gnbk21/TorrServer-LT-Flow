@@ -37,7 +37,7 @@ The fixes remove the preload pause/resume and retain the existing
 `close_redundant_connections=false` setting across every swarm profile. They
 do not lower connection timeouts or add a second cache.
 
-The explicit preload endpoint also retains an eight-second handoff/prefetch
+The `4eed4944` explicit preload endpoint also retains an eight-second handoff/prefetch
 grace after the buffer is ready. Lampa normally polls the torrent state and can
 launch playback during that grace. Endpoint response duration and playable
 buffer readiness must therefore be measured separately. This grace does not
@@ -108,7 +108,16 @@ Use your usual state directory and port when launching it. Verification used
 separate disposable directories and stopped every owned process; personal
 playback state and the published release were not modified.
 
-## Useful next work, in priority order
+## Follow-up implementation
+
+Development source `6d5c9129` implements the first four items below: opt-in
+bounded history, native DHT routing-state reuse, translated startup explanations,
+and an early explicit-preload response with an owned background handoff. See
+[NEXT_IMPROVEMENTS.md](NEXT_IMPROVEMENTS.md) for implementation and verification.
+The published `.5` release predates these changes. Public-swarm and real phone
+comparisons remain separate acceptance evidence.
+
+## Improvement priorities and remaining validation
 
 | Improvement | Expected benefit | Validation needed |
 | --- | --- | --- |
@@ -135,7 +144,16 @@ media buffer are not justified by the observed startup problem.
 
 ## Capturing a future session
 
-Use the executable's existing file logging with the same state directory and
+In the new development build, enable **Retain diagnostic history** before the
+session to retain allowlisted startup events across process restarts. The
+`flow-history.jsonl` files in the state directory have a combined 4 MiB limit;
+records exclude URLs, names/hashes and credentials. Queue overflow and disk
+errors are visible in network diagnostics. This setting is off by default and
+cannot reconstruct an earlier session. Do not share the separate `flow-dht.bin`
+routing file, which contains network addresses.
+
+For a detailed short capture, use the executable's existing file logging with
+the same state directory and
 port you normally use, for example adding `--logpath .\flow.log`. This selects
 UTC file logging instead of the console panel. For detailed short captures,
 enable Flow Range tracing and Debug Flow in settings before reproducing the
@@ -143,6 +161,7 @@ issue, then disable them afterward. Settings changes restart the engine, so
 apply them before starting playback. Access logs are optional and can contain
 private URLs; they are not needed for an initial startup-stage capture.
 
-Existing diagnostics are runtime observations and disappear when the torrent
+Live diagnostics are runtime observations and disappear when the torrent
 expires or the process exits. A saved support report during the problem is
-useful, but cannot reconstruct an already-ended session.
+useful, but cannot reconstruct an already-ended session unless retained history
+was enabled beforehand. Retained stage events are not complete HTTP traces.

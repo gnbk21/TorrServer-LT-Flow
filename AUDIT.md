@@ -4,6 +4,10 @@
 changes and present gates. The observations and missing features below refer to
 the revisions named in this audit; they are not a current feature inventory.
 
+For the 3–4 October startup/history/DHT follow-up, see
+[NEXT_IMPROVEMENTS.md](NEXT_IMPROVEMENTS.md). Its development implementation and
+verification do not change the published Preview 2 `.5` acceptance boundaries.
+
 This document records the core audit and historical acceptance boundaries.
 For the modern interface implemented on `feature/modern-web`, see
 [WEB_AUDIT.md](WEB_AUDIT.md), [the implementation ledger](MODERNIZATION_CHECKLIST.md)
