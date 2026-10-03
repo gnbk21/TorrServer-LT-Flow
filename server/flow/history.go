@@ -1,6 +1,7 @@
 package flow
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -148,7 +149,7 @@ func openHistory(name string) (*os.File, int64, error) {
 	} else if err != nil && !os.IsNotExist(err) {
 		return nil, 0, err
 	}
-	f, err := os.OpenFile(name, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(name, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -164,7 +165,34 @@ func openHistory(name string) (*os.File, int64, error) {
 		}
 		return f, 0, nil
 	}
-	return f, st.Size(), nil
+	size := st.Size()
+	if size > 0 {
+		// A killed process or short disk write may leave one partial line. Every
+		// event is <1 KiB, so recovery never scans the entire retained file.
+		n := min(size, int64(1024))
+		tail := make([]byte, n)
+		if _, err := f.ReadAt(tail, size-n); err != nil {
+			f.Close()
+			return nil, 0, err
+		}
+		if tail[len(tail)-1] != '\n' {
+			i := bytes.LastIndexByte(tail, '\n')
+			if i < 0 {
+				size = 0
+			} else {
+				size = size - n + int64(i) + 1
+			}
+			if err := f.Truncate(size); err != nil {
+				f.Close()
+				return nil, 0, err
+			}
+		}
+	}
+	if _, err := f.Seek(size, io.SeekStart); err != nil {
+		f.Close()
+		return nil, 0, err
+	}
+	return f, size, nil
 }
 
 func rotateHistory(name string) error {
@@ -234,7 +262,14 @@ func (h *History) writeLoop(f *os.File, name string, size int64) {
 			h.failures.Add(1)
 			return
 		}
+		beforeErrors := h.failures.Load()
 		size += h.consume(f, e)
+		if h.failures.Load() != beforeErrors {
+			// Do not append complete records to a partial line after disk failure.
+			// Producers keep returning immediately; a restart repairs the tail.
+			_ = f.Close()
+			f = nil
+		}
 	}
 	for {
 		select {

@@ -20,7 +20,7 @@ func TestHistoryRetentionPrivacyAndRotation(t *testing.T) {
 		if i > 0 {
 			path = fmt.Sprintf("%s.%d", name, i)
 		}
-		if err := os.WriteFile(path, bytes.Repeat([]byte(" "), HistoryFileBytes-512), 0600); err != nil {
+		if err := os.WriteFile(path, bytes.Repeat([]byte("\n"), HistoryFileBytes-512), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -132,5 +132,35 @@ func TestDHTFileBoundsAndAtomicReplacement(t *testing.T) {
 	}
 	if _, err := ReadDHTFile(name); err == nil {
 		t.Fatal("unbounded read")
+	}
+}
+
+func TestHistoryRepairsInterruptedLastRecord(t *testing.T) {
+	dir := t.TempDir()
+	name := filepath.Join(dir, "flow-history.jsonl")
+	good := []byte(`{"type":"engine_started"}` + "\n")
+	if err := os.WriteFile(name, append(append([]byte(nil), good...), []byte(`{"type":"start`)...), 0600); err != nil {
+		t.Fatal(err)
+	}
+	h, err := NewHistory(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.Record(HistoryEvent{Type: "engine_stopped"})
+	if !h.Close(time.Second) {
+		t.Fatal("history did not drain")
+	}
+	data, _ := os.ReadFile(name)
+	if !bytes.HasPrefix(data, good) {
+		t.Fatal("valid history was lost")
+	}
+	lines := bytes.Split(bytes.TrimSpace(data), []byte("\n"))
+	if len(lines) != 2 {
+		t.Fatalf("partial record retained: %q", data)
+	}
+	for _, line := range lines {
+		if !json.Valid(line) {
+			t.Fatalf("invalid history: %q", line)
+		}
 	}
 }
