@@ -40,7 +40,7 @@ func makeSyntheticTorrent(content []byte, name string) (torrentBytes, infoSectio
 //   - lt.NewSession picks up the custom disk_io
 //   - AddTorrent(InfoBytes + HavePieces=[1]) tells libtorrent it
 //     already has the piece, with `no_verify_files` skipping the hash
-//     recheck (the trust-file-sizes resume policy)
+	//     recheck after the application has verified the exact piece hash
 //   - torrstor.NewReader pulls the bytes out through the same Cache
 //     instance libtorrent now owns
 //
@@ -76,6 +76,12 @@ func TestE2E_LocalSessionReaderReadsHavePiece(t *testing.T) {
 
 	// 3. Wire the Go storage backend into libtorrent's disk_io.
 	s := NewStorage()
+	pieceHash := sha1.Sum(content)
+	verified := ScanHavePieces(infoHash, 1, int64(len(content)), int64(len(content)), [][20]byte{pieceHash})
+	if len(verified) != 1 || verified[0] != 1 {
+		t.Fatal("resume verifier did not accept the matching piece")
+	}
+	s.SetVerifiedResume(infoHash, verified, int64(len(content)))
 	if err := s.Install(); err != nil {
 		t.Fatalf("Install storage: %v", err)
 	}
@@ -96,7 +102,7 @@ func TestE2E_LocalSessionReaderReadsHavePiece(t *testing.T) {
 	// 5. Add the torrent with HavePieces=[bit0 set].
 	tor, err := sess.AddTorrent(lt.AddTorrentParams{
 		InfoBytes:  torrentBytes,
-		HavePieces: []byte{0x01},
+		HavePieces: verified,
 		PieceCount: 1,
 		SavePath:   dir,
 		Paused:     true,
