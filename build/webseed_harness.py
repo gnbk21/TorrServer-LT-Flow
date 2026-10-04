@@ -10,6 +10,7 @@ import urllib.error
 
 from controlled_peer import LocalSwarm, PeerPlan, bencode
 from playback_harness import OwnedServer, upload, range_read, MIB
+from preparation_harness import restart_after_crash
 
 
 class Mirror:
@@ -52,23 +53,23 @@ class Mirror:
         return self
     def __exit__(self, *_):
         self.server.shutdown(); self.server.server_close(); self.thread.join(2)
-    def url(self, redirect=False):
-        return f'http://127.0.0.1:{self.server.server_port}/'+('redirect/' if redirect else 'data/')
+    def url(self, redirect=False, hostname='127.0.0.1'):
+        return f'http://{hostname}:{self.server.server_port}/'+('redirect/' if redirect else 'data/')
 
 
 def run(executable, output):
     source = bytes((i*17+i//1024)%256 for i in range(3*MIB+19))
     episode = output/'episode.bin'; episode.write_bytes(source)
     report = {'cases':[], 'http_delivery_only':True}
-    for mode in ('identical', 'redirect', 'mismatch', 'unreachable'):
+    for mode in ('identical', 'redirect', 'mismatch', 'unreachable', 'blocked-dns'):
         case = {'case':mode}
         server = OwnedServer(executable, output/mode, extra_settings={'EnableDebug':True})
         try:
             server.ready()
-            with Mirror(source, mode) as mirror, LocalSwarm([episode], peers=[PeerPlan(choke_until=6 if mode in ('mismatch','unreachable') else 300)]) as swarm:
+            with Mirror(source, mode) as mirror, LocalSwarm([episode], peers=[PeerPlan(choke_until=6 if mode in ('mismatch','unreachable','blocked-dns') else 300)]) as swarm:
                 # Imported local metadata cannot authorize reaching the LAN.
                 tracker = f'http://127.0.0.1:{swarm.tracker.server_port}/announce'
-                torrent = bencode({b'announce':tracker,b'info':swarm.info,b'url-list':[mirror.url(mode=='redirect')]})
+                torrent = bencode({b'announce':tracker,b'info':swarm.info,b'url-list':[mirror.url(mode=='redirect', 'localhost' if mode=='blocked-dns' else '127.0.0.1')]})
                 original = swarm.torrent
                 swarm.torrent = lambda: torrent
                 status = upload(server,swarm)
@@ -81,14 +82,17 @@ def run(executable, output):
                 except urllib.error.HTTPError as error:
                     if error.code != 409: raise
                 else: raise AssertionError('local URL accepted without approval')
-                server.json(endpoint,{'action':'add','url':mirror.url(mode=='redirect'),'allow_local':True})
+                if mode!='blocked-dns':
+                    server.json(endpoint,{'action':'add','url':mirror.url(mode=='redirect'),'allow_local':True})
                 sources=server.json(endpoint)
                 if any('/data' in s['origin'] or '/redirect' in s['origin'] for s in sources['sources']): raise AssertionError('source path leaked')
                 case['head']=range_read(server,hash_text,index,source,0,65535)
                 case['tail']=range_read(server,hash_text,index,source,len(source)-65536,len(source)-1)
-                if not mirror.requests: raise AssertionError('native mirror path was not exercised')
+                if mode=='blocked-dns':
+                    if mirror.requests: raise AssertionError('DNS-resolved LAN mirror bypassed the destination guard')
+                elif not mirror.requests: raise AssertionError('native mirror path was not exercised')
                 if mode=='redirect' and not any(r['redirect'] for r in mirror.requests): raise AssertionError('redirect not exercised')
-                if mode in ('mismatch','unreachable') and swarm.status()['sent_bytes']==0: raise AssertionError('peer fallback not exercised')
+                if mode in ('mismatch','unreachable','blocked-dns') and swarm.status()['sent_bytes']==0: raise AssertionError('peer fallback not exercised')
                 if len(mirror.requests)>24: raise AssertionError('unbounded mirror retries')
                 case['mirror_requests']=mirror.requests
                 case['swarm']=swarm.status()
@@ -96,6 +100,9 @@ def run(executable, output):
                 for item in sources['sources']:
                     server.json(endpoint,{'action':'remove','id':item['id']})
                 if not all(s['disabled'] for s in server.json(endpoint)['sources']): raise AssertionError('disable did not persist')
+                restart_after_crash(server)
+                if not all(s['disabled'] for s in server.json(endpoint)['sources']): raise AssertionError('imported source returned after restart')
+                case['disabled_after_restart']=True
                 case['passed']=True
         finally:
             server.close()

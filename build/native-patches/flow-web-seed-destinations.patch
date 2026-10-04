@@ -17,13 +17,14 @@
  
  		// --- TRACKERS ---
  
-@@ -7127,6 +7134,16 @@
+@@ -7127,6 +7134,17 @@
  		// settings_pack::proxy_hostnames), "a" is an unspecified-address
  		// placeholder and there's no IP known here to filter against
  		bool const address_known = !a.address().is_unspecified();
 +		// Recheck every resolved endpoint, including literal IPs, cached
 +		// endpoints and redirects. A proxy-hidden address cannot be validated.
-+		if (web->no_local_ips && (!address_known || !aux::is_global(a.address())))
++		if (!address_known || a.address().is_multicast() || aux::is_link_local(a.address())
++			|| (web->no_local_ips && !aux::is_global(a.address())))
 +		{
 +			web->disabled = true;
 +			if (m_ses.alerts().should_post<url_seed_alert>())

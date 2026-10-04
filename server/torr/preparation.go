@@ -261,6 +261,14 @@ func PrepareEpisode(hashText string, index int, action string) error {
 	if j == nil {
 		return errors.New("preparation job not found")
 	}
+	// Cleanup may already have fenced readers and removed the native handle.
+	// Reversing it would leave a resumed job attached to a closed cache.
+	if j.State == "cleaning" {
+		if action == "remove" {
+			return nil
+		}
+		return errors.New("wait for preparation cleanup to finish")
+	}
 	previous, previousError := j.State, j.ErrorCode
 	switch action {
 	case "start", "resume":
