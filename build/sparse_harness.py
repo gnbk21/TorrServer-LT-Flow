@@ -13,7 +13,7 @@ import http.client
 import math
 from pathlib import Path
 import time
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from controlled_peer import LocalSwarm, PeerPlan
 from fixtures import generate
@@ -105,6 +105,10 @@ def run(executable, root, fixture, label, media_rate, profile='custom', piece_le
                 status=upload(server,swarm)
             if status['hash']!=swarm.info_hash.hex(): raise AssertionError('identity changed')
             index=status['file_stats'][0]['id']
+            if label in ('below','near','above','latency','variation'):
+                preload_started=time.monotonic()
+                server.json('/stream/generated?'+urlencode({'link':swarm.info_hash.hex(),'index':index,'preload':'','stat':'controlled-preload'}),timeout=90)
+                report['buffer_gate_response_ms']=(time.monotonic()-preload_started)*1000
             with ThreadPoolExecutor(max_workers=1) as pool:
                 task=pool.submit(range_read,server,swarm.info_hash.hex(),index,source,0,min(len(source)-1,65535))
                 report['samples']=[]
