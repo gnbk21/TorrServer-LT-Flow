@@ -217,12 +217,21 @@ func SetTorrent(hashHex, title, poster, category, data string) *Torrent {
 
 // RemTorrent removes a torrent from memory, the DB and (when configured)
 // the on-disk cache directory.
-func RemTorrent(hashHex string) {
+func RemTorrent(hashHex string) error {
 	if sets.ReadOnly {
 		log.TLogln("torr.RemTorrent: read-only DB mode:", hashHex)
-		return
+		return errors.New("read-only DB mode")
 	}
 	hash := NewHashFromHex(hashHex)
+	if bts != nil && bts.preparation != nil {
+		if handled, err := bts.preparation.removeTorrentJobs(hash); handled {
+			if err != nil {
+				return err
+			}
+			RemTorrentDB(hash)
+			return nil // cleanup owns the native handle and retained files
+		}
+	}
 
 	tor := bts.GetTorrent(hash)
 	if tor == nil {
@@ -230,7 +239,7 @@ func RemTorrent(hashHex string) {
 		if sets.BTsets().UseDisk && hashHex != "" && hashHex != "/" {
 			os.RemoveAll(filepath.Join(sets.BTsets().TorrentsSavePath, hashHex))
 		}
-		return
+		return nil
 	}
 
 	closeCh := tor.closeCh
@@ -249,6 +258,7 @@ func RemTorrent(hashHex string) {
 		}
 	}
 	RemTorrentDB(hash)
+	return nil
 }
 
 // ListTorrent merges in-memory torrents with DB-only records.

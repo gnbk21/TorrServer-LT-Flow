@@ -31,7 +31,11 @@ func (s *Storage) ConfigurePreparation(hash [20]byte, plan PreparationStorage) e
 	if s.preparations == nil {
 		s.preparations = make(map[[20]byte]PreparationStorage)
 	}
-	s.preparations[hash] = PreparationStorage{plan.Root, clonePreparationRanges(plan.Ranges)}
+	if len(plan.Ranges) == 0 {
+		delete(s.preparations, hash)
+	} else {
+		s.preparations[hash] = PreparationStorage{plan.Root, clonePreparationRanges(plan.Ranges)}
+	}
 	c := s.byHash[hash]
 	s.mu.Unlock()
 	if c != nil {
@@ -58,6 +62,7 @@ func (c *Cache) configurePreparation(plan PreparationStorage) error {
 	if err := os.MkdirAll(filepath.Join(plan.Root, hashHex(c.InfoHash)), 0700); err != nil {
 		return err
 	}
+	var migrationBuffer []byte
 	for _, p := range c.pieces {
 		p.mu.Lock()
 		if p.mem != nil {
@@ -70,6 +75,34 @@ func (c *Cache) configurePreparation(plan PreparationStorage) error {
 			}
 			p.mem.Release()
 			p.mem = nil
+			p.disk = dp
+		} else if p.disk != nil && p.disk.dir != filepath.Join(plan.Root, hashHex(c.InfoHash)) {
+			// A retained manager root may differ from a new ordinary disk-cache
+			// path. Migrate its existing backend too, using bounded scratch space.
+			dp := newDiskPiece(p, plan.Root)
+			if migrationBuffer == nil {
+				migrationBuffer = make([]byte, 64<<10)
+			}
+			buffer := migrationBuffer
+			for off := int64(0); off < p.size; {
+				n, err := p.disk.ReadAt(buffer[:min(int64(len(buffer)), p.size-off)], off)
+				if err != nil || n == 0 {
+					p.mu.Unlock()
+					return errors.New("cannot read preparation migration piece")
+				}
+				if written, err := dp.WriteAt(buffer[:n], off); err != nil || written != n {
+					p.mu.Unlock()
+					return errors.New("cannot persist preparation migration piece")
+				}
+				off += int64(n)
+			}
+			if p.size > 0 {
+				if err := dp.Sync(); err != nil {
+					p.mu.Unlock()
+					return errors.New("cannot sync preparation migration piece")
+				}
+			}
+			p.disk.Release()
 			p.disk = dp
 		}
 		p.mu.Unlock()

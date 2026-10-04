@@ -163,6 +163,38 @@ func (p *preparationManager) configure(hash Hash) error {
 	}
 	return torrstor.Global().ConfigurePreparation(hash, torrstor.PreparationStorage{Root: p.root, Ranges: ranges})
 }
+
+// Library deletion must stop durable jobs before removing their torrent. The
+// same cleanup fence as explicit job removal owns active readers and disk work.
+func (p *preparationManager) removeTorrentJobs(hash Hash) (bool, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	previous := make(map[*preparationRecord]string)
+	for _, j := range p.jobs {
+		if j.Spec.InfoHash == hash {
+			previous[j] = j.State
+		}
+	}
+	if len(previous) == 0 {
+		return false, nil
+	}
+	if p.failure != "" {
+		return true, errors.New("preparation state requires repair")
+	}
+	for j := range previous {
+		j.State = "cleaning"
+	}
+	if err := p.save(); err != nil {
+		for j, state := range previous {
+			j.State = state
+		}
+		return true, errors.New("cannot persist preparation cleanup")
+	}
+	if err := p.configure(hash); err != nil {
+		return true, errors.New("preparation cleanup pending; storage unavailable")
+	}
+	return true, nil
+}
 func PreparationSnapshot() PreparationStatus {
 	if bts == nil || bts.preparation == nil {
 		return PreparationStatus{Jobs: []PreparationJob{}, ErrorCode: "NOT_STARTED"}

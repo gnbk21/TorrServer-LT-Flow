@@ -66,3 +66,38 @@ func TestPreparationCleanupFencesReaderRegistration(t *testing.T) {
 		t.Fatal("new reader raced cleanup")
 	}
 }
+
+func TestPreparationMigratesExistingDiskCacheAndDropsEmptyPlan(t *testing.T) {
+	previous := settings.BTsets()
+	oldRoot, retainedRoot := t.TempDir(), t.TempDir()
+	settings.StoreBTsets(&settings.BTSets{UseDisk: true, TorrentsSavePath: oldRoot, CacheSize: 2 << 20})
+	t.Cleanup(func() { settings.StoreBTsets(previous) })
+	s := NewStorage()
+	hash := mkHash(0x93)
+	s.callbackOpen(71, hash, 1, 128<<10)
+	s.callbackSize(71, 128<<10)
+	c := s.CacheByHash(hash)
+	data := bytes.Repeat([]byte{0x39}, 128<<10)
+	if _, err := c.writePiece(0, 0, data); err != nil {
+		t.Fatal(err)
+	}
+	c.SignalPieceComplete(0)
+	plan := PreparationStorage{Root: retainedRoot, Ranges: map[string]PreparationRange{"job": {0, 0, true}}}
+	if err := s.ConfigurePreparation(hash, plan); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(retainedRoot, hashHex(hash), "0"))
+	if err != nil || !bytes.Equal(got, data) || !c.Have(0) {
+		t.Fatal("existing disk backend was not migrated intact", err)
+	}
+	if _, err := os.Stat(filepath.Join(oldRoot, hashHex(hash), "0")); !os.IsNotExist(err) {
+		t.Fatal("kept an old disk backend after migration", err)
+	}
+	if err := s.ConfigurePreparation(hash, PreparationStorage{Root: retainedRoot}); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := s.preparations[hash]; exists {
+		t.Fatal("empty plan redirected a future ordinary cache")
+	}
+	s.callbackClose(71)
+}

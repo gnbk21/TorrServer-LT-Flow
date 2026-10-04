@@ -109,6 +109,40 @@ def run(executable, output):
                 if err.code!=409: raise
             else: raise AssertionError('disk quota accepted oversized preparation')
         report['quota_rejected']=True
+        # A later job must migrate a populated ordinary disk cache to the
+        # retained manager root, and library deletion must stop its job too.
+        with LocalSwarm([episode]) as swarm:
+            item=upload(server,swarm)
+            request={'hash':item['hash'],'file_index':item['file_stats'][0]['id']}
+            range_read(server,item['hash'],request['file_index'],source,0,65535)
+            ordinary=server.state/'changed-disk-root'/item['hash']/'0'
+            if not ordinary.exists():raise AssertionError('ordinary disk backend was not exercised')
+            server.json('/flow/preparation',{**request,'action':'start'})
+            wait_job(server,'ready')
+            retained=server.state/'flow-pieces'/item['hash']/'0'
+            if not retained.exists() or ordinary.exists():raise AssertionError('existing disk backend did not move to retained root')
+            report['new_job_disk_migration']=True
+            player=http.client.HTTPConnection('127.0.0.1',server.port,timeout=10)
+            try:
+                player.connect();player.sock.setsockopt(socket.SOL_SOCKET,socket.SO_RCVBUF,4096)
+                player.request('GET',f"/play/{item['hash']}/{request['file_index']}?play&stat=library-cleanup",headers={'Range':f'bytes=0-{len(source)-1}'})
+                response=player.getresponse()
+                if response.status!=206 or response.read(1)!=source[:1]:raise AssertionError('library cleanup player failed')
+                server.json('/torrents',{'action':'rem','hash':item['hash']})
+                end=time.monotonic()+8
+                while time.monotonic()<end:
+                    jobs=server.json('/flow/preparation')['jobs']
+                    if jobs and jobs[0].get('error_code')=='PLAYBACK_ACTIVE':break
+                    time.sleep(.1)
+                else:raise AssertionError('library deletion bypassed preparation reader fence')
+                if not retained.exists():raise AssertionError('library deletion removed active data')
+            finally:player.close()
+            end=time.monotonic()+20
+            while server.json('/flow/preparation')['jobs'] and time.monotonic()<end:time.sleep(.25)
+            if server.json('/flow/preparation')['jobs']:raise AssertionError('library cleanup retained jobs')
+            time.sleep(2)
+            if any(t['hash']==item['hash'] for t in server.json('/torrents',{'action':'list'})):raise AssertionError('deleted preparation resurrected its torrent')
+            report['library_cleanup_fenced']=True
         broken=OwnedServer(executable,output/'disk-failure',seed_files={'flow-pieces':b'not a directory'})
         try:
             broken.ready()
