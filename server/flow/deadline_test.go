@@ -24,3 +24,17 @@ func TestDemandDeadlineUsesBytesAndQualifiedRate(t *testing.T) {
 		}
 	}
 }
+
+func TestScarceHintNeverOvertakesBlockedDemand(t *testing.T) {
+	if ScarceDeadline(0, 0, true, true, true) != 0 || ScarceDeadline(1, 1200, true, true, true) != 200 || ScarceDeadline(2, 500, true, true, true) != 50 {
+		t.Fatal("scarce lead bounds")
+	}
+	for _, input := range []struct {
+		position              int
+		sole, variable, fresh bool
+	}{{5, true, true, true}, {1, false, true, true}, {1, true, false, true}, {1, true, true, false}} {
+		if ScarceDeadline(input.position, 2500, input.sole, input.variable, input.fresh) != 2500 {
+			t.Fatal("unqualified scarce evidence changed demand")
+		}
+	}
+}

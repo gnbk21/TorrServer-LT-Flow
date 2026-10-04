@@ -59,7 +59,7 @@ func (t *Torrent) savePeerHints(handle *lt.Torrent, private bool) {
 		return
 	}
 	peers, err := handle.ResumePeerHints()
-	if err != nil || len(peers) == 0 {
+	if err != nil || len(peers.Peers) == 0 {
 		return
 	}
 	network := peerHintsNetwork()
@@ -117,5 +117,5 @@ func (t *Torrent) savePeerHints(handle *lt.Torrent, private bool) {
 		}
 		files = files[1:]
 	}
-	_ = flow.WritePeerHints(name, flow.PeerHints{Version: 1, Network: network, SavedAt: time.Now(), Peers: peers})
+	_ = flow.WritePeerHints(name, flow.PeerHints{Version: 1, Network: network, SavedAt: time.UnixMilli(peers.ObservedAtMs), Peers: peers.Peers})
 }

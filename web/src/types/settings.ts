@@ -33,6 +33,7 @@ export interface FlowSettings {
   DHTStatePersistence?: boolean;
   PreparationQuotaMB?: number;
   PeerResumeHints?: boolean;
+  ScarcePieceHints?: boolean;
 }
 
 export interface TMDBSettings {

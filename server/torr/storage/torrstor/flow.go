@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"server/flow"
+	"server/lt"
 	"server/settings"
 )
 
@@ -25,6 +26,47 @@ type FlowWindowStatus struct {
 	ObservedConfidence   string  `json:"observed_confidence"`
 	TargetBufferSeconds  int     `json:"target_buffer_seconds"`
 	ForwardWindowPieces  int     `json:"forward_window_pieces"`
+}
+
+func (c *Cache) SetScarceEvidence(snapshot lt.SparseSnapshot) {
+	if c == nil {
+		return
+	}
+	c.flowMu.Lock()
+	defer c.flowMu.Unlock()
+	c.flowScarce = nil
+	c.flowScarceAt = time.Time{}
+	age := time.Since(time.UnixMilli(snapshot.SampledAtMs))
+	if !snapshot.Known || snapshot.Truncated || age < 0 || age > 5*time.Second {
+		return
+	}
+	c.flowScarce = make(map[int]bool)
+	for _, window := range snapshot.Windows {
+		for i, count := range window.Availability {
+			if count == 1 && len(c.flowScarce) < 256 {
+				c.flowScarce[window.FirstPiece+i] = true
+			}
+		}
+	}
+	c.flowScarceAt = time.UnixMilli(snapshot.SampledAtMs)
+}
+
+func (c *Cache) scarceDemand() (map[int]bool, bool) {
+	if !settings.CurrentFlow().ScarcePieceHints {
+		return nil, false
+	}
+	c.flowMu.Lock()
+	defer c.flowMu.Unlock()
+	age := time.Since(c.flowScarceAt)
+	stats := c.flowRates.Stats(time.Now())
+	if age < 0 || age > 5*time.Second || stats.Samples < 5 || stats.Variation <= .5 {
+		return nil, false
+	}
+	out := make(map[int]bool, len(c.flowScarce))
+	for piece, sole := range c.flowScarce {
+		out[piece] = sole
+	}
+	return out, true
 }
 
 func (c *Cache) demandRates() map[string]float64 {

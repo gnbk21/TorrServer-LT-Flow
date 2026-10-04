@@ -21,11 +21,12 @@ import (
 // into libtorrent via Install(); calls from libtorrent's disk threads
 // land on its Read/Write/Open/Close/Deleted/Have methods.
 type Storage struct {
-	mu           sync.RWMutex
-	caches       map[int64]*Cache    // by libtorrent storage_id
-	byHash       map[[20]byte]*Cache // by info hash for Reader lookup from torr
-	resumes      map[[20]byte]verifiedResume
-	preparations map[[20]byte]PreparationStorage
+	mu            sync.RWMutex
+	caches        map[int64]*Cache    // by libtorrent storage_id
+	byHash        map[[20]byte]*Cache // by info hash for Reader lookup from torr
+	resumes       map[[20]byte]verifiedResume
+	preparations  map[[20]byte]PreparationStorage
+	verifiedReads map[[20]byte]bool
 }
 
 type verifiedResume struct {
@@ -45,7 +46,22 @@ func (s *Storage) SetVerifiedResume(hash [20]byte, bitmap []byte, totalSize int6
 func (s *Storage) ClearVerifiedResume(hash [20]byte) {
 	s.mu.Lock()
 	delete(s.resumes, hash)
+	delete(s.verifiedReads, hash)
 	s.mu.Unlock()
+}
+
+// Mirror bytes must pass native piece hashes before external readers see them.
+// This is sticky for the handle lifetime, including in-flight removed mirrors.
+func (s *Storage) RequireVerifiedReads(hash [20]byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.verifiedReads == nil {
+		s.verifiedReads = make(map[[20]byte]bool)
+	}
+	s.verifiedReads[hash] = true
+	if c := s.byHash[hash]; c != nil {
+		c.verifiedReads.Store(true)
+	}
 }
 
 // NewStorage constructs an empty registry.
@@ -74,15 +90,16 @@ func Global() *Storage {
 // Already-running sessions keep their original disk_io.
 func (s *Storage) Install() error {
 	return lt.RegisterStorageCallbacks(lt.StorageCallbacks{
-		Open:    s.callbackOpen,
-		Close:   s.callbackClose,
-		Deleted: s.callbackDeleted,
-		Read:    s.callbackRead,
-		Write:   s.callbackWrite,
-		Have:    s.callbackHave,
-		Prune:   s.callbackPrune,
-		Evict:   s.callbackEvict,
-		Size:    s.callbackSize,
+		Open:       s.callbackOpen,
+		Close:      s.callbackClose,
+		Deleted:    s.callbackDeleted,
+		Read:       s.callbackRead,
+		Write:      s.callbackWrite,
+		Have:       s.callbackHave,
+		Prune:      s.callbackPrune,
+		Evict:      s.callbackEvict,
+		Size:       s.callbackSize,
+		ClearPiece: s.callbackClearPiece,
 	})
 }
 
@@ -158,6 +175,7 @@ func (s *Storage) callbackOpen(storage int64, hash [20]byte, numPieces int, piec
 	delete(s.resumes, hash)
 	c.resume = resume.bitmap
 	c.totalSize.Store(resume.totalSize)
+	c.verifiedReads.Store(s.verifiedReads[hash])
 	if plan, ok := s.preparations[hash]; ok {
 		c.diskRoot = plan.Root
 		c.preparation = clonePreparationRanges(plan.Ranges)
@@ -176,6 +194,7 @@ func (s *Storage) callbackClose(storage int64) {
 	c := s.caches[storage]
 	if c != nil {
 		delete(s.byHash, c.InfoHash)
+		delete(s.verifiedReads, c.InfoHash)
 		delete(s.caches, storage)
 	}
 	s.mu.Unlock()
@@ -230,6 +249,12 @@ func (s *Storage) callbackEvict(storage int64, piece int) bool {
 func (s *Storage) callbackSize(storage int64, totalSize int64) {
 	if c := s.lookup(storage); c != nil {
 		c.totalSize.Store(totalSize)
+	}
+}
+
+func (s *Storage) callbackClearPiece(storage int64, piece int) {
+	if c := s.lookup(storage); c != nil {
+		c.InvalidatePiece(piece)
 	}
 }
 

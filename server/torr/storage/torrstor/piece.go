@@ -35,8 +35,9 @@ type Piece struct {
 	// accessed is the last read/write unix time; atomic so ReadAt can stamp it
 	// under the shared (read) lock without racing concurrent readers of the same
 	// piece, and so Accessed() can be read lock-free for LRU eviction sorting.
-	accessed atomic.Int64
-	complete bool
+	accessed     atomic.Int64
+	complete     bool
+	hashRecovery bool // native clear-piece fence retained the full backend
 }
 
 func newPiece(c *Cache, id int) *Piece {
@@ -199,6 +200,17 @@ func (p *Piece) markVerifiedComplete() {
 		return
 	}
 	blocks := int((expected + pieceBlockSize - 1) / pieceBlockSize)
+	if p.hashRecovery {
+		// Native just hashed the retained backend, including any unchanged good
+		// blocks. A successful hash is authoritative after its failure fence.
+		p.avail = make([]uint64, (blocks+63)/64)
+		for b := 0; b < blocks; b++ {
+			p.avail[b>>6] |= 1 << uint(b&63)
+		}
+		p.hashRecovery = false
+		p.complete = true
+		return
+	}
 	for b := 0; b < blocks; b++ {
 		if p.cache.totalSize.Load() == 0 && p.Id == p.cache.NumPieces-1 &&
 			int64(b+1)*pieceBlockSize > expected {
@@ -233,6 +245,7 @@ func (p *Piece) wipe() {
 }
 
 func (p *Piece) wipeLocked() {
+	p.hashRecovery = false
 	if p.disk != nil {
 		p.disk.Release()
 	}

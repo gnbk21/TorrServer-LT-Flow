@@ -6,6 +6,7 @@ import (
 	"server/flow"
 	"server/lt"
 	"server/settings"
+	"server/torr/storage/torrstor"
 	"sort"
 )
 
@@ -170,6 +171,9 @@ func UpdateTorrentWebSeed(hashText, action, value, id string, allowLocal bool) e
 			return err
 		}
 		handle = t.LTHandle()
+	}
+	if !seed.Disabled {
+		torrstor.Global().RequireVerifiedReads(hash)
 	}
 	if err = handle.SetURLSeed(seed.URL, seed.Disabled, seed.AllowLocal); err != nil {
 		return errors.New("mirror saved; native source update unavailable")

@@ -28,8 +28,9 @@ colors; redirected output and `NO_COLOR` stay plain. Periodic status shows uptim
 engine/address/tracker state, active stream requests, cache data, process RSS,
 Go heap and goroutines. State changes are sampled every five seconds; otherwise
 the default heartbeat is 30 seconds. Cache/memory totals are collected only when
-a status report is due. Cache data counts cached piece extents in the selected
-RAM/disk store; it is not process memory or a measure of playable buffer.
+a status report is due. Cache data counts ordinary cache extents in the selected
+RAM/disk store; retained preparation pieces have a separate disk reservation.
+These totals are not process memory or a measure of playable buffer.
 The web Dashboard provides detailed throughput and buffer
 graphs. LAN candidates can include VPN adapters; tracker waiting does not prove
 an Internet outage, especially when no torrent is active.
@@ -70,6 +71,42 @@ all entries. See [distribution guidance](DISTRIBUTION.md) and
 [measurements](MEASUREMENTS.md) for usage and verification limits.
 
 Flow settings are in the web interface's **Flow** tab and under `BitTorr.Flow` in `settings.json`. Flow is enabled by default. Saving settings restarts the torrent engine and interrupts active streams. `GET /flow/status/<torrent-hash>` exposes per-torrent diagnostics; `/flow/network` reports network readiness. Both follow the server's HTTP authentication setting. See [FLOW.md](FLOW.md) for defaults, endpoint behavior, and the comparison procedure.
+
+## Weak swarms and episode preparation (current development branch)
+
+These additions are in PR #3 development builds, not published Preview 2 `.5`:
+
+- **Availability diagnostics** distinguish metadata, discovery, connection,
+  choke, missing connected-peer pieces, throughput and local cache waits.
+  Samples are bounded and cached; unavailable or stale data is labelled unknown.
+- **Prepare episode**, in **Files / Play**, retains the selected file in the
+  existing piece store. Progress counts verified bytes; full-file readiness
+  supports arbitrary seeks. The default disk quota is 4 GiB, separate from the
+  evicting cache. Pause or cancel keeps progress; Remove releases it after readers
+  close. Jobs survive server restarts and temporary source absence.
+- **HTTP mirrors**, in the same dialog, use native Range requests, torrent
+  hashes and peer fallback. A mirror must supply identical bytes. Imported URLs
+  cannot access private destinations; a local mirror needs explicit approval.
+  Torrents with mirrors wait for piece verification before serving their bytes.
+- **Peer reachability** shows actual BitTorrent TCP/UDP ports, mapping results
+  and incoming connections. New settings use port 51413; existing explicit port
+  choices, including automatic port `0`, remain supported. HTTP port 8090 is separate.
+- **Remember useful public peers** is optional and disabled by default. It keeps
+  bounded private local hints for ten minutes and ignores them after network
+  changes. Private torrents never restore those hints.
+- **Scarce-piece scheduling experiment** is disabled by default. It advances a
+  small amount of existing forward work using qualified, fresh evidence.
+
+The native dependency is pinned to libtorrent v2.1.2 plus the reviewed queue-time
+arithmetic fix. Rate-aware deadlines and delivery variation/outage feedback
+retain existing buffer budgets and independent reader reconciliation. **Legacy
+remains the default profile.** These changes cannot obtain bytes absent from all
+accessible sources. Choose a smaller release explicitly when delivery stays below
+consumption; different encodes cannot share pieces.
+
+All of this works without a paid provider or account. See the [sparse streaming
+guide](SPARSE_STREAMING.md) for settings, storage, privacy, endpoints and verification
+limits, and the [implementation ledger](SPARSE_IMPLEMENTATION.md) for evidence.
 
 ## Swarm profiles
 

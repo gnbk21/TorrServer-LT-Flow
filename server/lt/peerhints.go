@@ -11,12 +11,17 @@ import (
 	"unsafe"
 )
 
-func (t *Torrent) ResumePeerHints() ([]flow.PeerHint, error) {
+type ResumeHints struct {
+	ObservedAtMs int64           `json:"observed_at_ms"`
+	Peers        []flow.PeerHint `json:"peers"`
+}
+
+func (t *Torrent) ResumePeerHints() (ResumeHints, error) {
 	data, err := cAlloc(func(n *C.size_t) *C.char { return C.lt_torrent_resume_peers_json_alloc(t.id, n) })
 	if err != nil {
-		return nil, err
+		return ResumeHints{}, err
 	}
-	var peers []flow.PeerHint
+	var peers ResumeHints
 	err = json.Unmarshal(data, &peers)
 	return peers, err
 }

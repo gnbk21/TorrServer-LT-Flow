@@ -113,7 +113,7 @@ export function PrepareEpisode({
             </Button>
           )}
         </div>
-      {!!(query.error || error) && (
+        {!!(query.error || error) && (
           <RequestError
             error={error || query.error}
             retry={() => query.refetch()}

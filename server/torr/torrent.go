@@ -196,6 +196,15 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 
 	if metadata != nil {
 		torrstor.Global().SetVerifiedResume(spec.InfoHash, havePieces, metadata.TotalSize)
+		if len(metadata.WebSeeds) > 0 {
+			torrstor.Global().RequireVerifiedReads(spec.InfoHash)
+		}
+	}
+	for _, seed := range spec.WebSeeds {
+		if !seed.Disabled {
+			torrstor.Global().RequireVerifiedReads(spec.InfoHash)
+			break
+		}
 	}
 	lh, err := bt.session.AddTorrent(lt.AddTorrentParams{
 		Link:         magnetFromSpec(spec),

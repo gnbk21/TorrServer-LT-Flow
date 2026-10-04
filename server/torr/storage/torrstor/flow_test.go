@@ -7,8 +7,38 @@ import (
 	"time"
 
 	"server/flow"
+	"server/lt"
 	"server/settings"
 )
+
+func TestScarceEvidenceRejectsStaleTruncatedAndUnqualifiedDelivery(t *testing.T) {
+	old := settings.BTsets()
+	f := settings.DefaultFlowSettings()
+	f.ScarcePieceHints = true
+	settings.StoreBTsets(&settings.BTSets{Flow: f})
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	c := &Cache{}
+	for i := 0; i < 6; i++ {
+		c.flowRates.Observe(float64(1+i%2*20)*flow.MiB, time.Now().Add(time.Duration(i-5)*time.Second))
+	}
+	sample := lt.SparseSnapshot{Known: true, SampledAtMs: time.Now().UnixMilli(), Windows: []lt.SparseWindow{{FirstPiece: 10, Availability: []int{2, 1, 0}}}}
+	c.SetScarceEvidence(sample)
+	hints, variable := c.scarceDemand()
+	if !variable || !hints[11] || hints[10] || hints[12] {
+		t.Fatalf("bad scarce evidence: %v %v", hints, variable)
+	}
+	sample.Truncated = true
+	c.SetScarceEvidence(sample)
+	if hints, _ := c.scarceDemand(); len(hints) != 0 {
+		t.Fatal("partial sample used as sole-supplier proof")
+	}
+	sample.Truncated = false
+	sample.SampledAtMs = time.Now().Add(-6 * time.Second).UnixMilli()
+	c.SetScarceEvidence(sample)
+	if hints, _ := c.scarceDemand(); len(hints) != 0 {
+		t.Fatal("stale sample changed demand")
+	}
+}
 
 func TestParkedReadReconcilesLateCompletionAndCancels(t *testing.T) {
 	old := settings.BTsets()

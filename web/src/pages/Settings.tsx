@@ -290,6 +290,11 @@ export default function Settings() {
                     {t("settings.peerHintsHelp")}
                   </span>
                 )}
+                {key === "Flow.ScarcePieceHints" && (
+                  <span className="text-xs text-slate-400">
+                    {t("settings.scarceHintsHelp")}
+                  </span>
+                )}
                 {key === "PreloadCache" && <span>%</span>}
                 {t(`SettingsDialog.${key}Hint`, { defaultValue: "" }) && (
                   <span className="text-xs text-slate-400">

@@ -31,6 +31,7 @@ type PreparationJob struct {
 type preparationRecord struct {
 	PreparationJob
 	Spec                   TorrentSpec
+	StorageRoot            string
 	Offset                 int64
 	First, Last            int
 	PieceLength, TotalSize int64
@@ -53,6 +54,9 @@ func newPreparationManager(bt *BTServer) *preparationManager {
 	root := filepath.Join(settings.Path, "flow-pieces")
 	if s := settings.BTsets(); s != nil && s.UseDisk && s.TorrentsSavePath != "" {
 		root = s.TorrentsSavePath
+	}
+	if absolute, err := filepath.Abs(root); err == nil {
+		root = absolute
 	}
 	p := &preparationManager{bt: bt, jobs: make(map[string]*preparationRecord), name: filepath.Join(settings.Path, "flow-preparation.json"), root: root}
 	if settings.ReadOnly {
@@ -85,6 +89,20 @@ func newPreparationManager(bt *BTServer) *preparationManager {
 			p.jobs = make(map[string]*preparationRecord)
 			return p
 		}
+		if j.StorageRoot != "" {
+			if !filepath.IsAbs(j.StorageRoot) || filepath.Clean(j.StorageRoot) != j.StorageRoot {
+				p.failure = "STATE_READ"
+				p.jobs = make(map[string]*preparationRecord)
+				return p
+			}
+			if len(p.jobs) > 0 && p.root != j.StorageRoot {
+				p.failure = "STATE_READ"
+				p.jobs = make(map[string]*preparationRecord)
+				return p
+			}
+			p.root = j.StorageRoot
+		}
+		j.StorageRoot = p.root
 		switch j.State {
 		case "downloading", "ready", "paused", "cancelled", "error", "cleaning":
 		default:
@@ -219,7 +237,7 @@ func PrepareEpisode(hashText string, index int, action string) error {
 		if selected == nil || selected.Size <= 0 {
 			return errors.New("file not found")
 		}
-		j = &preparationRecord{PreparationJob: PreparationJob{ID: id, Hash: hash.HexString(), FileIndex: index, State: "downloading", Length: selected.Size}, Spec: spec, Offset: selected.Offset, PieceLength: metadata.PieceLength, TotalSize: metadata.TotalSize}
+		j = &preparationRecord{PreparationJob: PreparationJob{ID: id, Hash: hash.HexString(), FileIndex: index, State: "downloading", Length: selected.Size}, Spec: spec, StorageRoot: p.root, Offset: selected.Offset, PieceLength: metadata.PieceLength, TotalSize: metadata.TotalSize}
 		j.First = int(j.Offset / j.PieceLength)
 		j.Last = int((j.Offset + j.Length - 1) / j.PieceLength)
 		p.jobs[id] = j
@@ -337,14 +355,17 @@ func (p *preparationManager) tick() {
 		}
 		verified, prefix := c.PreparationProgress(j.Offset, j.Length)
 		j.VerifiedBytes, j.ContiguousBytes = verified, prefix
+		wasReady := j.PlaybackReady
 		j.PlaybackReady = verified == j.Length && j.State != "error" // full file, container and arbitrary seeks
-		if j.State == "downloading" && verified == j.Length {
+		if j.PlaybackReady && !wasReady {
 			if err := c.FlushPreparation(j.First, j.Last); err != nil {
 				j.State = "error"
 				j.ErrorCode = "DISK_SYNC"
 				j.PlaybackReady = false
 			} else {
-				j.State = "ready"
+				if j.State == "downloading" {
+					j.State = "ready"
+				}
 				j.ErrorCode = ""
 			}
 			changed = true

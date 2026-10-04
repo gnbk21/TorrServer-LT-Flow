@@ -34,6 +34,8 @@ struct tsl_storage_callbacks {
     int  (*evict)  (int64_t storage_id, int piece);
     // Exact metadata size, including the short final piece.
     void (*size)   (int64_t storage_id, int64_t total_size);
+    // Native hash-failure fence; keep the backend but clear readable state.
+    void (*clear_piece)(int64_t storage_id, int piece);
 };
 
 // Install / clear the Go callbacks. Pass NULL to revert to default

@@ -366,10 +366,13 @@ public:
         });
     }
 
-    void async_clear_piece(lt::storage_index_t,
+    void async_clear_piece(lt::storage_index_t s,
                            lt::piece_index_t idx,
                            std::function<void(lt::piece_index_t)> handler) override
     {
+        // The picker is locked until this callback completes: old hash/write
+        // work has settled, and retries cannot race the readable-state reset.
+        if (cb_.clear_piece) cb_.clear_piece(storage_id_of(s), static_cast<int>(idx));
         lt::post(io_, [h = std::move(handler), idx]() mutable { h(idx); });
     }
 

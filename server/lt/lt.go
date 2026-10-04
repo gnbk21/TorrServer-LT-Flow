@@ -913,8 +913,9 @@ type StorageCallbacks struct {
 	Prune func(storage int64, piece int) bool
 	// Evict removes an unprotected complete LRU entry on the network thread.
 	// Size records the exact torrent length at storage creation.
-	Evict func(storage int64, piece int) bool
-	Size  func(storage int64, totalSize int64)
+	Evict      func(storage int64, piece int) bool
+	Size       func(storage int64, totalSize int64)
+	ClearPiece func(storage int64, piece int)
 }
 
 var (
@@ -1052,5 +1053,12 @@ func tsl_storage_size_go(storage C.longlong, totalSize C.longlong) {
 	cb := storageSnapshot()
 	if cb.Size != nil {
 		cb.Size(int64(storage), int64(totalSize))
+	}
+}
+
+//export tsl_storage_clear_piece_go
+func tsl_storage_clear_piece_go(storage C.longlong, piece C.int) {
+	if cb := storageSnapshot(); cb.ClearPiece != nil {
+		cb.ClearPiece(int64(storage), int(piece))
 	}
 }

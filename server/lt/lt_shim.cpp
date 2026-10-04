@@ -308,6 +308,7 @@ struct sparse_snapshot {
     std::string cached = "{\"known\":false}";
     std::string resume_peers = "[]"; // private opt-in state, never a status field
     std::chrono::steady_clock::time_point peers_at{};
+    std::int64_t peers_at_ms = 0;
 };
 struct torrent_entry {
     lt::torrent_handle h;
@@ -1188,6 +1189,8 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
                     else if (!hints.empty()) {
                         snapshot->resume_peers = hints.dump();
                         snapshot->peers_at = std::chrono::steady_clock::now();
+                        snapshot->peers_at_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::system_clock::now().time_since_epoch()).count();
                     }
                     snapshot->pending = false;
                 });
@@ -1205,8 +1208,9 @@ char* lt_torrent_resume_peers_json_alloc(lt_torrent tid, size_t* out_len) {
     auto snapshot = it->second.sparse;
     std::lock_guard<std::mutex> guard(snapshot->mu);
     if (std::chrono::steady_clock::now()-snapshot->peers_at > std::chrono::minutes(10))
-        return alloc_string("[]", out_len);
-    return alloc_string(snapshot->resume_peers, out_len);
+        return alloc_string("{\"observed_at_ms\":0,\"peers\":[]}", out_len);
+    return alloc_string(json{{"observed_at_ms", snapshot->peers_at_ms},
+        {"peers", json::parse(snapshot->resume_peers)}}.dump(), out_len);
 }
 
 int lt_torrent_restore_peers(lt_torrent tid, const char* peers_json) {

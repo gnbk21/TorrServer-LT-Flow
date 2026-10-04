@@ -18,3 +18,13 @@ func DemandDeadline(position int, pieceLength int64, qualifiedRate float64) (int
 	due := float64(position)*float64(pieceLength)/qualifiedRate*1000 - 1000
 	return int(math.Max(50, math.Min(30000, due))), true
 }
+
+// ScarceDeadline advances one near-future demand by at most a second. It never
+// competes with deadline zero, never adds work beyond an existing reader window,
+// and is only an experiment until controlled comparisons establish a benefit.
+func ScarceDeadline(position, normal int, sole, variable, fresh bool) int {
+	if position < 1 || position > 4 || !sole || !variable || !fresh || normal <= 50 {
+		return normal
+	}
+	return max(50, normal-1000)
+}

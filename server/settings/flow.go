@@ -33,6 +33,7 @@ type FlowSettings struct {
 	DHTStatePersistence    bool
 	PreparationQuotaMB     int
 	PeerResumeHints        bool // opt-in local peer identities, outside history
+	ScarcePieceHints       bool // bounded scheduling experiment, off by default
 }
 
 // Zero custom values leave libtorrent's own setting unchanged.

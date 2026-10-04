@@ -18,12 +18,12 @@ from fixtures import generate
 from playback_harness import OwnedServer, upload, range_read, MIB
 
 
-CASES = ('below', 'near', 'above', 'complementary', 'ten-suppliers', 'late-have', 'choked', 'outage', 'late-metadata')
+CASES = ('below', 'near', 'above', 'complementary', 'ten-suppliers', 'small-swarm', 'multiple-rare', 'choked-supplier', 'intermittent-supplier', 'late-have', 'choked', 'outage', 'late-metadata')
 
 
-def run(executable, root, fixture, label, media_rate):
+def run(executable, root, fixture, label, media_rate, profile='custom', piece_length=256*1024, scarce=False):
     source = fixture.read_bytes()
-    plen = 256*1024
+    plen = piece_length
     count = math.ceil(len(source)/plen)
     urgent = count//2
     all_pieces = set(range(count))
@@ -36,6 +36,11 @@ def run(executable, root, fixture, label, media_rate):
     elif label == 'ten-suppliers':
         plans = [PeerPlan(pieces=all_pieces-{urgent}, rate=8*rate) for _ in range(9)]
         plans += [PeerPlan(pieces={0,urgent}, rate=max(32768,rate//4))]
+    elif label in ('small-swarm','multiple-rare','choked-supplier','intermittent-supplier'):
+        fast_count=3 if label=='small-swarm' else 9
+        plans=[PeerPlan(pieces=all_pieces-{urgent},rate=8*rate) for _ in range(fast_count)]
+        plans += [PeerPlan(pieces={0,urgent},rate=max(32768,rate//4),choke_until=6 if label=='choked-supplier' else 0,outages=[(1,6)] if label=='intermittent-supplier' else [])]
+        if label=='multiple-rare': plans += [PeerPlan(pieces={urgent},rate=max(32768,rate//3))]
     elif label == 'late-have':
         plans = [PeerPlan(pieces=all_pieces-{urgent},rate=8*rate,have_events=[(5,urgent)])]
     elif label == 'choked':
@@ -44,8 +49,8 @@ def run(executable, root, fixture, label, media_rate):
         plans = [PeerPlan(rate=2*rate,outages=[(1,4)])]
     else:
         plans = [PeerPlan(rate=8*rate,metadata_delay=3)]
-    report = {'case':label, 'http_delivery_only':True, 'media_bytes_per_second':media_rate, 'ranges':[]}
-    server = OwnedServer(executable,root/label,extra_settings={'CacheSize':8*MIB,'PreloadCache':12})
+    report = {'case':label, 'profile':profile, 'piece_length':plen, 'scarce_hints':scarce, 'http_delivery_only':True, 'media_bytes_per_second':media_rate, 'ranges':[]}
+    server = OwnedServer(executable,root/label,extra_settings={'CacheSize':8*MIB,'PreloadCache':12,'Flow':{'Enabled':True,'SwarmProfile':profile,'SwarmCustom':{'MinReconnectTime':1,'PeerConnectTimeout':5},'ScarcePieceHints':scarce,'BootstrapHeadMB':1,'StartupBufferMinMB':1,'StartupBufferMaxMB':8,'StartupBufferSeconds':1}})
     try:
         server.ready()
         with LocalSwarm([fixture],peers=plans,piece_length=plen) as swarm:
@@ -85,10 +90,19 @@ def run(executable, root, fixture, label, media_rate):
             requests=[p['first_request_seconds'][urgent] for p in report['swarm']['peers'] if urgent in p['first_request_seconds']]
             report['urgent_first_request_ms_after_seek']=(min(requests)-seek_start)*1000 if requests else None
             report['flow']=server.json('/flow/status/'+swarm.info_hash.hex())
+            report['runtime']=server.json('/runtime/status')
             report['elapsed_ms']=(time.monotonic()-started)*1000
             report['passed']=True
+    except Exception as error:
+        report['passed']=False
+        report['error']=str(error)
+        if 'swarm' in locals(): report['swarm']=swarm.status()
+        try: report['flow']=server.json('/flow/status/'+swarm.info_hash.hex())
+        except (OSError,ValueError): pass
+        return report
     finally:
         server.close()
+        (root/label/'report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
     return report
 
 
@@ -98,6 +112,10 @@ if __name__=='__main__':
     parser.add_argument('--output',required=True,type=Path)
     parser.add_argument('--fixtures',type=Path)
     parser.add_argument('--cases',nargs='+',choices=CASES,default=list(CASES))
+    parser.add_argument('--profile',choices=('legacy','conservative','balanced','custom'),default='custom')
+    parser.add_argument('--piece-length',type=int,default=256*1024)
+    parser.add_argument('--scarce',action='store_true')
+    parser.add_argument('--record-failures',action='store_true',help='Characterize profiles; report failures without treating them as a passing gate')
     args=parser.parse_args()
     args.output.mkdir(parents=True,exist_ok=True)
     fixtures=args.fixtures or args.output/'fixtures'
@@ -108,9 +126,11 @@ if __name__=='__main__':
     try:
         for label in args.cases:
             print('Sparse case: '+label,flush=True)
-            result['cases'].append(run(args.executable,args.output,fixtures/'variable.mp4',label,entry['bytes']/entry['duration']))
+            result['cases'].append(run(args.executable,args.output,fixtures/'variable.mp4',label,entry['bytes']/entry['duration'],args.profile,args.piece_length,args.scarce))
             (args.output/'report.json').write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8')
-        result['passed']=True
+            if not result['cases'][-1]['passed'] and not args.record_failures: raise AssertionError(result['cases'][-1]['error'])
+        result['passed']=all(case['passed'] for case in result['cases'])
+        result['characterization_only']=args.record_failures
     except Exception as error:
         result['error']=str(error)
         raise

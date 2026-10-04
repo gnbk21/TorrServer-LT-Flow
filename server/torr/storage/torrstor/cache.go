@@ -71,6 +71,9 @@ type Cache struct {
 	storage         *Storage
 	flowCounters    flow.Counters
 	flowMu          sync.Mutex
+	verifiedReads   atomic.Bool
+	flowScarce      map[int]bool // at most 256 bounded diagnostic entries
+	flowScarceAt    time.Time
 	flowGroups      map[string]*flowGroup
 	flowDownload    float64
 	flowRates       flow.RateWindow
@@ -370,6 +373,20 @@ func (c *Cache) SignalPieceComplete(piece int) {
 	c.signalPieceProgress(piece)
 }
 
+func (c *Cache) InvalidatePiece(piece int) {
+	c.mu.RLock()
+	p := c.pieces[piece]
+	c.mu.RUnlock()
+	if p != nil {
+		p.mu.Lock()
+		p.complete = false
+		p.avail = nil
+		p.hashRecovery = true
+		p.mu.Unlock()
+	}
+	c.signalPieceProgress(piece)
+}
+
 // signalPieceProgress broadcasts to whoever is parked on this piece (close the
 // channel, drop it so the next subscriber makes a fresh one). Fired on piece
 // completion and on every block write to a waited piece; waiters re-check
@@ -464,6 +481,9 @@ func (c *Cache) readableAt(piece int, off int64) int64 {
 	p := c.pieces[piece]
 	c.mu.RUnlock()
 	if p == nil {
+		return 0
+	}
+	if c.verifiedReads.Load() && !p.Complete() {
 		return 0
 	}
 	return p.availableFrom(off)
@@ -989,6 +1009,7 @@ func (c *Cache) applyStreamPriorities() {
 
 	anchors := c.groupPlayheads() // group -> playhead (excludes stale/probe/tail)
 	demandRates := c.demandRates()
+	scarce, variable := c.scarceDemand()
 	seekCancel := c.takeSnapCancels()
 	behindP, aheadP := c.readerWindowPieces()
 
@@ -1089,6 +1110,7 @@ func (c *Cache) applyStreamPriorities() {
 		if hi >= c.NumPieces {
 			hi = c.NumPieces - 1
 		}
+		scarceUsed := false
 		for i := lo; i <= hi; i++ {
 			if i < ph { // behind: fill it (no hole) but lowest priority, no deadline
 				raise(i, streamBehindPriority)
@@ -1097,6 +1119,13 @@ func (c *Cache) applyStreamPriorities() {
 			prio, dlMs := windowPriority(i - ph)
 			if due, qualified := flow.DemandDeadline(i-ph, plen, demandRates[r.group]); qualified {
 				dlMs = due
+				if !scarceUsed {
+					advanced := flow.ScarceDeadline(i-ph, dlMs, scarce[i], variable, true)
+					if advanced < dlMs {
+						scarceUsed = true
+						dlMs = advanced
+					}
+				}
 			}
 			raise(i, prio)
 			// Keep forward work queued while urgent work uses the native scheduler.

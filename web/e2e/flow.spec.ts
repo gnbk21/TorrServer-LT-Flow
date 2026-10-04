@@ -2,16 +2,27 @@ import { test, expect, type Page } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
 import settings from "./settings.json" with { type: "json" };
 
-test("legacy zero-cache settings remain accessible for explicit repair", async ({ page }) => {
+test("legacy zero-cache settings remain accessible for explicit repair", async ({
+  page,
+}) => {
   await mockServer(page);
   await page.route("**/settings", (route) => {
-    if (new URL(route.request().url()).pathname !== "/settings") return route.fallback();
+    if (new URL(route.request().url()).pathname !== "/settings")
+      return route.fallback();
     return route.fulfill({ json: { ...settings, CacheSize: 0 } });
   });
   await page.goto("/#/settings");
-  await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
-  await expect(page.getByRole("spinbutton", { name: "Cache Size", exact: true })).toHaveValue("0");
-  await expect(page.getByText("The server could not complete the request.", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Settings", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("spinbutton", { name: "Cache Size", exact: true }),
+  ).toHaveValue("0");
+  await expect(
+    page.getByText("The server could not complete the request.", {
+      exact: true,
+    }),
+  ).toHaveCount(0);
 });
 
 test("active playback remains visible when Flow metrics are unavailable", async ({
@@ -153,9 +164,7 @@ test("trace history is fetched only while diagnostics are open", async ({
   await expect(page.getByText("Healthy", { exact: true })).toBeVisible();
   expect(compactRequests).toBeGreaterThan(0);
   expect(diagnosticRequests).toBe(0);
-  await page
-    .getByRole("button", { name: "Diagnostics", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Diagnostics", exact: true }).click();
   await page.getByRole("dialog").locator("summary").click();
   await expect(
     page.getByRole("dialog").getByText(/diagnostic-trace-fixture/),
@@ -250,6 +259,10 @@ async function mockServer(
     }
     if (path === "/viewed")
       return json([{ hash, file_index: 1, timecode: 90 }]);
+    if (path === "/flow/preparation")
+      return json({ jobs: [], quota_bytes: 67108864, reserved_bytes: 0 });
+    if (path.startsWith("/flow/sources/"))
+      return json({ private: false, sources: [] });
     if (path === "/cache")
       return json({
         Capacity: 100,
@@ -471,6 +484,105 @@ test("file view retains raw name, watched timecode and browser fallback", async 
   ).toHaveAttribute("href", /index=1.*ss=/);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("episode preparation actions and readiness are visible without changing playback identity", async ({
+  page,
+}) => {
+  await mockServer(page);
+  let state = "";
+  const actions: unknown[] = [];
+  await page.route("**/flow/preparation", (route) => {
+    if (route.request().method() === "POST") {
+      const body = route.request().postDataJSON();
+      actions.push(body);
+      state = (
+        {
+          start: "downloading",
+          pause: "paused",
+          cancel: "cancelled",
+          resume: "ready",
+          remove: "",
+        } as Record<string, string>
+      )[body.action];
+    }
+    return route.fulfill({
+      json: {
+        jobs: state
+          ? [
+              {
+                id: hash + ":1",
+                hash,
+                file_index: 1,
+                state,
+                length: 12345678,
+                verified_bytes: state === "ready" ? 12345678 : 100,
+                contiguous_bytes: state === "ready" ? 12345678 : 100,
+                playback_ready: state === "ready",
+              },
+            ]
+          : [],
+        quota_bytes: 67108864,
+        reserved_bytes: state ? 12582912 : 0,
+      },
+    });
+  });
+  await page.goto("/#/torrents");
+  await page.getByRole("button", { name: "Files / Play" }).click();
+  await page.locator("summary").filter({ hasText: "Prepare episode" }).click();
+  await page
+    .getByRole("button", { name: "Prepare episode", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Pause preparation" }).click();
+  await page
+    .getByRole("button", { name: "Cancel and retain progress" })
+    .click();
+  await page.getByRole("button", { name: "Resume preparation" }).click();
+  await expect(
+    page.getByText(
+      "The entire file is verified and retained, including seek data. Use the playback links above.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Open stream", exact: true }),
+  ).toHaveAttribute("href", /index=1.*ss=/);
+  await page.getByRole("button", { name: "Remove prepared pieces" }).click();
+  expect(actions).toEqual(
+    ["start", "pause", "cancel", "resume", "remove"].map((action) => ({
+      hash,
+      file_index: 1,
+      action,
+    })),
+  );
+});
+
+test("mirror management uses explicit LAN approval and hides private-torrent additions", async ({
+  page,
+}) => {
+  await mockServer(page);
+  let privateTorrent = false;
+  const updates: unknown[] = [];
+  await page.route("**/flow/sources/*", (route) => {
+    if (route.request().method() === "POST") {
+      updates.push(route.request().postDataJSON());
+      privateTorrent = true;
+    }
+    return route.fulfill({ json: { private: privateTorrent, sources: [] } });
+  });
+  await page.goto("/#/torrents");
+  await page.getByRole("button", { name: "Files / Play" }).click();
+  await page.locator("summary").filter({ hasText: "HTTP mirrors" }).click();
+  await page
+    .getByLabel("Mirror URL", { exact: true })
+    .fill("http://192.168.1.20/episode/");
+  await page.getByLabel("Approve my LAN mirror").check();
+  await page.getByRole("button", { name: "Add mirror", exact: true }).click();
+  expect(updates).toEqual([
+    { action: "add", url: "http://192.168.1.20/episode/", allow_local: true },
+  ]);
+  await expect(
+    page.getByRole("button", { name: "Add mirror", exact: true }),
+  ).toHaveCount(0);
 });
 test("pairing avoids loopback QR and has manual input", async ({ page }) => {
   await mockServer(page);

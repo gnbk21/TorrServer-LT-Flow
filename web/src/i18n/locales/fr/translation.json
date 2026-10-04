@@ -747,7 +747,8 @@
         "DiagnosticHistory": "Conserver l’historique de diagnostic",
         "DHTStatePersistence": "Réutiliser l’état de routage DHT",
         "PreparationQuotaMB": "Quota disque de préparation (Mio)",
-        "PeerResumeHints": "Mémoriser les pairs publics utiles"
+        "PeerResumeHints": "Mémoriser les pairs publics utiles",
+        "ScarcePieceHints": "Expérience de planification des pièces rares"
       }
     },
     "maintenance": {
@@ -771,7 +772,8 @@
     },
     "historyHint": "Diagnostics de démarrage locaux (4 Mio maximum), sans URL, jetons, titres ni adresses des clients.",
     "dhtHint": "Réutiliser les nœuds DHT connus après redémarrage. Respecte la désactivation du DHT.",
-    "peerHintsHelp": "Facultatif : jusqu’à 32 pairs publics utiles par torrent pendant 10 minutes, dans un état local privé distinct des diagnostics. Limite de 128 torrents. Les indices sont ignorés après un changement de réseau ; les délais natifs de reconnexion restent actifs. Aucun rétablissement pour les torrents privés."
+    "peerHintsHelp": "Facultatif : jusqu’à 32 pairs publics utiles par torrent pendant 10 minutes, dans un état local privé distinct des diagnostics. Limite de 128 torrents. Les indices sont ignorés après un changement de réseau ; les délais natifs de reconnexion restent actifs. Aucun rétablissement pour les torrents privés.",
+    "scarceHintsHelp": "Désactivée par défaut. Avec une consommation fiable, une livraison variable et un échantillon complet récent, avance une des quatre prochaines pièces d’au plus une seconde. La lecture bloquée reste prioritaire. Aucun ajout de sources ; aucun gain établi sur les essaims publics."
   },
   "preparation": {
     "title": "Préparer cet épisode",
