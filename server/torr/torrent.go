@@ -91,6 +91,7 @@ type Torrent struct {
 	flowSessions     map[string]*flowSession
 	sparse           lt.SparseSnapshot // immutable cached aggregate, guarded by flowMu
 	sparseRecordedAt int64
+	peerHintsSavedAt time.Time
 	requestTimeouts  atomic.Uint64
 	requestsDropped  atomic.Uint64
 	trackerMu        sync.Mutex
@@ -261,6 +262,9 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 	}
 
 	go t.watch()
+	if metadata != nil && !metadata.Private && settings.CurrentFlow().PeerResumeHints {
+		go t.restorePeerHints(lh)
+	}
 	return t, nil
 }
 

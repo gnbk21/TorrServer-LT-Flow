@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"server/flow"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -62,6 +63,9 @@ func TestPrivateMetadataProtectsAuthorizedTrackerTiers(t *testing.T) {
 	}
 	if status, err := torrent.Status(); err != nil || !status.Private {
 		t.Fatalf("private status missing: %+v %v", status, err)
+	}
+	if err := torrent.RestorePeerHints([]flow.PeerHint{{IP: "127.0.0.1", Port: 51413}}); err == nil {
+		t.Fatal("private peer restoration accepted")
 	}
 }
 

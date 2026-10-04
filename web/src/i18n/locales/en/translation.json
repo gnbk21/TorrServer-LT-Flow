@@ -757,7 +757,8 @@
         },
         "DiagnosticHistory": "Retain diagnostic history",
         "DHTStatePersistence": "Reuse DHT routing state",
-        "PreparationQuotaMB": "Preparation disk quota (MiB)"
+        "PreparationQuotaMB": "Preparation disk quota (MiB)",
+        "PeerResumeHints": "Remember useful public peers"
       }
     },
     "maintenance": {
@@ -780,7 +781,8 @@
       "memoryHint": "Process memory includes native allocations. Cache capacity and the Go memory limit are not a process RAM limit."
     },
     "historyHint": "Save private startup diagnostics locally (up to 4 MiB). No URLs, tokens, media names or client addresses.",
-    "dhtHint": "Reuse known DHT nodes after a restart. Disabled DHT is always respected."
+    "dhtHint": "Reuse known DHT nodes after a restart. Disabled DHT is always respected.",
+    "peerHintsHelp": "Optional: keep up to 32 recently useful public peers per torrent for 10 minutes, in private local state separate from diagnostic history. At most 128 torrents are retained. Hints expire after a network change; native reconnect backoff still applies. Private torrents never restore these peers."
   },
   "runtime": {
     "torrents": "Torrents",

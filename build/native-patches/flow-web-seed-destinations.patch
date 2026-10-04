@@ -6,7 +6,7 @@
  
 +		// Imported metadata is not permission to access the server's LAN.
 +		// Explicit, authenticated mirror approval can add a local literal URL.
-+		if (ws.size() > 16) ws.resize(16);
++		if (ws.size() > 16) ws.erase(ws.begin()+16, ws.end());
  		aux::random_shuffle(ws);
 -		for (auto& w : ws) m_web_seeds.emplace_back(std::move(w));
 +		for (auto& w : ws)

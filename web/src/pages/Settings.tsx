@@ -285,6 +285,11 @@ export default function Settings() {
                     {t("settings.dhtHint")}
                   </span>
                 )}
+                {key === "Flow.PeerResumeHints" && (
+                  <span className="text-xs text-slate-400">
+                    {t("settings.peerHintsHelp")}
+                  </span>
+                )}
                 {key === "PreloadCache" && <span>%</span>}
                 {t(`SettingsDialog.${key}Hint`, { defaultValue: "" }) && (
                   <span className="text-xs text-slate-400">

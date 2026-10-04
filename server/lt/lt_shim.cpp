@@ -306,6 +306,8 @@ struct sparse_snapshot {
     bool pending = false;
     std::chrono::steady_clock::time_point last_request{};
     std::string cached = "{\"known\":false}";
+    std::string resume_peers = "[]"; // private opt-in state, never a status field
+    std::chrono::steady_clock::time_point peers_at{};
 };
 struct torrent_entry {
     lt::torrent_handle h;
@@ -1108,8 +1110,11 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
                 snapshot->last_request = now;
                 lt::post(tor->session().get_context(), [tor, snapshot, ranges=std::move(ranges)]() {
                     json result = {{"known", false}};
+                    json hints = json::array();
+                    bool private_torrent = true;
                     try {
                         if (tor->valid_metadata()) {
+                            private_torrent = tor->torrent_file().priv();
                             int const total = tor->torrent_file().num_pieces();
                             json windows = json::array();
                             for (auto const& range : ranges) {
@@ -1154,6 +1159,15 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
                                 }
                                 useful += supplies;
                                 downloading += supplies && peer->statistics().download_payload_rate() > 0;
+                                if (!private_torrent && hints.size() < 32 && !peer->on_parole()
+                                    && peer->type() == lt::connection_type::bittorrent
+                                    && !peer->is_connecting() && !peer->is_disconnecting()
+                                    && peer->statistics().download_payload_rate() > 0) {
+                                    auto const ep = peer->remote();
+                                    if (ep.port() != 0 && !ep.address().is_unspecified()
+                                        && !ep.address().is_multicast())
+                                        hints.push_back({{"ip", ep.address().to_string()}, {"port", ep.port()}});
+                                }
                             }
                             lt::torrent_status status;
                             tor->status(&status, {});
@@ -1170,6 +1184,11 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
                     } catch (...) { result = {{"known", false}}; }
                     std::lock_guard<std::mutex> done(snapshot->mu);
                     snapshot->cached = result.dump();
+                    if (private_torrent) snapshot->resume_peers = "[]";
+                    else if (!hints.empty()) {
+                        snapshot->resume_peers = hints.dump();
+                        snapshot->peers_at = std::chrono::steady_clock::now();
+                    }
                     snapshot->pending = false;
                 });
             }
@@ -1177,6 +1196,43 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
 #endif
         return alloc_string(cached, out_len);
     } catch (std::exception const& e) { set_err(LT_ERR_INVALID, e.what()); return nullptr; }
+}
+
+char* lt_torrent_resume_peers_json_alloc(lt_torrent tid, size_t* out_len) {
+    std::shared_lock<std::shared_mutex> lk(g_torr_mu);
+    auto it = g_torrents.find(tid);
+    if (it == g_torrents.end()) return nullptr;
+    auto snapshot = it->second.sparse;
+    std::lock_guard<std::mutex> guard(snapshot->mu);
+    if (std::chrono::steady_clock::now()-snapshot->peers_at > std::chrono::minutes(10))
+        return alloc_string("[]", out_len);
+    return alloc_string(snapshot->resume_peers, out_len);
+}
+
+int lt_torrent_restore_peers(lt_torrent tid, const char* peers_json) {
+    WRAP_BEGIN
+    auto h = get_torrent(tid);
+    if (!h.is_valid()) return set_err(LT_ERR_NOT_FOUND, "torrent not found");
+    auto ti = h.torrent_file();
+    if (!ti || ti->priv()) return set_err(LT_ERR_INVALID, "known public metadata required");
+    auto peers = json::parse(peers_json ? peers_json : "[]");
+    if (!peers.is_array() || peers.size() > 32) return set_err(LT_ERR_INVALID, "peer hint limit");
+    std::vector<lt::tcp::endpoint> endpoints;
+    for (auto const& item : peers) {
+        if (!item.is_object() || !item.contains("ip") || !item["ip"].is_string()
+            || !item.contains("port") || !item["port"].is_number_integer())
+            return set_err(LT_ERR_INVALID, "invalid peer hint");
+        lt::error_code ec;
+        auto const address = lt::make_address(item["ip"].get<std::string>(), ec);
+        int const port = item["port"].get<int>();
+        if (ec || address.is_unspecified() || address.is_multicast() || port < 1 || port > 65535)
+            return set_err(LT_ERR_INVALID, "invalid peer endpoint");
+        endpoints.emplace_back(address, static_cast<std::uint16_t>(port));
+    }
+    // Native peer-list failure counters and reconnect backoff own all retries.
+    for (auto const& ep : endpoints) h.connect_peer(ep, lt::peer_info::resume_data);
+    return LT_OK;
+    WRAP_END(LT_ERR_INVALID)
 }
 
 int lt_torrent_resume(lt_torrent tid) {

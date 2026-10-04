@@ -331,8 +331,8 @@ type AddTorrentParams struct {
 	// are already present locally. PieceCount must be set to the number
 	// of valid bits (typically the torrent's piece count). When non-empty,
 	// libtorrent skips the post-add hash verification and treats the
-	// listed pieces as known-complete (matches the "trust file-sizes"
-	// resume policy).
+	// listed pieces as known-complete. The caller must verify exact lengths and
+	// metadata hashes first; file sizes alone never establish completeness.
 	HavePieces []byte
 	PieceCount int
 }

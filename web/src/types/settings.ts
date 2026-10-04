@@ -32,6 +32,7 @@ export interface FlowSettings {
   DiagnosticHistory?: boolean;
   DHTStatePersistence?: boolean;
   PreparationQuotaMB?: number;
+  PeerResumeHints?: boolean;
 }
 
 export interface TMDBSettings {

@@ -95,6 +95,7 @@ class LocalSwarm:
     def __init__(self, paths, rate=0, delay_ms=0, disconnect_after=0,
                  peers=None, piece_length=256*1024, private=False):
         self.paths = paths
+        self.advertise_peers = True
         self.data = b"".join(p.read_bytes() for p in paths)
         if piece_length <= 0:
             raise ValueError("piece_length must be positive")
@@ -256,7 +257,7 @@ class LocalSwarm:
                     online = [p for p in owner.peers if p.plan.online(time.monotonic()-owner.started)]
                     peers = b''.join(socket.inet_aton(p.server_address[0]) + struct.pack('!H', p.server_address[1]) for p in online)
                     complete = sum(len(p.plan.available(owner.piece_count, time.monotonic()-owner.started)) == owner.piece_count for p in online)
-                    body = bencode({b"interval": 5, b"min interval": 1, b"complete": complete, b"incomplete": len(online)-complete, b"peers": peers})
+                    body = bencode({b"interval": 5, b"min interval": 1, b"complete": complete, b"incomplete": len(online)-complete, b"peers": peers if owner.advertise_peers else b""})
                 self.send_response(200)
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()

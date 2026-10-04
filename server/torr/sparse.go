@@ -10,7 +10,7 @@ import (
 )
 
 func (t *Torrent) sampleSparse(handle *lt.Torrent, metadata bool, pieceLength int64, numPieces int) {
-	if !settings.CurrentFlow().MetricsEnabled {
+	if !settings.CurrentFlow().MetricsEnabled && !settings.CurrentFlow().PeerResumeHints {
 		return
 	}
 	t.flowMu.Lock()
@@ -49,6 +49,9 @@ func (t *Torrent) sampleSparse(handle *lt.Torrent, metadata bool, pieceLength in
 		}
 	}
 	if snapshot, err := handle.SampleSparse(ranges); err == nil {
+		if snapshot.Known {
+			t.savePeerHints(handle, snapshot.Private)
+		}
 		snapshot.RequestTimeouts = t.requestTimeouts.Load()
 		snapshot.RequestsDropped = t.requestsDropped.Load()
 		t.flowMu.Lock()

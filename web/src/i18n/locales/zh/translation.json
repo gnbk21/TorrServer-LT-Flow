@@ -746,7 +746,8 @@
         },
         "DiagnosticHistory": "保留诊断历史",
         "DHTStatePersistence": "重用 DHT 路由状态",
-        "PreparationQuotaMB": "准备磁盘配额（MiB）"
+        "PreparationQuotaMB": "准备磁盘配额（MiB）",
+        "PeerResumeHints": "记住有用的公共节点"
       }
     },
     "maintenance": {
@@ -769,7 +770,8 @@
       "memoryHint": "进程内存包含原生分配。缓存容量和 Go 内存限制不等于进程总内存限制。"
     },
     "historyHint": "在本地保存启动诊断（最多 4 MiB），不包含网址、令牌、媒体名称或客户端地址。",
-    "dhtHint": "重启后重用已知的 DHT 节点；始终遵守禁用 DHT 的设置。"
+    "dhtHint": "重启后重用已知的 DHT 节点；始终遵守禁用 DHT 的设置。",
+    "peerHintsHelp": "可选：每个种子保存最多 32 个有用的公共节点，保留 10 分钟，存放于独立于诊断历史的私有本地状态。最多保存 128 个种子。网络改变后忽略这些提示；原生重连退避仍然有效。私有种子不会恢复这些节点。"
   },
   "preparation": {
     "title": "准备剧集",

@@ -163,6 +163,9 @@ int lt_torrent_url_seed(lt_torrent t, const char* url, int remove, int allow_loc
 // aggregate immediately. ranges_json is [[first_piece,count], ...], max 8
 // ranges, 256 pieces total. No peer identities or full bitfields are returned.
 char* lt_torrent_sparse_json_alloc(lt_torrent t, const char* ranges_json, size_t* out_len);
+// Private opt-in resume state; never serialized into HTTP diagnostics/history.
+char* lt_torrent_resume_peers_json_alloc(lt_torrent t, size_t* out_len);
+int lt_torrent_restore_peers(lt_torrent t, const char* peers_json);
 /* Per-torrent peer connection cap (torrent_handle::set_max_connections).
  * The BTsets "connections limit" is historically per-torrent, while
  * settings_pack's connections_limit is session-wide — this keeps the

@@ -32,6 +32,7 @@ type FlowSettings struct {
 	DiagnosticHistory      bool
 	DHTStatePersistence    bool
 	PreparationQuotaMB     int
+	PeerResumeHints        bool // opt-in local peer identities, outside history
 }
 
 // Zero custom values leave libtorrent's own setting unchanged.
