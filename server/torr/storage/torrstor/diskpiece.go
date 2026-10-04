@@ -29,11 +29,10 @@ func newDiskPiece(p *Piece, savePath string) *DiskPiece {
 	dp := &DiskPiece{piece: p, dir: dir, name: name}
 	// Detect existing file from a previous run so the scan-resume path
 	// reports a sane initial size.
-	if fi, err := os.Stat(name); err == nil {
+	if fi, err := os.Stat(name); err == nil && p.Id/8 < len(p.cache.resume) &&
+		p.cache.resume[p.Id/8]&(1<<uint(p.Id%8)) != 0 && fi.Size() == p.expectedSize() {
 		p.size = fi.Size()
-		if p.size >= p.cache.PieceLength {
-			p.complete = true
-		}
+		p.complete = true
 		p.accessed.Store(fi.ModTime().Unix())
 	}
 	return dp

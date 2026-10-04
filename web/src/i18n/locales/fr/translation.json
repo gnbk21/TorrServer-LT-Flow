@@ -576,7 +576,7 @@
       "READER_WINDOW": "Le lecteur actif contrôle le tampon"
     },
     "metrics": {
-      "wait_reason": "Motif de l’attente",
+      "wait_reason": "Motif d’attente",
       "stage_started_ms": "Début de l’étape",
       "elapsed_ms": "Durée du préchargement",
       "metadata_ready_ms": "Métadonnées (depuis l’ajout)",
@@ -585,6 +585,28 @@
       "first_useful_block_ms": "Premières données observées",
       "diagnostic_history": "Historique de diagnostic",
       "dht_state_restored": "État DHT restauré"
+    },
+    "sparseTitle": "Disponibilité des pièces",
+    "sparseUnknown": "Disponibilité inconnue ou échantillon périmé.",
+    "sparsePeers": "Pairs utiles : {{useful}} / {{total}} échantillonnés ; téléchargement : {{downloading}}",
+    "sparseChoke": "Nous bloquent : {{choked}} ; sans réponse : {{snubbed}} ; connexion : {{pending}}",
+    "sparseSources": "Sources : tracker {{tracker}}, DHT {{dht}}, PEX {{pex}}, entrantes {{incoming}}",
+    "sparseQueue": "Blocs en attente : {{blocks}} ; octets attendus : {{bytes}} ; file la plus longue : {{ms}} ms",
+    "sparseFailures": "Octets avec hash invalide : {{failed}} ; octets redondants : {{redundant}}",
+    "sparseTruncated": "Seuls les 512 premiers pairs ont été échantillonnés ; zéro ne prouve pas une absence.",
+    "sparseHint": "La disponibilité décrit les pairs connectés dans les fenêtres échantillonnées. Les sources peuvent se chevaucher. Un pair utile possède une pièce nécessaire, mais peut être lent ou nous bloquer.",
+    "sparseSuppliers": "Fournisseurs de la pièce actuelle : {{count}}",
+    "sparseReasons": {
+      "METADATA": "Récupération des métadonnées",
+      "DISCOVERY": "Recherche de pairs",
+      "CONNECTION": "Connexion aux pairs découverts",
+      "UNCHOKE": "En attente du déblocage par un fournisseur",
+      "MISSING_CONNECTED": "Indisponible chez les pairs connectés",
+      "THROUGHPUT": "Débit inférieur à la consommation vidéo",
+      "CACHE_OR_PROBE": "En attente du cache ou de l’analyse du conteneur",
+      "READY": "Prêt",
+      "FIRST_BLOCK": "En attente du premier bloc nécessaire",
+      "UNKNOWN": "Disponibilité inconnue ou périmée"
     }
   },
   "search": {

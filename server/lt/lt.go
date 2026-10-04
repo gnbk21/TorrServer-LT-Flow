@@ -320,7 +320,8 @@ type AddTorrentParams struct {
 	InfoBytes []byte
 	// Trackers is a list of announce URLs appended on top of whatever the
 	// link or metadata already carries.
-	Trackers []string
+	Trackers     []string
+	TrackerTiers [][]string
 	// SavePath is the directory libtorrent's default storage would use
 	// (ignored once the custom storage is wired in Etap 4).
 	SavePath string
@@ -352,15 +353,16 @@ func (s *Session) AddTorrent(p AddTorrentParams) (*Torrent, error) {
 		cLink = C.CString(p.Link)
 		defer C.free(unsafe.Pointer(cLink))
 	}
-	if len(p.Trackers) > 0 {
-		joined := ""
-		for i, t := range p.Trackers {
-			if i > 0 {
-				joined += ","
-			}
-			joined += t
+	if p.TrackerTiers != nil || len(p.Trackers) > 0 {
+		tiers := p.TrackerTiers
+		if tiers == nil {
+			tiers = [][]string{p.Trackers}
 		}
-		cTrackers = C.CString(joined)
+		raw, err := json.Marshal(tiers)
+		if err != nil {
+			return nil, err
+		}
+		cTrackers = C.CString(string(raw))
 		defer C.free(unsafe.Pointer(cTrackers))
 	}
 	if p.SavePath != "" {
@@ -421,6 +423,19 @@ func (t *Torrent) Remove(deleteFiles bool) error {
 func (t *Torrent) Pause() error        { return codeToErr(C.lt_torrent_pause(t.id)) }
 func (t *Torrent) Resume() error       { return codeToErr(C.lt_torrent_resume(t.id)) }
 func (t *Torrent) ForceRecheck() error { return codeToErr(C.lt_torrent_force_recheck(t.id)) }
+
+func (t *Torrent) ReplaceTrackers(tiers [][]string) error {
+	raw, err := json.Marshal(tiers)
+	if err != nil {
+		return err
+	}
+	if tiers == nil {
+		raw = []byte("[]")
+	}
+	cs := C.CString(string(raw))
+	defer C.free(unsafe.Pointer(cs))
+	return codeToErr(C.lt_torrent_replace_trackers(t.id, cs))
+}
 
 // ForceReannounce re-announces to all trackers immediately (ignoring the min
 // interval). ForceDhtAnnounce does the same for the DHT. Used at playback start
@@ -632,6 +647,7 @@ type Status struct {
 	PieceLength          int64   `json:"piece_length"`
 	TotalSize            int64   `json:"total_size"`
 	HasMetadata          bool    `json:"has_metadata"`
+	Private              bool    `json:"private"`
 }
 
 // Status returns the current torrent_status, decoded from the shim's JSON.
@@ -726,14 +742,71 @@ func (s *Session) RequestSessionStats() error {
 // ParsedTorrent is the decoded form of a magnet URI or .torrent file as
 // emitted by the shim's parsers.
 type ParsedTorrent struct {
-	InfoHash     string   `json:"info_hash"`
-	DisplayName  string   `json:"display_name"`
-	Trackers     []string `json:"trackers"`
-	HasMetadata  bool     `json:"has_metadata"`
-	MetadataSize int      `json:"metadata_size"`
-	NumPieces    int      `json:"num_pieces,omitempty"`
-	PieceLength  int64    `json:"piece_length,omitempty"`
-	TotalSize    int64    `json:"total_size,omitempty"`
+	PieceHashes  string     `json:"piece_hashes,omitempty"`
+	InfoHash     string     `json:"info_hash"`
+	DisplayName  string     `json:"display_name"`
+	Trackers     []string   `json:"trackers"`
+	TrackerTiers [][]string `json:"tracker_tiers"`
+	Private      bool       `json:"private"`
+	HasMetadata  bool       `json:"has_metadata"`
+	MetadataSize int        `json:"metadata_size"`
+	NumPieces    int        `json:"num_pieces,omitempty"`
+	PieceLength  int64      `json:"piece_length,omitempty"`
+	TotalSize    int64      `json:"total_size,omitempty"`
+}
+
+// SparseSnapshot contains aggregates only. Availability covers at most 256
+// requested pieces across eight windows and at most 512 connected peers.
+type SparseWindow struct {
+	FirstPiece        int   `json:"first_piece"`
+	Availability      []int `json:"availability"`
+	UnchokedSuppliers int   `json:"unchoked_suppliers"`
+}
+
+type SparseSnapshot struct {
+	Private                bool           `json:"private"`
+	Known                  bool           `json:"known"`
+	SampledAtMs            int64          `json:"sampled_at_ms"`
+	SampledPeers           int            `json:"sampled_peers"`
+	Truncated              bool           `json:"truncated"`
+	UsefulPeers            int            `json:"useful_peers"`
+	UsefulDownloadingPeers int            `json:"useful_downloading_peers"`
+	ChokedPeers            int            `json:"choked_peers"`
+	SnubbedPeers           int            `json:"snubbed_peers"`
+	PendingConnections     int            `json:"pending_connections"`
+	TrackerPeers           int            `json:"tracker_peers"`
+	DHTPeers               int            `json:"dht_peers"`
+	PEXPeers               int            `json:"pex_peers"`
+	IncomingPeers          int            `json:"incoming_peers"`
+	OutstandingBytes       int64          `json:"outstanding_bytes"`
+	QueuedBlocks           int64          `json:"queued_blocks"`
+	MaxQueueMs             int64          `json:"max_queue_ms"`
+	FailedBytes            int64          `json:"failed_bytes"`
+	RedundantBytes         int64          `json:"redundant_bytes"`
+	Windows                []SparseWindow `json:"windows"`
+}
+
+// SampleSparse schedules asynchronous work; it never waits for the native
+// network thread. Only the torrent watcher calls it, never an HTTP handler.
+func (t *Torrent) SampleSparse(ranges [][2]int) (SparseSnapshot, error) {
+	encoded, err := json.Marshal(ranges)
+	if err != nil {
+		return SparseSnapshot{}, err
+	}
+	if ranges == nil {
+		encoded = []byte("[]")
+	}
+	cs := C.CString(string(encoded))
+	defer C.free(unsafe.Pointer(cs))
+	raw, err := cAlloc(func(n *C.size_t) *C.char {
+		return C.lt_torrent_sparse_json_alloc(t.id, cs, n)
+	})
+	if err != nil {
+		return SparseSnapshot{}, err
+	}
+	var snapshot SparseSnapshot
+	err = json.Unmarshal(raw, &snapshot)
+	return snapshot, err
 }
 
 // ParseMagnet parses a magnet URI and returns its info hash, display name and

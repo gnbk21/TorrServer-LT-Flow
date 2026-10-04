@@ -101,6 +101,8 @@ func (t *Torrent) startupStage(stage string) {
 }
 
 type FlowSessionStatus struct {
+	WaitReason             string `json:"wait_reason"`
+	RequiredPieceSuppliers *int   `json:"required_piece_suppliers,omitempty"`
 	flow.CounterSnapshot
 	Group                     string           `json:"group"`
 	FileIndex                 int              `json:"file_index"`
@@ -371,6 +373,7 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 	t.flowMu.Unlock()
 	cache := torrstor.Global().CacheByHash([20]byte(t.Hash()))
 	status := t.Status()
+	sparse := t.SparseStatus()
 	for i := range out {
 		s := &out[i]
 		f := t.fileByID(s.FileIndex)
@@ -425,6 +428,12 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 			continue
 		}
 		s.BufferAheadBytes = cache.ContiguousAvailable(start, end)
+		evidence := sparseSessionEvidence(sparse, int(start/cache.PieceLength), s.BufferAheadBytes, rate, s.PlaybackConsumptionRate, status.ActivePeers, status.PendingPeers)
+		s.WaitReason = flow.SparseReason(evidence)
+		if evidence.Fresh && evidence.HasWindow {
+			suppliers := evidence.Suppliers
+			s.RequiredPieceSuppliers = &suppliers
+		}
 		s.BufferAheadSeconds = flow.BufferSeconds(s.BufferAheadBytes,
 			flow.Estimate{BytesPerSecond: s.PlaybackConsumptionRate})
 		if s.ActiveReaders > 0 && s.PlaybackOffsetBytes > 0 && s.BufferAheadBytes < end-start {

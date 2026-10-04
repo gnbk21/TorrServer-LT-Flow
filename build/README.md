@@ -25,14 +25,14 @@ libtorrent headers. Its implementation is in `server/lt/lt_shim.cpp`: it clears
 completed-state flags, corrects file progress and refreshes seed connect
 candidates when previously downloaded media has been evicted. Native source and
 installed headers receive identical declarations before compilation. Old cache
-trees rebuild libtorrent once; `.flow-cache-extension-v2` identifies the new
+trees rebuild libtorrent once; `.flow-cache-extension-v3` identifies the new
 recipe. The extension changes no object layout or swarm-profile settings. A
 shared distro libtorrent without the internal API retains the documented limited
 refetch fallback; use the supplied static builds for full Flow behavior.
 
 ```
 build/
-  _common.sh         paths + pinned versions (Boost 1.85.0, libtorrent v2.1.0, OpenSSL 3.5.7)
+  _common.sh         paths + pinned versions (Boost 1.85.0, libtorrent v2.1.2, OpenSSL 3.5.7)
   _fetch_sources.sh  download Boost + OpenSSL + clone libtorrent into _src/  (idempotent)
   _deps.sh           shared engine: openssl + webrtc deps + b2 install libtorrent → go_build
   _osxcross.sh       locate OSXCross wrappers/SDK (darwin targets)
@@ -105,4 +105,24 @@ sudo apt install \
 - Boost/libtorrent are built once per target and cached in `_deps/<target>/`;
   re-running a script is a fast no-op for the deps and only relinks Go.
 - Versions are pinned in `_common.sh`; override with e.g.
-  `LIBTORRENT_TAG=v2.0.11 build/linux-arm64.sh`.
+  `LIBTORRENT_TAG=<tag> LIBTORRENT_REV=<commit> build/linux-arm64.sh`.
+  The checkout must match the revision and every reviewed patch must apply.
+
+## Reviewed native fixes
+
+Libtorrent v2.1.2 is pinned to `6da363d2994f17c0b3c0450d124cf73a31a73847`.
+`native-patches/94bffc25272b-queue-time.patch` backports upstream commit
+`94bffc25272b6833108d601fc0d824c344c48bc3`, including its queue arithmetic and
+transfer simulations. That fix is not part of the release tag.
+`flow-private-tracker-tiers.patch` makes private torrents use native tier
+failover even when public torrents announce to all configured trackers.
+
+`apply_native_patches.py` checks exact source context, breaks source hardlinks,
+and accepts an already-applied patch. Its recipe digest participates in the
+installed dependency stamp and CI cache key. The `native-streaming-tests` job
+runs the upstream queue/transfer simulations before platform jobs proceed.
+
+The controlled peer fixture supports partial bitfields, delayed HAVE and
+unchoke, metadata exchange, separate suppliers, rate limits, outages and
+reconnects. `python -m unittest discover -s build -p '*_test.py'` checks the
+fixture's real socket protocol independently of the production engine.

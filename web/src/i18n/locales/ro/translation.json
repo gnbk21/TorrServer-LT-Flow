@@ -579,6 +579,28 @@
       "first_useful_block_ms": "Primele date observate",
       "diagnostic_history": "Istoric de diagnostic",
       "dht_state_restored": "Stare DHT restaurată"
+    },
+    "sparseTitle": "Disponibilitatea pieselor",
+    "sparseUnknown": "Disponibilitate necunoscută sau eșantion învechit.",
+    "sparsePeers": "Parteneri utili: {{useful}} / {{total}} verificați; descarcă: {{downloading}}",
+    "sparseChoke": "Ne blochează: {{choked}}; fără răspuns: {{snubbed}}; conectare: {{pending}}",
+    "sparseSources": "Surse: tracker {{tracker}}, DHT {{dht}}, PEX {{pex}}, intrare {{incoming}}",
+    "sparseQueue": "Blocuri în coadă: {{blocks}}; octeți așteptați: {{bytes}}; coada maximă: {{ms}} ms",
+    "sparseFailures": "Octeți cu hash invalid: {{failed}}; octeți redundanți: {{redundant}}",
+    "sparseTruncated": "Doar primii 512 parteneri au fost verificați; zero nu dovedește absența.",
+    "sparseHint": "Disponibilitatea descrie partenerii conectați în ferestrele verificate. Sursele se pot suprapune. Un partener util are o piesă necesară, dar poate fi lent sau ne poate bloca.",
+    "sparseSuppliers": "Furnizori ai piesei curente: {{count}}",
+    "sparseReasons": {
+      "METADATA": "Se obțin metadatele",
+      "DISCOVERY": "Se caută parteneri",
+      "CONNECTION": "Conectare la partenerii descoperiți",
+      "UNCHOKE": "Se așteaptă deblocarea de către furnizor",
+      "MISSING_CONNECTED": "Indisponibil la partenerii conectați",
+      "THROUGHPUT": "Viteza este sub consumul redării",
+      "CACHE_OR_PROBE": "Se așteaptă cache-ul sau analiza containerului",
+      "READY": "Gata",
+      "FIRST_BLOCK": "Se așteaptă primul bloc necesar",
+      "UNKNOWN": "Disponibilitate necunoscută sau învechită"
     }
   },
   "search": {

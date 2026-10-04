@@ -2,6 +2,7 @@ package torrstor
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -78,7 +79,9 @@ func TestDiskPiece_SurvivesCacheClose(t *testing.T) {
 	}
 
 	// Fresh Storage, same hash: scan should see the existing piece.
-	bm := ScanHavePieces(hash, 4, pieceLen)
+	hashes := make([][20]byte, 4)
+	hashes[0] = sha1.Sum(bytes.Repeat([]byte{0xAB}, int(pieceLen)))
+	bm := ScanHavePieces(hash, 4, pieceLen, 4*pieceLen, hashes)
 	if len(bm) == 0 || bm[0]&0x1 == 0 {
 		t.Fatalf("ScanHavePieces missed the existing piece, bitmap=%x", bm)
 	}
@@ -119,10 +122,14 @@ func TestScanHavePieces_PartialAndFinal(t *testing.T) {
 	// piece 2 — missing
 	// piece 3 — full
 	must(filepath.Join(root, "3"), pieceLen)
-	// piece 4 (final) — any non-zero size counts as have
+	// piece 4 (final) — wrong size must never count as have
 	must(filepath.Join(root, "4"), 1)
 
-	bm := ScanHavePieces(h, numPieces, pieceLen)
+	hashes := make([][20]byte, numPieces)
+	for i := range hashes {
+		hashes[i] = sha1.Sum(bytes.Repeat([]byte{0x55}, int(pieceLen)))
+	}
+	bm := ScanHavePieces(h, numPieces, pieceLen, numPieces*pieceLen, hashes)
 	if len(bm) != (numPieces+7)/8 {
 		t.Fatalf("bitmap size: got %d, want %d", len(bm), (numPieces+7)/8)
 	}
@@ -136,14 +143,14 @@ func TestScanHavePieces_PartialAndFinal(t *testing.T) {
 	checkBit(1, false)
 	checkBit(2, false)
 	checkBit(3, true)
-	checkBit(4, true)
+	checkBit(4, false)
 }
 
 func TestScanHavePieces_OffWhenUseDiskFalse(t *testing.T) {
 	prev := settings.BTsets()
 	settings.StoreBTsets(&settings.BTSets{UseDisk: false})
 	t.Cleanup(func() { settings.StoreBTsets(prev) })
-	if bm := ScanHavePieces(mkHash(1), 4, pieceLen); bm != nil {
+	if bm := ScanHavePieces(mkHash(1), 4, pieceLen, 4*pieceLen, make([][20]byte, 4)); bm != nil {
 		t.Fatalf("expected nil bitmap when UseDisk=false, got %x", bm)
 	}
 }
@@ -160,6 +167,9 @@ func TestDiskResumeUsesExactFinalPieceSize(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := NewStorage()
+	hashes := [][20]byte{{}, sha1.Sum(data)}
+	bitmap := ScanHavePieces(h, 2, pieceLen, pieceLen+123, hashes)
+	s.SetVerifiedResume(h, bitmap, pieceLen+123)
 	s.callbackOpen(33, h, 2, pieceLen)
 	s.callbackSize(33, pieceLen+123)
 	c := s.lookup(33)

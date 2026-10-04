@@ -44,10 +44,13 @@
 // aux type, so only the include paths differ).
 #include <libtorrent/aux_/piece_picker.hpp>
 #include <libtorrent/aux_/peer_list.hpp>
+#include <libtorrent/aux_/peer_connection.hpp>
+#include <libtorrent/aux_/torrent_peer.hpp>
 #include <libtorrent/aux_/torrent.hpp>
 #else
 #include <libtorrent/piece_picker.hpp>
 #include <libtorrent/peer_list.hpp>
+#include <libtorrent/peer_connection.hpp>
 #include <libtorrent/torrent.hpp>
 #endif
 #include <libtorrent/aux_/session_interface.hpp>
@@ -298,9 +301,16 @@ std::shared_mutex g_torr_mu;
 // keeps g_hash2id from retaining a stale hash -> dead-id mapping, which would
 // make every future add of the same info-hash return the dead id ("torrent
 // not found" forever).
+struct sparse_snapshot {
+    std::mutex mu;
+    bool pending = false;
+    std::chrono::steady_clock::time_point last_request{};
+    std::string cached = "{\"known\":false}";
+};
 struct torrent_entry {
     lt::torrent_handle h;
     std::string hex; // 40-char lowercase v1 info-hash
+    std::shared_ptr<sparse_snapshot> sparse = std::make_shared<sparse_snapshot>();
 };
 std::unordered_map<int64_t, torrent_entry> g_torrents;
 std::unordered_map<std::string, int64_t> g_hash2id;
@@ -335,6 +345,7 @@ int64_t register_torrent(lt::torrent_handle const& h) {
             g_torrents.emplace(exist->second, torrent_entry{h, hex});
         } else if (!told->second.h.is_valid()) {
             told->second.h = h;
+            told->second.sparse = std::make_shared<sparse_snapshot>();
         }
         return exist->second;
     }
@@ -488,6 +499,7 @@ json status_to_json(lt::torrent_handle const& h) {
         j["piece_length"] = ti->piece_length();
         j["total_size"]   = ti->total_size();
         j["has_metadata"] = true;
+        j["private"] = ti->priv();
     } else {
         j["piece_length"] = 0;
         j["total_size"]   = 0;
@@ -864,11 +876,25 @@ static std::shared_ptr<lt::torrent_info> parse_torrent_or_info(
     return nullptr;
 }
 
+// Keep tracker tiers bounded and reject malformed JSON before calling native code.
+static bool valid_tracker_tiers(json const& tiers) {
+    if (!tiers.is_array() || tiers.size() > 256) return false;
+    std::size_t count = 0;
+    for (auto const& urls : tiers) {
+        if (!urls.is_array()) return false;
+        for (auto const& url : urls) {
+            if (!url.is_string() || url.get_ref<std::string const&>().size() > 8192
+                || ++count > 1024) return false;
+        }
+    }
+    return true;
+}
+
 lt_torrent lt_session_add_torrent(
     lt_session sid,
     const char* link,
     const uint8_t* info_bytes, size_t info_len,
-    const char* trackers_csv,
+    const char* trackers_json,
     const char* save_path,
     int paused,
     const uint8_t* have_pieces_bitmap, int have_pieces_count)
@@ -910,10 +936,21 @@ lt_torrent lt_session_add_torrent(
             return 0;
         }
 
-        if (trackers_csv && *trackers_csv) {
-            for (auto& t : split_csv(trackers_csv)) {
-                atp.trackers.push_back(t);
+        if (trackers_json && *trackers_json
+            && !(atp.ti && atp.ti->priv() && !atp.ti->trackers().empty())) {
+            auto tiers = json::parse(trackers_json);
+            if (!valid_tracker_tiers(tiers)) { set_err(LT_ERR_INVALID, "invalid tracker tiers"); return 0; }
+            atp.trackers.clear();
+            atp.tracker_tiers.clear();
+            int tier = 0;
+            for (auto const& urls : tiers) {
+                for (auto const& url : urls) {
+                    atp.trackers.push_back(url.get<std::string>());
+                    atp.tracker_tiers.push_back(tier);
+                }
+                ++tier;
             }
+            atp.flags |= lt::torrent_flags::override_trackers;
         }
 
         if (paused) {
@@ -932,9 +969,8 @@ lt_torrent lt_session_add_torrent(
                     atp.have_pieces.set_bit(lt::piece_index_t{i});
                 }
             }
-            // Tell libtorrent to trust our bitmap; skips the post-add hash
-            // verification. Matches the "trust file-sizes" resume policy
-            // we agreed on in Etap 2.
+            // Go verified exact lengths and metadata SHA-1 hashes before addition.
+            // Share that verified bitmap without doing a second full disk scan.
             atp.flags |= lt::torrent_flags::no_verify_files;
         }
 
@@ -970,6 +1006,134 @@ int lt_torrent_pause(lt_torrent tid) {
     h.pause();
     return LT_OK;
     WRAP_END(LT_ERR_INTERNAL)
+}
+
+int lt_torrent_replace_trackers(lt_torrent tid, const char* tiers_json) {
+    WRAP_BEGIN
+    auto h = get_torrent(tid);
+    if (!h.is_valid()) return set_err(LT_ERR_NOT_FOUND, "torrent not found");
+    auto ti = h.torrent_file();
+    if (!ti || ti->priv()) return set_err(LT_ERR_INVALID, "public metadata required");
+    auto tiers = json::parse(tiers_json ? tiers_json : "[]");
+    if (!valid_tracker_tiers(tiers)) return set_err(LT_ERR_INVALID, "invalid tracker tiers");
+    std::vector<lt::announce_entry> entries;
+    int tier = 0;
+    for (auto const& urls : tiers) {
+        for (auto const& url : urls) {
+            lt::announce_entry e(url.get<std::string>());
+            e.tier = static_cast<std::uint8_t>(std::min(tier, 255));
+            entries.push_back(std::move(e));
+        }
+        ++tier;
+    }
+    h.replace_trackers(entries);
+    return LT_OK;
+    WRAP_END(LT_ERR_INTERNAL)
+}
+
+char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size_t* out_len) {
+    set_err(LT_OK, "");
+    try {
+        lt::torrent_handle h;
+        std::shared_ptr<sparse_snapshot> snapshot;
+        {
+            std::shared_lock<std::shared_mutex> lk(g_torr_mu);
+            auto it = g_torrents.find(tid);
+            if (it == g_torrents.end()) { set_err(LT_ERR_NOT_FOUND, "torrent not found"); return nullptr; }
+            h = it->second.h;
+            snapshot = it->second.sparse;
+        }
+        auto ranges = json::parse(ranges_json ? ranges_json : "[]");
+        int pieces = 0;
+        if (!ranges.is_array() || ranges.size() > 8) { set_err(LT_ERR_INVALID, "invalid sparse ranges"); return nullptr; }
+        for (auto const& range : ranges) {
+            if (!range.is_array() || range.size() != 2 || !range[0].is_number_integer()
+                || !range[1].is_number_integer()) { set_err(LT_ERR_INVALID, "invalid sparse range"); return nullptr; }
+            auto const first = range[0].get<std::int64_t>();
+            auto const count = range[1].get<std::int64_t>();
+            if (first < 0 || first > INT32_MAX || count < 1 || count > 128 || first+count > INT32_MAX
+                || (pieces += static_cast<int>(count)) > 256) { set_err(LT_ERR_INVALID, "sparse range exceeds bounds"); return nullptr; }
+        }
+        std::lock_guard<std::mutex> lk(snapshot->mu);
+        std::string cached = snapshot->cached;
+#ifdef TSL_HAVE_LT_INTERNALS
+        auto const now = std::chrono::steady_clock::now();
+        if (!snapshot->pending && now-snapshot->last_request >= std::chrono::seconds(2)) {
+            auto tor = h.native_handle();
+            if (tor) {
+                snapshot->pending = true;
+                snapshot->last_request = now;
+                lt::post(tor->session().get_context(), [tor, snapshot, ranges=std::move(ranges)]() {
+                    json result = {{"known", false}};
+                    try {
+                        if (tor->valid_metadata()) {
+                            int const total = tor->torrent_file().num_pieces();
+                            json windows = json::array();
+                            for (auto const& range : ranges) {
+                                int const first = range[0].get<int>();
+                                int const count = range[1].get<int>();
+                                if (first >= total || count > total-first) continue;
+                                windows.push_back({{"first_piece", first}, {"availability", std::vector<int>(count, 0)},
+                                    {"unchoked_suppliers", 0}});
+                            }
+                            int sampled = 0, useful = 0, downloading = 0, choked = 0, snubbed = 0, pending = 0;
+                            int tracker = 0, dht = 0, pex = 0, incoming = 0;
+                            std::int64_t outstanding = 0, queue_ms = 0, queued = 0;
+                            for (auto* peer : *tor) {
+                                if (sampled == 512) break;
+                                ++sampled;
+                                pending += peer->is_connecting();
+                                choked += peer->has_peer_choked();
+                                snubbed += peer->flow_snubbed();
+                                incoming += !peer->is_outgoing();
+                                if (auto* info = peer->peer_info_struct()) {
+                                    auto const source = info->peer_source();
+                                    tracker += bool(source & lt::peer_info::tracker);
+                                    dht += bool(source & lt::peer_info::dht);
+                                    pex += bool(source & lt::peer_info::pex);
+                                }
+                                bool supplies = false;
+                                if (!peer->is_connecting() && !peer->is_disconnecting()) {
+                                    for (auto& window : windows) {
+                                        int const first = window["first_piece"].get<int>();
+                                        auto& available = window["availability"];
+                                        for (std::size_t i = 0; i < available.size(); ++i) {
+                                            if (!peer->has_piece(lt::piece_index_t{first+static_cast<int>(i)})) continue;
+                                            available[i] = available[i].get<int>()+1;
+                                            supplies = true;
+                                            if (i == 0 && !peer->has_peer_choked())
+                                                window["unchoked_suppliers"] = window["unchoked_suppliers"].get<int>()+1;
+                                        }
+                                    }
+                                    outstanding += peer->outstanding_bytes();
+                                    queued += peer->request_queue().size()+peer->download_queue().size();
+                                    queue_ms = std::max(queue_ms, lt::total_milliseconds(peer->download_queue_time()));
+                                }
+                                useful += supplies;
+                                downloading += supplies && peer->statistics().download_payload_rate() > 0;
+                            }
+                            lt::torrent_status status;
+                            tor->status(&status, {});
+                            auto const timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                std::chrono::system_clock::now().time_since_epoch()).count();
+                            result = {{"known", true}, {"private", tor->torrent_file().priv()}, {"sampled_at_ms", timestamp}, {"sampled_peers", sampled},
+                                {"truncated", tor->num_peers() > sampled}, {"useful_peers", useful},
+                                {"useful_downloading_peers", downloading}, {"choked_peers", choked}, {"snubbed_peers", snubbed},
+                                {"pending_connections", pending}, {"tracker_peers", tracker}, {"dht_peers", dht},
+                                {"pex_peers", pex}, {"incoming_peers", incoming}, {"outstanding_bytes", outstanding},
+                                {"queued_blocks", queued}, {"max_queue_ms", queue_ms}, {"failed_bytes", status.total_failed_bytes},
+                                {"redundant_bytes", status.total_redundant_bytes}, {"windows", std::move(windows)}};
+                        }
+                    } catch (...) { result = {{"known", false}}; }
+                    std::lock_guard<std::mutex> done(snapshot->mu);
+                    snapshot->cached = result.dump();
+                    snapshot->pending = false;
+                });
+            }
+        }
+#endif
+        return alloc_string(cached, out_len);
+    } catch (std::exception const& e) { set_err(LT_ERR_INVALID, e.what()); return nullptr; }
 }
 
 int lt_torrent_resume(lt_torrent tid) {
@@ -1515,13 +1679,28 @@ static char* parse_atp_to_json(lt::add_torrent_params const& atp, size_t* out_le
     json tr = json::array();
     for (auto const& t : atp.trackers) tr.push_back(t);
     j["trackers"] = std::move(tr);
+    json tiers = json::array();
+    for (std::size_t i = 0; i < atp.trackers.size(); ++i) {
+        int const tier = i < atp.tracker_tiers.size() ? atp.tracker_tiers[i] : 0;
+        while (tiers.size() <= static_cast<std::size_t>(tier)) tiers.push_back(json::array());
+        tiers[tier].push_back(atp.trackers[i]);
+    }
+    j["tracker_tiers"] = std::move(tiers);
     if (atp.ti) {
         auto const& info = atp.ti->info_section();
         j["has_metadata"]  = true;
+        j["private"] = atp.ti->priv();
         j["metadata_size"] = static_cast<int>(info.size());
         j["num_pieces"]    = atp.ti->num_pieces();
         j["piece_length"]  = atp.ti->piece_length();
         j["total_size"]    = atp.ti->total_size();
+        std::string piece_hashes;
+        if (atp.ti->v1()) {
+            piece_hashes.reserve(static_cast<std::size_t>(atp.ti->num_pieces()) * 40);
+            for (int i = 0; i < atp.ti->num_pieces(); ++i)
+                piece_hashes += sha1_hex(atp.ti->hash_for_piece(lt::piece_index_t{i}));
+        }
+        j["piece_hashes"] = std::move(piece_hashes);
     } else {
         j["has_metadata"]  = false;
         j["metadata_size"] = 0;
@@ -1562,6 +1741,7 @@ char* lt_parse_torrent_bytes_alloc(const uint8_t* buf, size_t len, size_t* out_l
         atp.name = ti->name();
         for (auto const& tracker : ti->trackers()) {
             atp.trackers.push_back(tracker.url);
+            atp.tracker_tiers.push_back(tracker.tier);
         }
         return parse_atp_to_json(atp, out_len);
     } catch (std::exception const& e) {

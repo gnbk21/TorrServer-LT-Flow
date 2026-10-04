@@ -21,16 +21,38 @@ import (
 // into libtorrent via Install(); calls from libtorrent's disk threads
 // land on its Read/Write/Open/Close/Deleted/Have methods.
 type Storage struct {
-	mu     sync.RWMutex
-	caches map[int64]*Cache    // by libtorrent storage_id
-	byHash map[[20]byte]*Cache // by info hash for Reader lookup from torr
+	mu      sync.RWMutex
+	caches  map[int64]*Cache    // by libtorrent storage_id
+	byHash  map[[20]byte]*Cache // by info hash for Reader lookup from torr
+	resumes map[[20]byte]verifiedResume
+}
+
+type verifiedResume struct {
+	bitmap    []byte
+	totalSize int64
+}
+
+// SetVerifiedResume is called before native addition. The consumed state shares
+// the same verified have-bitmap with native and Go readers; it is never inferred
+// from file size in a disk callback.
+func (s *Storage) SetVerifiedResume(hash [20]byte, bitmap []byte, totalSize int64) {
+	s.mu.Lock()
+	s.resumes[hash] = verifiedResume{append([]byte(nil), bitmap...), totalSize}
+	s.mu.Unlock()
+}
+
+func (s *Storage) ClearVerifiedResume(hash [20]byte) {
+	s.mu.Lock()
+	delete(s.resumes, hash)
+	s.mu.Unlock()
 }
 
 // NewStorage constructs an empty registry.
 func NewStorage() *Storage {
 	return &Storage{
-		caches: map[int64]*Cache{},
-		byHash: map[[20]byte]*Cache{},
+		caches:  map[int64]*Cache{},
+		byHash:  map[[20]byte]*Cache{},
+		resumes: map[[20]byte]verifiedResume{},
 	}
 }
 
@@ -130,13 +152,17 @@ func (s *Storage) Allocations() AllocationStatus {
 func (s *Storage) callbackOpen(storage int64, hash [20]byte, numPieces int, pieceLength int64) {
 	c := newCache(s, storage, hash, numPieces, pieceLength)
 	s.mu.Lock()
+	resume := s.resumes[hash]
+	delete(s.resumes, hash)
+	c.resume = resume.bitmap
+	c.totalSize.Store(resume.totalSize)
+	c.scanLocalPieces()
 	s.caches[storage] = c
 	s.byHash[hash] = c
 	s.mu.Unlock()
 	// In UseDisk mode, eagerly materialise any pre-existing piece
 	// files so Have()/Reader hit them without going through the lazy
 	// reconstruction path in readPiece.
-	c.scanLocalPieces()
 }
 
 func (s *Storage) callbackClose(storage int64) {
@@ -198,18 +224,6 @@ func (s *Storage) callbackEvict(storage int64, piece int) bool {
 func (s *Storage) callbackSize(storage int64, totalSize int64) {
 	if c := s.lookup(storage); c != nil {
 		c.totalSize.Store(totalSize)
-		// Preserve the existing disk-resume size policy, now with the exact
-		// final-piece length. Open scanned these files before Size was known.
-		c.mu.RLock()
-		p := c.pieces[c.NumPieces-1]
-		c.mu.RUnlock()
-		if p != nil {
-			p.mu.Lock()
-			if p.disk != nil && len(p.avail) == 0 && p.size > 0 && p.size == p.expectedSize() {
-				p.complete = true
-			}
-			p.mu.Unlock()
-		}
 	}
 }
 

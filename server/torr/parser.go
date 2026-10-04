@@ -194,7 +194,9 @@ func parseHTTP(u string) (*TorrentSpec, error) {
 
 func specFromParsed(pt *lt.ParsedTorrent, info []byte) *TorrentSpec {
 	var trackers [][]string
-	if len(pt.Trackers) > 0 {
+	if len(pt.TrackerTiers) > 0 {
+		trackers = pt.TrackerTiers
+	} else if len(pt.Trackers) > 0 {
 		trackers = [][]string{append([]string(nil), pt.Trackers...)}
 	}
 	return &TorrentSpec{

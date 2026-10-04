@@ -85,6 +85,7 @@ type Cache struct {
 
 	mu     sync.RWMutex
 	pieces map[int]*Piece
+	resume []byte // consumed during Open before publishing the cache
 
 	// per-piece progress channels: closed (= broadcast) by SignalPieceComplete
 	// when libtorrent's piece_finished_alert arrives AND by writePiece on every
@@ -1490,6 +1491,9 @@ func (c *Cache) scanLocalPieces() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for i := 0; i < c.NumPieces; i++ {
+		if i/8 >= len(c.resume) || c.resume[i/8]&(1<<uint(i%8)) == 0 {
+			continue
+		}
 		if _, ok := c.pieces[i]; ok {
 			continue
 		}
@@ -1498,6 +1502,7 @@ func (c *Cache) scanLocalPieces() {
 			c.pieces[i] = candidate
 		}
 	}
+	c.resume = nil
 }
 
 // readPiece serves a libtorrent disk read. Lazily reconstructs the

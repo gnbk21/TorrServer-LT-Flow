@@ -38,6 +38,59 @@ export function FlowDiagnosticsDrawer({
         <p>{t("flow.noMetrics")}</p>
       ) : (
         <div className="space-y-5">
+          {status.sparse && (
+            <section className="panel" aria-live="polite">
+              <h3 className="font-semibold">{t("flow.sparseTitle")}</h3>
+              {!status.sparse.known ||
+              !status.sparse.sampled_at_ms ||
+              Date.now() - status.sparse.sampled_at_ms < 0 ||
+              Date.now() - status.sparse.sampled_at_ms >= 5000 ? (
+                <p>{t("flow.sparseUnknown")}</p>
+              ) : (
+                <div className="space-y-2 mt-2 text-sm">
+                  <p>
+                    {t("flow.sparsePeers", {
+                      useful: status.sparse.useful_peers,
+                      total: status.sparse.sampled_peers,
+                      downloading: status.sparse.useful_downloading_peers,
+                    })}
+                  </p>
+                  <p>
+                    {t("flow.sparseChoke", {
+                      choked: status.sparse.choked_peers,
+                      snubbed: status.sparse.snubbed_peers,
+                      pending: status.sparse.pending_connections,
+                    })}
+                  </p>
+                  <p>
+                    {t("flow.sparseSources", {
+                      tracker: status.sparse.tracker_peers,
+                      dht: status.sparse.dht_peers,
+                      pex: status.sparse.pex_peers,
+                      incoming: status.sparse.incoming_peers,
+                    })}
+                  </p>
+                  <p>
+                    {t("flow.sparseQueue", {
+                      blocks: status.sparse.queued_blocks,
+                      bytes: status.sparse.outstanding_bytes,
+                      ms: status.sparse.max_queue_ms,
+                    })}
+                  </p>
+                  <p>
+                    {t("flow.sparseFailures", {
+                      failed: status.sparse.failed_bytes,
+                      redundant: status.sparse.redundant_bytes,
+                    })}
+                  </p>
+                  {status.sparse.truncated && (
+                    <p>{t("flow.sparseTruncated")}</p>
+                  )}
+                  <p className="text-slate-400">{t("flow.sparseHint")}</p>
+                </div>
+              )}
+            </section>
+          )}
           {status.startup?.wait_reason && (
             <section className="panel" aria-live="polite">
               <h3 className="font-semibold">{t("flow.startupWait")}</h3>
@@ -91,7 +144,12 @@ export function FlowDiagnosticsDrawer({
               </h3>
               <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
                 {Object.entries(s)
-                  .filter(([k]) => k !== "traces" && k !== "file_index")
+                  .filter(
+                    ([k]) =>
+                      k !== "traces" &&
+                      k !== "file_index" &&
+                      k !== "required_piece_suppliers",
+                  )
                   .map(([key, value]) => (
                     <div key={key}>
                       <dt className="text-sm text-slate-400">
@@ -100,14 +158,25 @@ export function FlowDiagnosticsDrawer({
                         })}
                       </dt>
                       <dd className="font-mono break-all">
-                        {key === "buffer_ahead_seconds" &&
-                        s.playback_consumption_rate <= 0
-                          ? "—"
-                          : redactDiagnostic(value)}
+                        {key === "wait_reason"
+                          ? t(`flow.sparseReasons.${value}`, {
+                              defaultValue: t("flow.sparseUnknown"),
+                            })
+                          : key === "buffer_ahead_seconds" &&
+                              s.playback_consumption_rate <= 0
+                            ? "—"
+                            : redactDiagnostic(value)}
                       </dd>
                     </div>
                   ))}
               </dl>
+              {s.required_piece_suppliers !== undefined && (
+                <p className="mt-3 text-sm">
+                  {t("flow.sparseSuppliers", {
+                    count: s.required_piece_suppliers,
+                  })}
+                </p>
+              )}
               {s.traces && (
                 <details>
                   <summary>{t("flow.traces")}</summary>

@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"server/lt"
 	"server/torr"
 )
 
@@ -12,6 +13,7 @@ type FlowStatusResponse struct {
 	Sessions []torr.FlowSessionStatus     `json:"sessions"`
 	Trackers []torr.FlowTrackerDiagnostic `json:"trackers"`
 	Network  torr.FlowNetworkStatus       `json:"network"`
+	Sparse   lt.SparseSnapshot            `json:"sparse"`
 }
 
 // flowStatus exposes a bounded diagnostic snapshot for one live torrent.
@@ -24,7 +26,7 @@ func flowStatus(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "torrent not found"})
 		return
 	}
-	c.JSON(http.StatusOK, FlowStatusResponse{c.Param("hash"), t.FlowStartup(), t.FlowStatusWithTraces(c.Query("traces") != "false"), t.FlowTrackers(), torr.NetworkStatusSnapshot()})
+	c.JSON(http.StatusOK, FlowStatusResponse{Hash: c.Param("hash"), Startup: t.FlowStartup(), Sessions: t.FlowStatusWithTraces(c.Query("traces") != "false"), Trackers: t.FlowTrackers(), Network: torr.NetworkStatusSnapshot(), Sparse: t.SparseStatus()})
 }
 
 func flowNetwork(c *gin.Context) {

@@ -34,6 +34,9 @@ def patch(directory):
     extend(include / "peer_list.hpp",
            "\t\tvoid set_max_failcount(torrent_state* st);",
            "\t\tvoid flow_refresh_connect_candidates(torrent_state* state) { recalculate_connect_candidates(state); }")
+    extend(include / "peer_connection.hpp",
+           "\t\tbool has_peer_choked() const { return m_peer_choked; }",
+           "\t\tbool flow_snubbed() const { return m_snubbed; }")
 
 
 if __name__ == "__main__":

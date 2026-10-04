@@ -146,7 +146,7 @@ lt_torrent lt_session_add_torrent(
     lt_session s,
     const char* link,
     const uint8_t* info_bytes, size_t info_len,
-    const char* trackers_csv,
+    const char* trackers_json,
     const char* save_path,
     int paused,
     const uint8_t* have_pieces_bitmap, int have_pieces_count);
@@ -157,6 +157,11 @@ int lt_torrent_resume(lt_torrent t);
 int lt_torrent_force_recheck(lt_torrent t);
 int lt_torrent_force_reannounce(lt_torrent t);
 int lt_torrent_force_dht_announce(lt_torrent t);
+int lt_torrent_replace_trackers(lt_torrent t, const char* tiers_json);
+// Schedule a bounded network-thread snapshot and return the previous cached
+// aggregate immediately. ranges_json is [[first_piece,count], ...], max 8
+// ranges, 256 pieces total. No peer identities or full bitfields are returned.
+char* lt_torrent_sparse_json_alloc(lt_torrent t, const char* ranges_json, size_t* out_len);
 /* Per-torrent peer connection cap (torrent_handle::set_max_connections).
  * The BTsets "connections limit" is historically per-torrent, while
  * settings_pack's connections_limit is session-wide — this keeps the

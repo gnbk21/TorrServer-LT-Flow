@@ -34,6 +34,8 @@ export interface FlowStartup {
 }
 
 export interface FlowSession {
+  wait_reason?: string;
+  required_piece_suppliers?: number;
   recent_window_seconds?: number;
   recent_cache_hit_bytes?: number;
   recent_cache_miss_bytes?: number;
@@ -116,9 +118,37 @@ export interface FlowTrackerSummary {
   last_at: string;
 }
 export interface FlowStatusResponse {
+  sparse?: SparseSnapshot;
   hash: string;
   startup?: FlowStartup;
   sessions?: FlowSession[] | null;
   trackers?: FlowTrackerSummary[] | null;
   network?: FlowNetworkStatus;
+}
+
+export interface SparseSnapshot {
+  known: boolean;
+  private?: boolean;
+  sampled_at_ms?: number;
+  sampled_peers?: number;
+  truncated?: boolean;
+  useful_peers?: number;
+  useful_downloading_peers?: number;
+  choked_peers?: number;
+  snubbed_peers?: number;
+  pending_connections?: number;
+  tracker_peers?: number;
+  dht_peers?: number;
+  pex_peers?: number;
+  incoming_peers?: number;
+  outstanding_bytes?: number;
+  queued_blocks?: number;
+  max_queue_ms?: number;
+  failed_bytes?: number;
+  redundant_bytes?: number;
+  windows?: {
+    first_piece: number;
+    availability: number[];
+    unchoked_suppliers: number;
+  }[];
 }

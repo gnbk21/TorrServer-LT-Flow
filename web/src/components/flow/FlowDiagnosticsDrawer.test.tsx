@@ -15,6 +15,40 @@ vi.mock("react-i18next", () => ({
 }));
 afterEach(cleanup);
 describe("startup explanation", () => {
+  it("labels stale availability instead of displaying it as current", () => {
+    render(
+      <FlowDiagnosticsDrawer
+        isOpen
+        onClose={() => {}}
+        status={{
+          hash: "fixture",
+          sparse: { known: true, sampled_at_ms: 1, sampled_peers: 0 },
+        }}
+      />,
+    );
+    expect(screen.getByText("flow.sparseUnknown")).toBeInTheDocument();
+    expect(screen.queryByText("flow.sparsePeers")).not.toBeInTheDocument();
+  });
+  it("shows a bounded fresh sample and warns when peers were omitted", () => {
+    render(
+      <FlowDiagnosticsDrawer
+        isOpen
+        onClose={() => {}}
+        status={{
+          hash: "fixture",
+          sparse: {
+            known: true,
+            sampled_at_ms: Date.now(),
+            sampled_peers: 512,
+            truncated: true,
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText("flow.sparseTruncated")).toBeInTheDocument();
+    expect(screen.getByText("flow.sparseHint")).toBeInTheDocument();
+    expect(screen.queryByText("flow.sparseUnknown")).not.toBeInTheDocument();
+  });
   it("distinguishes unobserved timings from a measured zero and explains the wait", () => {
     const status = {
       hash: "fixture",

@@ -585,6 +585,28 @@
       "first_useful_block_ms": "首次观察到媒体数据",
       "diagnostic_history": "诊断历史",
       "dht_state_restored": "已恢复 DHT 状态"
+    },
+    "sparseTitle": "分片可用性",
+    "sparseUnknown": "可用性未知或采样已过期。",
+    "sparsePeers": "有效节点：{{useful}} / {{total}} 个采样节点；正在下载：{{downloading}}",
+    "sparseChoke": "阻塞我们：{{choked}}；无响应：{{snubbed}}；正在连接：{{pending}}",
+    "sparseSources": "来源：Tracker {{tracker}}，DHT {{dht}}，PEX {{pex}}，入站 {{incoming}}",
+    "sparseQueue": "排队块：{{blocks}}；待接收字节：{{bytes}}；最长队列：{{ms}} 毫秒",
+    "sparseFailures": "哈希失败字节：{{failed}}；重复字节：{{redundant}}",
+    "sparseTruncated": "仅采样前 512 个节点；零不能证明不存在。",
+    "sparseHint": "可用性描述采样窗口内已连接的节点。来源统计可能重叠。有效节点拥有所需分片，但仍可能缓慢或阻塞我们。",
+    "sparseSuppliers": "当前分片的供应节点：{{count}}",
+    "sparseReasons": {
+      "METADATA": "正在获取元数据",
+      "DISCOVERY": "正在发现节点",
+      "CONNECTION": "正在连接已发现的节点",
+      "UNCHOKE": "等待供应节点解除阻塞",
+      "MISSING_CONNECTED": "已连接节点没有此分片",
+      "THROUGHPUT": "下载速度低于播放消耗",
+      "CACHE_OR_PROBE": "等待本地缓存或容器探测",
+      "READY": "就绪",
+      "FIRST_BLOCK": "等待首个所需数据块",
+      "UNKNOWN": "可用性未知或已过期"
     }
   },
   "search": {

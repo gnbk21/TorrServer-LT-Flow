@@ -526,6 +526,28 @@
       "first_useful_block_ms": "First media data observed",
       "diagnostic_history": "Diagnostic history",
       "dht_state_restored": "DHT state restored"
+    },
+    "sparseTitle": "Piece availability",
+    "sparseUnknown": "Availability is unknown or the sample is stale.",
+    "sparsePeers": "Useful peers: {{useful}} / {{total}} sampled; downloading: {{downloading}}",
+    "sparseChoke": "Choking us: {{choked}}; stalled peers: {{snubbed}}; connecting: {{pending}}",
+    "sparseSources": "Sources: tracker {{tracker}}, DHT {{dht}}, PEX {{pex}}, incoming {{incoming}}",
+    "sparseQueue": "Queued blocks: {{blocks}}; outstanding bytes: {{bytes}}; longest queue: {{ms}} ms",
+    "sparseFailures": "Hash-failed bytes: {{failed}}; redundant bytes: {{redundant}}",
+    "sparseTruncated": "Only the first 512 peers were sampled; zero does not establish absence.",
+    "sparseHint": "Availability describes connected peers in the sampled forward windows. Source counts may overlap. A useful peer holds a needed piece; it may still be slow or choked.",
+    "sparseSuppliers": "Suppliers of the current piece: {{count}}",
+    "sparseReasons": {
+      "METADATA": "Fetching metadata",
+      "DISCOVERY": "Finding peers",
+      "CONNECTION": "Connecting to discovered peers",
+      "UNCHOKE": "Waiting for a supplier to unchoke us",
+      "MISSING_CONNECTED": "Not available from connected peers",
+      "THROUGHPUT": "Download is below playback consumption",
+      "CACHE_OR_PROBE": "Waiting for local cache or container probe",
+      "READY": "Ready",
+      "FIRST_BLOCK": "Waiting for the first required block",
+      "UNKNOWN": "Availability unknown or stale"
     }
   },
   "torrent": {

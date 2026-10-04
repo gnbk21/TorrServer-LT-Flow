@@ -1,6 +1,7 @@
 package torr
 
 import (
+	"encoding/hex"
 	"errors"
 	"sort"
 	"strconv"
@@ -86,6 +87,7 @@ type Torrent struct {
 
 	flowMu       sync.Mutex
 	flowSessions map[string]*flowSession
+	sparse       lt.SparseSnapshot // immutable cached aggregate, guarded by flowMu
 	trackerMu    sync.Mutex
 	trackers     map[string]FlowTrackerDiagnostic
 
@@ -111,20 +113,23 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 		return nil, errors.New("torr.NewTorrent: nil spec")
 	}
 
-	// Trackers: applied via session-level retrackers settings in addition
-	// to per-torrent. Mirror legacy RetrackersMode semantics.
-	defTrackers := utils.GetDefTrackers()
-	fileTrackers := utils.GetTrackerFromFile()
-	switch settings.BTsets().RetrackersMode {
-	case 1:
-		spec.Trackers = append(spec.Trackers, defTrackers)
-	case 2:
-		spec.Trackers = nil
-	case 3:
-		spec.Trackers = [][]string{defTrackers}
-	}
-	if len(fileTrackers) > 0 {
-		spec.Trackers = append(spec.Trackers, fileTrackers)
+	// Never mutate the stored specification with public discovery additions.
+	// Unknown magnets use only their supplied trackers until metadata identifies
+	// the torrent as public. Private metadata retains its authorized tiers.
+	trackerTiers := spec.Trackers
+	var metadata *lt.ParsedTorrent
+	if len(spec.InfoBytes) > 0 {
+		pt, parseErr := lt.ParseTorrentBytes(spec.InfoBytes)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		metadata = pt
+		if pt.Private && len(pt.TrackerTiers) > 0 {
+			trackerTiers = pt.TrackerTiers
+		}
+		if !pt.Private {
+			trackerTiers = publicTrackerTiers(spec.Trackers)
+		}
 	}
 
 	// If metadata is known at add time (InfoBytes present), scan the
@@ -135,10 +140,14 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 		havePieces []byte
 		pieceCount int
 	)
-	if len(spec.InfoBytes) > 0 {
-		if pt, err := lt.ParseTorrentBytes(spec.InfoBytes); err == nil && pt.HasMetadata && pt.NumPieces > 0 {
-			pieceCount = pt.NumPieces
-			havePieces = torrstor.ScanHavePieces(spec.InfoHash, pt.NumPieces, pt.PieceLength)
+	if metadata != nil && metadata.HasMetadata && metadata.NumPieces > 0 {
+		pieceCount = metadata.NumPieces
+		if raw, err := hex.DecodeString(metadata.PieceHashes); err == nil && len(raw)/20 == pieceCount && len(raw)%20 == 0 {
+			hashes := make([][20]byte, pieceCount)
+			for i := range hashes {
+				copy(hashes[i][:], raw[i*20:(i+1)*20])
+			}
+			havePieces = torrstor.ScanHavePieces(spec.InfoHash, pieceCount, metadata.PieceLength, metadata.TotalSize, hashes)
 		}
 	}
 
@@ -164,16 +173,20 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 		delete(bt.torrents, spec.InfoHash)
 	}
 
+	if metadata != nil {
+		torrstor.Global().SetVerifiedResume(spec.InfoHash, havePieces, metadata.TotalSize)
+	}
 	lh, err := bt.session.AddTorrent(lt.AddTorrentParams{
-		Link:       magnetFromSpec(spec),
-		InfoBytes:  spec.InfoBytes,
-		Trackers:   spec.FlatTrackers(),
-		SavePath:   legacySavePath(spec.InfoHash),
-		Paused:     flowPaused.Load(),
-		HavePieces: havePieces,
-		PieceCount: pieceCount,
+		Link:         magnetFromSpec(spec),
+		InfoBytes:    spec.InfoBytes,
+		TrackerTiers: trackerTiers,
+		SavePath:     legacySavePath(spec.InfoHash),
+		Paused:       flowPaused.Load(),
+		HavePieces:   havePieces,
+		PieceCount:   pieceCount,
 	})
 	if err != nil {
+		torrstor.Global().ClearVerifiedResume(spec.InfoHash)
 		bt.mu.Unlock()
 		return nil, err
 	}
@@ -285,6 +298,9 @@ func (t *Torrent) signalGotInfo() {
 		// Switch to lazy/streaming mode: download nothing until a Reader's
 		// window or Preload bumps the specific pieces it needs.
 		_ = lh.SetAllPiecesPriority(0)
+		if st, err := lh.Status(); err == nil && !st.Private && len(t.InfoBytes) == 0 {
+			_ = lh.ReplaceTrackers(publicTrackerTiers(t.Trackers))
+		}
 		// Backfill the spec with the just-received info-dict: a magnet-added
 		// torrent's spec has no InfoBytes, so without this every DB save stores
 		// the bare magnet and every server restart re-fetches metadata from the
@@ -412,10 +428,13 @@ func (t *Torrent) watch() {
 }
 
 func (t *Torrent) progressTick() {
-	if t.lh == nil {
+	t.mu.Lock()
+	handle := t.lh
+	t.mu.Unlock()
+	if handle == nil {
 		return
 	}
-	st, err := t.lh.Status()
+	st, err := handle.Status()
 	if err != nil {
 		return
 	}
@@ -436,6 +455,11 @@ func (t *Torrent) progressTick() {
 	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
 		cache.SetFlowDownloadRate(rate)
 	}
+	count := 0
+	if st.PieceLength > 0 && st.TotalSize > 0 {
+		count = int((st.TotalSize-1)/st.PieceLength + 1)
+	}
+	t.sampleSparse(handle, st.HasMetadata, st.PieceLength, count)
 }
 
 // ----- shutdown -----
