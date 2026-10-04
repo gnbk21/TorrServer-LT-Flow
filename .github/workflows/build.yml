@@ -16,6 +16,10 @@ on:
         description: 'Compare an opt-in Go PGO build using generated playback fixtures'
         type: boolean
         default: false
+      evaluate_sparse_baseline:
+        description: 'Build and compare original, stable-only, queue-fixed and current sparse runtimes'
+        type: boolean
+        default: false
   # Reused by ts_release.yml on a tag; `version` stamps the binaries.
   workflow_call:
     inputs:
@@ -28,8 +32,54 @@ on:
       evaluate_pgo:
         type: boolean
         default: false
+      evaluate_sparse_baseline:
+        type: boolean
+        default: false
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  sparse-native-layers:
+    if: inputs.evaluate_sparse_baseline
+    needs: [build, sources]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - uses: actions/cache@v4
+        with:
+          path: _src
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
+      - uses: actions/download-artifact@v4
+        with:
+          name: flow-web-cross
+          path: server/web/pages/template
+      - uses: actions/download-artifact@v4
+        with:
+          name: TorrServer-LT-linux-amd64
+          path: _out/sparse-current
+      - name: Isolate and measure native layers
+        run: |
+          chmod +x _out/sparse-current/TorrServer-LT-linux-amd64
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg cmake pkg-config
+          bash build/sparse_native_layers.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flow-sparse-native-layers
+          path: |
+            _out/sparse-native-layers/results/**/report.json
+            _out/sparse-native-layers/results/**/server-output.log
+            _out/sparse-native-layers/fixtures/fixtures.json
+            _out/sparse-native-layers/*.bin
+          if-no-files-found: error
   web:
     uses: ./.github/workflows/build-web.yml
     with:
