@@ -2,9 +2,11 @@
 """Real retained-piece preparation, cancellation, quota and crash recovery."""
 import argparse
 import json
+import http.client
 import os
 from pathlib import Path
 import subprocess
+import socket
 import time
 import urllib.error
 
@@ -22,9 +24,14 @@ def wait_job(server, state, timeout=120):
         time.sleep(.25)
     raise TimeoutError('preparation state '+state)
 
-def restart_after_crash(server):
+def restart_after_crash(server, settings_update=None):
     args=server.process.args
     server.process.kill();server.process.wait(10)
+    if settings_update:
+        path=server.state/'settings.json'
+        config=json.loads(path.read_text(encoding='utf-8'))
+        config['BitTorr'].update(settings_update)
+        path.write_text(json.dumps(config),encoding='utf-8')
     flags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0
     server.process=subprocess.Popen(args,stdout=server.log,stderr=subprocess.STDOUT,creationflags=flags)
     server.started=time.monotonic();server.ready()
@@ -64,7 +71,32 @@ def run(executable, output):
         restart_after_crash(server)
         report['offline_resume']=wait_job(server,'ready')
         report['offline_read']=range_read(server,hash_text,index,source,len(source)-65536,len(source)-1)
-        server.json('/flow/preparation',{**request,'action':'remove'})
+        restart_after_crash(server,{'UseDisk':True,'TorrentsSavePath':str(server.state/'changed-disk-root')})
+        report['storage_root_recovery']=wait_job(server,'ready')
+        report['root_change_read']=range_read(server,hash_text,index,source,0,65535)
+        # Hold the receive window small so the native reader remains owned while
+        # explicit cleanup waits. These are our own connection and state files.
+        player=http.client.HTTPConnection('127.0.0.1',server.port,timeout=10)
+        try:
+            player.connect();player.sock.setsockopt(socket.SOL_SOCKET,socket.SO_RCVBUF,4096)
+            player.request('GET',f'/play/{hash_text}/{index}?play&stat=cleanup-test',headers={'Range':f'bytes=0-{len(source)-1}'})
+            response=player.getresponse()
+            if response.status!=206 or response.read(1)!=source[:1]: raise AssertionError('cleanup player failed')
+            server.json('/flow/preparation',{**request,'action':'remove'})
+            end=time.monotonic()+8
+            while time.monotonic()<end:
+                jobs=server.json('/flow/preparation')['jobs']
+                if jobs and jobs[0].get('error_code')=='PLAYBACK_ACTIVE':break
+                time.sleep(.1)
+            else:raise AssertionError('cleanup did not preserve the active reader')
+            if not (server.state/'flow-pieces'/hash_text/'0').exists():raise AssertionError('cleanup removed active playback data')
+            try: server.json('/flow/preparation',{**request,'action':'resume'})
+            except urllib.error.HTTPError as error:
+                if error.code!=409:raise
+            else:raise AssertionError('resume reversed native cleanup')
+            report['active_cleanup_fenced']=True
+        finally:
+            player.close()
         deadline=time.monotonic()+20
         while server.json('/flow/preparation')['jobs'] and time.monotonic()<deadline: time.sleep(.25)
         if server.json('/flow/preparation')['jobs']: raise AssertionError('cleanup did not release reservation')
@@ -76,7 +108,25 @@ def run(executable, output):
             except urllib.error.HTTPError as err:
                 if err.code!=409: raise
             else: raise AssertionError('disk quota accepted oversized preparation')
-        report['quota_rejected']=True;report['passed']=True
+        report['quota_rejected']=True
+        broken=OwnedServer(executable,output/'disk-failure',seed_files={'flow-pieces':b'not a directory'})
+        try:
+            broken.ready()
+            with LocalSwarm([episode]) as swarm:
+                item=upload(broken,swarm)
+                try:broken.json('/flow/preparation',{'hash':item['hash'],'file_index':item['file_stats'][0]['id'],'action':'start'})
+                except urllib.error.HTTPError as error:
+                    if error.code!=409:raise
+                else:raise AssertionError('unwritable preparation storage accepted')
+                job=broken.json('/flow/preparation')['jobs'][0]
+                if job['state']!='error' or job['playback_ready']:raise AssertionError('disk failure claimed readiness')
+                report['disk_failure_rejected']=True
+        finally:broken.close()
+        report['passed']=True
+    except Exception as error:
+        report['passed']=False
+        report['error']=str(error)
+        raise
     finally:
         server.close();(output/'report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
     return report
