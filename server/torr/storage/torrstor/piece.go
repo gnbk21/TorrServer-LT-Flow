@@ -129,6 +129,10 @@ func (p *Piece) markAvailLocked(off, n int64) {
 func (p *Piece) availableFrom(off int64) int64 {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
+	return p.availableFromLocked(off)
+}
+
+func (p *Piece) availableFromLocked(off int64) int64 {
 	plen := p.expectedSize()
 	if plen <= 0 || off < 0 || off >= plen {
 		return 0
@@ -162,6 +166,10 @@ func (p *Piece) availableFrom(off int64) int64 {
 func (p *Piece) ReadAt(b []byte, off int64) (int, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
+	return p.readAtLocked(b, off)
+}
+
+func (p *Piece) readAtLocked(b []byte, off int64) (int, error) {
 	var (
 		n   int
 		err error

@@ -2,6 +2,7 @@ package torrstor
 
 import (
 	"context"
+	"io"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -487,6 +488,32 @@ func (c *Cache) readableAt(piece int, off int64) int64 {
 		return 0
 	}
 	return p.availableFrom(off)
+}
+
+// Reader availability is only a hint until bytes are copied. Hold the piece
+// lock across the final gate and copy so hash failure, migration and eviction
+// cannot expose a stale readable prefix. Native hash callbacks still use the
+// raw readPiece path to inspect an incomplete backend.
+func (c *Cache) readStreamPiece(piece int, off int64, dst []byte) (int, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	p := c.pieces[piece]
+	if p == nil {
+		return 0, io.EOF
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if c.verifiedReads.Load() && !p.complete {
+		return 0, io.EOF
+	}
+	n := p.availableFromLocked(off)
+	if n <= 0 {
+		return 0, io.EOF
+	}
+	if n < int64(len(dst)) {
+		dst = dst[:n]
+	}
+	return p.readAtLocked(dst, off)
 }
 
 // ContiguousAvailable counts readable bytes from start up to the first hole.

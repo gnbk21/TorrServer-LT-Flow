@@ -51,6 +51,26 @@ def evaluate(binaries, fixtures, output):
                 values['paced_client_read_wait_ms']=[r.get('paced_delivery',{}).get('client_read_wait_ms') for r in matches]
                 summary[label][case]=values
         report['summary']=summary
+        # Profile failures characterize native retry policy; they must stay
+        # visible rather than turn a conservative timer into a passing result.
+        report['profiles']=[]
+        report['scarce_experiment']=[]
+        for repetition in range(3):
+            profiles=['legacy','conservative','balanced']
+            profiles=profiles[repetition:]+profiles[:repetition]
+            for profile in profiles:
+                for case in ('ten-suppliers','choked-supplier','intermittent-supplier'):
+                    print(f'Profile comparison {repetition+1} {profile} {case}',flush=True)
+                    result=run(binaries['candidate'],output/f'profiles-{repetition+1}-{profile}',fixtures/'variable.mp4',case,media['bytes']/media['duration'],profile=profile)
+                    report['profiles'].append({'repetition':repetition+1,**result})
+                    (output/'report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
+            for enabled in ([False,True] if repetition%2==0 else [True,False]):
+                for case in ('variation','intermittent-supplier'):
+                    print(f'Scarce experiment {repetition+1} {enabled} {case}',flush=True)
+                    result=run(binaries['candidate'],output/f'scarce-{repetition+1}-{enabled}',fixtures/'variable.mp4',case,media['bytes']/media['duration'],scarce=enabled)
+                    report['scarce_experiment'].append({'repetition':repetition+1,**result})
+                    (output/'report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
+                    if not result['passed']:raise AssertionError(result.get('error','scarce case failed'))
         report['passed']=True
     except Exception as error:
         report['error']=str(error)

@@ -388,7 +388,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 		if end > want {
 			end = want
 		}
-		n, err := r.cache.readPiece(piece, pieceOff, p[written:int(end)])
+		n, err := r.cache.readStreamPiece(piece, pieceOff, p[written:int(end)])
 		if n == 0 && (err == nil || err == io.EOF || err == errOutOfPiece) {
 			if written > 0 {
 				break

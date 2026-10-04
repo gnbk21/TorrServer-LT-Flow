@@ -44,4 +44,16 @@ func TestMirrorBytesWaitForHashAndFailureFencePreservesBackend(t *testing.T) {
 	if !c.Have(0) || c.readableAt(0, 0) != int64(len(data)) {
 		t.Fatal("successful native verification failed to restore reads")
 	}
+	if n, err := c.readStreamPiece(0, 0, output); err != nil || n != len(data) || !bytes.Equal(output, data) {
+		t.Fatal("verified stream copy failed", n, err)
+	}
+	// A reader may have inspected availability before the native failure fence.
+	// Its final copy must recheck atomically rather than trust that old length.
+	s.callbackClearPiece(51, 0)
+	if n, _ := c.readStreamPiece(0, 0, output); n != 0 {
+		t.Fatal("stale availability exposed the failed backend")
+	}
+	if n, err := s.callbackRead(51, 0, 0, output); err != nil || n != len(data) {
+		t.Fatal("hash callback lost access to its retained raw backend", n, err)
+	}
 }
