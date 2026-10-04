@@ -1202,15 +1202,18 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
 }
 
 char* lt_torrent_resume_peers_json_alloc(lt_torrent tid, size_t* out_len) {
+    set_err(LT_OK, "");
+    try {
     std::shared_lock<std::shared_mutex> lk(g_torr_mu);
     auto it = g_torrents.find(tid);
-    if (it == g_torrents.end()) return nullptr;
+    if (it == g_torrents.end()) { set_err(LT_ERR_NOT_FOUND, "torrent not found"); return nullptr; }
     auto snapshot = it->second.sparse;
     std::lock_guard<std::mutex> guard(snapshot->mu);
     if (std::chrono::steady_clock::now()-snapshot->peers_at > std::chrono::minutes(10))
         return alloc_string("{\"observed_at_ms\":0,\"peers\":[]}", out_len);
     return alloc_string(json{{"observed_at_ms", snapshot->peers_at_ms},
         {"peers", json::parse(snapshot->resume_peers)}}.dump(), out_len);
+    } catch (std::exception const& e) { set_err(LT_ERR_INTERNAL, e.what()); return nullptr; }
 }
 
 int lt_torrent_restore_peers(lt_torrent tid, const char* peers_json) {

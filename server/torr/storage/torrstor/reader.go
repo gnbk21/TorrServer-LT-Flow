@@ -366,7 +366,8 @@ func (r *Reader) Read(p []byte) (int, error) {
 		// produced bytes and the next ones aren't in yet, hand back what we have —
 		// io.Copy simply calls Read again, which then parks on this exact spot. With
 		// nothing read yet (written == 0) we must block: this is the very byte the
-		// client asked for.
+		// client asked for. Mirrors require whole-piece hash verification; both
+		// modes recheck their gate under the copy lock below.
 		avail := r.cache.readableAt(piece, pieceOff)
 		miss := avail <= 0
 		if avail <= 0 {

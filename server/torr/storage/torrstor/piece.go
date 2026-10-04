@@ -125,7 +125,8 @@ func (p *Piece) markAvailLocked(off, n int64) {
 // off: the whole remainder for a complete piece, else the run of consecutive
 // written blocks from off (0 when the block under off hasn't arrived). This is
 // the responsive-read predicate: Reader serves exactly this prefix without
-// waiting for the rest of the piece or its hash.
+// waiting for the rest of the piece or its hash. Cache readers additionally
+// enforce the whole-piece verification gate for torrents with mirrors.
 func (p *Piece) availableFrom(off int64) int64 {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
