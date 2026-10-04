@@ -101,3 +101,31 @@ func TestPreparationMigratesExistingDiskCacheAndDropsEmptyPlan(t *testing.T) {
 	}
 	s.callbackClose(71)
 }
+
+func TestPreparationDirectoryAliasDoesNotUnlinkItsBackend(t *testing.T) {
+	previous := settings.BTsets()
+	root := t.TempDir()
+	alias := filepath.Join(t.TempDir(), "alias")
+	if err := os.Symlink(root, alias); err != nil {
+		t.Skip("directory symlink unavailable", err)
+	}
+	settings.StoreBTsets(&settings.BTSets{UseDisk: true, TorrentsSavePath: root, CacheSize: 2 << 20})
+	t.Cleanup(func() { settings.StoreBTsets(previous) })
+	s := NewStorage()
+	hash := mkHash(0x94)
+	s.callbackOpen(72, hash, 1, pieceBlockSize)
+	s.callbackSize(72, pieceBlockSize)
+	c := s.CacheByHash(hash)
+	data := bytes.Repeat([]byte{0x41}, int(pieceBlockSize))
+	if _, err := c.writePiece(0, 0, data); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ConfigurePreparation(hash, PreparationStorage{Root: alias, Ranges: map[string]PreparationRange{"job": {0, 0, true}}}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(alias, hashHex(hash), "0"))
+	if err != nil || !bytes.Equal(got, data) {
+		t.Fatal("directory alias removed its own backend", err)
+	}
+	s.callbackClose(72)
+}

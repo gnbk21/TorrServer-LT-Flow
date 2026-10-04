@@ -80,6 +80,15 @@ func (c *Cache) configurePreparation(plan PreparationStorage) error {
 			// A retained manager root may differ from a new ordinary disk-cache
 			// path. Migrate its existing backend too, using bounded scratch space.
 			dp := newDiskPiece(p, plan.Root)
+			// Relative paths, case aliases and user-selected directory symlinks
+			// may identify the same file. Never copy then unlink that backend.
+			oldInfo, oldErr := os.Stat(p.disk.name)
+			newInfo, newErr := os.Stat(dp.name)
+			if oldErr == nil && newErr == nil && os.SameFile(oldInfo, newInfo) {
+				p.disk = dp
+				p.mu.Unlock()
+				continue
+			}
 			if migrationBuffer == nil {
 				migrationBuffer = make([]byte, 64<<10)
 			}
