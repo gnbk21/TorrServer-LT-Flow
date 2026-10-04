@@ -25,14 +25,16 @@ queue_patch="$evaluation_root/stable/build/native-patches/94bffc25272b-queue-tim
 cp "$queue_patch" "$evaluation_root/queue-time.patch"
 rm "$queue_patch"
 
-(cd "$evaluation_root/original" && TS_VERSION=MatriX.145.Flow-benchmark-original JOBS=2 bash build/linux-amd64.sh)
-(cd "$evaluation_root/stable" && TS_VERSION=MatriX.145.Flow-benchmark-stable JOBS=2 bash build/linux-amd64.sh)
+(cd "$evaluation_root/original" && TS_VERSION=MatriX.145.Flow-benchmark-original EXTRA_CGO_LDFLAGS=-Wl,--defsym,flow_benchmark_variant=0 JOBS=2 bash build/linux-amd64.sh)
+(cd "$evaluation_root/stable" && TS_VERSION=MatriX.145.Flow-benchmark-stable EXTRA_CGO_LDFLAGS=-Wl,--defsym,flow_benchmark_variant=1 JOBS=2 bash build/linux-amd64.sh)
 cp "$evaluation_root/original/_out/TorrServer-LT-linux-amd64" "$evaluation_root/original.bin"
 cp "$evaluation_root/stable/_out/TorrServer-LT-linux-amd64" "$evaluation_root/stable.bin"
 cp "$evaluation_root/queue-time.patch" "$queue_patch"
 # cross_build's recipe guard deliberately rebuilds the native dependency when
 # the exact patch changes. Installed libraries cannot silently survive this step.
-(cd "$evaluation_root/stable" && TS_VERSION=MatriX.145.Flow-benchmark-queue JOBS=2 bash build/linux-amd64.sh)
+# Historical builders did not stamp the native patch recipe into CGo. A harmless
+# absolute linker symbol changes their existing stamp and forces a fresh link.
+(cd "$evaluation_root/stable" && TS_VERSION=MatriX.145.Flow-benchmark-queue EXTRA_CGO_LDFLAGS=-Wl,--defsym,flow_benchmark_variant=2 JOBS=2 bash build/linux-amd64.sh)
 cp "$evaluation_root/stable/_out/TorrServer-LT-linux-amd64" "$evaluation_root/queue.bin"
 
 python3 "$project_root/build/sparse_layer_compare.py" \

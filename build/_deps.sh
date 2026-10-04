@@ -319,7 +319,10 @@ go_build() {
     # .pc into CGO_CFLAGS as a harmless unused -D define: the stamp changes with
     # the .pc, busting the cache exactly when needed (and a cache hit otherwise).
     local pc_stamp
-    pc_stamp=$( { cat "$deps/lib/pkgconfig/libtorrent-rasterbar.pc" "$ROOT/build/patch_libtorrent_header.py"; echo "${EXTRA_CGO_LDFLAGS:-}"; } | sha1sum | cut -c1-12 )
+    # A same-version native backport can leave the .pc file unchanged. Include
+    # the reviewed revision and patch recipe so Go cannot return an executable
+    # linked to a previous native archive after the dependency tree rebuilds.
+    pc_stamp=$( { cat "$deps/lib/pkgconfig/libtorrent-rasterbar.pc" "$ROOT/build/patch_libtorrent_header.py"; python3 "$ROOT/build/apply_native_patches.py" --recipe; echo "$LIBTORRENT_REV ${EXTRA_CGO_LDFLAGS:-}"; } | sha1sum | cut -c1-12 )
 
     log "go build ($TARGET)"
     # Opt-in only: native libtorrent work is not optimized by Go PGO.
