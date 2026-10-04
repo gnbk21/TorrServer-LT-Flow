@@ -63,7 +63,7 @@ jobs:
       - name: Verify patch isolation and reviewed source
         run: |
           bash build/_fetch_sources.sh
-          python3 build/native_patch_test.py
+          python3 build/native_patch_checks.py
       - name: Upstream queue and deadline simulations
         run: |
           source build/_deps.sh
