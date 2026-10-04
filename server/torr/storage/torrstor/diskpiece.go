@@ -16,9 +16,10 @@ import (
 // The file is lazily created on first write. ReadAt against a missing
 // file returns io.EOF.
 type DiskPiece struct {
-	piece *Piece
-	dir   string
-	name  string
+	piece       *Piece
+	dir         string
+	name        string
+	initialized bool
 
 	mu sync.RWMutex
 }
@@ -52,6 +53,12 @@ func (dp *DiskPiece) WriteAt(b []byte, off int64) (int, error) {
 		return 0, err
 	}
 	defer f.Close()
+	if !dp.initialized {
+		if err := f.Truncate(dp.piece.expectedSize()); err != nil {
+			return 0, err
+		}
+		dp.initialized = true
+	}
 	return f.WriteAt(b, off)
 }
 
@@ -81,4 +88,15 @@ func (dp *DiskPiece) Release() {
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
 	_ = os.Remove(dp.name)
+}
+
+func (dp *DiskPiece) Sync() error {
+	dp.mu.Lock()
+	defer dp.mu.Unlock()
+	f, err := os.OpenFile(dp.name, os.O_RDWR, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return f.Sync()
 }

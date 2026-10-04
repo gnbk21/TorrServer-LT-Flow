@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"server/diagnostics"
+	"server/lt"
 	sets "server/settings"
 	"server/torr"
 	"server/torr/state"
@@ -29,6 +30,8 @@ func TestExportFrontendContracts(t *testing.T) {
 		{"flow", FlowStatusResponse{Hash: hash, Sessions: nil}},
 		{"runtime", RuntimeStatus{BT: &torr.ClientStatusSnapshot{}, Memory: diagnostics.Memory()}},
 		{"network", torr.FlowNetworkStatus{State: "NO_ADDRESS", Connectivity: "INTERNET_WAIT"}},
+		{"preparation", torr.PreparationStatus{Jobs: []torr.PreparationJob{{ID: hash + ":1", Hash: hash, FileIndex: 1, State: "downloading", Length: 100, VerifiedBytes: 60, ContiguousBytes: 40}}, QuotaBytes: 4096 << 20, ReservedBytes: 16384}},
+		{"flow", FlowStatusResponse{Hash: hash, Sparse: lt.SparseSnapshot{Known: true, SampledAtMs: 1, SampledPeers: 1, UsefulPeers: 1, Windows: []lt.SparseWindow{{FirstPiece: 4, Availability: []int{1, 0}, UnchokedSuppliers: 1}}}}},
 	}
 	data, err := json.MarshalIndent(cases, "", "  ")
 	if err != nil {

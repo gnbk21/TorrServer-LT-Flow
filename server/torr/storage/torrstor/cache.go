@@ -85,9 +85,11 @@ type Cache struct {
 	totalSize   atomic.Int64 // exact metadata length; zero for legacy test callers
 	PieceLength int64
 
-	mu     sync.RWMutex
-	pieces map[int]*Piece
-	resume []byte // consumed during Open before publishing the cache
+	mu          sync.RWMutex
+	pieces      map[int]*Piece
+	resume      []byte                      // consumed during Open before publishing the cache
+	preparation map[string]PreparationRange // guarded by mu; retained disk ranges
+	diskRoot    string                      // guarded by mu, selected once before migration
 
 	// per-piece progress channels: closed (= broadcast) by SignalPieceComplete
 	// when libtorrent's piece_finished_alert arrives AND by writePiece on every
@@ -100,8 +102,10 @@ type Cache struct {
 
 	// active Readers; LRU eviction may inspect this to avoid kicking
 	// out pieces in someone's read range (Etap 6 refinement).
-	readersMu sync.Mutex
-	readers   map[*Reader]struct{}
+	readersMu             sync.Mutex
+	readers               map[*Reader]struct{}
+	preparationCleaning   bool // guarded by readersMu, fences new reader registration
+	preparationWriteError atomic.Bool
 
 	// Streaming working-set reservation. capacity() grows the effective cache
 	// above the global CacheSize so concurrent playheads and an in-flight
@@ -497,13 +501,18 @@ func (c *Cache) ContiguousAvailable(start, end int64) int64 {
 
 // registerReader / unregisterReader track active streaming clients so
 // later LRU heuristics can preserve their working set.
-func (c *Cache) registerReader(r *Reader) {
+func (c *Cache) registerReader(r *Reader) bool {
 	if r.handle != nil {
 		c.handle.CompareAndSwap(nil, r.handle)
 	}
 	c.readersMu.Lock()
+	if c.preparationCleaning {
+		c.readersMu.Unlock()
+		return false
+	}
 	c.readers[r] = struct{}{}
 	c.readersMu.Unlock()
+	return true
 }
 
 func (c *Cache) unregisterReader(r *Reader) {
@@ -1056,6 +1065,13 @@ func (c *Cache) applyStreamPriorities() {
 			prios[i] = p
 		}
 	}
+	// Preparation is ordinary bounded work. Playback deadlines always outrank it.
+	for _, i := range c.preparationDemand() {
+		raise(i, 1)
+		if !c.Have(i) && h.HasPiece(i) {
+			refetch[i] = struct{}{}
+		}
+	}
 	for _, r := range rs {
 		ph, ok := anchors[r.group]
 		if !ok {
@@ -1490,7 +1506,7 @@ func (c *Cache) wipe() {
 // resume-restored pieces without going through readPiece's lazy
 // reconstruction. No-op when UseDisk is off.
 func (c *Cache) scanLocalPieces() {
-	if !useDisk() {
+	if !useDisk() && c.diskRoot == "" {
 		return
 	}
 	c.mu.Lock()
@@ -1551,6 +1567,9 @@ func (c *Cache) writePiece(piece int, offset int64, src []byte) (int, error) {
 	}
 	c.mu.Unlock()
 	n, err := p.WriteAt(src, offset)
+	if err != nil && c.preparationRetains(piece) {
+		c.preparationWriteError.Store(true)
+	}
 	if n > 0 {
 		// Wake any Read parked on this piece: with block-level (responsive) serving
 		// it may already be satisfiable by this very block. No-op (one uncontended
@@ -1567,6 +1586,9 @@ func (c *Cache) writePiece(piece int, offset int64, src []byte) (int, error) {
 // and readers here, rather than acting on an earlier eviction-pass snapshot.
 // Do not invoke libtorrent from this callback.
 func (c *Cache) prunePartial(piece int) bool {
+	if c.preparationRetains(piece) {
+		return false
+	}
 	if pieceInRanges(piece, c.readerProtectRanges()) {
 		return false
 	}
@@ -1602,6 +1624,9 @@ func (c *Cache) prunePartial(piece int) bool {
 // this piece is flushed. Recheck capacity and current protection at removal.
 // No libtorrent calls are allowed while inside this storage callback.
 func (c *Cache) evictComplete(piece int) bool {
+	if c.preparationRetains(piece) {
+		return false
+	}
 	protect := c.readerProtectRanges()
 	cap := c.capacityFor(protect)
 	if cap <= 0 || c.Filled() <= cap || pieceInRanges(piece, protect) {
@@ -1706,6 +1731,9 @@ func (c *Cache) evictPass() (evictedAny bool) {
 	c.mu.Lock()
 	pieces := make([]*Piece, 0, len(c.pieces))
 	for _, p := range c.pieces {
+		if c.retainsLocked(p.Id) {
+			continue
+		}
 		pieces = append(pieces, p)
 	}
 	c.mu.Unlock()
@@ -2127,6 +2155,9 @@ func (c *Cache) Filled() int64 {
 	defer c.mu.RUnlock()
 	var sum int64
 	for _, p := range c.pieces {
+		if c.retainsLocked(p.Id) {
+			continue
+		}
 		sum += p.SizeBytes()
 	}
 	return sum

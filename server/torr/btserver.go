@@ -31,17 +31,19 @@ import (
 // one BTServer in the process; the abstraction is kept for parity with
 // the previous code base.
 type BTServer struct {
-	mu            sync.Mutex
-	session       *lt.Session
-	torrents      map[Hash]*Torrent
-	stopAlert     chan struct{}
-	alertDone     chan struct{}
-	networkMu     sync.Mutex
-	networkStatus FlowNetworkStatus
-	networkDone   chan struct{}
-	dhtDone       chan struct{}
-	dhtRestored   atomic.Bool
-	history       atomic.Pointer[flow.History]
+	mu              sync.Mutex
+	session         *lt.Session
+	torrents        map[Hash]*Torrent
+	stopAlert       chan struct{}
+	alertDone       chan struct{}
+	networkMu       sync.Mutex
+	networkStatus   FlowNetworkStatus
+	networkDone     chan struct{}
+	dhtDone         chan struct{}
+	dhtRestored     atomic.Bool
+	history         atomic.Pointer[flow.History]
+	preparation     *preparationManager
+	preparationDone chan struct{}
 
 	// Latest session_stats counters snapshot, refreshed by the alert pump
 	// whenever a session_stats alert arrives (requested via SessionStats).
@@ -137,6 +139,9 @@ func (bt *BTServer) Connect() error {
 	go bt.saveDHTLifecycle(s, bt.stopAlert, bt.dhtDone, dhtEnabled && !settings.ReadOnly, filepath.Join(settings.Path, "flow-dht.bin"), bt.history.Load())
 
 	InitApiHelper(bt)
+	bt.preparation = newPreparationManager(bt)
+	bt.preparationDone = make(chan struct{})
+	go bt.preparation.run(bt.stopAlert, bt.preparationDone)
 	diagnostics.MarkEngineReady(true)
 	return nil
 }
@@ -157,6 +162,9 @@ func (bt *BTServer) Disconnect() {
 		<-done
 		<-networkDone
 		<-dhtDone
+		if bt.preparationDone != nil {
+			<-bt.preparationDone
+		}
 	}
 
 	bt.mu.Lock()

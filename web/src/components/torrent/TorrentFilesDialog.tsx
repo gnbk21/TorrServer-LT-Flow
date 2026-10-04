@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Modal } from "../common/Modal";
 import { Button } from "../common/Button";
 import { PlaybackLinks } from "../common/PlaybackLinks";
+import { PrepareEpisode } from "./PrepareEpisode";
 import { RequestError, Loading } from "../common/RequestState";
 import { torrentsApi } from "../../api/torrents";
 import { viewedApi } from "../../api/viewed";
@@ -146,6 +147,7 @@ export function TorrentFilesDialog({
                       })
                     }
                   />
+                  <PrepareEpisode hash={torrent.hash} index={file.id} />
                 </article>
               );
             })}

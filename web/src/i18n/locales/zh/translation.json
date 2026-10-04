@@ -731,7 +731,8 @@
           "MinReconnectTime": "最短重连间隔 (秒)"
         },
         "DiagnosticHistory": "保留诊断历史",
-        "DHTStatePersistence": "重用 DHT 路由状态"
+        "DHTStatePersistence": "重用 DHT 路由状态",
+        "PreparationQuotaMB": "准备磁盘配额（MiB）"
       }
     },
     "maintenance": {
@@ -755,5 +756,26 @@
     },
     "historyHint": "在本地保存启动诊断（最多 4 MiB），不包含网址、令牌、媒体名称或客户端地址。",
     "dhtHint": "重启后重用已知的 DHT 节点；始终遵守禁用 DHT 的设置。"
+  },
+  "preparation": {
+    "title": "准备剧集",
+    "pause": "暂停准备",
+    "resume": "继续准备",
+    "cancel": "取消并保留进度",
+    "remove": "删除已准备的分片",
+    "progress": "已验证进度",
+    "quota": "已预留配额：{{used}} / {{total}}",
+    "help": "准备功能将所选文件下载到现有分片存储。已验证的分片在播放器断开和服务器重启后保留。配额包含文件边界上的共享分片。取消会保留进度；删除会等待播放停止后清理。",
+    "readyHelp": "整个文件已验证并保留，包括跳转所需的数据。请使用上方的播放链接。",
+    "alternative": "如果来源速度持续低于播放速度，请在搜索或 Lampa 中明确选择更小或码率更低的版本。不同版本的字节不同，必须单独播放。导入原始 .torrent 可避免等待节点提供元数据。请在上行带宽允许范围内上传；上传占满带宽会拖慢确认。",
+    "unavailable": "准备功能不可用；请检查服务器和磁盘空间。",
+    "states": {
+      "downloading": "正在下载",
+      "ready": "准备就绪",
+      "paused": "已暂停",
+      "cancelled": "已取消；保留进度",
+      "error": "存储错误",
+      "cleaning": "播放结束后清理"
+    }
   }
 }

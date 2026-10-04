@@ -248,7 +248,9 @@ func NewReader(cache *Cache, handle *lt.Torrent, file FileInfo, group ...string)
 	r.winLast.Store(-1)
 	r.waitPiece.Store(-1)
 	r.lastRead.Store(time.Now().Unix()) // fresh reader is active until proven idle
-	cache.registerReader(r)
+	if !cache.registerReader(r) {
+		return nil
+	}
 	// Capacity grows automatically to fit this reader's working set now that it
 	// is registered (capacity() sums every reader live), so eviction won't drop
 	// pieces we're about to play (forward window) or just played (behind margin,

@@ -742,7 +742,8 @@
           "MinReconnectTime": "Minimum reconnect interval (seconds)"
         },
         "DiagnosticHistory": "Retain diagnostic history",
-        "DHTStatePersistence": "Reuse DHT routing state"
+        "DHTStatePersistence": "Reuse DHT routing state",
+        "PreparationQuotaMB": "Preparation disk quota (MiB)"
       }
     },
     "maintenance": {
@@ -785,5 +786,26 @@
   },
   "Loading": "Loading…",
   "Language": "Language",
-  "AddTorrent": "Add torrent"
+  "AddTorrent": "Add torrent",
+  "preparation": {
+    "title": "Prepare episode",
+    "pause": "Pause preparation",
+    "resume": "Resume preparation",
+    "cancel": "Cancel and retain progress",
+    "remove": "Remove prepared pieces",
+    "progress": "Verified progress",
+    "quota": "Preparation quota reserved: {{used}} / {{total}}",
+    "help": "Preparation downloads the selected file into the existing piece store. Verified pieces survive player disconnects and restarts. Quota includes shared boundary pieces. Cancel retains progress; Remove cleans it up after playback stops.",
+    "readyHelp": "The entire file is verified and retained, including seek data. Use the playback links above.",
+    "alternative": "If sources remain slower than playback, choose a smaller or lower bitrate release in Search or Lampa and add it explicitly. A different release has different bytes and starts a new playback asset. Import the original .torrent to avoid peer metadata waits. Allow uploads within your uplink capacity; saturated uploads can slow acknowledgements.",
+    "unavailable": "Preparation is unavailable; check server state and disk space.",
+    "states": {
+      "downloading": "Downloading",
+      "ready": "Ready",
+      "paused": "Paused",
+      "cancelled": "Cancelled; progress retained",
+      "error": "Storage error",
+      "cleaning": "Cleaning after playback"
+    }
+  }
 }

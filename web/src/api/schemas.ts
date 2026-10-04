@@ -93,6 +93,8 @@ export const flowSchema = z
             }),
           )
           .max(8)
+          .refine(windows => windows.reduce((sum, window) => sum + window.availability.length, 0) <= 256)
+          .nullable()
           .optional(),
       })
       .passthrough()

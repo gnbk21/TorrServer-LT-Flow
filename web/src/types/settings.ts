@@ -31,6 +31,7 @@ export interface FlowSettings {
   DebugFlow: boolean;
   DiagnosticHistory?: boolean;
   DHTStatePersistence?: boolean;
+  PreparationQuotaMB?: number;
 }
 
 export interface TMDBSettings {

@@ -21,10 +21,11 @@ import (
 // into libtorrent via Install(); calls from libtorrent's disk threads
 // land on its Read/Write/Open/Close/Deleted/Have methods.
 type Storage struct {
-	mu      sync.RWMutex
-	caches  map[int64]*Cache    // by libtorrent storage_id
-	byHash  map[[20]byte]*Cache // by info hash for Reader lookup from torr
-	resumes map[[20]byte]verifiedResume
+	mu           sync.RWMutex
+	caches       map[int64]*Cache    // by libtorrent storage_id
+	byHash       map[[20]byte]*Cache // by info hash for Reader lookup from torr
+	resumes      map[[20]byte]verifiedResume
+	preparations map[[20]byte]PreparationStorage
 }
 
 type verifiedResume struct {
@@ -50,9 +51,10 @@ func (s *Storage) ClearVerifiedResume(hash [20]byte) {
 // NewStorage constructs an empty registry.
 func NewStorage() *Storage {
 	return &Storage{
-		caches:  map[int64]*Cache{},
-		byHash:  map[[20]byte]*Cache{},
-		resumes: map[[20]byte]verifiedResume{},
+		caches:       map[int64]*Cache{},
+		byHash:       map[[20]byte]*Cache{},
+		resumes:      map[[20]byte]verifiedResume{},
+		preparations: map[[20]byte]PreparationStorage{},
 	}
 }
 
@@ -156,6 +158,10 @@ func (s *Storage) callbackOpen(storage int64, hash [20]byte, numPieces int, piec
 	delete(s.resumes, hash)
 	c.resume = resume.bitmap
 	c.totalSize.Store(resume.totalSize)
+	if plan, ok := s.preparations[hash]; ok {
+		c.diskRoot = plan.Root
+		c.preparation = clonePreparationRanges(plan.Ranges)
+	}
 	c.scanLocalPieces()
 	s.caches[storage] = c
 	s.byHash[hash] = c

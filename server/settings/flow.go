@@ -31,6 +31,7 @@ type FlowSettings struct {
 	DebugFlow              bool
 	DiagnosticHistory      bool
 	DHTStatePersistence    bool
+	PreparationQuotaMB     int
 }
 
 // Zero custom values leave libtorrent's own setting unchanged.
@@ -66,12 +67,13 @@ func DefaultFlowSettings() *FlowSettings {
 		WarmSessionTimeoutSec: 600, RangeClassification: true,
 		NetworkRetryMinSec: 2, NetworkRetryMaxSec: 60,
 		SwarmProfile:   "legacy",
-		MetricsEnabled: true, DHTStatePersistence: true,
+		MetricsEnabled: true, DHTStatePersistence: true, PreparationQuotaMB: 4096,
 	}
 }
 
 // Normalize bounds user-supplied values without changing explicit false flags.
 func (f *FlowSettings) Normalize() {
+	if f.PreparationQuotaMB < 64 || f.PreparationQuotaMB > 1048576 { f.PreparationQuotaMB = 4096 }
 	if f.BootstrapHeadMB < 1 || f.BootstrapHeadMB > 128 {
 		f.BootstrapHeadMB = 16
 	}

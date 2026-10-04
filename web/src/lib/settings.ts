@@ -8,6 +8,7 @@ export const flowBounds: Record<string, readonly [number, number]> = {
   StartupSafetyFactorPct: [100, 300],
   TargetBufferSeconds: [10, 180],
   MaxBufferSeconds: [10, 600],
+  PreparationQuotaMB: [64, 1048576],
   WarmSessionTimeoutSec: [30, 1800],
   NetworkRetryMinSec: [1, 60],
   NetworkRetryMaxSec: [1, 600],

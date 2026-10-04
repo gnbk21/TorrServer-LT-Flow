@@ -41,7 +41,9 @@ type Piece struct {
 
 func newPiece(c *Cache, id int) *Piece {
 	p := &Piece{cache: c, Id: id}
-	if useDisk() {
+	if c.diskRoot != "" {
+		p.disk = newDiskPiece(p, c.diskRoot)
+	} else if useDisk() {
 		p.disk = newDiskPiece(p, savePath())
 	} else {
 		p.mem = newMemPiece(p)

@@ -3,9 +3,11 @@ package torr
 import (
 	"encoding/hex"
 	"errors"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"server/flow"
@@ -90,8 +92,9 @@ type Torrent struct {
 	trackerMu    sync.Mutex
 	trackers     map[string]FlowTrackerDiagnostic
 
-	expiredTime   time.Time
-	warmIdleSince time.Time
+	expiredTime     time.Time
+	preparationHold atomic.Bool
+	warmIdleSince   time.Time
 
 	gotInfoCh   chan struct{}
 	gotInfoOnce sync.Once
@@ -146,7 +149,11 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 			for i := range hashes {
 				copy(hashes[i][:], raw[i*20:(i+1)*20])
 			}
-			havePieces = torrstor.ScanHavePieces(spec.InfoHash, pieceCount, metadata.PieceLength, metadata.TotalSize, hashes)
+			if plan, ok := torrstor.Global().PreparationPlan(spec.InfoHash); ok {
+				havePieces = flow.VerifyPieceFiles(filepath.Join(plan.Root, spec.InfoHash.HexString()), metadata.PieceLength, metadata.TotalSize, hashes)
+			} else {
+				havePieces = torrstor.ScanHavePieces(spec.InfoHash, pieceCount, metadata.PieceLength, metadata.TotalSize, hashes)
+			}
 		}
 	}
 
@@ -390,6 +397,9 @@ func (t *Torrent) AddExpiredTime(d time.Duration) {
 // status polls and preload all push expiredTime forward, so an in-use torrent
 // is never seen as expired. Used by BTServer.expireWatch.
 func (t *Torrent) expired(now time.Time) bool {
+	if t.preparationHold.Load() {
+		return false
+	}
 	t.mu.Lock()
 	stat := t.Stat
 	deadline := t.expiredTime
