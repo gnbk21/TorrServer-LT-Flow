@@ -43,7 +43,7 @@ concurrency:
 jobs:
   sparse-native-layers:
     if: inputs.evaluate_sparse_baseline
-    needs: [build, sources]
+    needs: [cross, sources]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
