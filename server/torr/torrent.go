@@ -15,7 +15,6 @@ import (
 	"server/torr/state"
 	storageState "server/torr/storage/state"
 	"server/torr/storage/torrstor"
-	"server/torr/utils"
 	"server/torrshash"
 	utils2 "server/utils"
 )

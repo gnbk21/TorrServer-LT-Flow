@@ -76,6 +76,8 @@ type Cache struct {
 	flowRates       flow.RateWindow
 	flowLastRefresh time.Time
 	flowAhead       atomic.Int64 // zero retains the upstream window
+	flowWaiting     atomic.Int64 // actual external reads blocked on missing bytes
+	flowBufferFull  atomic.Bool  // sampled from contiguous active windows
 
 	StorageID   int64
 	InfoHash    [20]byte
@@ -977,6 +979,7 @@ func (c *Cache) applyStreamPriorities() {
 	}
 
 	anchors := c.groupPlayheads() // group -> playhead (excludes stale/probe/tail)
+	demandRates := c.demandRates()
 	seekCancel := c.takeSnapCancels()
 	behindP, aheadP := c.readerWindowPieces()
 
@@ -1004,7 +1007,7 @@ func (c *Cache) applyStreamPriorities() {
 	// libtorrent's time-critical picker (which is what recruits the fast peers, in
 	// order, across the window) idled — the whole stream crawled at a couple MB/s on a
 	// fast swarm and every seek refilled the buffer at that crawl. The ramp itself is
-	// the flood protection (strictly ascending deadlines, see windowPriority); the
+	// a bounded demand gradient (see windowPriority); the
 	// blocked piece still gets deadline 0 + top priority via the force loop below, so
 	// the target is always first without starving the pipeline behind it.
 	blocked := make(map[int]int) // sticky blocked/trickle piece -> that reader's file last piece
@@ -1076,11 +1079,13 @@ func (c *Cache) applyStreamPriorities() {
 				continue
 			}
 			prio, dlMs := windowPriority(i - ph)
+			if due, qualified := flow.DemandDeadline(i-ph, plen, demandRates[r.group]); qualified {
+				dlMs = due
+			}
 			raise(i, prio)
-			// The FULL ascending deadline ramp, always (see the blocked-set comment above
-			// for why the old per-seek suppression is gone): the ramp is what keeps the
-			// time-critical picker recruiting fast peers across the whole window, in
-			// playback order, and it is itself the flood protection.
+			// Keep forward work queued while urgent work uses the native scheduler.
+			// Completion order and duplicate requests depend on supplier queues;
+			// deadlines are demand hints, reconciled with each independent reader.
 			if cur, ok := desired[i]; !ok || dlMs < cur {
 				desired[i] = dlMs
 			}

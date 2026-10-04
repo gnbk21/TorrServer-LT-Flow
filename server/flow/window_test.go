@@ -22,6 +22,41 @@ func TestAdaptiveWindowBoundsAndSwarm(t *testing.T) {
 	}
 }
 
+func TestDeliveryStatsAndOutagesRespectIdleAndBudgets(t *testing.T) {
+	var rates RateWindow
+	now := time.Unix(1000, 0)
+	for i := 0; i < 10; i++ {
+		rate := float64(MiB)
+		if i%2 == 0 {
+			rate *= 8
+		}
+		rates.Observe(rate, now.Add(time.Duration(i)*time.Second))
+	}
+	stats := rates.Stats(now.Add(9 * time.Second))
+	if stats.Samples != 10 || stats.Variation <= .5 {
+		t.Fatalf("variation missing: %+v", stats)
+	}
+	for i := 10; i < 13; i++ {
+		rates.Observe(0, now.Add(time.Duration(i)*time.Second))
+	}
+	stats = rates.Stats(now.Add(12 * time.Second))
+	if stats.OutageSeconds != 3 {
+		t.Fatalf("outage=%d", stats.OutageSeconds)
+	}
+	delivery := DeliveryStats{Samples: 10, OutageSeconds: 12}
+	idle, _ := DeliveryWindow(float64(MiB), 0, delivery, false, true, 45, 180, 130, MiB, 200)
+	blocked, pieces := DeliveryWindow(float64(MiB), 0, delivery, true, false, 45, 180, 130, MiB, 20)
+	if idle != 45 || blocked != 102 || pieces > 20 {
+		t.Fatalf("idle=%d blocked=%d pieces=%d", idle, blocked, pieces)
+	}
+	if seconds, _ := DeliveryWindow(float64(MiB), 0, delivery, true, false, 45, 60, 130, MiB, 200); seconds > 60 {
+		t.Fatal("delivery adaptation exceeded time budget")
+	}
+	if stats := rates.Stats(now.Add(14 * time.Second)); stats.OutageSeconds != 0 {
+		t.Fatal("unobserved seconds invented an outage")
+	}
+}
+
 func TestConsumptionTrackerIgnoresSeekAndIdleGap(t *testing.T) {
 	var c ConsumptionTracker
 	now := time.Unix(1000, 0)

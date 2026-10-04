@@ -27,6 +27,26 @@ type FlowWindowStatus struct {
 	ForwardWindowPieces  int     `json:"forward_window_pieces"`
 }
 
+func (c *Cache) demandRates() map[string]float64 {
+	rates := make(map[string]float64)
+	if !settings.CurrentFlow().Enabled || !settings.CurrentFlow().AdaptiveReadAhead {
+		return rates
+	}
+	c.flowMu.Lock()
+	defer c.flowMu.Unlock()
+	for group, g := range c.flowGroups {
+		if time.Since(g.seen) > 30*time.Second {
+			continue
+		}
+		if observed, confidence := g.tracker.Rate(); observed > 0 && confidence == "stable" {
+			rates[group] = observed
+		} else if g.estimate.Confidence == "medium" || g.estimate.Confidence == "high" {
+			rates[group] = g.estimate.BytesPerSecond
+		}
+	}
+	return rates
+}
+
 func (c *Cache) SetFlowMediaEstimate(group string, fileIndex int, estimate flow.Estimate) {
 	if c == nil || group == ProbeReaderGroup || !settings.CurrentFlow().Enabled {
 		return
@@ -92,14 +112,50 @@ func (c *Cache) SetFlowDownloadRate(rate float64) {
 	if c == nil || !settings.CurrentFlow().Enabled {
 		return
 	}
+	// Sample the existing reader windows before flowMu: streamAnchors acquires
+	// reader/group locks and must not be called during controller reconciliation.
+	anchors := c.streamAnchors()
+	c.flowBufferFull.Store(c.deliveryWindowsFull(anchors))
 	c.flowMu.Lock()
 	now := time.Now()
+	for group := range anchors {
+		if g := c.flowGroups[group]; g != nil {
+			g.seen = now
+		}
+	}
 	if rate >= 0 && !math.IsNaN(rate) && !math.IsInf(rate, 0) {
 		c.flowRates.Observe(rate, now)
 		c.flowDownload, _ = c.flowRates.Mean(now)
 	}
 	c.refreshFlowWindowLocked(now)
 	c.flowMu.Unlock()
+}
+
+func (c *Cache) deliveryWindowsFull(anchors map[string]int) bool {
+	if c.flowWaiting.Load() > 0 || c.PieceLength <= 0 {
+		return false
+	}
+	if len(anchors) == 0 {
+		return false
+	}
+	snaps := c.groupReaderSnaps()
+	_, ahead := c.readerWindowPieces()
+	for group, first := range anchors {
+		last := min(c.NumPieces-1, first+ahead)
+		for _, s := range snaps[group] {
+			if s.cur == first {
+				last = min(last, s.flast)
+			}
+		}
+		start, end := int64(first)*c.PieceLength, int64(last+1)*c.PieceLength
+		if total := c.totalSize.Load(); total > 0 {
+			end = min(end, total)
+		}
+		if start < 0 || end <= start || c.ContiguousAvailable(start, end) != end-start {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *Cache) FlowWindow(group string) FlowWindowStatus {
@@ -145,7 +201,7 @@ func (c *Cache) refreshFlowWindowLocked(now time.Time) {
 		if observed, _ := g.tracker.Rate(); observed > 0 {
 			rate = observed
 		}
-		g.seconds, g.pieces = flow.AdaptiveWindow(rate, c.flowDownload, waitP95,
+		g.seconds, g.pieces = flow.DeliveryWindow(rate, waitP95, c.flowRates.Stats(now), c.flowWaiting.Load() > 0, c.flowBufferFull.Load(),
 			f.TargetBufferSeconds, f.MaxBufferSeconds, f.StartupSafetyFactorPct,
 			c.PieceLength, maxAhead)
 		g.pieces = g.smoother.Apply(g.pieces, maxAhead, now)

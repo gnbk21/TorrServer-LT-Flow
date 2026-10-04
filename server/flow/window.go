@@ -66,6 +66,60 @@ func (r *RateWindow) Mean(now time.Time) (float64, int) {
 	return total / float64(count), count
 }
 
+type DeliveryStats struct {
+	Mean          float64
+	Samples       int
+	Variation     float64 // coefficient of variation among positive deliveries
+	OutageSeconds int     // consecutive observed seconds with zero delivery
+}
+
+func (r *RateWindow) Stats(now time.Time) DeliveryStats {
+	mean, count := r.Mean(now)
+	out := DeliveryStats{Mean: mean, Samples: count}
+	var sum, squares float64
+	positive := 0
+	for _, sample := range r.samples {
+		age := now.Unix() - sample.second
+		if sample.second > 0 && age >= 0 && age < 60 && sample.rate > 0 {
+			sum += sample.rate
+			squares += sample.rate * sample.rate
+			positive++
+		}
+	}
+	if positive >= 5 {
+		average := sum / float64(positive)
+		out.Variation = math.Sqrt(math.Max(0, squares/float64(positive)-average*average)) / average
+	}
+	for age := 0; age < 60 && now.Unix()-int64(age) > 0; age++ {
+		second := now.Unix() - int64(age)
+		sample := r.samples[second%60]
+		if sample.second != second || sample.rate > 0 {
+			break
+		}
+		out.OutageSeconds++
+	}
+	return out
+}
+
+// DeliveryWindow responds to variable positive delivery and an observed outage
+// only when reads are actually blocked. Idle/full buffers do not turn zero rate
+// into an outage. All changes still obey the caller's existing hard budgets.
+func DeliveryWindow(playbackRate, waitP95Ms float64, delivery DeliveryStats, blocked, full bool, targetSeconds, maxSeconds, safetyPct int, pieceLength int64, maxAhead int) (int, int) {
+	target := targetSeconds
+	if !full && delivery.Samples >= 5 && delivery.Variation > .5 {
+		target = max(target, 60)
+	}
+	if !full && blocked && delivery.OutageSeconds >= 2 {
+		target = max(target, min(maxSeconds, 90+delivery.OutageSeconds))
+	}
+	target = min(target, max(maxSeconds, targetSeconds))
+	if full {
+		delivery.Mean = 0
+		waitP95Ms = 0
+	}
+	return AdaptiveWindow(playbackRate, delivery.Mean, waitP95Ms, target, maxSeconds, safetyPct, pieceLength, maxAhead)
+}
+
 // ConsumptionTracker samples forward progress over wall-clock time. Short
 // Range bursts are accumulated; large jumps and idle gaps are excluded so a
 // seek or a resume does not masquerade as sustained playback consumption.

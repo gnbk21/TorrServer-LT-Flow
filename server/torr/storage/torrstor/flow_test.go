@@ -157,3 +157,46 @@ func TestAdaptiveWindowUsesExistingCacheBudget(t *testing.T) {
 		t.Fatalf("weak swarm ahead=%d, healthy=%d, max=%d", weak, healthy, maxAhead)
 	}
 }
+
+func TestFullDeliveryWindowRequiresContiguousReadableBytes(t *testing.T) {
+	old := settings.BTsets()
+	settings.StoreBTsets(&settings.BTSets{CacheSize: 8 * flow.MiB, ReaderReadAHead: 70, Flow: settings.DefaultFlowSettings()})
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	s := NewStorage()
+	s.callbackOpen(45, mkHash(0xEA), 256, 64<<10)
+	s.callbackSize(45, 256*(64<<10))
+	c := s.lookup(45)
+	r := NewReader(c, nil, FileInfo{Index: 1, Offset: 0, Length: 256 * (64 << 10)}, "phone")
+	defer r.Close()
+	r.offset.Store(64 * c.PieceLength)
+	r.winFirst.Store(64)
+	r.winLast.Store(100)
+	r.lastRead.Store(time.Now().Unix())
+	anchors := map[string]int{"phone": 64}
+	if c.deliveryWindowsFull(anchors) {
+		t.Fatal("missing window reported full")
+	}
+	_, ahead := c.readerWindowPieces()
+	payload := bytes.Repeat([]byte{0x51}, int(c.PieceLength))
+	for piece := 64; piece <= 64+ahead; piece++ {
+		if _, err := s.callbackWrite(45, piece, 0, payload); err != nil {
+			t.Fatal(err)
+		}
+		c.MarkComplete(piece)
+	}
+	if !c.deliveryWindowsFull(anchors) {
+		t.Fatal("contiguous full window reported missing")
+	}
+	c.flowWaiting.Store(1)
+	if c.deliveryWindowsFull(anchors) {
+		t.Fatal("blocked demand treated as idle full buffer")
+	}
+	c.SetFlowMediaEstimate("phone", 1, flow.Estimate{BytesPerSecond: float64(flow.MiB), Confidence: "low"})
+	if c.demandRates()["phone"] != 0 {
+		t.Fatal("provisional demand rate used for deadlines")
+	}
+	c.SetFlowMediaEstimate("phone", 1, flow.Estimate{BytesPerSecond: float64(flow.MiB), Confidence: "medium"})
+	if c.demandRates()["phone"] != float64(flow.MiB) {
+		t.Fatal("qualified metadata rate ignored")
+	}
+}

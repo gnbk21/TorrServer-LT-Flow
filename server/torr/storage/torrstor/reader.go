@@ -101,15 +101,10 @@ const windowLingerDelay = 3 * time.Second
 // it matters while the buffer still fills ahead. Mirrors elementum's
 // PrioritizePieces tiering, combined with our existing deadline tiers.
 //
-// Every window piece gets a deadline on an ASCENDING ramp, so libtorrent's
-// time-critical picker fetches the whole window strictly in playback order — no
-// out-of-order holes ahead of the playhead, and the far pieces are downloaded
-// before a leading read-ahead connection jumps to them. The ramp (not a flat
-// near-0 deadline across the window — the old behaviour that flooded the
-// time-critical queue with unmeetable deadlines and could collapse a small swarm
-// after a seek) keeps each later piece strictly less urgent than the one before,
-// so the picker never busy-requests duplicate blocks: the playhead piece is
-// always first, the tail merely queued behind it.
+// Several nearby pieces share a deadline tier when no qualified media rate is
+// known. Metadata/stable consumption supplies byte/rate-aware timing in the cache
+// reconciler. Priorities and deadlines express demand, not strict completion
+// order: native peers are asynchronous and may hedge stalled blocks.
 func windowPriority(pos int) (prio, deadlineMs int) {
 	switch {
 	case pos <= 0: // NOW — the piece being read
@@ -508,6 +503,10 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 		}
 	}
 	parent := r.ctx
+	if !r.internal {
+		r.cache.flowWaiting.Add(1)
+		defer r.cache.flowWaiting.Add(-1)
+	}
 	if parent == nil {
 		parent = context.Background()
 	}
