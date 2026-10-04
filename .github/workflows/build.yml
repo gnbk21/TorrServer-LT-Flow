@@ -45,13 +45,35 @@ jobs:
         uses: actions/cache@v4
         with:
           path: _src
-          key: src-boost1.85.0-lt2.1.0-ossl3.5.7-v1
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
       - name: Fetch Boost + libtorrent
         if: steps.cache.outputs.cache-hit != 'true'
         run: bash build/_fetch_sources.sh
 
+  native-streaming-tests:
+    needs: sources
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: _src
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
+      - name: Verify patch isolation and reviewed source
+        run: |
+          bash build/_fetch_sources.sh
+          python3 build/native_patch_test.py
+      - name: Upstream queue and deadline simulations
+        run: |
+          source build/_deps.sh
+          ensure_b2
+          python3 build/apply_native_patches.py "$LT_DIR"
+          cd "$LT_DIR/simulation"
+          BOOST_ROOT="$BOOST_DIR" "$BOOST_DIR/b2" -q -j2 crypto=built-in webtorrent=off test_peer_connection test_transfer
+
   cross:
-    needs: [sources, web]
+    needs: [sources, web, native-streaming-tests]
     name: ${{ matrix.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -78,7 +100,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: _src
-          key: src-boost1.85.0-lt2.1.0-ossl3.5.7-v1
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
 
       # Cache the per-target install tree (lib + headers + .pc). With it present
       # build_libtorrent short-circuits and only the Go binary is relinked.
@@ -86,8 +108,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: _deps/${{ matrix.target }}
-          key: deps-${{ matrix.target }}-boost1.85.0-lt2.1.0-ossl3.5.7-flowrefetch-v3
-          restore-keys: deps-${{ matrix.target }}-boost1.85.0-lt2.1.0-ossl3.5.7-
+          key: deps-${{ matrix.target }}-boost1.85.0-lt2.1.2-ossl3.5.7-flowsparse-${{ hashFiles('build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
+          restore-keys: deps-${{ matrix.target }}-boost1.85.0-lt2.1.2-ossl3.5.7-
 
       - name: Set up Go
         uses: actions/setup-go@v5

@@ -177,7 +177,7 @@ build_webrtc_deps() {
 # --- libtorrent (+ boost_system) via b2 ------------------------------
 build_libtorrent() {
     local deps="$1"
-    if [[ -f "$deps/lib/pkgconfig/libtorrent-rasterbar.pc" && -f "$deps/.flow-cache-extension-v2" ]]; then
+    if [[ -f "$deps/lib/pkgconfig/libtorrent-rasterbar.pc" && -f "$deps/.flow-cache-extension-v3" ]]; then
         log "libtorrent already installed for $TARGET"
         return
     fi
@@ -207,6 +207,7 @@ build_libtorrent() {
     # installed headers. Do not mix an old library with a different class
     # definition; cached trees without the marker must rebuild libtorrent.
     python3 "$ROOT/build/patch_libtorrent_header.py" "$ltwork"
+    python3 "$ROOT/build/apply_native_patches.py" "$ltwork"
 
     # Rewrite libdatachannel's usrsctp/libjuice build actions to copy the
     # archives cross-built by build_webrtc_deps() instead of running its own
@@ -289,7 +290,7 @@ PYEOF
              next;
          }
          { print }' "$pc" > "$pc.tsl" && mv "$pc.tsl" "$pc"
-    touch "$deps/.flow-cache-extension-v2"
+    touch "$deps/.flow-cache-extension-v3"
 }
 
 # --- Go binary -------------------------------------------------------
@@ -374,7 +375,9 @@ cross_build() {
     # (2.0.13, no OpenSSL) would silently survive a version bump. Stamp the
     # tree with the exact recipe and nuke it on mismatch.
     local stamp="$deps/.stamp"
-    local want="lt=$LIBTORRENT_TAG openssl=$OPENSSL_VERSION webtorrent=on"
+    local patch_recipe
+    patch_recipe=$(python3 "$ROOT/build/apply_native_patches.py" --recipe)
+    local want="lt=$LIBTORRENT_REV patches=$patch_recipe openssl=$OPENSSL_VERSION webtorrent=on"
     if [[ -e "$deps" && "$(cat "$stamp" 2>/dev/null || true)" != "$want" ]]; then
         log "deps tree for $TARGET is stale (want: $want) — rebuilding"
         rm -rf "$deps"
