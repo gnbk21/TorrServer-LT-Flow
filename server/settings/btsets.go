@@ -265,6 +265,7 @@ func SetDefaultConfig() {
 	// Transmission's default; 25 (the anacrolix-era default) measurably
 	// caps single-torrent speed on fast links.
 	sets.ConnectionsLimit = 50
+	sets.PeersListenPort = 51413 // stable new-install default; explicit zero remains automatic
 	sets.DHTConnectionsLimit = 500
 	sets.RetrackersMode = 1
 	sets.TrackersListURL = ""

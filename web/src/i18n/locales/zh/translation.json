@@ -584,7 +584,18 @@
       "first_peer_ms": "首个已连接节点",
       "first_useful_block_ms": "首次观察到媒体数据",
       "diagnostic_history": "诊断历史",
-      "dht_state_restored": "已恢复 DHT 状态"
+      "dht_state_restored": "已恢复 DHT 状态",
+      "peer_tcp_port": "BitTorrent TCP 端口",
+      "peer_udp_port": "BitTorrent UDP 端口",
+      "mapped_tcp_port": "映射 TCP 端口",
+      "mapped_udp_port": "映射 UDP 端口",
+      "mapping_successes": "成功映射次数",
+      "mapping_errors": "映射错误",
+      "listener_errors": "监听错误",
+      "incoming_tcp": "传入 TCP 连接",
+      "incoming_utp": "传入 uTP 连接",
+      "incoming_ipv6": "传入 IPv6 连接",
+      "mapping_checked_at": "最近映射事件"
     },
     "sparseTitle": "分片可用性",
     "sparseUnknown": "可用性未知或采样已过期。",
@@ -607,7 +618,10 @@
       "READY": "就绪",
       "FIRST_BLOCK": "等待首个所需数据块",
       "UNKNOWN": "可用性未知或已过期"
-    }
+    },
+    "sparseRequests": "请求超时：{{timeouts}} · 丢弃请求：{{dropped}}",
+    "privatePolicy": "私有种子：仅使用授权的 tracker 层级；已禁用公共发现和节点提示。",
+    "connectivityHint": "这些是观测到的 BitTorrent 节点端口，与 HTTP 8090 端口分开。请在防火墙和路由器中允许 TCP 和 UDP。映射成功并不证明外部可访问，也不能绕过 CGNAT。可用时保留 TCP 和 uTP；NAT 打洞有条件限制。支持端口转发的 VPN 是可选方案。无需将管理面板暴露到互联网。"
   },
   "search": {
     "source": "来源",
@@ -777,5 +791,16 @@
       "error": "存储错误",
       "cleaning": "播放结束后清理"
     }
+  },
+  "sources": {
+    "title": "HTTP 镜像",
+    "url": "镜像 URL",
+    "add": "添加镜像",
+    "remove": "禁用镜像",
+    "configured": "已配置；可用性未验证",
+    "disabled": "已禁用",
+    "help": "镜像必须提供与种子完全相同的字节。原生引擎处理 Range 请求、哈希校验、有限重试和节点回退。仅显示来源域；路径、签名参数和凭据不进入诊断。无需提供商账号。",
+    "local": "批准我的局域网镜像",
+    "localHelp": "批准要求使用明确的私有或回环 IP，且不包含凭据或查询参数。其他镜像必须使用全球地址；DNS 结果和重定向由原生引擎检查。代理隐藏的目标会被阻止。"
   }
 }

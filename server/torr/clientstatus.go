@@ -10,7 +10,7 @@ import (
 // plaintext, for the web Server Status page. Adapted for the libtorrent-backed
 // session: unlike the anacrolix client there is no cheap accessor for the live
 // peer id or banned-IP count, so those are omitted; ListenPort is the configured
-// PeersListenPort (0 = auto).
+// peer listener observed from native alerts (configured value before ready).
 type ClientStatusSnapshot struct {
 	ListenPort    int                  `json:"listen_port"`
 	ActiveStreams int32                `json:"active_streams"`
@@ -69,6 +69,9 @@ func SnapshotClientStatus() ClientStatusSnapshot {
 
 	if bts == nil {
 		return snap
+	}
+	if actual := bts.FlowNetworkStatus().PeerTCPPort; actual > 0 {
+		snap.ListenPort = actual
 	}
 
 	for _, t := range ListTorrent() {

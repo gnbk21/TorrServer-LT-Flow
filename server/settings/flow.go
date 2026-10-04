@@ -73,7 +73,9 @@ func DefaultFlowSettings() *FlowSettings {
 
 // Normalize bounds user-supplied values without changing explicit false flags.
 func (f *FlowSettings) Normalize() {
-	if f.PreparationQuotaMB < 64 || f.PreparationQuotaMB > 1048576 { f.PreparationQuotaMB = 4096 }
+	if f.PreparationQuotaMB < 64 || f.PreparationQuotaMB > 1048576 {
+		f.PreparationQuotaMB = 4096
+	}
 	if f.BootstrapHeadMB < 1 || f.BootstrapHeadMB > 128 {
 		f.BootstrapHeadMB = 16
 	}

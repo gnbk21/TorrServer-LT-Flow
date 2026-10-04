@@ -22,17 +22,32 @@ const HistoryArchives = 3 // Four files total, at most 4 MiB.
 // request headers or arbitrary metadata. Strings are checked against enums.
 // Torrent is a process-local sequence, not a persistent media identity.
 type HistoryEvent struct {
-	Time      time.Time `json:"time"`
-	Run       string    `json:"run"`
-	Type      string    `json:"type"`
-	Stage     string    `json:"stage,omitempty"`
-	Torrent   uint64    `json:"torrent,omitempty"`
-	File      int       `json:"file,omitempty"`
-	ElapsedMs int64     `json:"elapsed_ms"`
-	Bytes     int64     `json:"bytes,omitempty"`
-	Code      int       `json:"code,omitempty"`
-	Operation int       `json:"operation,omitempty"`
-	Dropped   uint64    `json:"dropped,omitempty"`
+	Sparse    *SparseHistory `json:"sparse,omitempty"`
+	Time      time.Time      `json:"time"`
+	Run       string         `json:"run"`
+	Type      string         `json:"type"`
+	Stage     string         `json:"stage,omitempty"`
+	Torrent   uint64         `json:"torrent,omitempty"`
+	File      int            `json:"file,omitempty"`
+	ElapsedMs int64          `json:"elapsed_ms"`
+	Bytes     int64          `json:"bytes,omitempty"`
+	Code      int            `json:"code,omitempty"`
+	Operation int            `json:"operation,omitempty"`
+	Dropped   uint64         `json:"dropped,omitempty"`
+}
+
+type SparseHistory struct {
+	SampledPeers     int    `json:"sampled_peers"`
+	Truncated        bool   `json:"truncated"`
+	UsefulPeers      int    `json:"useful_peers"`
+	ChokedPeers      int    `json:"choked_peers"`
+	SnubbedPeers     int    `json:"snubbed_peers"`
+	OutstandingBytes int64  `json:"outstanding_bytes"`
+	MaxQueueMs       int64  `json:"max_queue_ms"`
+	FailedBytes      int64  `json:"failed_bytes"`
+	RedundantBytes   int64  `json:"redundant_bytes"`
+	RequestTimeouts  uint64 `json:"request_timeouts"`
+	RequestsDropped  uint64 `json:"requests_dropped"`
 }
 
 type HistoryStatus struct {
@@ -86,7 +101,7 @@ func NewHistory(dir string) (*History, error) {
 
 func validHistoryEvent(e HistoryEvent) bool {
 	switch e.Type {
-	case "engine_started", "engine_stopped", "metadata", "startup", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht":
+	case "engine_started", "engine_stopped", "metadata", "startup", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht", "sparse":
 	default:
 		return false
 	}

@@ -90,6 +90,8 @@ func SetupRoute(route gin.IRouter) {
 	authorized.POST("/flow/control", flowControl)
 	authorized.GET("/flow/preparation", preparationStatus)
 	authorized.POST("/flow/preparation", preparationControl)
+	authorized.GET("/flow/sources/:hash", webSeedStatus)
+	authorized.POST("/flow/sources/:hash", webSeedControl)
 
 	authorized.GET("/ffp/status", ffprobeStatus)
 	authorized.GET("/ffp/:hash/:id", ffp)

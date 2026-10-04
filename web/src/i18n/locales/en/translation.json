@@ -525,7 +525,18 @@
       "first_peer_ms": "First connected peer",
       "first_useful_block_ms": "First media data observed",
       "diagnostic_history": "Diagnostic history",
-      "dht_state_restored": "DHT state restored"
+      "dht_state_restored": "DHT state restored",
+      "peer_tcp_port": "BitTorrent TCP port",
+      "peer_udp_port": "BitTorrent UDP port",
+      "mapped_tcp_port": "Mapped TCP port",
+      "mapped_udp_port": "Mapped UDP port",
+      "mapping_successes": "Successful mappings",
+      "mapping_errors": "Mapping errors",
+      "listener_errors": "Listener errors",
+      "incoming_tcp": "Incoming TCP connections",
+      "incoming_utp": "Incoming uTP connections",
+      "incoming_ipv6": "Incoming IPv6 connections",
+      "mapping_checked_at": "Last mapping event"
     },
     "sparseTitle": "Piece availability",
     "sparseUnknown": "Availability is unknown or the sample is stale.",
@@ -548,7 +559,10 @@
       "READY": "Ready",
       "FIRST_BLOCK": "Waiting for the first required block",
       "UNKNOWN": "Availability unknown or stale"
-    }
+    },
+    "sparseRequests": "Request timeouts: {{timeouts}} · dropped requests: {{dropped}}",
+    "privatePolicy": "Private torrent: authorized tracker tiers only; public discovery and peer hints are disabled.",
+    "connectivityHint": "These are observed BitTorrent peer ports, separate from HTTP port 8090. Allow TCP and UDP through your firewall and router. Mapping success alone does not prove external reachability or bypass CGNAT. Keep TCP and uTP enabled where usable; hole punching is conditional. A forwarding-capable VPN is optional. The dashboard does not need Internet exposure."
   },
   "torrent": {
     "justPlayer": "Play in Just Player",
@@ -807,5 +821,16 @@
       "error": "Storage error",
       "cleaning": "Cleaning after playback"
     }
+  },
+  "sources": {
+    "title": "HTTP mirrors",
+    "url": "Mirror URL",
+    "add": "Add mirror",
+    "remove": "Disable mirror",
+    "configured": "Configured; availability unverified",
+    "disabled": "Disabled",
+    "help": "A mirror must supply exactly the torrent’s bytes. Native Range requests, hash checks, retry limits and peer fallback apply. Origins are shown; paths, signed queries and credentials stay out of diagnostics. No provider account is needed.",
+    "local": "Approve my LAN mirror",
+    "localHelp": "LAN approval permits a literal private or loopback IP without credentials or query arguments. Imported mirrors otherwise require global addresses; DNS results and redirects are checked natively. Proxy-hidden destinations fail closed."
   }
 }

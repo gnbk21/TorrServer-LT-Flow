@@ -10,10 +10,17 @@ import (
 // names and JSON shape are kept compatible with the anacrolix-era
 // metainfo encoding so pre-existing config.db files load unchanged.
 type TorrentSpec struct {
+	WebSeeds    []WebSeed  `json:"WebSeeds,omitempty"`
 	InfoHash    string     `json:"InfoHash"` // 40-hex lowercase
 	InfoBytes   []byte     `json:"InfoBytes,omitempty"`
 	Trackers    [][]string `json:"Trackers,omitempty"`
 	DisplayName string     `json:"DisplayName,omitempty"`
+}
+
+type WebSeed struct {
+	URL        string
+	AllowLocal bool
+	Disabled   bool
 }
 
 // TorrentDB is the row persisted in the `Torrents` bucket.

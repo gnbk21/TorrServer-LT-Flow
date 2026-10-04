@@ -38,7 +38,8 @@ type Torrent struct {
 	bt *BTServer
 	lh *lt.Torrent // libtorrent handle; nil while torrent is in DB only
 
-	mu sync.Mutex
+	mu       sync.Mutex
+	sourceMu sync.Mutex
 
 	// runtime metrics, updated by watch()
 	lastTimeSpeed       time.Time
@@ -86,11 +87,14 @@ type Torrent struct {
 	preloadWork            *preloadOperation
 	flowStartup            FlowStartupStatus
 
-	flowMu       sync.Mutex
-	flowSessions map[string]*flowSession
-	sparse       lt.SparseSnapshot // immutable cached aggregate, guarded by flowMu
-	trackerMu    sync.Mutex
-	trackers     map[string]FlowTrackerDiagnostic
+	flowMu           sync.Mutex
+	flowSessions     map[string]*flowSession
+	sparse           lt.SparseSnapshot // immutable cached aggregate, guarded by flowMu
+	sparseRecordedAt int64
+	requestTimeouts  atomic.Uint64
+	requestsDropped  atomic.Uint64
+	trackerMu        sync.Mutex
+	trackers         map[string]FlowTrackerDiagnostic
 
 	expiredTime     time.Time
 	preparationHold atomic.Bool
@@ -113,6 +117,16 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 	}
 	if spec == nil {
 		return nil, errors.New("torr.NewTorrent: nil spec")
+	}
+	// A live handle needs no disk rehash or metadata parse. Recheck again under
+	// the registration lock below when a new handle is actually needed.
+	if existing := bt.GetTorrent(spec.InfoHash); existing != nil {
+		existing.mu.Lock()
+		closed := existing.Stat == state.TorrentClosed
+		existing.mu.Unlock()
+		if !closed {
+			return existing, nil
+		}
 	}
 
 	// Never mutate the stored specification with public discovery additions.
@@ -232,6 +246,11 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 	// playlist appears in a couple of seconds and one that times out.
 	if len(spec.InfoBytes) > 0 {
 		t.signalGotInfo()
+		for _, seed := range spec.WebSeeds {
+			if _, err := flow.ValidateWebSeed(seed.URL, seed.AllowLocal); err == nil {
+				_ = lh.SetURLSeed(seed.URL, seed.Disabled, seed.AllowLocal)
+			}
+		}
 	} else if lh != nil {
 		go func() {
 			_ = lh.ForceReannounce()

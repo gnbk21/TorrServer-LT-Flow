@@ -584,7 +584,18 @@
       "first_peer_ms": "Premier pair connecté",
       "first_useful_block_ms": "Premières données observées",
       "diagnostic_history": "Historique de diagnostic",
-      "dht_state_restored": "État DHT restauré"
+      "dht_state_restored": "État DHT restauré",
+      "peer_tcp_port": "Port TCP BitTorrent",
+      "peer_udp_port": "Port UDP BitTorrent",
+      "mapped_tcp_port": "Port TCP redirigé",
+      "mapped_udp_port": "Port UDP redirigé",
+      "mapping_successes": "Mappages réussis",
+      "mapping_errors": "Erreurs de mappage",
+      "listener_errors": "Erreurs d’écoute",
+      "incoming_tcp": "Connexions TCP entrantes",
+      "incoming_utp": "Connexions uTP entrantes",
+      "incoming_ipv6": "Connexions IPv6 entrantes",
+      "mapping_checked_at": "Dernier événement de mappage"
     },
     "sparseTitle": "Disponibilité des pièces",
     "sparseUnknown": "Disponibilité inconnue ou échantillon périmé.",
@@ -607,7 +618,10 @@
       "READY": "Prêt",
       "FIRST_BLOCK": "En attente du premier bloc nécessaire",
       "UNKNOWN": "Disponibilité inconnue ou périmée"
-    }
+    },
+    "sparseRequests": "Requêtes expirées : {{timeouts}} · requêtes abandonnées : {{dropped}}",
+    "privatePolicy": "Torrent privé : niveaux de trackers autorisés uniquement ; découverte publique et indices de pairs désactivés.",
+    "connectivityHint": "Ports BitTorrent observés, distincts du port HTTP 8090. Autorisez TCP et UDP dans le pare-feu et le routeur. Un mappage réussi ne prouve pas l’accès externe et ne contourne pas le CGNAT. Conservez TCP et uTP lorsque disponibles ; la traversée NAT est conditionnelle. Un VPN avec redirection est facultatif. Le tableau de bord n’a pas besoin d’être exposé sur Internet."
   },
   "search": {
     "source": "Source",
@@ -777,5 +791,16 @@
       "error": "Erreur de stockage",
       "cleaning": "Nettoyage après lecture"
     }
+  },
+  "sources": {
+    "title": "Miroirs HTTP",
+    "url": "URL du miroir",
+    "add": "Ajouter un miroir",
+    "remove": "Désactiver le miroir",
+    "configured": "Configuré ; disponibilité non vérifiée",
+    "disabled": "Désactivé",
+    "help": "Un miroir doit fournir exactement les octets du torrent. Requêtes Range, vérification des hachages, reprises limitées et repli vers les pairs utilisent le moteur natif. Seules les origines sont affichées ; chemins, signatures et identifiants sont exclus des diagnostics. Aucun compte fournisseur requis.",
+    "local": "Autoriser mon miroir local",
+    "localHelp": "L’autorisation exige une adresse IP privée ou de bouclage explicite, sans identifiants ni paramètres. Les autres miroirs exigent des adresses globales ; DNS et redirections sont vérifiés nativement. Les destinations masquées par un proxy sont bloquées."
   }
 }

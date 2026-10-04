@@ -88,6 +88,16 @@ export interface FlowSession {
 }
 
 export interface FlowNetworkStatus {
+  peer_tcp_port?: number;
+  peer_udp_port?: number;
+  mapped_tcp_port?: number;
+  mapped_udp_port?: number;
+  mapping_successes?: number;
+  mapping_errors?: number;
+  listener_errors?: number;
+  incoming_tcp?: number;
+  incoming_utp?: number;
+  incoming_ipv6?: number;
   state: string;
   connectivity: string;
   addresses: string[] | null;
@@ -127,6 +137,8 @@ export interface FlowStatusResponse {
 }
 
 export interface SparseSnapshot {
+  request_timeouts?: number;
+  requests_dropped?: number;
   known: boolean;
   private?: boolean;
   sampled_at_ms?: number;

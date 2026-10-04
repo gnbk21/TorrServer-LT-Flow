@@ -578,7 +578,18 @@
       "first_peer_ms": "Primul partener conectat",
       "first_useful_block_ms": "Primele date observate",
       "diagnostic_history": "Istoric de diagnostic",
-      "dht_state_restored": "Stare DHT restaurată"
+      "dht_state_restored": "Stare DHT restaurată",
+      "peer_tcp_port": "Port TCP BitTorrent",
+      "peer_udp_port": "Port UDP BitTorrent",
+      "mapped_tcp_port": "Port TCP mapat",
+      "mapped_udp_port": "Port UDP mapat",
+      "mapping_successes": "Mapări reușite",
+      "mapping_errors": "Erori de mapare",
+      "listener_errors": "Erori de ascultare",
+      "incoming_tcp": "Conexiuni TCP primite",
+      "incoming_utp": "Conexiuni uTP primite",
+      "incoming_ipv6": "Conexiuni IPv6 primite",
+      "mapping_checked_at": "Ultimul eveniment de mapare"
     },
     "sparseTitle": "Disponibilitatea pieselor",
     "sparseUnknown": "Disponibilitate necunoscută sau eșantion învechit.",
@@ -601,7 +612,10 @@
       "READY": "Gata",
       "FIRST_BLOCK": "Se așteaptă primul bloc necesar",
       "UNKNOWN": "Disponibilitate necunoscută sau învechită"
-    }
+    },
+    "sparseRequests": "Cereri expirate: {{timeouts}} · cereri abandonate: {{dropped}}",
+    "privatePolicy": "Torrent privat: doar nivelurile autorizate de trackere; descoperirea publică și indiciile despre peers sunt dezactivate.",
+    "connectivityHint": "Porturi BitTorrent observate, separate de HTTP 8090. Permiteți TCP și UDP în firewall și router. Maparea reușită nu dovedește accesul extern și nu evită CGNAT. Păstrați TCP și uTP când funcționează; traversarea NAT este condițională. Un VPN cu redirecționare este opțional. Panoul nu necesită expunere pe Internet."
   },
   "search": {
     "source": "Sursă",
@@ -771,5 +785,16 @@
       "error": "Eroare de stocare",
       "cleaning": "Curățare după redare"
     }
+  },
+  "sources": {
+    "title": "Oglinzi HTTP",
+    "url": "URL oglindă",
+    "add": "Adaugă oglindă",
+    "remove": "Dezactivează oglinda",
+    "configured": "Configurat; disponibilitate neverificată",
+    "disabled": "Dezactivat",
+    "help": "Oglinda trebuie să furnizeze exact octeții torrentului. Motorul nativ gestionează Range, verificarea hashurilor, reîncercările limitate și revenirea la peers. Sunt afișate doar originile; căile, semnăturile și acreditările sunt excluse din diagnostic. Nu este necesar un cont.",
+    "local": "Aprobă oglinda mea LAN",
+    "localHelp": "Aprobarea necesită un IP privat sau loopback explicit, fără acreditări și parametri. Alte oglinzi necesită adrese globale; DNS și redirecționările sunt verificate nativ. Destinațiile ascunse de proxy sunt blocate."
   }
 }

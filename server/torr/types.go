@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"server/settings"
 )
 
 // Hash is the v1 SHA-1 BitTorrent info hash. JSON-encoded as a 40-char
@@ -72,10 +73,11 @@ func MustParseHash(s string) Hash {
 // torrent.TorrentSpec (the relevant subset). Field names and tags are
 // preserved so existing config.db Torrents bucket loads unchanged.
 type TorrentSpec struct {
-	InfoHash    Hash       `json:"InfoHash"`
-	InfoBytes   []byte     `json:"InfoBytes,omitempty"`
-	Trackers    [][]string `json:"Trackers,omitempty"`
-	DisplayName string     `json:"DisplayName,omitempty"`
+	WebSeeds    []settings.WebSeed `json:"WebSeeds,omitempty"`
+	InfoHash    Hash               `json:"InfoHash"`
+	InfoBytes   []byte             `json:"InfoBytes,omitempty"`
+	Trackers    [][]string         `json:"Trackers,omitempty"`
+	DisplayName string             `json:"DisplayName,omitempty"`
 }
 
 // FlatTrackers returns the merged single-tier list (the layout libtorrent
@@ -119,13 +121,13 @@ func (f *File) DisplayPath() string {
 type Priority int
 
 const (
-	PriorityNone     Priority = 0
-	PriorityLow      Priority = 1
-	PriorityNormal   Priority = 4
-	PriorityHigh     Priority = 6
+	PriorityNone      Priority = 0
+	PriorityLow       Priority = 1
+	PriorityNormal    Priority = 4
+	PriorityHigh      Priority = 6
 	PriorityReadahead Priority = 5
-	PriorityNext     Priority = 6
-	PriorityNow      Priority = 7
+	PriorityNext      Priority = 6
+	PriorityNow       Priority = 7
 )
 
 // ErrNotImplemented is returned by streaming/storage code paths that

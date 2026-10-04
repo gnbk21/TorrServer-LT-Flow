@@ -49,8 +49,15 @@ func (t *Torrent) sampleSparse(handle *lt.Torrent, metadata bool, pieceLength in
 		}
 	}
 	if snapshot, err := handle.SampleSparse(ranges); err == nil {
+		snapshot.RequestTimeouts = t.requestTimeouts.Load()
+		snapshot.RequestsDropped = t.requestsDropped.Load()
 		t.flowMu.Lock()
 		t.sparse = snapshot
+		if snapshot.Known && snapshot.SampledAtMs-t.sparseRecordedAt >= 30000 {
+			t.sparseRecordedAt = snapshot.SampledAtMs
+			t.historyEvent(flow.HistoryEvent{Type: "sparse", Sparse: &flow.SparseHistory{
+				SampledPeers: snapshot.SampledPeers, Truncated: snapshot.Truncated, UsefulPeers: snapshot.UsefulPeers, ChokedPeers: snapshot.ChokedPeers, SnubbedPeers: snapshot.SnubbedPeers, OutstandingBytes: snapshot.OutstandingBytes, MaxQueueMs: snapshot.MaxQueueMs, FailedBytes: snapshot.FailedBytes, RedundantBytes: snapshot.RedundantBytes, RequestTimeouts: snapshot.RequestTimeouts, RequestsDropped: snapshot.RequestsDropped}})
+		}
 		t.flowMu.Unlock()
 	}
 }

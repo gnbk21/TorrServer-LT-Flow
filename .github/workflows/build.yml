@@ -294,6 +294,9 @@ jobs:
           python3 build/startup_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/startup-check --assert-fast
           python3 build/startup_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/startup-custom-check --profile custom --assert-fast
           python3 build/discovery_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/discovery-check
+          python3 build/preparation_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/preparation-check
+          python3 build/webseed_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/webseed-check
+          python3 build/sparse_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/sparse-check
       - uses: actions/upload-artifact@v4
         if: always() && matrix.target == 'linux-amd64'
         with:
@@ -308,6 +311,12 @@ jobs:
             _out/startup-custom-check/report.json
             _out/startup-custom-check/state/server-output.log
             _out/discovery-check/report.json
+            _out/preparation-check/report.json
+            _out/preparation-check/state/server-output.log
+            _out/webseed-check/report.json
+            _out/webseed-check/*/server-output.log
+            _out/sparse-check/report.json
+            _out/sparse-check/*/server-output.log
             _out/discovery-check/*/server-output.log
             _out/maintenance-check/report.json
             _out/library-upsert-benchmark.txt

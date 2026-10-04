@@ -37,7 +37,9 @@ func fileStatsFromData(data string) []*state.TorrentFileStat {
 // AddTorrentDB serialises a torrent record into the persistent DB.
 func AddTorrentDB(torr *Torrent) {
 	t := new(settings.TorrentDB)
+	torr.mu.Lock()
 	t.TorrentSpec = settingsSpec(torr.TorrentSpec)
+	torr.mu.Unlock()
 	t.Title = torr.Title
 	t.Category = torr.Category
 	if torr.Data == "" {
@@ -113,6 +115,7 @@ func settingsSpec(s *TorrentSpec) *settings.TorrentSpec {
 		return nil
 	}
 	return &settings.TorrentSpec{
+		WebSeeds:    append([]settings.WebSeed(nil), s.WebSeeds...),
 		InfoHash:    s.InfoHash.HexString(),
 		InfoBytes:   s.InfoBytes,
 		Trackers:    s.Trackers,
@@ -125,6 +128,7 @@ func torrSpec(s *settings.TorrentSpec) *TorrentSpec {
 		return nil
 	}
 	return &TorrentSpec{
+		WebSeeds:    append([]settings.WebSeed(nil), s.WebSeeds...),
 		InfoHash:    NewHashFromHex(s.InfoHash),
 		InfoBytes:   s.InfoBytes,
 		Trackers:    s.Trackers,

@@ -121,7 +121,7 @@ class LocalSwarm:
             if any(start < 0 or end <= start for start, end in plan.outages):
                 raise ValueError("invalid outage interval")
         self.started = None
-        self.peer_stats = [dict(requests=0, sent_bytes=0, connections=0, disconnects=0, requested_pieces=[]) for _ in self.plans]
+        self.peer_stats = [dict(requests=0, sent_bytes=0, connections=0, disconnects=0, requested_pieces=[], first_request_seconds={}) for _ in self.plans]
         self.stop = threading.Event()
         self.lock = threading.Lock()
         self.sent_bytes = self.connections = self.requests = self.disconnects = self.announces = 0
@@ -231,6 +231,8 @@ class LocalSwarm:
                                     stats['requests'] += 1
                                     if len(stats['requested_pieces']) < 2048:
                                         stats['requested_pieces'].append(piece)
+                                    if piece not in stats['first_request_seconds'] and len(stats['first_request_seconds']) < 2048:
+                                        stats['first_request_seconds'][piece] = elapsed()
                                     disconnect = plan.disconnect_after > 0 and stats['requests'] >= plan.disconnect_after and stats['disconnects'] == 0
                                     if disconnect:
                                         owner.disconnects += 1
@@ -301,5 +303,5 @@ class LocalSwarm:
         with self.lock:
             return {"sent_bytes": self.sent_bytes, "connections": self.connections, "requests": self.requests,
                     "disconnects": self.disconnects, "tracker_announces": self.announces,
-                    "peers": [dict(s, requested_pieces=list(s['requested_pieces'])) for s in self.peer_stats],
+                    "peers": [dict(s, requested_pieces=list(s['requested_pieces']), first_request_seconds=dict(s['first_request_seconds'])) for s in self.peer_stats],
                     "rate_limit_bytes_per_second": self.rate, "block_delay_ms": self.delay * 1000}

@@ -520,6 +520,12 @@ json alert_to_json(lt::alert const* a) {
     j["type"]     = a->what();
     j["category"] = static_cast<uint64_t>(static_cast<std::uint32_t>(a->category()));
     j["message"]  = a->message();
+    // A signed mirror URL can include secrets in its path or query. Native
+    // alerts must never hand that URL to console/debug logging or history.
+    if (auto const* seed = lt::alert_cast<lt::url_seed_alert>(a)) {
+        j["message"] = "web seed unavailable";
+        j["error_code"] = seed->error.value();
+    }
 
     // torrent_alert is an abstract base — its `alert_type` constant is
     // deprecated and may be absent (libtorrent built with
@@ -532,7 +538,21 @@ json alert_to_json(lt::alert const* a) {
         }
     }
 
-    if (auto const* fa = lt::alert_cast<lt::piece_finished_alert>(a)) {
+    if (auto const* fa = lt::alert_cast<lt::listen_succeeded_alert>(a)) {
+        j["port"] = fa->port;
+        j["transport"] = fa->socket_type == lt::socket_type_t::udp ? "udp" : "tcp";
+        j["ipv6"] = fa->address.is_v6();
+    } else if (auto const* fa = lt::alert_cast<lt::listen_failed_alert>(a)) {
+        j["error_code"] = fa->error.value();
+    } else if (auto const* fa = lt::alert_cast<lt::portmap_alert>(a)) {
+        j["port"] = fa->external_port;
+        j["transport"] = fa->map_protocol == lt::portmap_protocol::tcp ? "tcp" : "udp";
+    } else if (auto const* fa = lt::alert_cast<lt::portmap_error_alert>(a)) {
+        j["error_code"] = fa->error.value();
+    } else if (auto const* fa = lt::alert_cast<lt::incoming_connection_alert>(a)) {
+        j["ipv6"] = fa->endpoint.address().is_v6();
+        j["transport"] = fa->socket_type == lt::socket_type_t::utp ? "utp" : "tcp";
+    } else if (auto const* fa = lt::alert_cast<lt::piece_finished_alert>(a)) {
         j["piece"] = static_cast<int>(fa->piece_index);
     } else if (auto const* fa = lt::alert_cast<lt::block_finished_alert>(a)) {
         j["piece"] = static_cast<int>(fa->piece_index);
@@ -1005,6 +1025,29 @@ int lt_torrent_pause(lt_torrent tid) {
     if (!h.is_valid()) return set_err(LT_ERR_NOT_FOUND, "torrent not found");
     h.pause();
     return LT_OK;
+    WRAP_END(LT_ERR_INTERNAL)
+}
+
+int lt_torrent_url_seed(lt_torrent tid, const char* url, int remove, int allow_local) {
+    WRAP_BEGIN
+    if (!url || std::strlen(url) > 8192) return set_err(LT_ERR_INVALID, "invalid mirror URL");
+    auto h = get_torrent(tid);
+    if (!h.is_valid()) return set_err(LT_ERR_NOT_FOUND, "torrent not found");
+    auto ti = h.torrent_file();
+    if (!ti || (!remove && ti->priv())) return set_err(LT_ERR_INVALID, "known public metadata required");
+#ifdef TSL_HAVE_LT_INTERNALS
+    auto tor = h.native_handle();
+    if (!tor) return set_err(LT_ERR_NOT_FOUND, "torrent not found");
+    std::string value(url);
+    lt::post(tor->session().get_context(), [tor, value=std::move(value), remove, allow_local]() {
+        tor->remove_web_seed(value);
+        if (!remove && tor->web_seeds().size() < 16)
+            tor->add_web_seed(value, {}, {}, allow_local ? lt::aux::web_seed_flag_t{} : lt::aux::torrent::no_local_ips);
+    });
+    return LT_OK;
+#else
+    return set_err(LT_ERR_NOT_IMPL, "source destination guard unavailable");
+#endif
     WRAP_END(LT_ERR_INTERNAL)
 }
 
@@ -1701,6 +1744,9 @@ static char* parse_atp_to_json(lt::add_torrent_params const& atp, size_t* out_le
                 piece_hashes += sha1_hex(atp.ti->hash_for_piece(lt::piece_index_t{i}));
         }
         j["piece_hashes"] = std::move(piece_hashes);
+        json seeds = json::array();
+        for (auto const& seed : atp.ti->web_seeds()) { if (seeds.size() == 16) break; seeds.push_back(seed.url); }
+        j["web_seeds"] = std::move(seeds);
     } else {
         j["has_metadata"]  = false;
         j["metadata_size"] = 0;

@@ -78,6 +78,37 @@ func TestHistoryRetentionPrivacyAndRotation(t *testing.T) {
 	}
 }
 
+func TestSparseHistoryIsNumericBoundedRecord(t *testing.T) {
+	dir := t.TempDir()
+	h, err := NewHistory(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.Record(HistoryEvent{Type: "sparse", Torrent: 1, Sparse: &SparseHistory{SampledPeers: 512, Truncated: true, UsefulPeers: 3, RequestTimeouts: 5, RequestsDropped: 2, OutstandingBytes: 1 << 20, MaxQueueMs: 30000}})
+	if !h.Close(time.Second) {
+		t.Fatal("history did not drain")
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "flow-history.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(data) >= 1024 || !json.Valid(bytes.TrimSpace(data)) {
+		t.Fatalf("unbounded record: %s", data)
+	}
+	var event HistoryEvent
+	if err := json.Unmarshal(data, &event); err != nil {
+		t.Fatal(err)
+	}
+	if event.Sparse == nil || event.Sparse.RequestTimeouts != 5 || event.Sparse.UsefulPeers != 3 {
+		t.Fatalf("lost metrics: %+v", event)
+	}
+	for _, forbidden := range []string{"peer_id", "ip_address", "info_hash", "tracker", "url", "passkey"} {
+		if bytes.Contains(data, []byte(forbidden)) {
+			t.Fatal("identity field in history: " + forbidden)
+		}
+	}
+}
+
 func TestHistoryQueueDoesNotBlockAndCloseIsBounded(t *testing.T) {
 	// No consumer models a stalled OS write. Producers must still return and
 	// account for overflow; shutdown must remain bounded too.

@@ -76,7 +76,7 @@ int lt_cache_reconciliation_supported(void);
 #define LT_ALERT_DHT            0x00000400u  /* 10_bit */
 #define LT_ALERT_PIECE_PROGRESS 0x00400000u  /* 22_bit: piece_finished, hash_failed */
 #define LT_ALERT_BLOCK_PROGRESS 0x01000000u  /* 24_bit: block_finished */
-#define LT_ALERT_DEFAULT (LT_ALERT_ERROR | LT_ALERT_PEER | LT_ALERT_STORAGE | \
+#define LT_ALERT_DEFAULT (LT_ALERT_ERROR | LT_ALERT_PEER | LT_ALERT_STORAGE | LT_ALERT_PORT_MAPPING | \
                           LT_ALERT_TRACKER | LT_ALERT_CONNECT | LT_ALERT_STATUS | \
                           LT_ALERT_PERFORMANCE | LT_ALERT_DHT | \
                           LT_ALERT_PIECE_PROGRESS | LT_ALERT_BLOCK_PROGRESS)
@@ -158,6 +158,7 @@ int lt_torrent_force_recheck(lt_torrent t);
 int lt_torrent_force_reannounce(lt_torrent t);
 int lt_torrent_force_dht_announce(lt_torrent t);
 int lt_torrent_replace_trackers(lt_torrent t, const char* tiers_json);
+int lt_torrent_url_seed(lt_torrent t, const char* url, int remove, int allow_local);
 // Schedule a bounded network-thread snapshot and return the previous cached
 // aggregate immediately. ranges_json is [[first_piece,count], ...], max 8
 // ranges, 256 pieces total. No peer identities or full bitfields are returned.

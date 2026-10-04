@@ -66,6 +66,8 @@ export const flowSchema = z
     sparse: z
       .object({
         known: z.boolean(),
+        request_timeouts: z.number().int().nonnegative().optional(),
+        requests_dropped: z.number().int().nonnegative().optional(),
         private: z.boolean().optional(),
         useful_peers: z.number().int().min(0).max(512).optional(),
         useful_downloading_peers: z.number().int().min(0).max(512).optional(),
@@ -93,7 +95,13 @@ export const flowSchema = z
             }),
           )
           .max(8)
-          .refine(windows => windows.reduce((sum, window) => sum + window.availability.length, 0) <= 256)
+          .refine(
+            (windows) =>
+              windows.reduce(
+                (sum, window) => sum + window.availability.length,
+                0,
+              ) <= 256,
+          )
           .nullable()
           .optional(),
       })

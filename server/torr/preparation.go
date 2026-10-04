@@ -69,6 +69,11 @@ func newPreparationManager(bt *BTServer) *preparationManager {
 		return p
 	}
 	for _, j := range saved {
+		if j != nil && p.jobs[j.ID] != nil {
+			p.failure = "STATE_READ"
+			p.jobs = make(map[string]*preparationRecord)
+			return p
+		}
 		if j == nil || j.PieceLength <= 0 || j.TotalSize <= 0 || j.FileIndex < 1 || j.Spec.InfoHash.IsZero() || j.ID != preparationID(j.Spec.InfoHash, j.FileIndex) || j.Hash != j.Spec.InfoHash.HexString() || j.Length <= 0 || j.Offset < 0 || j.Offset > j.TotalSize-j.Length || j.First != int(j.Offset/j.PieceLength) || j.Last != int((j.Offset+j.Length-1)/j.PieceLength) {
 			p.failure = "STATE_READ"
 			p.jobs = make(map[string]*preparationRecord)
@@ -238,7 +243,7 @@ func PrepareEpisode(hashText string, index int, action string) error {
 	if j == nil {
 		return errors.New("preparation job not found")
 	}
-	previous := j.State
+	previous, previousError := j.State, j.ErrorCode
 	switch action {
 	case "start", "resume":
 		reserved, _ := p.reserved()
@@ -258,6 +263,7 @@ func PrepareEpisode(hashText string, index int, action string) error {
 	}
 	if err := p.save(); err != nil {
 		j.State = previous
+		j.ErrorCode = previousError
 		return errors.New("cannot persist preparation action")
 	}
 	if err := p.configure(hash); err != nil {

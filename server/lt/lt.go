@@ -669,6 +669,9 @@ func (t *Torrent) Status() (*Status, error) {
 
 // Alert is one entry produced by the shim's alert pump.
 type Alert struct {
+	Port             int    `json:"port,omitempty"`
+	Transport        string `json:"transport,omitempty"`
+	IPv6             bool   `json:"ipv6,omitempty"`
 	Type             string `json:"type"`
 	Category         uint32 `json:"category"`
 	ErrorCode        int    `json:"error_code,omitempty"`
@@ -742,6 +745,7 @@ func (s *Session) RequestSessionStats() error {
 // ParsedTorrent is the decoded form of a magnet URI or .torrent file as
 // emitted by the shim's parsers.
 type ParsedTorrent struct {
+	WebSeeds     []string   `json:"web_seeds"`
 	PieceHashes  string     `json:"piece_hashes,omitempty"`
 	InfoHash     string     `json:"info_hash"`
 	DisplayName  string     `json:"display_name"`
@@ -755,6 +759,19 @@ type ParsedTorrent struct {
 	TotalSize    int64      `json:"total_size,omitempty"`
 }
 
+func (t *Torrent) SetURLSeed(url string, remove, allowLocal bool) error {
+	value := C.CString(url)
+	defer C.free(unsafe.Pointer(value))
+	var removed, local C.int
+	if remove {
+		removed = 1
+	}
+	if allowLocal {
+		local = 1
+	}
+	return codeToErr(C.lt_torrent_url_seed(t.id, value, removed, local))
+}
+
 // SparseSnapshot contains aggregates only. Availability covers at most 256
 // requested pieces across eight windows and at most 512 connected peers.
 type SparseWindow struct {
@@ -764,6 +781,8 @@ type SparseWindow struct {
 }
 
 type SparseSnapshot struct {
+	RequestTimeouts        uint64         `json:"request_timeouts"`
+	RequestsDropped        uint64         `json:"requests_dropped"`
 	Private                bool           `json:"private"`
 	Known                  bool           `json:"known"`
 	SampledAtMs            int64          `json:"sampled_at_ms"`

@@ -7,12 +7,24 @@ import (
 	"time"
 
 	"server/flow"
+	"server/lt"
 	"server/settings"
 )
 
 // FlowNetworkStatus reports local address readiness. ADDRESS_READY does not
 // assert that DNS, trackers or the Internet are reachable.
 type FlowNetworkStatus struct {
+	PeerTCPPort              int                `json:"peer_tcp_port"`
+	PeerUDPPort              int                `json:"peer_udp_port"`
+	MappedTCPPort            int                `json:"mapped_tcp_port"`
+	MappedUDPPort            int                `json:"mapped_udp_port"`
+	MappingSuccesses         uint64             `json:"mapping_successes"`
+	MappingErrors            uint64             `json:"mapping_errors"`
+	ListenerErrors           uint64             `json:"listener_errors"`
+	IncomingTCP              uint64             `json:"incoming_tcp"`
+	IncomingUTP              uint64             `json:"incoming_utp"`
+	IncomingIPv6             uint64             `json:"incoming_ipv6"`
+	MappingCheckedAt         time.Time          `json:"mapping_checked_at,omitempty"`
 	DiagnosticHistory        flow.HistoryStatus `json:"diagnostic_history"`
 	DHTStateRestored         bool               `json:"dht_state_restored"`
 	StartedAt                time.Time          `json:"started_at"`
@@ -34,6 +46,47 @@ type FlowNetworkStatus struct {
 	LastTrackerError         time.Time          `json:"last_tracker_error,omitempty"`
 	ConnectivityLostAt       time.Time          `json:"connectivity_lost_at,omitempty"`
 	LastError                string             `json:"last_error,omitempty"`
+}
+
+func (bt *BTServer) recordNetworkAlert(a *lt.Alert) {
+	switch a.Type {
+	case "listen_succeeded", "listen_succeeded_alert", "listen_failed", "listen_failed_alert", "portmap", "portmap_alert", "portmap_error", "portmap_error_alert", "incoming_connection", "incoming_connection_alert":
+	default:
+		return
+	}
+	bt.networkMu.Lock()
+	defer bt.networkMu.Unlock()
+	s := &bt.networkStatus
+	switch a.Type {
+	case "listen_succeeded", "listen_succeeded_alert":
+		if a.Transport == "udp" {
+			s.PeerUDPPort = a.Port
+		} else {
+			s.PeerTCPPort = a.Port
+		}
+	case "listen_failed", "listen_failed_alert":
+		s.ListenerErrors++
+	case "portmap", "portmap_alert":
+		s.MappingSuccesses++
+		s.MappingCheckedAt = time.Now()
+		if a.Transport == "tcp" {
+			s.MappedTCPPort = a.Port
+		} else {
+			s.MappedUDPPort = a.Port
+		}
+	case "portmap_error", "portmap_error_alert":
+		s.MappingErrors++
+		s.MappingCheckedAt = time.Now()
+	case "incoming_connection", "incoming_connection_alert":
+		if a.Transport == "utp" {
+			s.IncomingUTP++
+		} else {
+			s.IncomingTCP++
+		}
+		if a.IPv6 {
+			s.IncomingIPv6++
+		}
+	}
 }
 
 type networkTracker struct {

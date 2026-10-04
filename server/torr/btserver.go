@@ -69,6 +69,9 @@ func (bt *BTServer) Connect() error {
 	if bt.session != nil {
 		return errors.New("torr.BTServer: already connected")
 	}
+	bt.networkMu.Lock()
+	bt.networkStatus = FlowNetworkStatus{}
+	bt.networkMu.Unlock()
 
 	cfg, err := buildSessionConfig()
 	if err != nil {
@@ -327,6 +330,7 @@ func (bt *BTServer) expireWatch(stop <-chan struct{}) {
 }
 
 func (bt *BTServer) handleAlert(a *lt.Alert) {
+	bt.recordNetworkAlert(a)
 	if settings.BTsets() != nil && settings.BTsets().EnableDebug && a.Type != "" {
 		switch a.Type {
 		case "tracker_reply", "tracker_reply_alert":
@@ -380,6 +384,10 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 		t.mu.Unlock()
 	case "peer_disconnected", "peer_disconnected_alert":
 		t.historyEvent(flow.HistoryEvent{Type: "peer_disconnected", Code: a.ErrorCode, Operation: a.Operation, Stage: a.DisconnectReason})
+	case "block_timeout", "block_timeout_alert":
+		t.requestTimeouts.Add(1)
+	case "request_dropped", "request_dropped_alert":
+		t.requestsDropped.Add(1)
 	case "torrent_finished":
 		t.signalGotInfo()
 	case "torrent_error", "file_error":
@@ -399,8 +407,13 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 // unrecognised key is silently ignored on the C++ side.
 func buildSessionConfig() (lt.SessionConfig, error) {
 	cfg := lt.SessionConfig{
-		"user_agent":       "qBittorrent/4.3.9",
-		"peer_fingerprint": "-qB4390-",
+		"urlseed_timeout":            15,
+		"urlseed_wait_retry":         30,
+		"web_seed_name_lookup_retry": 60,
+		"max_web_seed_connections":   4,
+		"urlseed_pipeline_size":      2,
+		"user_agent":                 "qBittorrent/4.3.9",
+		"peer_fingerprint":           "-qB4390-",
 
 		// Streaming-tuned defaults (cf. elgatito/elementum). These trade some
 		// bandwidth politeness for fast start/seek: find peers quickly, keep

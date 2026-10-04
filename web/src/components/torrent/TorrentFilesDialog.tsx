@@ -5,6 +5,7 @@ import { Modal } from "../common/Modal";
 import { Button } from "../common/Button";
 import { PlaybackLinks } from "../common/PlaybackLinks";
 import { PrepareEpisode } from "./PrepareEpisode";
+import { WebSeeds } from "./WebSeeds";
 import { RequestError, Loading } from "../common/RequestState";
 import { torrentsApi } from "../../api/torrents";
 import { viewedApi } from "../../api/viewed";
@@ -97,6 +98,7 @@ export function TorrentFilesDialog({
           <RequestError error={viewed.error} retry={() => viewed.refetch()} />
         )}{" "}
         {!!error && <RequestError error={error} />}
+        {!!files.length && <WebSeeds hash={torrent.hash} />}
         {!info.isPending && !files.length && <p>{t("torrent.waitMetadata")}</p>}
         {[...groups].map(([directory, items]) => (
           <section key={directory} className="space-y-2">

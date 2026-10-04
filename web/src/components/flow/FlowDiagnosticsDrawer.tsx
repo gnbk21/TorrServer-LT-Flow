@@ -83,6 +83,13 @@ export function FlowDiagnosticsDrawer({
                       redundant: status.sparse.redundant_bytes,
                     })}
                   </p>
+                  <p>
+                    {t("flow.sparseRequests", {
+                      timeouts: status.sparse.request_timeouts ?? 0,
+                      dropped: status.sparse.requests_dropped ?? 0,
+                    })}
+                  </p>
+                  {status.sparse.private && <p>{t("flow.privatePolicy")}</p>}
                   {status.sparse.truncated && (
                     <p>{t("flow.sparseTruncated")}</p>
                   )}
@@ -110,6 +117,11 @@ export function FlowDiagnosticsDrawer({
           }).map(([group, data]) => (
             <section key={group}>
               <h3 className="font-semibold mb-3">{t(`flow.${group}`)}</h3>
+              {group === "network" && (
+                <p className="text-sm text-slate-400 mb-3">
+                  {t("flow.connectivityHint")}
+                </p>
+              )}
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {Object.entries(data || {}).map(([key, value]) => (
                   <div key={key}>

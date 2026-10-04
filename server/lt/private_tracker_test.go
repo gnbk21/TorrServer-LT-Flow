@@ -11,7 +11,7 @@ import (
 )
 
 func TestPrivateMetadataProtectsAuthorizedTrackerTiers(t *testing.T) {
-	var authorized, extra atomic.Int32
+	var authorized, extra, unauthorized atomic.Int32
 	tracker := func(counter *atomic.Int32) *httptest.Server {
 		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			counter.Add(1)
@@ -19,6 +19,8 @@ func TestPrivateMetadataProtectsAuthorizedTrackerTiers(t *testing.T) {
 		}))
 	}
 	a, b := tracker(&authorized), tracker(&extra)
+	c := tracker(&unauthorized)
+	defer c.Close()
 	defer a.Close()
 	defer b.Close()
 	aURL, bURL := a.URL+"/announce", b.URL+"/announce"
@@ -36,7 +38,7 @@ func TestPrivateMetadataProtectsAuthorizedTrackerTiers(t *testing.T) {
 	if err := s.ApplySettings(SessionConfig{"announce_to_all_tiers": true, "announce_to_all_trackers": true}); err != nil {
 		t.Fatal(err)
 	}
-	torrent, err := s.AddTorrent(AddTorrentParams{InfoBytes: data, TrackerTiers: [][]string{{bURL}}, SavePath: t.TempDir()})
+	torrent, err := s.AddTorrent(AddTorrentParams{InfoBytes: data, TrackerTiers: [][]string{{c.URL + "/announce"}}, SavePath: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,8 +57,44 @@ func TestPrivateMetadataProtectsAuthorizedTrackerTiers(t *testing.T) {
 	if extra.Load() != 0 {
 		t.Fatal("private torrent announced a second tracker despite healthy first tier")
 	}
+	if unauthorized.Load() != 0 {
+		t.Fatal("caller-injected tracker received a private announce")
+	}
 	if status, err := torrent.Status(); err != nil || !status.Private {
 		t.Fatalf("private status missing: %+v %v", status, err)
+	}
+}
+
+func TestPrivateTrackerFailoverUsesCanonicalSecondTier(t *testing.T) {
+	var fallback, unauthorized atomic.Int32
+	first := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "fixture unavailable", 503) }))
+	defer first.Close()
+	second := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fallback.Add(1)
+		_, _ = w.Write([]byte("d8:intervali1800e5:peers0:e"))
+	}))
+	defer second.Close()
+	extra := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { unauthorized.Add(1) }))
+	defer extra.Close()
+	encode := func(value string) string { return fmt.Sprintf("%d:%s", len(value), value) }
+	a, b := first.URL+"/announce", second.URL+"/announce"
+	info := "d6:lengthi100e4:name4:test12:piece lengthi16384e6:pieces20:" + strings.Repeat("\x00", 20) + "7:privatei1ee"
+	data := []byte("d8:announce" + encode(a) + "13:announce-listll" + encode(a) + "el" + encode(b) + "ee4:info" + info + "e")
+	s := newSession(t)
+	tor, err := s.AddTorrent(AddTorrentParams{InfoBytes: data, TrackerTiers: [][]string{{extra.URL}}, SavePath: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tor.Remove(false)
+	deadline := time.Now().Add(8 * time.Second)
+	for fallback.Load() == 0 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if fallback.Load() == 0 {
+		t.Fatal("canonical fallback tier was not tried")
+	}
+	if unauthorized.Load() != 0 {
+		t.Fatal("unauthorized fallback tracker was tried")
 	}
 }
 
