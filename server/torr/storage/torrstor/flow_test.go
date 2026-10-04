@@ -19,7 +19,7 @@ func TestScarceEvidenceRejectsStaleTruncatedAndUnqualifiedDelivery(t *testing.T)
 	t.Cleanup(func() { settings.StoreBTsets(old) })
 	c := &Cache{}
 	for i := 0; i < 6; i++ {
-		c.flowRates.Observe(float64(1+i%2*20)*flow.MiB, time.Now().Add(time.Duration(i-5)*time.Second))
+		c.flowRates.Observe(float64(1+i%2*20)*float64(flow.MiB), time.Now().Add(time.Duration(i-5)*time.Second))
 	}
 	sample := lt.SparseSnapshot{Known: true, SampledAtMs: time.Now().UnixMilli(), Windows: []lt.SparseWindow{{FirstPiece: 10, Availability: []int{2, 1, 0}}}}
 	c.SetScarceEvidence(sample)
