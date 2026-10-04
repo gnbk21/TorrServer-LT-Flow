@@ -81,6 +81,14 @@ class PeerPlan:
     outages: list = field(default_factory=list)  # (start, end) in seconds
     metadata_delay: float = 0
     disconnect_after: int = 0
+    rate_events: list = field(default_factory=list)  # (time, bytes/sec), positive delivery variation
+
+    def rate_at(self, elapsed):
+        rate = self.rate
+        for when, value in sorted(self.rate_events):
+            if elapsed >= when:
+                rate = value
+        return rate
 
     def available(self, count, elapsed):
         pieces = set(range(count)) if self.pieces is None else set(self.pieces)
@@ -93,7 +101,7 @@ class PeerPlan:
 
 class LocalSwarm:
     def __init__(self, paths, rate=0, delay_ms=0, disconnect_after=0,
-                 peers=None, piece_length=256*1024, private=False):
+                 peers=None, piece_length=256*1024, private=False, peer_ip_start=1):
         self.paths = paths
         self.advertise_peers = True
         self.data = b"".join(p.read_bytes() for p in paths)
@@ -114,6 +122,8 @@ class LocalSwarm:
         self.plans = peers if peers is not None else [PeerPlan(rate=rate, delay_ms=delay_ms, disconnect_after=disconnect_after)]
         if not 1 <= len(self.plans) <= 32:
             raise ValueError("fixture requires 1..32 peers")
+        if not 1 <= peer_ip_start <= 254-len(self.plans):
+            raise ValueError("fixture peer IP range exceeded")
         for plan in self.plans:
             if plan.rate < 0 or plan.delay_ms < 0 or plan.choke_until < 0 or plan.metadata_delay < 0:
                 raise ValueError("negative peer timing or rate")
@@ -121,8 +131,10 @@ class LocalSwarm:
                 raise ValueError("piece outside generated torrent")
             if any(start < 0 or end <= start for start, end in plan.outages):
                 raise ValueError("invalid outage interval")
+            if any(when < 0 or value < 1 for when, value in plan.rate_events):
+                raise ValueError("invalid variable delivery rate")
         self.started = None
-        self.peer_stats = [dict(requests=0, sent_bytes=0, connections=0, disconnects=0, requested_pieces=[], first_request_seconds={}) for _ in self.plans]
+        self.peer_stats = [dict(requests=0, sent_bytes=0, connections=0, disconnects=0, requested_pieces=[], first_request_seconds={}, first_sent_seconds=None) for _ in self.plans]
         self.stop = threading.Event()
         self.lock = threading.Lock()
         self.sent_bytes = self.connections = self.requests = self.disconnects = self.announces = 0
@@ -181,13 +193,17 @@ class LocalSwarm:
                                     header[b'total_size'] = len(owner.metadata)
                                 send(b'\x14' + bytes([metadata_id]) + bencode(header) + block)
                         now = time.monotonic()
-                        if pending and not choked and now >= pending[0][0]:
+                        if pending and not choked and now >= (next_send if plan.rate_events else pending[0][0]):
                             _, piece, begin, count = pending.pop(0)
                             block = owner.data[piece*owner.piece_length+begin:piece*owner.piece_length+begin+count]
                             send(b'\x07' + struct.pack('!II', piece, begin) + block)
                             with owner.lock:
                                 owner.sent_bytes += count
                                 stats['sent_bytes'] += count
+                                if stats['first_sent_seconds'] is None:
+                                    stats['first_sent_seconds'] = elapsed()
+                            if plan.rate_events:
+                                next_send = time.monotonic()+plan.delay_ms/1000+count/plan.rate_at(elapsed())
                         if not select.select([sock], [], [], .01)[0]:
                             continue
                         data = sock.recv(65536)
@@ -240,8 +256,9 @@ class LocalSwarm:
                                         stats['disconnects'] += 1
                                 if disconnect:
                                     return
-                                next_send = max(next_send, time.monotonic()) + plan.delay_ms/1000 + (count/plan.rate if plan.rate else 0)
-                                pending.append((next_send, piece, begin, count))
+                                if not plan.rate_events:
+                                    next_send = max(next_send, time.monotonic()) + plan.delay_ms/1000 + (count/plan.rate if plan.rate else 0)
+                                pending.append((0 if plan.rate_events else next_send, piece, begin, count))
                 except (OSError, EOFError, ValueError, KeyError, IndexError, TypeError):
                     pass
 
@@ -272,7 +289,7 @@ class LocalSwarm:
 
         self.peers = []
         for index, plan in enumerate(self.plans):
-            server = Peers((f'127.0.0.{index+1}', 0), Peer)
+            server = Peers((f'127.0.0.{index+peer_ip_start}', 0), Peer)
             server.index, server.plan = index, plan
             self.peers.append(server)
         self.peer = self.peers[0]  # compatibility with existing harnesses

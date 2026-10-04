@@ -19,6 +19,9 @@ class Mirror:
         owner = self
         class Handler(BaseHTTPRequestHandler):
             protocol_version = 'HTTP/1.1'
+            def handle(self):
+                try: super().handle()
+                except (ConnectionResetError, BrokenPipeError): pass
             def do_GET(self):
                 owner.requests.append({'range': self.headers.get('Range'), 'redirect': self.path.startswith('/redirect/')})
                 if self.path.startswith('/redirect/'):
@@ -66,7 +69,9 @@ def run(executable, output):
         server = OwnedServer(executable, output/mode, extra_settings={'EnableDebug':True})
         try:
             server.ready()
-            with Mirror(source, mode) as mirror, LocalSwarm([episode], peers=[PeerPlan(choke_until=6 if mode in ('mismatch','unreachable','blocked-dns') else 300)]) as swarm:
+            # Distinct loopback identities let native corruption bans isolate
+            # the mirror from a legitimate peer, as they would on separate hosts.
+            with Mirror(source, mode) as mirror, LocalSwarm([episode], peer_ip_start=2, peers=[PeerPlan(choke_until=6 if mode in ('mismatch','unreachable','blocked-dns') else 300)]) as swarm:
                 # Imported local metadata cannot authorize reaching the LAN.
                 tracker = f'http://127.0.0.1:{swarm.tracker.server_port}/announce'
                 torrent = bencode({b'announce':tracker,b'info':swarm.info,b'url-list':[mirror.url(mode=='redirect', 'localhost' if mode=='blocked-dns' else '127.0.0.1')]})

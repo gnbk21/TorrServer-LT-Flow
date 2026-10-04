@@ -102,6 +102,22 @@ class WireTests(unittest.TestCase):
             self.send(sock, b'\x06' + request)
             self.assertEqual(self.message(sock)[9:], swarm.data[:16384])
 
+    def test_variable_rate_changes_real_queued_delivery(self):
+        with LocalSwarm([self.file], peers=[PeerPlan(rate=16384, rate_events=[(.1,256*1024)])]) as swarm:
+            sock=self.connect(swarm)
+            self.initial(sock)
+            for begin in range(0,65536,16384):
+                self.send(sock,b'\x06'+struct.pack('!III',0,begin,16384))
+            delivered=[]
+            for begin in range(0,65536,16384):
+                self.assertEqual(self.message(sock)[9:],swarm.data[begin:begin+16384])
+                delivered.append(time.monotonic())
+            slow=delivered[1]-delivered[0]
+            fast=delivered[3]-delivered[2]
+            self.assertGreater(slow,.7)
+            self.assertLess(fast,slow/2)
+            self.assertIsNotNone(swarm.status()['peers'][0]['first_sent_seconds'])
+
 
 if __name__ == '__main__':
     unittest.main()

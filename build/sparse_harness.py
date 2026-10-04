@@ -8,6 +8,8 @@ not decoder first-frame timings or proof about any public swarm.
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import json
+import hashlib
+import http.client
 import math
 from pathlib import Path
 import time
@@ -18,7 +20,34 @@ from fixtures import generate
 from playback_harness import OwnedServer, upload, range_read, MIB
 
 
-CASES = ('below', 'near', 'above', 'complementary', 'ten-suppliers', 'small-swarm', 'multiple-rare', 'choked-supplier', 'intermittent-supplier', 'late-have', 'choked', 'outage', 'late-metadata')
+CASES = ('below', 'near', 'above', 'complementary', 'ten-suppliers', 'small-swarm', 'multiple-rare', 'choked-supplier', 'intermittent-supplier', 'late-have', 'choked', 'outage', 'late-metadata', 'latency', 'variation')
+
+
+def paced_read(server, hash_text, index, source, rate, seconds=8):
+    """Measure server delivery to a paced client, without claiming decoder stalls."""
+    size=min(len(source), int(rate*seconds))
+    connection=http.client.HTTPConnection('127.0.0.1', server.port, timeout=120)
+    started=time.monotonic()
+    received=bytearray()
+    waits=[]
+    try:
+        connection.request('GET',f'/play/{hash_text}/{index}?play&stat=paced',headers={'Range':f'bytes=0-{size-1}'})
+        response=connection.getresponse()
+        if response.status!=206: raise AssertionError('paced Range failed')
+        while len(received)<size:
+            due=started+len(received)/rate
+            time.sleep(max(0,due-time.monotonic()))
+            before=time.monotonic()
+            chunk=response.read(min(65536,size-len(received)))
+            waits.append((time.monotonic()-before)*1000)
+            if not chunk: raise AssertionError('paced response truncated')
+            received.extend(chunk)
+        if received!=source[:size]: raise AssertionError('paced response bytes changed')
+        return {'bytes':size,'elapsed_ms':(time.monotonic()-started)*1000,
+                'client_read_wait_ms':sum(waits),'client_reads_over_500ms':sum(w>=500 for w in waits),
+                'maximum_client_read_wait_ms':max(waits),'http_delivery_only':True}
+    finally:
+        connection.close()
 
 
 def run(executable, root, fixture, label, media_rate, profile='custom', piece_length=256*1024, scarce=False):
@@ -47,9 +76,13 @@ def run(executable, root, fixture, label, media_rate, profile='custom', piece_le
         plans = [PeerPlan(rate=8*rate,choke_until=3)]
     elif label == 'outage':
         plans = [PeerPlan(rate=2*rate,outages=[(1,4)])]
+    elif label == 'latency':
+        plans = [PeerPlan(rate=2*rate,delay_ms=100)]
+    elif label == 'variation':
+        plans = [PeerPlan(rate=4*rate,rate_events=[(3,max(32768,rate//3)),(7,4*rate),(11,max(32768,rate//2)),(14,3*rate)])]
     else:
         plans = [PeerPlan(rate=8*rate,metadata_delay=3)]
-    report = {'case':label, 'profile':profile, 'piece_length':plen, 'scarce_hints':scarce, 'http_delivery_only':True, 'media_bytes_per_second':media_rate, 'ranges':[]}
+    report = {'case':label, 'profile':profile, 'piece_length':plen, 'scarce_hints':scarce, 'http_delivery_only':True, 'media_bytes_per_second':media_rate, 'fixture_sha256':hashlib.sha256(source).hexdigest(), 'ranges':[]}
     server = OwnedServer(executable,root/label,extra_settings={'CacheSize':8*MIB,'PreloadCache':12,'Flow':{'Enabled':True,'SwarmProfile':profile,'SwarmCustom':{'MinReconnectTime':1,'PeerConnectTimeout':5},'ScarcePieceHints':scarce,'BootstrapHeadMB':1,'StartupBufferMinMB':1,'StartupBufferMaxMB':8,'StartupBufferSeconds':1}})
     try:
         server.ready()
@@ -86,9 +119,18 @@ def run(executable, root, fixture, label, media_rate, profile='custom', piece_le
             report['rare_requested_before_seek']=any(urgent in p['first_request_seconds'] for p in before['peers'])
             report['ranges'].append(range_read(server,swarm.info_hash.hex(),index,source,offset,min(len(source)-1,offset+65535)))
             report['ranges'].append(range_read(server,swarm.info_hash.hex(),index,source,0,65535))
+            if label in ('below','near','above','latency','variation'):
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    task=pool.submit(paced_read,server,swarm.info_hash.hex(),index,source,media_rate)
+                    while not task.done():
+                        report['samples'].append(server.json('/flow/status/'+swarm.info_hash.hex()))
+                        time.sleep(.5)
+                    report['paced_delivery']=task.result()
             report['swarm']=swarm.status()
             requests=[p['first_request_seconds'][urgent] for p in report['swarm']['peers'] if urgent in p['first_request_seconds']]
             report['urgent_first_request_ms_after_seek']=(min(requests)-seek_start)*1000 if requests else None
+            sent=[p['first_sent_seconds'] for p in report['swarm']['peers'] if p['first_sent_seconds'] is not None]
+            report['first_peer_payload_ms']=min(sent)*1000 if sent else None
             report['flow']=server.json('/flow/status/'+swarm.info_hash.hex())
             report['runtime']=server.json('/runtime/status')
             report['elapsed_ms']=(time.monotonic()-started)*1000
@@ -122,7 +164,7 @@ if __name__=='__main__':
     if not args.fixtures: generate(fixtures,seconds=12)
     manifest=json.loads((fixtures/'fixtures.json').read_text(encoding='utf-8'))
     entry=next(f for f in manifest['fixtures'] if f['name']=='variable.mp4')
-    result={'executable':str(args.executable.resolve()),'generated_media':True,'cases':[]}
+    result={'executable':str(args.executable.resolve()),'executable_sha256':hashlib.sha256(args.executable.read_bytes()).hexdigest(),'generated_media':True,'cases':[]}
     try:
         for label in args.cases:
             print('Sparse case: '+label,flush=True)
