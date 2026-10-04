@@ -40,6 +40,8 @@ progress; Resume continues. Playback can independently request the same pieces.
 Remove stops preparation and waits for all readers of that torrent to close
 before removing its native handle and unshared prepared piece files. Shared
 boundary pieces remain until their last preparation reservation is removed.
+Deleting a torrent from the library also schedules its preparation jobs for
+this cleanup, so a durable job cannot silently re-add the deleted torrent.
 
 There are at most 16 jobs. `BitTorr.Flow.PreparationQuotaMB` defaults to 4096 MiB,
 with supported values 64–1048576 MiB. The reservation charges whole boundary
@@ -59,7 +61,9 @@ Default storage is `<state directory>/flow-pieces/<hash>/<piece number>`. With
 The preparation manifest retains its chosen root across settings changes; new
 jobs in that manager share it. Changing the disk cache path does not move prepared
 data. Remove all jobs and restart before choosing a new preparation root. The
-private local `flow-preparation.json` contains original metadata, authorized
+server migrates ordinary cached pieces to the retained root when starting a new
+job; migration uses bounded scratch space and preserves aliases of the same file.
+The private local `flow-preparation.json` contains original metadata, authorized
 trackers and configured sources; it should not be shared as a diagnostic log.
 
 Restart recovery verifies exact lengths and metadata SHA-1 hashes before trusting
@@ -82,6 +86,8 @@ Limits: 16 configured/imported sources, four simultaneous native web connections
 two pipelined requests, 15-second inactivity timeout, 30-second retry delay and
 60-second DNS retry interval. Native corruption handling and remote retry advice
 also apply. A broken mirror does not disable ordinary peer discovery.
+Native corruption bans can affect a peer sharing the corrupt mirror's IP;
+use an independent healthy source when diagnosing that case.
 
 Additional sources are rejected for private torrents. Canonical imported sources
 remain governed by metadata and destination restrictions. Default destinations

@@ -8,6 +8,11 @@ For the 3–4 October startup/history/DHT follow-up, see
 [NEXT_IMPROVEMENTS.md](NEXT_IMPROVEMENTS.md). Its development implementation and
 verification do not change the published Preview 2 `.5` acceptance boundaries.
 
+For the 4 October sparse-streaming implementation, use
+[SPARSE_IMPLEMENTATION.md](SPARSE_IMPLEMENTATION.md) and
+[SPARSE_STREAMING.md](SPARSE_STREAMING.md). They supersede the historical
+feature inventory below for that development work.
+
 This document records the core audit and historical acceptance boundaries.
 For the modern interface implemented on `feature/modern-web`, see
 [WEB_AUDIT.md](WEB_AUDIT.md), [the implementation ledger](MODERNIZATION_CHECKLIST.md)

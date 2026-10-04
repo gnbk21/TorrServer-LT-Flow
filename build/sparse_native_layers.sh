@@ -17,6 +17,22 @@ archive_baseline() {
     # never mutate another variant's cached libtorrent tree or installed headers.
     cp -a "$project_root/_src" "$destination/_src"
     cp -a "$project_root/server/web/pages/template/." "$destination/server/web/pages/template/"
+    # Historical pkg-config folding matched -l inside directory names. Apply
+    # only the build-token fix; preserve every baseline native/runtime source.
+    python3 - "$destination/build/_deps.sh" "$project_root/build/_deps.sh" <<'PY'
+from pathlib import Path
+import re, sys
+target, current = map(Path, sys.argv[1:])
+text = target.read_text()
+old = r'''privlibs=$(grep -E '^Libs\.private:' "$pc" | grep -oE -- '-l[A-Za-z0-9_-]+' | tr '\n' ' ')'''
+if text.count(old) != 1:
+    raise SystemExit('Historical pkg-config context changed')
+function = re.search(r'(?ms)^private_link_libraries\(\) \{.*?^\}', current.read_text())
+if function is None:
+    raise SystemExit('Current pkg-config token helper missing')
+text = function.group(0)+'\n'+text.replace(old, 'privlibs=$(private_link_libraries "$pc")')
+target.write_bytes(text.encode())
+PY
 }
 
 archive_baseline "$original_revision" "$evaluation_root/original"

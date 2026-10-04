@@ -121,8 +121,22 @@ failover even when public torrents announce to all configured trackers.
 and accepts an already-applied patch. Its recipe digest participates in the
 installed dependency stamp and CI cache key. The `native-streaming-tests` job
 runs the upstream queue/transfer simulations before platform jobs proceed.
+The Go/CGo stamp includes the native revision and patch recipe too: a backport
+must relink the executable even when its pkg-config file is unchanged.
+`flow-web-seed-destinations.patch` bounds imported sources and rechecks native
+destination addresses, including redirects and cached resolutions.
 
 The controlled peer fixture supports partial bitfields, delayed HAVE and
 unchoke, metadata exchange, separate suppliers, rate limits, outages and
 reconnects. `python -m unittest discover -s build -p '*_test.py'` checks the
 fixture's real socket protocol independently of the production engine.
+
+For an isolated comparison, dispatch `build.yml` with
+`evaluate_sparse_baseline=true`. This opt-in job builds the original v2.1.0
+runtime, v2.1.2 without the queue patch, the exact queue backport and the current
+candidate. It repeats byte-checked generated fixtures three times in varied
+order, then characterizes Legacy/Conservative/Balanced and the disabled-by-default
+scarce-piece experiment. Its `flow-sparse-native-layers` artifact retains reports,
+fixture metadata and executable hashes. Longer native reconnect waits may fail
+a profile characterization case; those failures remain explicit in the report.
+HTTP read wait is not the player's decoded-frame or stall time.

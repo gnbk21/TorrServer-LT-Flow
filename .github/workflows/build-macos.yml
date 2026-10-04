@@ -75,7 +75,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: _deps/darwin-${{ matrix.arch }}
-          key: deps-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.7-flowsparse-${{ hashFiles('build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
+          key: deps-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.7-flowsparse-pcfold2-${{ hashFiles('build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
           restore-keys: deps-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.7-
 
       - name: Set up Go

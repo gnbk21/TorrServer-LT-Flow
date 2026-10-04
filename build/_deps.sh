@@ -28,6 +28,12 @@
 . "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
 fetch_sources() { bash "$(dirname "${BASH_SOURCE[0]}")/_fetch_sources.sh"; }
 
+# Match complete linker tokens. A directory named "sparse-native-layers" in
+# a -L path is not a request to link a library named "ayers".
+private_link_libraries() {
+    awk '/^Libs\.private:/ { for (i=2; i<=NF; i++) if ($i ~ /^-l[A-Za-z0-9_-]+$/) printf "%s ", $i; }' "$1"
+}
+
 BOOST_UND=$(echo "$BOOST_VERSION" | tr . _)
 BOOST_DIR="$SRC_DIR/boost_${BOOST_UND}"
 LT_DIR="$SRC_DIR/libtorrent"
@@ -259,7 +265,7 @@ PYEOF
     local pc="$deps/lib/pkgconfig/libtorrent-rasterbar.pc"
     sed -i.bak -E 's/-llib([A-Za-z0-9_-]+)\.a/-l\1/g' "$pc"
     local privlibs
-    privlibs=$(grep -E '^Libs\.private:' "$pc" | grep -oE -- '-l[A-Za-z0-9_-]+' | tr '\n' ' ')
+    privlibs=$(private_link_libraries "$pc")
     if [[ -n "$privlibs" ]]; then
         sed -i.bak -E "s#^(Libs:.*)#\1 ${privlibs}#" "$pc"
     fi
@@ -380,7 +386,7 @@ cross_build() {
     local stamp="$deps/.stamp"
     local patch_recipe
     patch_recipe=$(python3 "$ROOT/build/apply_native_patches.py" --recipe)
-    local want="lt=$LIBTORRENT_REV patches=$patch_recipe openssl=$OPENSSL_VERSION webtorrent=on"
+    local want="lt=$LIBTORRENT_REV patches=$patch_recipe openssl=$OPENSSL_VERSION webtorrent=on pc-fold=2"
     if [[ -e "$deps" && "$(cat "$stamp" 2>/dev/null || true)" != "$want" ]]; then
         log "deps tree for $TARGET is stale (want: $want) — rebuilding"
         rm -rf "$deps"
