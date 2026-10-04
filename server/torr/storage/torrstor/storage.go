@@ -193,8 +193,13 @@ func (s *Storage) callbackClose(storage int64) {
 	s.mu.Lock()
 	c := s.caches[storage]
 	if c != nil {
-		delete(s.byHash, c.InfoHash)
-		delete(s.verifiedReads, c.InfoHash)
+		// Disk callbacks can finish after the same hash was re-added with a
+		// different storage ID. Only the current owner may remove its lookup
+		// and sticky mirror gate.
+		if s.byHash[c.InfoHash] == c {
+			delete(s.byHash, c.InfoHash)
+			delete(s.verifiedReads, c.InfoHash)
+		}
 		delete(s.caches, storage)
 	}
 	s.mu.Unlock()

@@ -40,7 +40,7 @@ func makeSyntheticTorrent(content []byte, name string) (torrentBytes, infoSectio
 //   - lt.NewSession picks up the custom disk_io
 //   - AddTorrent(InfoBytes + HavePieces=[1]) tells libtorrent it
 //     already has the piece, with `no_verify_files` skipping the hash
-	//     recheck after the application has verified the exact piece hash
+//     recheck after the application has verified the exact piece hash
 //   - torrstor.NewReader pulls the bytes out through the same Cache
 //     instance libtorrent now owns
 //

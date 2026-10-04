@@ -57,3 +57,23 @@ func TestMirrorBytesWaitForHashAndFailureFencePreservesBackend(t *testing.T) {
 		t.Fatal("hash callback lost access to its retained raw backend", n, err)
 	}
 }
+
+func TestOldStorageCloseCannotRemoveReplacementCacheOrMirrorGate(t *testing.T) {
+	s := NewStorage()
+	hash := mkHash(0x92)
+	s.RequireVerifiedReads(hash)
+	s.callbackOpen(61, hash, 1, pieceBlockSize)
+	s.callbackOpen(62, hash, 1, pieceBlockSize)
+	current := s.CacheByHash(hash)
+	s.callbackClose(61)
+	if s.CacheByHash(hash) != current || s.lookup(62) != current {
+		t.Fatal("old native disk close removed the replacement cache")
+	}
+	if !current.verifiedReads.Load() || !s.verifiedReads[hash] {
+		t.Fatal("old native disk close removed the replacement mirror gate")
+	}
+	s.callbackClose(62)
+	if s.CacheByHash(hash) != nil || s.verifiedReads[hash] {
+		t.Fatal("current native disk close failed to release its registry state")
+	}
+}
