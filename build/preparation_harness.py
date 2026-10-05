@@ -128,7 +128,9 @@ def run(executable, output):
                 player.request('GET',f"/play/{item['hash']}/{request['file_index']}?play&stat=library-cleanup",headers={'Range':f'bytes=0-{len(source)-1}'})
                 response=player.getresponse()
                 if response.status!=206 or response.read(1)!=source[:1]:raise AssertionError('library cleanup player failed')
-                server.json('/torrents',{'action':'rem','hash':item['hash']})
+                with server.request('/torrents',{'action':'rem','hash':item['hash']},timeout=10) as removed:
+                    if removed.status!=200 or removed.read()!=b'':
+                        raise AssertionError('library deletion response contract changed')
                 end=time.monotonic()+8
                 while time.monotonic()<end:
                     jobs=server.json('/flow/preparation')['jobs']
