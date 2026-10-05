@@ -382,7 +382,7 @@ func Shutdown() {
 // snapshot fetched through the alert pump (bounded wait, so /stat cannot
 // hang); torrent details come from the same state the web UI uses.
 func WriteStatus(w io.Writer) {
-	if bts == nil || bts.session == nil {
+	if bts == nil || bts.Session() == nil {
 		w.Write([]byte("session not running\n"))
 		return
 	}
