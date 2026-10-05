@@ -2,8 +2,9 @@
 
 These changes are on `feature/preview-2-hardening` / PR #3. Published Preview 2
 `.5` does not contain them. No provider subscription or account is required.
-The [implementation ledger](SPARSE_IMPLEMENTATION.md) records build and test
-evidence separately from environmental acceptance.
+The [implementation ledger](SPARSE_IMPLEMENTATION.md) and
+[verification record](SPARSE_VERIFICATION.md) record build and test evidence
+separately from environmental acceptance.
 
 ## Diagnose the wait
 
@@ -146,7 +147,10 @@ The dependency is pinned to libtorrent v2.1.2 revision
 `94bffc25272b6833108d601fc0d824c344c48bc3`. Patch recipes invalidate dependency
 caches and fail on unexpected source drift.
 
-Future deadlines use piece size and qualified media/consumption rates. The
+`Flow.RateAwareDeadlines` is an experiment, disabled by default after repeated
+comparisons showed mixed seek results. When enabled, future deadlines use piece
+size and qualified media/consumption rates. Otherwise the existing graded ramp
+remains in use; delivery-aware buffer sizing is independent. The
 blocked piece stays at deadline zero, with ordinary forward work and existing
 container/probe reservations. Independent readers and obsolete seek work remain
 reconciled. Native scheduling may hedge requests; strict completion order or zero
@@ -157,7 +161,8 @@ not count as a delivery deficit.
 `Flow.ScarcePieceHints` is an optional experiment, disabled by default. With a
 qualified rate, at least five delivery samples showing variation, and a fresh
 non-truncated availability sample, one of the next four pieces with one observed
-supplier is advanced by at most one second. It adds no extra window or priority
+supplier is advanced by at most one second. It works independently of the rate-
+aware experiment and uses the selected deadline policy. It adds no extra window or priority
 and cannot overtake deadline zero. Public-swarm benefit is not established.
 
 Legacy remains the default. Conservative restores native swarm timer defaults;
@@ -169,7 +174,9 @@ comparisons. Do not rank profiles by their names or connection count.
 The controlled harnesses cover partial suppliers, late HAVE/metadata, choking,
 outages, rare suppliers, byte-checked seeks, preparation crash/offline/corruption/
 quota recovery and mirror fallback. They own local peers and isolated processes.
-Use the ledger for exact passing runs and remaining checks. Local timing is not
+See [the repeated comparison record](SPARSE_VERIFICATION.md#repeated-isolated-comparisons)
+for individual timings, profile failures and the policy decision. Use the ledger
+for exact passing runs and remaining checks. Local timing is not
 a public-swarm benchmark, physical NAT/IPv6 test, multi-hour endurance result or
 Android decoded-frame measurement. Paid providers are excluded by the user's
 free-only preference. Pure-v2 storage, QUIC, application DoH, AI prediction,

@@ -34,6 +34,7 @@ export interface FlowSettings {
   PreparationQuotaMB?: number;
   PeerResumeHints?: boolean;
   ScarcePieceHints?: boolean;
+  RateAwareDeadlines?: boolean;
 }
 
 export interface TMDBSettings {

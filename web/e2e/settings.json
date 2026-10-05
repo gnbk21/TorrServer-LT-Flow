@@ -33,6 +33,7 @@
     "ProbeGraceMs": 1500,
     "RangeClassification": true,
     "RangeTraceEnabled": false,
+    "RateAwareDeadlines": false,
     "StartupBufferMaxMB": 128,
     "StartupBufferMinMB": 32,
     "StartupBufferSeconds": 6,

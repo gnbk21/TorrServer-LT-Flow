@@ -759,7 +759,8 @@
         "DHTStatePersistence": "Reuse DHT routing state",
         "PreparationQuotaMB": "Preparation disk quota (MiB)",
         "PeerResumeHints": "Remember useful public peers",
-        "ScarcePieceHints": "Scarce-piece scheduling experiment"
+        "ScarcePieceHints": "Scarce-piece scheduling experiment",
+        "RateAwareDeadlines": "Rate-aware deadline experiment"
       }
     },
     "maintenance": {
@@ -784,6 +785,7 @@
     "historyHint": "Save private startup diagnostics locally (up to 4 MiB). No URLs, tokens, media names or client addresses.",
     "dhtHint": "Reuse known DHT nodes after a restart. Disabled DHT is always respected.",
     "peerHintsHelp": "Optional: keep up to 32 recently useful public peers per torrent for 10 minutes, in private local state separate from diagnostic history. At most 128 torrents are retained. Hints expire after a network change; native reconnect backoff still applies. Private torrents never restore these peers.",
+    "rateDeadlinesHelp": "Off by default: repeated tests showed mixed seek results. Uses piece size and qualified playback rate for future deadlines; the blocked piece remains immediate.",
     "scarceHintsHelp": "Off by default. With a qualified consumption rate, variable delivery and a fresh complete peer sample, advance one piece among the next four by at most one second. Blocked reads remain first. This cannot create missing sources and has no established public-swarm speed advantage."
   },
   "runtime": {

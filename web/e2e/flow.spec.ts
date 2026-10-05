@@ -392,6 +392,33 @@ test("settings cancel is inert, apply preserves Flow and unknown fields", async 
     },
   });
 });
+test("deadline experiment is off by default and saves only after confirmation", async ({
+  page,
+}) => {
+  const saves = await mockServer(page);
+  await page.goto("/#/settings");
+  await page.getByRole("tab", { name: "Flow", exact: true }).click();
+  const experiment = page.getByRole("checkbox", {
+    name: "Rate-aware deadline experiment",
+    exact: true,
+  });
+  await expect(experiment).not.toBeChecked();
+  await expect(
+    page.getByText(/Off by default: repeated tests showed mixed seek results/),
+  ).toBeVisible();
+  await experiment.check();
+  expect(saves).toHaveLength(0);
+  await page
+    .getByRole("button", { name: "Apply settings", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0]).toMatchObject({
+    action: "set",
+    sets: { Flow: { RateAwareDeadlines: true } },
+  });
+});
+
 test("dirty form blocks navigation; continuing keeps edits", async ({
   page,
 }) => {

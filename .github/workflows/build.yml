@@ -350,6 +350,7 @@ jobs:
           python3 build/peerhint_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/peerhint-check
           python3 build/webseed_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/webseed-check
           python3 build/sparse_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/sparse-check
+          python3 build/sparse_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/sparse-rate-check --rate-aware --cases below complementary late-have
       - uses: actions/upload-artifact@v4
         if: always() && matrix.target == 'linux-amd64'
         with:
@@ -372,6 +373,8 @@ jobs:
             _out/webseed-check/*/server-output.log
             _out/sparse-check/report.json
             _out/sparse-check/*/server-output.log
+            _out/sparse-rate-check/report.json
+            _out/sparse-rate-check/*/server-output.log
             _out/discovery-check/*/server-output.log
             _out/maintenance-check/report.json
             _out/library-upsert-benchmark.txt

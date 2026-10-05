@@ -71,7 +71,8 @@ func (c *Cache) scarceDemand() (map[int]bool, bool) {
 
 func (c *Cache) demandRates() map[string]float64 {
 	rates := make(map[string]float64)
-	if !settings.CurrentFlow().Enabled || !settings.CurrentFlow().AdaptiveReadAhead {
+	f := settings.CurrentFlow()
+	if !f.Enabled || !f.AdaptiveReadAhead || (!f.RateAwareDeadlines && !f.ScarcePieceHints) {
 		return rates
 	}
 	c.flowMu.Lock()

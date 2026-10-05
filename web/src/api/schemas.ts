@@ -30,6 +30,7 @@ export const settingsSchema = z
       .object({
         Enabled: z.boolean(),
         SwarmProfile: z.string(),
+        RateAwareDeadlines: z.boolean().optional(),
         SwarmCustom: z.record(z.string(), z.unknown()),
       })
       .passthrough()

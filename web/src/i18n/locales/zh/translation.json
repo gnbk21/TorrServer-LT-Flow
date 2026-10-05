@@ -748,7 +748,8 @@
         "DHTStatePersistence": "重用 DHT 路由状态",
         "PreparationQuotaMB": "准备磁盘配额（MiB）",
         "PeerResumeHints": "记住有用的公共节点",
-        "ScarcePieceHints": "稀有分片调度实验"
+        "ScarcePieceHints": "稀有分片调度实验",
+        "RateAwareDeadlines": "按码率调整期限的实验"
       }
     },
     "maintenance": {
@@ -773,6 +774,7 @@
     "historyHint": "在本地保存启动诊断（最多 4 MiB），不包含网址、令牌、媒体名称或客户端地址。",
     "dhtHint": "重启后重用已知的 DHT 节点；始终遵守禁用 DHT 的设置。",
     "peerHintsHelp": "可选：每个种子保存最多 32 个有用的公共节点，保留 10 分钟，存放于独立于诊断历史的私有本地状态。最多保存 128 个种子。网络改变后忽略这些提示；原生重连退避仍然有效。私有种子不会恢复这些节点。",
+    "rateDeadlinesHelp": "默认关闭：重复测试的跳转结果不一致。未来分片的期限按分片大小和可信的播放码率计算；阻塞读取的分片仍立即请求。",
     "scarceHintsHelp": "默认关闭。在消费速率可靠、传输波动且节点样本完整新鲜时，将接下来四个分片中的一个最多提前一秒请求。阻塞读取仍然最优先。无法创造缺失的数据源，尚未证实在公共种群中有速度优势。"
   },
   "preparation": {

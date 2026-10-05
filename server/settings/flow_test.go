@@ -54,3 +54,24 @@ func TestFlowHistoryAndDHTMigration(t *testing.T) {
 		t.Fatal("explicit choices changed")
 	}
 }
+
+func TestRateDeadlineExperimentMigration(t *testing.T) {
+	for _, input := range []string{`{}`, `{"RateAwareDeadlines":false}`} {
+		var f FlowSettings
+		if err := json.Unmarshal([]byte(input), &f); err != nil {
+			t.Fatal(err)
+		}
+		f.Normalize()
+		if f.RateAwareDeadlines {
+			t.Fatal("migration enabled an unproven deadline experiment")
+		}
+	}
+	var enabled FlowSettings
+	if err := json.Unmarshal([]byte(`{"RateAwareDeadlines":true}`), &enabled); err != nil {
+		t.Fatal(err)
+	}
+	enabled.Normalize()
+	if !enabled.RateAwareDeadlines {
+		t.Fatal("explicit experiment choice lost")
+	}
+}

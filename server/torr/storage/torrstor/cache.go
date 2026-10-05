@@ -1036,6 +1036,7 @@ func (c *Cache) applyStreamPriorities() {
 
 	anchors := c.groupPlayheads() // group -> playhead (excludes stale/probe/tail)
 	demandRates := c.demandRates()
+	rateAware := settings.CurrentFlow().RateAwareDeadlines
 	scarce, variable := c.scarceDemand()
 	seekCancel := c.takeSnapCancels()
 	behindP, aheadP := c.readerWindowPieces()
@@ -1145,7 +1146,9 @@ func (c *Cache) applyStreamPriorities() {
 			}
 			prio, dlMs := windowPriority(i - ph)
 			if due, qualified := flow.DemandDeadline(i-ph, plen, demandRates[r.group]); qualified {
-				dlMs = due
+				if rateAware {
+					dlMs = due
+				}
 				if !scarceUsed {
 					advanced := flow.ScarceDeadline(i-ph, dlMs, scarce[i], variable, true)
 					if advanced < dlMs {

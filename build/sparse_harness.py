@@ -50,7 +50,7 @@ def paced_read(server, hash_text, index, source, rate, seconds=8):
         connection.close()
 
 
-def run(executable, root, fixture, label, media_rate, profile='custom', piece_length=256*1024, scarce=False):
+def run(executable, root, fixture, label, media_rate, profile='custom', piece_length=256*1024, scarce=False, rate_aware=False):
     source = fixture.read_bytes()
     plen = piece_length
     count = math.ceil(len(source)/plen)
@@ -82,8 +82,8 @@ def run(executable, root, fixture, label, media_rate, profile='custom', piece_le
         plans = [PeerPlan(rate=4*rate,rate_events=[(3,max(32768,rate//3)),(7,4*rate),(11,max(32768,rate//2)),(14,3*rate)])]
     else:
         plans = [PeerPlan(rate=8*rate,metadata_delay=3)]
-    report = {'case':label, 'profile':profile, 'piece_length':plen, 'scarce_hints':scarce, 'http_delivery_only':True, 'media_bytes_per_second':media_rate, 'fixture_sha256':hashlib.sha256(source).hexdigest(), 'ranges':[]}
-    server = OwnedServer(executable,root/label,extra_settings={'CacheSize':8*MIB,'PreloadCache':12,'Flow':{'Enabled':True,'SwarmProfile':profile,'SwarmCustom':{'MinReconnectTime':1,'PeerConnectTimeout':5},'ScarcePieceHints':scarce,'BootstrapHeadMB':1,'StartupBufferMinMB':1,'StartupBufferMaxMB':8,'StartupBufferSeconds':1}})
+    report = {'case':label, 'profile':profile, 'piece_length':plen, 'scarce_hints':scarce, 'rate_aware_deadlines':rate_aware, 'http_delivery_only':True, 'media_bytes_per_second':media_rate, 'fixture_sha256':hashlib.sha256(source).hexdigest(), 'ranges':[]}
+    server = OwnedServer(executable,root/label,extra_settings={'CacheSize':8*MIB,'PreloadCache':12,'Flow':{'Enabled':True,'SwarmProfile':profile,'SwarmCustom':{'MinReconnectTime':1,'PeerConnectTimeout':5},'ScarcePieceHints':scarce,'RateAwareDeadlines':rate_aware,'BootstrapHeadMB':1,'StartupBufferMinMB':1,'StartupBufferMaxMB':8,'StartupBufferSeconds':1}})
     try:
         server.ready()
         with LocalSwarm([fixture],peers=plans,piece_length=plen) as swarm:
@@ -161,6 +161,7 @@ if __name__=='__main__':
     parser.add_argument('--profile',choices=('legacy','conservative','balanced','custom'),default='custom')
     parser.add_argument('--piece-length',type=int,default=256*1024)
     parser.add_argument('--scarce',action='store_true')
+    parser.add_argument('--rate-aware',action='store_true')
     parser.add_argument('--record-failures',action='store_true',help='Characterize profiles; report failures without treating them as a passing gate')
     args=parser.parse_args()
     args.output.mkdir(parents=True,exist_ok=True)
@@ -172,7 +173,7 @@ if __name__=='__main__':
     try:
         for label in args.cases:
             print('Sparse case: '+label,flush=True)
-            result['cases'].append(run(args.executable,args.output,fixtures/'variable.mp4',label,entry['bytes']/entry['duration'],args.profile,args.piece_length,args.scarce))
+            result['cases'].append(run(args.executable,args.output,fixtures/'variable.mp4',label,entry['bytes']/entry['duration'],args.profile,args.piece_length,args.scarce,args.rate_aware))
             (args.output/'report.json').write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8')
             if not result['cases'][-1]['passed'] and not args.record_failures: raise AssertionError(result['cases'][-1]['error'])
         result['passed']=all(case['passed'] for case in result['cases'])

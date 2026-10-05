@@ -83,7 +83,8 @@ checks remain environmental acceptance and must not be reported as local tests.
   delayed HAVE/unchoke, delayed BEP 9 metadata, cancel/outage/reconnect.
 - Exact-length/hash resume verifier and wait-reason tests passed with the full
   portable Flow suite. Frontend: 44 passed, one existing skip; typecheck, lint
-  and production build passed. Native privacy/storage/snapshot changes await CI.
+  and production build passed at that early checkpoint. Later native privacy,
+  storage and snapshot coverage passed in the complete `997e18f5` runtime gate.
 - Diagnostics are bounded to one pending native request per torrent, once per
   two seconds, eight windows/256 pieces/512 peers. HTTP reads use cached aggregates;
   stale/truncated results never establish absence. No identities are emitted.
@@ -116,7 +117,7 @@ checks remain environmental acceptance and must not be reported as local tests.
   (one contract-export skip locally) and 33 browser cases passed. Native CI supplies
   the actual contract export, race, platform and runtime gates.
 
-## Remaining acceptance reconciliation
+## Final acceptance reconciliation
 
 - The 64 KiB and 4 MiB comparisons passed late HAVE, unique and multiple rare
   suppliers (`532388c1`, three cases per size). Finish repeated bounded scarce

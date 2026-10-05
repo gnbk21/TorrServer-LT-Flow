@@ -94,12 +94,15 @@ These additions are in PR #3 development builds, not published Preview 2 `.5`:
 - **Remember useful public peers** is optional and disabled by default. It keeps
   bounded private local hints for ten minutes and ignores them after network
   changes. Private torrents never restore those hints.
+- **Rate-aware deadline experiment** is disabled by default after repeated
+  tests showed mixed seek results. It uses piece size and qualified consumption
+  estimates; the existing graded deadline ramp remains the default.
 - **Scarce-piece scheduling experiment** is disabled by default. It advances a
   small amount of existing forward work using qualified, fresh evidence.
 
 The native dependency is pinned to libtorrent v2.1.2 plus the reviewed queue-time
-arithmetic fix. Rate-aware deadlines and delivery variation/outage feedback
-retain existing buffer budgets and independent reader reconciliation. **Legacy
+arithmetic fix. Delivery variation/outage feedback retains existing buffer
+budgets and independent reader reconciliation. **Legacy
 remains the default profile.** These changes cannot obtain bytes absent from all
 accessible sources. Choose a smaller release explicitly when delivery stays below
 consumption; different encodes cannot share pieces.

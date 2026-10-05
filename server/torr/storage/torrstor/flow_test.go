@@ -11,6 +11,31 @@ import (
 	"server/settings"
 )
 
+func TestDemandRatesRequireExplicitExperimentAndQualifiedFreshMedia(t *testing.T) {
+	old := settings.BTsets()
+	f := settings.DefaultFlowSettings()
+	settings.StoreBTsets(&settings.BTSets{Flow: f})
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	c := &Cache{flowGroups: map[string]*flowGroup{
+		"fresh": {seen: time.Now(), estimate: flow.Estimate{BytesPerSecond: 1024, Confidence: "high"}},
+		"weak":  {seen: time.Now(), estimate: flow.Estimate{BytesPerSecond: 1024, Confidence: "low"}},
+		"old":   {seen: time.Now().Add(-31 * time.Second), estimate: flow.Estimate{BytesPerSecond: 1024, Confidence: "high"}},
+	}}
+	if len(c.demandRates()) != 0 {
+		t.Fatal("default policy changed deadline timing")
+	}
+	f.RateAwareDeadlines = true
+	rates := c.demandRates()
+	if len(rates) != 1 || rates["fresh"] != 1024 {
+		t.Fatal("unqualified or stale rate selected", rates)
+	}
+	f.RateAwareDeadlines = false
+	f.ScarcePieceHints = true
+	if c.demandRates()["fresh"] != 1024 {
+		t.Fatal("independent scarce experiment lost its qualification evidence")
+	}
+}
+
 func TestScarceEvidenceRejectsStaleTruncatedAndUnqualifiedDelivery(t *testing.T) {
 	old := settings.BTsets()
 	f := settings.DefaultFlowSettings()

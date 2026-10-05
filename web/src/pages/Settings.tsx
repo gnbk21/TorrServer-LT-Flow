@@ -295,6 +295,11 @@ export default function Settings() {
                     {t("settings.scarceHintsHelp")}
                   </span>
                 )}
+                {key === "Flow.RateAwareDeadlines" && (
+                  <span className="text-xs text-slate-400">
+                    {t("settings.rateDeadlinesHelp")}
+                  </span>
+                )}
                 {key === "PreloadCache" && <span>%</span>}
                 {t(`SettingsDialog.${key}Hint`, { defaultValue: "" }) && (
                   <span className="text-xs text-slate-400">
