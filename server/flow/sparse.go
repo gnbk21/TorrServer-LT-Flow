@@ -28,7 +28,9 @@ func SparseReason(e SparseEvidence) string {
 		return "DISCOVERY"
 	}
 	if !e.HasWindow {
-		return "CACHE_OR_PROBE"
+		// A shifted playhead or the bounded window limit can leave this
+		// piece unsampled. That is not evidence of local cache/probe work.
+		return "UNKNOWN"
 	}
 	if e.Suppliers == 0 {
 		if e.Truncated {
@@ -37,6 +39,9 @@ func SparseReason(e SparseEvidence) string {
 		return "MISSING_CONNECTED"
 	}
 	if e.Unchoked == 0 {
+		if e.Truncated {
+			return "UNKNOWN" // an omitted supplier may be unchoked
+		}
 		return "UNCHOKE"
 	}
 	return "FIRST_BLOCK"
