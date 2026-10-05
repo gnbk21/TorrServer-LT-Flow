@@ -145,6 +145,7 @@ type FlowSessionStatus struct {
 type flowSession struct {
 	FlowSessionStatus
 	fileOffset      int64
+	demandOffset    int64 // Actual response position, including a blocked seek.
 	lastSeen        time.Time
 	lastPlaybackSeq uint64
 	lastSeekSeq     uint64
@@ -259,6 +260,19 @@ func (t *Torrent) flowReaderClosed(file *File, offset int64) {
 	}
 }
 
+// flowBodyStart tracks authoritative response demand without claiming delivery.
+func (t *Torrent) flowBodyStart(fileID int, group string, seq uint64, offset int64) {
+	if t == nil || seq == 0 {
+		return
+	}
+	t.flowMu.Lock()
+	defer t.flowMu.Unlock()
+	if s := t.flowSessions[fmt.Sprintf("%d/%s", fileID, group)]; s != nil && seq == s.lastPlaybackSeq {
+		s.demandOffset = max(int64(0), min(offset, s.FileSize))
+		s.lastSeen = time.Now()
+	}
+}
+
 // flowProgress follows delivered bytes throughout an open HTTP response. This
 // is the server delivery position, not the player's decoded presentation time.
 func (t *Torrent) flowProgress(fileID int, group string, seq uint64, offset int64) {
@@ -269,6 +283,7 @@ func (t *Torrent) flowProgress(fileID int, group string, seq uint64, offset int6
 	defer t.flowMu.Unlock()
 	if s := t.flowSessions[fmt.Sprintf("%d/%s", fileID, group)]; s != nil && seq == s.lastPlaybackSeq {
 		s.PlaybackOffsetBytes = max(int64(0), min(offset, s.FileSize))
+		s.demandOffset = s.PlaybackOffsetBytes
 		s.lastSeen = time.Now()
 	}
 }
@@ -358,6 +373,7 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 	t.flowMu.Lock()
 	out := make([]FlowSessionStatus, 0, len(t.flowSessions))
 	var offsets []int64
+	var demands []int64
 	for _, s := range t.flowSessions {
 		copy := s.FlowSessionStatus
 		copy.Traces = nil
@@ -369,6 +385,7 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 		}
 		out = append(out, copy)
 		offsets = append(offsets, s.fileOffset)
+		demands = append(demands, s.demandOffset)
 	}
 	t.flowMu.Unlock()
 	cache := torrstor.Global().CacheByHash([20]byte(t.Hash()))
@@ -422,7 +439,7 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 		if sets := settings.BTsets(); sets != nil {
 			s.CacheSize = sets.CacheSize
 		}
-		start := offsets[i] + s.PlaybackOffsetBytes
+		start := offsets[i] + demands[i]
 		end := offsets[i] + s.FileSize
 		if start < offsets[i] || start >= end {
 			continue

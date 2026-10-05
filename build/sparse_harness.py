@@ -20,7 +20,7 @@ from fixtures import generate
 from playback_harness import OwnedServer, upload, range_read, MIB
 
 
-CASES = ('below', 'near', 'above', 'complementary', 'ten-suppliers', 'small-swarm', 'multiple-rare', 'choked-supplier', 'intermittent-supplier', 'late-have', 'choked', 'outage', 'late-metadata', 'latency', 'variation')
+CASES = ('below', 'near', 'above', 'complementary', 'ten-suppliers', 'small-swarm', 'multiple-rare', 'choked-supplier', 'intermittent-supplier', 'late-have', 'diagnostic-seek', 'choked', 'outage', 'late-metadata', 'latency', 'variation')
 
 
 def paced_read(server, hash_text, index, source, rate, seconds=8):
@@ -70,8 +70,8 @@ def run(executable, root, fixture, label, media_rate, profile='custom', piece_le
         plans=[PeerPlan(pieces=all_pieces-{urgent},rate=8*rate) for _ in range(fast_count)]
         plans += [PeerPlan(pieces={0,urgent},rate=max(32768,rate//4),choke_until=6 if label=='choked-supplier' else 0,outages=[(1,6)] if label=='intermittent-supplier' else [])]
         if label=='multiple-rare': plans += [PeerPlan(pieces={urgent},rate=max(32768,rate//3))]
-    elif label == 'late-have':
-        plans = [PeerPlan(pieces=all_pieces-{urgent},rate=8*rate,have_events=[(5,urgent)])]
+    elif label in ('late-have', 'diagnostic-seek'):
+        plans = [PeerPlan(pieces=all_pieces-{urgent},rate=8*rate,have_events=[(12 if label=='diagnostic-seek' else 5,urgent)])]
     elif label == 'choked':
         plans = [PeerPlan(rate=8*rate,choke_until=3)]
     elif label == 'outage':
@@ -121,7 +121,26 @@ def run(executable, root, fixture, label, media_rate, profile='custom', piece_le
             seek_start=time.monotonic()-swarm.started
             offset=urgent*plen
             report['rare_requested_before_seek']=any(urgent in p['first_request_seconds'] for p in before['peers'])
-            report['ranges'].append(range_read(server,swarm.info_hash.hex(),index,source,offset,min(len(source)-1,offset+65535)))
+            if label == 'diagnostic-seek':
+                report['pending_seek_samples']=[]
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    task=pool.submit(range_read,server,swarm.info_hash.hex(),index,source,offset,min(len(source)-1,offset+65535))
+                    while not task.done():
+                        sample=server.json('/flow/status/'+swarm.info_hash.hex())
+                        report['pending_seek_samples'].append(sample)
+                        if time.monotonic()-started>90: raise TimeoutError('diagnostic seek exceeded budget')
+                        time.sleep(.25)
+                    report['ranges'].append(task.result())
+                observed=False
+                for sample in report['pending_seek_samples']:
+                    windows=sample.get('sparse',{}).get('windows',[])
+                    missing=any(w['first_piece']==urgent and w['availability'] and w['availability'][0]==0 for w in windows)
+                    waiting=any(s.get('active_readers',0)>0 and s.get('wait_reason')=='MISSING_CONNECTED' and s.get('required_piece_suppliers')==0 and s.get('playback_offset_bytes',0)<offset for s in sample.get('sessions',[]))
+                    observed=observed or (missing and waiting)
+                if not observed: raise AssertionError('pending seek did not report the actual missing piece before delivery')
+                report['pending_seek_missing_piece_observed']=True
+            else:
+                report['ranges'].append(range_read(server,swarm.info_hash.hex(),index,source,offset,min(len(source)-1,offset+65535)))
             report['ranges'].append(range_read(server,swarm.info_hash.hex(),index,source,0,65535))
             if label in ('below','near','above','latency','variation'):
                 with ThreadPoolExecutor(max_workers=1) as pool:

@@ -121,6 +121,9 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 	var recorder *flow.ResponseRecorder
 	if sets.CurrentFlow().MetricsEnabled {
 		recorder = flow.NewResponseRecorder(resp)
+		recorder.OnBodyStart = func(offset int64) {
+			t.flowBodyStart(fileID, group, flowSeq, offset)
+		}
 		recorder.OnFirstByte = func(ttfb time.Duration) {
 			if recorder.Status == http.StatusOK || recorder.Status == http.StatusPartialContent {
 				t.flowFirstByte(fileID, group, flowSeq, started, ttfb)

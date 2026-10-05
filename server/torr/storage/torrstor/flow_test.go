@@ -218,7 +218,9 @@ func TestAdaptiveWindowUsesExistingCacheBudget(t *testing.T) {
 
 func TestFullDeliveryWindowRequiresContiguousReadableBytes(t *testing.T) {
 	old := settings.BTsets()
-	settings.StoreBTsets(&settings.BTSets{CacheSize: 8 * flow.MiB, ReaderReadAHead: 70, Flow: settings.DefaultFlowSettings()})
+	f := settings.DefaultFlowSettings()
+	f.RateAwareDeadlines = true // This test also exercises qualified experiment rates.
+	settings.StoreBTsets(&settings.BTSets{CacheSize: 8 * flow.MiB, ReaderReadAHead: 70, Flow: f})
 	t.Cleanup(func() { settings.StoreBTsets(old) })
 	s := NewStorage()
 	s.callbackOpen(45, mkHash(0xEA), 256, 64<<10)

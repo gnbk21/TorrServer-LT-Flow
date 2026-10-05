@@ -22,7 +22,7 @@ func (t *Torrent) sampleSparse(handle *lt.Torrent, metadata bool, pieceLength in
 	if metadata && pieceLength > 0 {
 		for _, s := range t.flowSessions {
 			if s.ActiveReaders > 0 && s.Group != torrstor.ProbeReaderGroup {
-				first := int((s.fileOffset + s.PlaybackOffsetBytes) / pieceLength)
+				first := int((s.fileOffset + s.demandOffset) / pieceLength)
 				if first >= 0 && first < numPieces {
 					demands = append(demands, demand{first, s.lastSeen})
 				}
