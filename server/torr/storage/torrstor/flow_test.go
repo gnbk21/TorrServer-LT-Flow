@@ -24,13 +24,16 @@ func TestDemandRatesRequireExplicitExperimentAndQualifiedFreshMedia(t *testing.T
 	if len(c.demandRates()) != 0 {
 		t.Fatal("default policy changed deadline timing")
 	}
-	f.RateAwareDeadlines = true
+	enabled := *f
+	enabled.RateAwareDeadlines = true
+	settings.StoreBTsets(&settings.BTSets{Flow: &enabled})
 	rates := c.demandRates()
 	if len(rates) != 1 || rates["fresh"] != 1024 {
 		t.Fatal("unqualified or stale rate selected", rates)
 	}
-	f.RateAwareDeadlines = false
-	f.ScarcePieceHints = true
+	scarce := *f
+	scarce.ScarcePieceHints = true
+	settings.StoreBTsets(&settings.BTSets{Flow: &scarce})
 	if c.demandRates()["fresh"] != 1024 {
 		t.Fatal("independent scarce experiment lost its qualification evidence")
 	}
