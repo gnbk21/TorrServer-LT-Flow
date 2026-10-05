@@ -773,6 +773,11 @@ type ParsedTorrent struct {
 }
 
 func (t *Torrent) SetURLSeed(url string, remove, allowLocal bool) error {
+	// A source update may race cleanup after activating a database-only torrent.
+	// Treat the detached snapshot as unavailable rather than dereferencing it.
+	if t == nil {
+		return ErrInvalid
+	}
 	value := C.CString(url)
 	defer C.free(unsafe.Pointer(value))
 	var removed, local C.int

@@ -341,6 +341,13 @@ func TestTorrent_Remove(t *testing.T) {
 	}
 }
 
+func TestDetachedHandleSourceUpdate(t *testing.T) {
+	var handle *Torrent
+	if err := handle.SetURLSeed("https://example.invalid/episode", false, false); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("detached source update: got %v, want ErrInvalid", err)
+	}
+}
+
 func TestHandleCallsDuringRemoveAndSessionClose(t *testing.T) {
 	s := newSession(t)
 	tor, err := s.AddTorrent(AddTorrentParams{Link: validHashHex, SavePath: t.TempDir(), Paused: true})
