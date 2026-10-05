@@ -4,7 +4,93 @@ Updated 5 October 2026. These are development-build results, not a new release
 or proof of public-swarm or Android decoder performance. The requirements and
 remaining gates are tracked in [the implementation ledger](SPARSE_IMPLEMENTATION.md).
 
-## Current Windows executable
+## Final Windows validation
+
+The final `3400e54a` Windows artifact reports
+`MatriX.145.Flow-dev-803f0502d92744ba664aa4385bb2df1f66969fa3`, libtorrent
+`2.1.2.0`. GitHub's Git API confirms the synthetic PR merge's source tree matches
+the tested branch exactly: `ec52ea496d6dfbd21d6647614db49c4b5bd931b1`.
+Artifact `11336019881` passed CRC and GitHub SHA-256 verification:
+`1f9f4092bdff820f17ff677dce76cba642a19e79f679d812c73c19656327199b`.
+Executable SHA-256:
+`06a20fca8986ff3a57f6513ea7c034e6a02201d6a995afff5cecfc8887ffc93e`.
+This verifies source/artifact identity; it is not Authenticode signing.
+
+Actual Windows native checks passed both deadline-setting values through the
+settings API, missing-piece diagnostics during a blocked seek followed by exact
+Range bytes, complete preparation retention/restart/corruption/offline/cleanup/
+quota coverage and all five native mirror scenarios. The matrix used owned
+processes, fresh state and loopback sources; no user library or playback session
+was used. Raw reports: `.tools/windows-340-verification/verification.json`,
+`seek/diagnostic-seek/report.json`, `preparation/report.json`, `mirrors/report.json`.
+
+The usual `.tools/artifacts/windows/TorrServer-LT-windows-amd64.exe` was replaced
+only after confirming it was stopped, then its hash and version were checked.
+Previous `8e1478a8` executable backup:
+`.tools/artifacts-backups/windows-0a763741-TorrServer-LT.exe`.
+
+## Final deadline-policy revalidation
+
+The final Windows build passed **18/18** cases: below consumption, complementary
+partial peers and late HAVE, three repetitions per deadline setting, varied mode/
+case order and fresh state. All **54 Range checks** returned exact bytes. No
+duplicate payload was observed in these runs. Settings API checks confirmed both
+actual flag values. Complete compact observations, fixture/executable identities
+and the raw-report hash are in
+[SPARSE_POLICY_VERIFICATION.json](SPARSE_POLICY_VERIFICATION.json).
+
+Seek response medians, milliseconds, three observations per cell:
+
+| Case | Default graded ramp | Rate-aware experiment |
+| --- | ---: | ---: |
+| Below consumption | 916.1 | 7019.0 |
+| Complementary partial peers | 1337.5 | 1913.0 |
+| Late HAVE | 2663.5 | 2371.6 |
+
+The below-consumption paced client's total read-wait median was 15869.4 ms with
+the default and 13245.7 ms with the experiment. These mixed HTTP delivery results
+support retaining the experiment off by default. They are not decoder stall
+times or a universal ranking. The Windows-generated fixture's SHA-256 is
+`9f882c068f1d1affd2128abb9d069a5fa041cbb29347eb0ce47c72ae5fe407bf`;
+it differs from the Linux comparison fixture, so settings are compared within
+each fixture. Raw final policy report: `.tools/windows-340-rate-policy/report.json`.
+
+## Final source gates
+
+Source `3400e54aa413a40578edb2ea07db815c90b9013f` passed the complete
+[native/platform/runtime/service run 37290710254](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/37290710254),
+[both macOS builds and native ARM tests](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/37290710270),
+and [portable branch checks](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/37290710277).
+This includes native unit/vet/race tests (including `./lt/`), actual Go API
+contracts checked by frontend validators, four fuzz campaigns, the reachable
+Go vulnerability scan, upstream queue/deadline simulations, all eight targets
+and Windows service installation/update/failure rollback. The web gate passed
+46 tests with one contract-export test skipped, and 34 browser scenarios; the
+separate native contract gate supplies the actual backend export.
+
+Final Linux runtime evidence passed 16 sparse cases with the graded default,
+three explicitly rate-aware cases, fast/slow/disconnected playback and resource
+cycles, cross-file churn, warm expiry, normal/Custom startup, discovery recovery,
+preparation, useful-peer restart, five mirror cases and authenticated maintenance.
+Artifact `11337372602` passed CRC and GitHub digest verification:
+`017bf9be5280048fcee24b0374f63dd91332979f1dc24ae55bbe818c171f7a6f`.
+Local copy: `.tools/sparse-340-linux-evidence`.
+
+The final review found a blocked-seek diagnostic still sampling the previously
+delivered position. It now uses the actual single-response HTTP start separately
+from delivered-byte progress, with sequence protection for old responses and
+probes. The response recorder covers full responses, suffix ranges, `If-Range`
+fallback, multipart and errors. The old executable failed the new owned regression
+while returning exact video bytes: 29 blocked observations sampled piece zero
+and reported `READY`. The corrected Linux regression observed the sought missing
+piece with `MISSING_CONNECTED` before late HAVE, then returned exact Range bytes.
+
+The first opt-in-policy gate exposed an older test that still assumed automatic
+rate-aware deadlines. Its setup now enables that experiment explicitly; the
+default-off migration and independent qualification tests remain intact. Both
+Linux and macOS suites passed the corrected final-source rerun.
+
+## Earlier Windows executable verification
 
 Source: `8e1478a87cba2fe0c284ed9148ac35393ad852e2`, built by
 [run 37271894316](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/37271894316).
@@ -23,7 +109,7 @@ libtorrent `2.1.2.0` with the reviewed queue backport.
 Each test used a fresh state directory, owned loopback ports and generated bytes.
 No existing player session, library or server configuration was used.
 The complete preparation and five-case mirror matrices below were rerun with
-this final `8e1478a8` binary. Peer-hint restart recovery passed with `052858ad`;
+this `8e1478a8` binary. Peer-hint restart recovery passed with `052858ad`;
 later changes concern diagnostics and handle lifecycle rather than hint policy.
 Complementary, late-HAVE and choked sole-supplier cases additionally passed at
 `4a8e5cb7`, with exact Range bytes and the actual diagnostics API.

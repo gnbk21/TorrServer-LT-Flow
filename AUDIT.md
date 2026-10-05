@@ -8,9 +8,11 @@ For the 3–4 October startup/history/DHT follow-up, see
 [NEXT_IMPROVEMENTS.md](NEXT_IMPROVEMENTS.md). Its development implementation and
 verification do not change the published Preview 2 `.5` acceptance boundaries.
 
-For the 4 October sparse-streaming implementation, use
+For the 4–5 October sparse-streaming implementation, use
 [SPARSE_IMPLEMENTATION.md](SPARSE_IMPLEMENTATION.md) and
-[SPARSE_STREAMING.md](SPARSE_STREAMING.md). They supersede the historical
+[SPARSE_STREAMING.md](SPARSE_STREAMING.md), with final-source gates, repeated
+comparisons and individual profile failures in
+[SPARSE_VERIFICATION.md](SPARSE_VERIFICATION.md). They supersede the historical
 feature inventory below for that development work.
 
 This document records the core audit and historical acceptance boundaries.

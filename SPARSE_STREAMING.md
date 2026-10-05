@@ -23,6 +23,11 @@ failed bytes are hash failures, redundant bytes are duplicate payload, and reque
 timeouts/drops are separate alert counters. These are server observations, not
 the phone's first decoded frame.
 
+A waiting single-range seek samples the actual HTTP response position, even
+before its first bytes arrive. Delivered-byte progress remains separate; old
+responses, HEAD/index probes, multipart framing and error bodies do not move it.
+An `If-Range` fallback follows its actual full response rather than the request hint.
+
 Opt-in diagnostic history adds numeric sparse summaries no more than once every
 30 seconds. Its existing 256-event queue and four 1 MiB files remain unchanged.
 It excludes peer identities, bitfields, media hashes/names, URLs and credentials.

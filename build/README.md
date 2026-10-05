@@ -140,3 +140,12 @@ scarce-piece experiment. Its `flow-sparse-native-layers` artifact retains report
 fixture metadata and executable hashes. Longer native reconnect waits may fail
 a profile characterization case; those failures remain explicit in the report.
 HTTP read wait is not the player's decoded-frame or stall time.
+
+The recorded comparison and its individual failures are in
+[SPARSE_VERIFICATION.md](../SPARSE_VERIFICATION.md) and
+[SPARSE_COMPARISON.json](../SPARSE_COMPARISON.json). Rate-aware deadlines now
+require `Flow.RateAwareDeadlines=true`; `sparse_harness.py --rate-aware` exercises
+that policy separately. The default harness retains the graded ramp and includes
+a blocked seek whose required piece arrives later. It checks the actual missing
+piece diagnostic before checking the eventual Range bytes. The historical
+comparison candidate had rate-aware deadlines automatically enabled.
