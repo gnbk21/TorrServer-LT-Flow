@@ -36,7 +36,7 @@ type Torrent struct {
 	Size      int64
 
 	bt *BTServer
-	lh *lt.Torrent // libtorrent handle; nil while torrent is in DB only
+	lh atomic.Pointer[lt.Torrent] // nil for DB-only or closed torrents
 
 	mu       sync.Mutex
 	sourceMu sync.Mutex
@@ -225,7 +225,6 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 	t := &Torrent{
 		TorrentSpec:   spec,
 		bt:            bt,
-		lh:            lh,
 		Stat:          state.TorrentAdded,
 		Timestamp:     time.Now().Unix(),
 		lastTimeSpeed: time.Now(),
@@ -234,6 +233,7 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 		gotInfoCh:   make(chan struct{}),
 		closeCh:     make(chan struct{}),
 	}
+	t.lh.Store(lh)
 	bt.torrents[spec.InfoHash] = t
 	bt.mu.Unlock()
 
@@ -313,13 +313,13 @@ func (t *Torrent) signalGotInfo() {
 	// the bounded cache. So bail until metadata is ready and wait for a later
 	// alert (metadata_received / torrent_finished) or WaitInfo's fast path.
 	//
-	// Snapshot the handle ONCE: Close() nils t.lh with no synchronization, and
+	// Snapshot the handle once: Close() atomically detaches it, and
 	// an instance that loses a concurrent add race (remove → immediate re-add,
 	// e.g. /gst/remove followed by the next playlist request) is Closed while
 	// its NewTorrent goroutine is still in here — the re-read of t.lh between
 	// the nil check and the call segfaulted on the nil receiver. A call on a
 	// CLOSED handle is harmless (the C slot lookup returns an error).
-	lh := t.lh
+	lh := t.LTHandle()
 	if lh == nil {
 		return
 	}
@@ -362,8 +362,8 @@ func (t *Torrent) WaitInfo() bool {
 	if t == nil {
 		return false
 	}
-	// Same handle snapshot as signalGotInfo: Close() nils t.lh concurrently.
-	lh := t.lh
+	// The captured native identity stays safe after concurrent removal.
+	lh := t.LTHandle()
 	if lh == nil {
 		return false
 	}
@@ -469,9 +469,7 @@ func (t *Torrent) watch() {
 }
 
 func (t *Torrent) progressTick() {
-	t.mu.Lock()
-	handle := t.lh
-	t.mu.Unlock()
+	handle := t.LTHandle()
 	if handle == nil {
 		return
 	}
@@ -505,8 +503,8 @@ func (t *Torrent) progressTick() {
 
 // ----- shutdown -----
 
-// Close pauses the underlying libtorrent torrent and marks it closed.
-// Actual removal from the session is performed by BTServer.RemoveTorrent.
+// Close detaches the published handle, marks the torrent closed and removes
+// its native handle if this instance still owns the registry entry.
 func (t *Torrent) Close() bool {
 	if t == nil {
 		return false
@@ -520,20 +518,19 @@ func (t *Torrent) Close() bool {
 	t.Stat = state.TorrentClosed
 	t.mu.Unlock()
 	t.markClosed()
-	if t.lh != nil && t.bt != nil && t.bt.session != nil {
+	hash := t.Hash()
+	handle := t.lh.Swap(nil)
+	if handle != nil && t.bt != nil && t.bt.session != nil {
 		// Only remove the libtorrent torrent if no OTHER live instance owns
 		// it. A duplicate Torrent that lost an add race (or any stale copy)
 		// shares the same underlying lt torrent with the registered one;
 		// removing it here would kill an active stream. The registry entry
 		// is either us or already deleted (RemoveTorrent deletes before
 		// closing) — both mean we own the removal.
-		if cur := t.bt.GetTorrent(t.Hash()); cur == nil || cur == t {
-			_ = t.lh.Remove(false)
+		if cur := t.bt.GetTorrent(hash); cur == nil || cur == t {
+			_ = handle.Remove(false)
 		}
 	}
-	t.mu.Lock()
-	t.lh = nil
-	t.mu.Unlock()
 	return true
 }
 
@@ -557,8 +554,8 @@ func (t *Torrent) Hash() Hash {
 	if t.TorrentSpec != nil && !t.TorrentSpec.InfoHash.IsZero() {
 		return t.TorrentSpec.InfoHash
 	}
-	if t.lh != nil {
-		return NewHashFromHex(t.lh.InfoHash())
+	if handle := t.LTHandle(); handle != nil {
+		return NewHashFromHex(handle.InfoHash())
 	}
 	return Hash{}
 }
@@ -566,8 +563,8 @@ func (t *Torrent) Hash() Hash {
 // Name returns the torrent's display name (from metadata if available,
 // otherwise from the spec's display_name / file name).
 func (t *Torrent) Name() string {
-	if t.lh != nil {
-		if name := t.lh.DisplayName(); name != "" {
+	if handle := t.LTHandle(); handle != nil {
+		if name := handle.DisplayName(); name != "" {
 			return name
 		}
 	}
@@ -579,18 +576,20 @@ func (t *Torrent) Name() string {
 
 // Length returns the total payload size in bytes (0 before metadata).
 func (t *Torrent) Length() int64 {
-	if t == nil || t.lh == nil {
+	handle := t.LTHandle()
+	if handle == nil {
 		return 0
 	}
-	return t.lh.TotalSize()
+	return handle.TotalSize()
 }
 
 // Files returns the file list once metadata is known.
 func (t *Torrent) Files() []*File {
-	if t == nil || t.lh == nil {
+	handle := t.LTHandle()
+	if handle == nil {
 		return nil
 	}
-	raw, err := t.lh.Files()
+	raw, err := handle.Files()
 	if err != nil || len(raw) == 0 {
 		return nil
 	}
@@ -610,8 +609,13 @@ func (t *Torrent) Files() []*File {
 
 // LTHandle returns the underlying libtorrent handle for callers that
 // need to set piece priorities / deadlines. May be nil for DB-only
-// torrents.
-func (t *Torrent) LTHandle() *lt.Torrent { return t.lh }
+// or closed torrents. Captured handles remain safe to call after removal.
+func (t *Torrent) LTHandle() *lt.Torrent {
+	if t == nil {
+		return nil
+	}
+	return t.lh.Load()
+}
 
 // Status builds a state.TorrentStatus snapshot consumed by the web API.
 func (t *Torrent) Status() *state.TorrentStatus {
@@ -633,14 +637,15 @@ func (t *Torrent) Status() *state.TorrentStatus {
 		st.Hash = t.TorrentSpec.InfoHash.HexString()
 	}
 
-	if t.lh == nil {
+	handle := t.LTHandle()
+	if handle == nil {
 		// DB-resident torrent (not in the session): recover the file list from
 		// the record's cached Data so playlists and the web file tree work
 		// without waking the torrent (= without a swarm metadata fetch).
 		st.FileStats = fileStatsFromData(t.Data)
 		return st
 	}
-	lst, err := t.lh.Status()
+	lst, err := handle.Status()
 	if err != nil {
 		return st
 	}
@@ -731,7 +736,8 @@ func (t *Torrent) NewReader(file *File) Reader {
 // caller's IP; internal consumers (DLNA index, tgbot, FUSE) use NewReader and
 // share the default group.
 func (t *Torrent) NewReaderGroup(file *File, group string) Reader {
-	if t == nil || t.lh == nil || file == nil {
+	handle := t.LTHandle()
+	if handle == nil || file == nil {
 		return nil
 	}
 	cache := torrstor.Global().CacheByHash([20]byte(t.Hash()))
@@ -739,7 +745,7 @@ func (t *Torrent) NewReaderGroup(file *File, group string) Reader {
 		log.TLogln("torr.NewReader: no cache for", t.Hash().HexString())
 		return nil
 	}
-	return torrstor.NewReader(cache, t.lh, torrstor.FileInfo{
+	return torrstor.NewReader(cache, handle, torrstor.FileInfo{
 		Index:  file.Index,
 		Path:   file.Path,
 		Offset: file.Offset,
@@ -756,9 +762,8 @@ func (t *Torrent) CloseReader(r Reader) {
 	t.AddExpiredTime(torrentExpireTimeout())
 }
 
-// CacheState returns a stubbed CacheState during Etap 3 — the real cache
-// is reborn in Etap 4. Fields are filled enough to keep /cache and the
-// tgbot snake command rendering something coherent (an empty piece map).
+// CacheState combines authoritative piece/reader accounting with torrent
+// status, returning an empty cache map when its native storage is closed.
 func (t *Torrent) CacheState() *storageState.CacheState {
 	if t == nil {
 		return &storageState.CacheState{Pieces: map[int]storageState.ItemState{}}
@@ -775,9 +780,9 @@ func (t *Torrent) CacheState() *storageState.CacheState {
 	if t.TorrentSpec != nil {
 		st.Hash = t.TorrentSpec.InfoHash.HexString()
 	}
-	if t.lh != nil {
-		st.PiecesCount = t.lh.NumPieces()
-		st.PiecesLength = t.lh.PieceLength()
+	if handle := t.LTHandle(); handle != nil {
+		st.PiecesCount = handle.NumPieces()
+		st.PiecesLength = handle.PieceLength()
 	}
 	// Never hand the web UI a nil Pieces/Readers: useCreateCacheMap iterates both
 	// without a null guard, so JSON null crashes the torrent info dialog.

@@ -92,7 +92,8 @@ const preloadWarmGrace = 8 * time.Second
 // cannot hold playback beyond the configured grace period.
 func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe bool, ready func()) {
 	defer ready()
-	if t == nil || t.lh == nil || size <= 0 {
+	lh := t.LTHandle()
+	if lh == nil || size <= 0 {
 		return
 	}
 	if ctx == nil {
@@ -100,13 +101,12 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	}
 	// Snapshot the libtorrent handle once. Preload runs DETACHED (it survives the
 	// request, blocking up to 2 min on the buffer fill), so the torrent can be
-	// dropped mid-flight and set t.lh = nil — a later lh.Method() would then
+	// dropped mid-flight and clear its published handle — a later load could then
 	// deref a nil receiver and crash the server (panic in the call AND again in the
 	// deferred SetMaxConnections). The captured handle stays non-nil; once the
 	// torrent is removed from the session its calls just return "not found" from
 	// the C shim (get_torrent → is_valid check), so the fill ends quietly. Mirrors
 	// how a Reader captures its handle at construction.
-	lh := t.lh
 
 	// Resolve the file the same way Stream does: `index` is the 1-based API
 	// file id (FileStats.Id), which we map to a path and then to the file.

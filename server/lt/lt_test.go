@@ -341,6 +341,48 @@ func TestTorrent_Remove(t *testing.T) {
 	}
 }
 
+func TestHandleCallsDuringRemoveAndSessionClose(t *testing.T) {
+	s := newSession(t)
+	tor, err := s.AddTorrent(AddTorrentParams{Link: validHashHex, SavePath: t.TempDir(), Paused: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var callers sync.WaitGroup
+	started := make(chan struct{}, 4)
+	for worker := 0; worker < 4; worker++ {
+		callers.Go(func() {
+			started <- struct{}{}
+			for i := 0; i < 100; i++ {
+				_ = tor.ID()
+				_, _ = tor.Status()
+				_ = tor.InfoHash()
+				_, _ = s.SettingInt("peer_connect_timeout")
+			}
+		})
+	}
+	for worker := 0; worker < 4; worker++ {
+		<-started
+	}
+	if err := tor.Remove(false); err != nil {
+		t.Fatal(err)
+	}
+	callers.Go(func() {
+		if err := s.Close(); err != nil {
+			t.Error("concurrent close failed", err)
+		}
+	})
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	callers.Wait()
+	if tor.ID() != 0 {
+		t.Fatal("removed identity remained publicly live")
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal("repeated close must be harmless", err)
+	}
+}
+
 // ---------- metadata accessors ----------
 
 func TestHaveMetadata_BeforeMetadata(t *testing.T) {

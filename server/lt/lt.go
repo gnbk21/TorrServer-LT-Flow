@@ -42,6 +42,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 )
@@ -181,7 +182,9 @@ func cAlloc(call func(*C.size_t) *C.char) ([]byte, error) {
 
 // Session wraps a libtorrent session.
 type Session struct {
-	id C.lt_session
+	id        C.lt_session // immutable identity; native lookup fences destruction
+	closed    atomic.Bool
+	closeDone chan struct{}
 }
 
 // SessionConfig is a thin alias over the JSON-encodable settings_pack dict.
@@ -218,7 +221,7 @@ func NewSessionWithDHT(cfg SessionConfig, state []byte) (*Session, error) {
 	if id == 0 {
 		return nil, lastError()
 	}
-	return &Session{id: id}, nil
+	return &Session{id: id, closeDone: make(chan struct{})}, nil
 }
 
 // NormalizeDHTState validates bounded native state and strips every non-DHT field.
@@ -243,7 +246,7 @@ func DHTStateNodes(state []byte) (int, error) {
 }
 
 func (s *Session) DHTState() ([]byte, error) {
-	if s == nil || s.id == 0 {
+	if s == nil || s.id == 0 || s.closed.Load() {
 		return nil, ErrInvalid
 	}
 	return cAlloc(func(n *C.size_t) *C.char { return C.lt_session_dht_state(s.id, n) })
@@ -255,14 +258,18 @@ func (s *Session) Close() error {
 	if s == nil || s.id == 0 {
 		return nil
 	}
+	if !s.closed.CompareAndSwap(false, true) {
+		<-s.closeDone // concurrent callers also join native disk/session teardown
+		return nil
+	}
+	defer close(s.closeDone)
 	rc := C.lt_session_destroy(s.id)
-	s.id = 0
 	return codeToErr(rc)
 }
 
 // ApplySettings updates a running session.
 func (s *Session) ApplySettings(cfg SessionConfig) error {
-	if s == nil || s.id == 0 {
+	if s == nil || s.id == 0 || s.closed.Load() {
 		return ErrInvalid
 	}
 	b, err := json.Marshal(cfg)
@@ -277,7 +284,7 @@ func (s *Session) ApplySettings(cfg SessionConfig) error {
 // SettingInt reads back an int settings_pack value from the live session by
 // name (e.g. "dht_max_peers"). Useful to confirm a setting was actually applied.
 func (s *Session) SettingInt(name string) (int64, error) {
-	if s == nil || s.id == 0 {
+	if s == nil || s.id == 0 || s.closed.Load() {
 		return 0, ErrInvalid
 	}
 	cName := C.CString(name)
@@ -292,7 +299,7 @@ func (s *Session) SettingInt(name string) (int64, error) {
 // SetIPFilter installs an IP filter from a P2P-format text block.
 // Pass "" to clear the filter.
 func (s *Session) SetIPFilter(p2pText string) error {
-	if s == nil || s.id == 0 {
+	if s == nil || s.id == 0 || s.closed.Load() {
 		return ErrInvalid
 	}
 	cs := C.CString(p2pText)
@@ -302,7 +309,7 @@ func (s *Session) SetIPFilter(p2pText string) error {
 
 // SetAlertMask installs the libtorrent alert_mask. Pass 0 for defaults.
 func (s *Session) SetAlertMask(mask uint32) error {
-	if s == nil || s.id == 0 {
+	if s == nil || s.id == 0 || s.closed.Load() {
 		return ErrInvalid
 	}
 	return codeToErr(C.lt_session_set_alert_mask(s.id, C.uint32_t(mask)))
@@ -339,7 +346,7 @@ type AddTorrentParams struct {
 
 // AddTorrent adds a torrent to the session and returns a handle.
 func (s *Session) AddTorrent(p AddTorrentParams) (*Torrent, error) {
-	if s == nil || s.id == 0 {
+	if s == nil || s.id == 0 || s.closed.Load() {
 		return nil, ErrInvalid
 	}
 	var (
@@ -396,17 +403,23 @@ func (s *Session) AddTorrent(p AddTorrentParams) (*Torrent, error) {
 
 // Torrent is a handle to a single torrent inside a Session.
 type Torrent struct {
-	sess *Session
-	id   C.lt_torrent
+	sess    *Session
+	id      C.lt_torrent // immutable so captured readers remain safe during Remove
+	removed atomic.Bool
 }
 
 // ID returns the opaque shim handle.
-func (t *Torrent) ID() int64 { return int64(t.id) }
+func (t *Torrent) ID() int64 {
+	if t == nil || t.removed.Load() {
+		return 0
+	}
+	return int64(t.id)
+}
 
 // Remove deletes the torrent from the session. If deleteFiles is true,
 // libtorrent also unlinks the on-disk data (currently unused — see Etap 4).
 func (t *Torrent) Remove(deleteFiles bool) error {
-	if t == nil || t.id == 0 || t.sess == nil {
+	if t == nil || t.id == 0 || t.sess == nil || !t.removed.CompareAndSwap(false, true) {
 		return ErrInvalid
 	}
 	df := C.int(0)
@@ -414,8 +427,8 @@ func (t *Torrent) Remove(deleteFiles bool) error {
 		df = 1
 	}
 	rc := C.lt_torrent_remove(t.sess.id, t.id, df)
-	if rc == C.LT_OK {
-		t.id = 0
+	if rc != C.LT_OK {
+		t.removed.Store(false)
 	}
 	return codeToErr(rc)
 }
