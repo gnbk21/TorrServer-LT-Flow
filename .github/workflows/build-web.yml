@@ -10,6 +10,7 @@ on:
 jobs:
   web:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,11 +32,20 @@ jobs:
           yarn lint
           yarn test
           yarn build
-      - name: Browser regressions
-        working-directory: web
+      - name: Bound hosted-runner package downloads
         run: |
-          yarn playwright install --with-deps chromium
-          yarn test:e2e
+          printf 'Acquire::Retries "2";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\n' | sudo tee /etc/apt/apt.conf.d/99flow-ci-timeouts >/dev/null
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            sudo sed -i 's#https\?://azure.archive.ubuntu.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' /etc/apt/apt-mirrors.txt
+          fi
+      - name: Install browser runtime
+        timeout-minutes: 10
+        working-directory: web
+        run: yarn playwright install --with-deps chromium
+      - name: Browser regressions
+        timeout-minutes: 10
+        working-directory: web
+        run: yarn test:e2e
       - name: Generate embedded assets
         run: |
           go test gen_web.go gen_web_test.go
