@@ -7,60 +7,65 @@ remain requirements. No automatic router, firewall, personal configuration or
 running-server changes are implied by implementation.
 
 ## 1. Qualified delivery
-- [ ] Count verified useful forward bytes independently of aggregate traffic.
-- [ ] Classify active demand, full/idle, probe, preparation and reconnect periods.
-- [ ] Expose short/long rates, freshness, confidence and invalidation after seeks.
-- [ ] Keep media demand distinct from bursty HTTP delivery; qualify sustainability
+- [x] Count verified useful forward bytes independently of aggregate traffic.
+- [x] Classify active demand, full/idle, probe, preparation and reconnect periods.
+- [x] Expose short/long rates, freshness, confidence and invalidation after seeks.
+- [x] Keep media demand distinct from bursty HTTP delivery; qualify sustainability
       and exhaustion predictions; preserve unknown evidence.
 
 ## 2. Risk controller
-- [ ] Explainable buffer risk from contiguous data, useful supply, variation,
+- [x] Explainable buffer risk from contiguous data, useful supply, variation,
       piece waits and fresh supplier evidence, with confidence.
-- [ ] Bounded startup/read-ahead adaptation, smoothing, seek invalidation and
+- [x] Bounded startup/read-ahead adaptation, smoothing, seek invalidation and
       preparation/lower-release guidance; retain native graded deadlines.
 
 ## 3. Network recovery
-- [ ] Windows interface/route notifications plus portable polling fallback.
-- [ ] Sleep/resume and same-address transitions, debounce, bounded jittered retry.
-- [ ] Component-specific status/recovery without unnecessary engine restart or
+- [x] Windows interface/route notifications plus portable polling fallback.
+- [x] Sleep/resume and same-address transitions, debounce, bounded jittered retry.
+- [x] Component-specific status/recovery without unnecessary engine restart or
       private-tracker announce storms.
 
 ## 4. Resources
-- [ ] Global active/warm cache and background-work budget, preserving immediate
+- [x] Global active/warm cache and background-work budget, preserving immediate
       reader reservations and distinguishing disk from RAM.
-- [ ] Process/system memory, disk-space and handle observations; pressure limits
+- [x] Process/system memory, disk-space and handle observations; pressure limits
       optional work and releases idle reservations before disrupting readers.
-- [ ] Preparation scheduling, quota/free-space forecasts and explicit user quota.
+- [x] Preparation scheduling, quota/free-space forecasts and explicit user quota.
 
 ## 5. Settings
-- [ ] Persistent unsaved indicator, accessible Apply, readable cache units.
-- [ ] Draft/saved/effective status, config revision/conflict rejection, data path
+- [x] Persistent unsaved indicator, accessible Apply, readable cache units.
+- [x] Draft/saved/effective status, config revision/conflict rejection, data path
       and executable identity.
-- [ ] Safe hot application; explicit idle scheduling for disruptive changes.
+- [x] Safe hot application; explicit idle scheduling for disruptive changes.
 
 ## 6. Durability
-- [ ] Validated last-known-good settings, versioned migration/recovery report.
-- [ ] Bounded Windows service crash recovery, no slow-swarm restart watchdog.
-- [ ] Interrupted writes, corruption, disk/permission failure and preparation
+- [x] Validated last-known-good settings, versioned migration/recovery report.
+- [x] Bounded Windows service crash recovery, no slow-swarm restart watchdog.
+- [x] Interrupted writes, corruption, disk/permission failure and preparation
       recovery tests preserve verified data.
 
 ## 7. Optional security
-- [ ] Configurable management origins/rate limits and compatibility profile.
-- [ ] Expiring playback capabilities with optional stronger access policy.
-- [ ] Exposure summary and optional torrent network/interface policy.
+- [x] Configurable management origins/rate limits and compatibility profile.
+- [x] Expiring playback capabilities with optional stronger access policy.
+- [x] Exposure summary and optional torrent network/interface policy.
+- [x] Missing-interface suspension with cached local playback preserved; no
+      automatic unbound torrent fallback. Source binding is not a firewall.
 - [ ] VPN disconnect enforcement and leak tests before any leak-protection claim;
       account for TCP/UDP/DHT/trackers/DNS/mirrors and preserve local playback.
 
 ## 8. Measurement and acceptance
-- [ ] Profile CPU/allocations/locks/native work; optimize only measured bottlenecks.
-- [ ] Reuse PGO comparison tooling; adopt only with representative evidence.
-- [ ] Upload saturation/queue-delay diagnostics and router SQM guidance, no
+- [x] Collect Go CPU/allocations/locks/trace profiles and retain the rule that
+      optimization requires measured evidence. Native profiling guidance provided.
+- [ ] Collect a native C++ OS profile under a representative streaming workload
+      before attributing a native bottleneck or changing native tuning.
+- [x] Reuse PGO comparison tooling; leave adoption gated on representative evidence.
+- [x] Upload saturation/queue-delay diagnostics and router SQM guidance, no
       unsolicited router changes.
-- [ ] Integrate regressions for demand, seeks, reconnects, suppliers, multiple
+- [x] Integrate regressions for demand, seeks, reconnects, suppliers, multiple
       readers/preparation, resource bounds, crash/storage/network recovery.
-- [ ] Runnable overnight/endurance acceptance and Android/physical network
+- [x] Runnable overnight/endurance acceptance and Android/physical network
       checklist; retain exact unperformed environmental gates.
-- [ ] Frontend contracts/localization/build/embed, native/platform checks, final
+- [x] Frontend contracts/localization/build/embed, native/platform checks, final
       diff and original-specification reconciliation; runnable Windows artifact.
 
 Deferred by the accepted proposal: engine replacement, QUIC, machine learning,
@@ -69,4 +74,10 @@ tuning. Hardware-only acceptance and signing credentials are external gates.
 
 ## Evidence
 
-Work in progress. Checked items require implementation and recorded verification.
+See [ADAPTIVE_VERIFICATION.md](ADAPTIVE_VERIFICATION.md) for source revisions,
+commands, CI results, local reports and the original-specification reconciliation.
+Checked implementation items do not mark their separate physical/device gates as
+passed. Final cross/native/service, both macOS targets and branch checks passed
+at verification revision `0b6991f6`; the tested Windows runtime is `1e796532`.
+These revisions have identical server/web source trees. Only the explicitly
+unchecked physical/profile acceptance items remain; stable approval stays false.

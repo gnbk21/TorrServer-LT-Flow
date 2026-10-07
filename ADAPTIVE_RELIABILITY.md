@@ -97,7 +97,10 @@ data directory private. Portable backup remains redacted and retains the
 destination host's credentials, interface and access policy during restore.
 
 New Windows service installations use SCM crash recovery after 15, 30 and 60
-seconds, then stop retrying until the 24-hour failure counter resets. Existing
+seconds, then perform no further automatic restart. The failure count resets
+after 24 hours without a failure; exhausting the restart actions requires a
+manual start, not an automatic restart when that period expires
+([SCM failure-action semantics](https://learn.microsoft.com/en-us/windows/win32/api/winsvc/ns-winsvc-service_failure_actionsw)). Existing
 service installations are not silently reconfigured. Slow torrents never trigger
 a restart watchdog. A failed engine reconfiguration attempts the previous
 settings and reports any rollback failure.
@@ -153,8 +156,9 @@ fallback and bounded jittered retry. Same-address recovery and sleep/delayed
 checks invalidate observations and request recovery. Announce attempts are
 globally spaced by at least 30 seconds; private torrents never force DHT
 announces. A local address proves local readiness, while tracker replies provide
-separate evidence of external connectivity. No engine restart is needed for
-ordinary network changes.
+separate evidence of external connectivity. Wake/route changes invalidate old
+ONLINE evidence; a fresh tracker reply is required to restore it. No engine
+restart is needed for ordinary network changes.
 
 **This is source-interface binding, not a verified VPN kill switch.** OS DNS
 resolution is not bound by this feature. A source address alone is not an OS
