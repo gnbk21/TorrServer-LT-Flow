@@ -325,6 +325,21 @@ func (s *Storage) SetNetworkRecovering(recovering bool) {
 	}
 }
 
+// InvalidateNetworkEvidence also handles route changes and wakeups that retain
+// the same usable addresses. It does not pause cached local playback.
+func (s *Storage) InvalidateNetworkEvidence() {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, c := range s.caches {
+		c.flowMu.Lock()
+		for _, g := range c.flowGroups {
+			g.delivery.Reset()
+			g.smoother.Reset()
+		}
+		c.flowMu.Unlock()
+	}
+}
+
 // refreshFlowWindowLocked uses the largest active group's requirement so two
 // clients keep distinct anchors while a higher-bitrate file is still protected.
 // Call with flowMu held; it never takes readersMu.

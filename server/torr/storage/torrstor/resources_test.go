@@ -81,6 +81,10 @@ func TestVerifiedDeliveryCountsOnceAndResetsForReconnect(t *testing.T) {
 	if e.LongRate != float64(flow.MiB) || e.Samples != 1 {
 		t.Fatal("completion not counted exactly once", e)
 	}
+	s.InvalidateNetworkEvidence()
+	if e = c.FlowWindow("phone").Delivery; e.Samples != 0 || c.flowReconnect.Load() {
+		t.Fatal("same-address route recovery retained supply or paused playback", e)
+	}
 	s.SetNetworkRecovering(true)
 	s.callbackOpen(9, mkHash(89), 100, flow.MiB)
 	if !s.lookup(9).flowReconnect.Load() {

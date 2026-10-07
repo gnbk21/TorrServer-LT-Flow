@@ -262,20 +262,29 @@ func (bt *BTServer) networkLifecycle(stop <-chan struct{}, done chan<- struct{})
 		now := time.Now()
 		resumed := !lastCheck.IsZero() && now.Sub(lastCheck) > 90*time.Second
 		lastCheck = now
+		previousFingerprint, previouslyReady := tracker.fingerprint, tracker.ready
 		ready := tracker.observe(addresses, err)
-		torrstor.Global().SetNetworkRecovering(!ready)
-		if (notified || resumed) && now.Sub(lastAnnounce) >= 30*time.Second {
+		storage := torrstor.Global()
+		storage.SetNetworkRecovering(!ready)
+		if ready && (notified || resumed || previousFingerprint != tracker.fingerprint || !previouslyReady) {
+			// A route change or wake can keep the same addresses. Supply measured
+			// before that transition must not describe the recovered connection.
+			storage.InvalidateNetworkEvidence()
+		}
+		if notified || resumed {
 			tracker.needAnnounce = true
 		}
 		announced := 0
 		var announceDuration time.Duration
 		if ready && tracker.needAnnounce && (lastAnnounce.IsZero() || now.Sub(lastAnnounce) >= 30*time.Second) {
 			announceStarted := time.Now()
+			// Space attempts, including failures; a failed transport must not
+			// turn the shorter local-readiness retry into a tracker storm.
+			lastAnnounce = now
 			announced, err = bt.reannounceOnNetworkChange(stop)
 			announceDuration = time.Since(announceStarted)
 			if err == nil {
 				tracker.needAnnounce = false
-				lastAnnounce = now
 			}
 		}
 		f := settings.CurrentFlow()
