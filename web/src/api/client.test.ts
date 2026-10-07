@@ -19,7 +19,7 @@ describe("API contract", () => {
     });
   });
   it("does not offer a destructive defaults getter; explicit reset posts def", async () => {
-    const fetcher = vi.fn().mockResolvedValue(new Response(""));
+    const fetcher = vi.fn().mockImplementation(() => Promise.resolve(new Response("")));
     vi.stubGlobal("fetch", fetcher);
     expect(settingsApi).not.toHaveProperty("getDefaults");
     await settingsApi.reset();
