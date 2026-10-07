@@ -71,7 +71,7 @@ func TestVerifiedDeliveryCountsOnceAndResetsForReconnect(t *testing.T) {
 	r.winLast.Store(60)
 	r.lastRead.Store(time.Now().Unix())
 	c.SetFlowMediaEstimate("phone", 1, flow.Estimate{BytesPerSecond: 1024, Confidence: "high"})
-	c.SetFlowDownloadRate(0)
+	c.SetFlowDownloadRate(0, false)
 	_, _ = s.callbackWrite(8, 20, 0, bytes.Repeat([]byte{1}, int(flow.MiB)))
 	c.SignalPieceComplete(20)
 	c.SignalPieceComplete(20)
@@ -86,13 +86,21 @@ func TestVerifiedDeliveryCountsOnceAndResetsForReconnect(t *testing.T) {
 	if !s.lookup(9).flowReconnect.Load() {
 		t.Fatal("cache created during recovery lost network state")
 	}
-	c.SetFlowDownloadRate(0)
+	c.SetFlowDownloadRate(0, false)
 	if e = c.FlowWindow("phone").Delivery; e.Mode != "RECONNECT" || e.Confidence != "unknown" {
 		t.Fatal(e)
 	}
 	s.SetNetworkRecovering(false)
-	c.SetFlowDownloadRate(0)
+	c.SetFlowDownloadRate(0, false)
 	if e = c.FlowWindow("phone").Delivery; e.Samples != 0 {
 		t.Fatal("old supply survived reconnect", e)
+	}
+	c.SetFlowDownloadRate(0, true)
+	if e = c.FlowWindow("phone").Delivery; e.Mode != "IDLE" || e.Confidence != "unknown" {
+		t.Fatal("intentional pause was treated as supply loss", e)
+	}
+	c.SetFlowDownloadRate(0, false)
+	if e = c.FlowWindow("phone").Delivery; e.Samples != 0 {
+		t.Fatal("pre-pause supply survived resume", e)
 	}
 }

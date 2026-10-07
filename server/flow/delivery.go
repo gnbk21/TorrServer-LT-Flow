@@ -140,6 +140,7 @@ type RiskDecision struct {
 func BufferRisk(bufferBytes int64, demand, waitMs float64, suppliers *int, supply DeliveryEvidence, target, maximum int) RiskDecision {
 	r := RiskDecision{Level: "UNKNOWN", Reason: "INSUFFICIENT_EVIDENCE", Confidence: supply.Confidence, TargetSeconds: target}
 	if demand <= 0 || math.IsNaN(demand) || math.IsInf(demand, 0) {
+		r.Confidence = "unknown"
 		return r
 	}
 	if supply.Confidence != "medium" && supply.Confidence != "high" {

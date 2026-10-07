@@ -15,7 +15,7 @@ Seeks and network recovery invalidate previous supply observations.
 | --- | --- |
 | `DEMAND` | An external reader has missing forward data. |
 | `FULL` | Its current forward window is contiguous and readable. |
-| `IDLE` | There is no qualifying forward reader demand. |
+| `IDLE` | There is no qualifying forward reader demand, or server downloads are intentionally paused. |
 | `PROBE` | Only inspection work is relevant to the group. |
 | `PREPARATION` | Background episode preparation is running without qualifying foreground demand. |
 | `RECONNECT` | Local addresses or the selected torrent interface are unavailable. |

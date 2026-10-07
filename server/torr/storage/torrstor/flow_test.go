@@ -207,12 +207,12 @@ func TestAdaptiveWindowUsesExistingCacheBudget(t *testing.T) {
 	}
 	_, maxAhead := c.baseReaderWindowPieces()
 	c.SetFlowMediaEstimate("phone", 0, flow.Estimate{BytesPerSecond: 2 * float64(flow.MiB)})
-	c.SetFlowDownloadRate(10 * float64(flow.MiB))
+	c.SetFlowDownloadRate(10*float64(flow.MiB), false)
 	_, healthy := c.readerWindowPieces()
 	if healthy <= 0 || healthy >= maxAhead {
 		t.Fatalf("adaptive ahead=%d, budget maximum=%d", healthy, maxAhead)
 	}
-	c.SetFlowDownloadRate(float64(flow.MiB) / 2)
+	c.SetFlowDownloadRate(float64(flow.MiB)/2, false)
 	_, unqualified := c.readerWindowPieces()
 	if unqualified != healthy {
 		t.Fatal("aggregate wire rate changed qualified controller", unqualified, healthy)

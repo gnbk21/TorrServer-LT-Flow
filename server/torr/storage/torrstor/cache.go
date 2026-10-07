@@ -77,6 +77,7 @@ type Cache struct {
 	flowScarceAt      time.Time
 	flowSuppliers     map[int]int
 	flowGroups        map[string]*flowGroup
+	flowPaused        bool // guarded by flowMu; intentional suspension is not supply loss
 	flowDownload      float64
 	flowRates         flow.RateWindow
 	flowLastRefresh   time.Time

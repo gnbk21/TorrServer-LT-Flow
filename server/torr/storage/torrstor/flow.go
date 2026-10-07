@@ -167,7 +167,7 @@ func (c *Cache) ObserveFlowProgress(group string, fileIndex int, offset int64) {
 	c.flowMu.Unlock()
 }
 
-func (c *Cache) SetFlowDownloadRate(rate float64) {
+func (c *Cache) SetFlowDownloadRate(rate float64, paused bool) {
 	if c == nil || !settings.CurrentFlow().Enabled {
 		return
 	}
@@ -211,6 +211,13 @@ func (c *Cache) SetFlowDownloadRate(rate float64) {
 	}
 	c.flowMu.Lock()
 	now := time.Now()
+	if paused != c.flowPaused {
+		for _, g := range c.flowGroups {
+			g.delivery.Reset()
+			g.smoother.Reset()
+		}
+		c.flowPaused = paused
+	}
 	for group, g := range c.flowGroups {
 		mode := "IDLE"
 		if preparing {
@@ -225,6 +232,9 @@ func (c *Cache) SetFlowDownloadRate(rate float64) {
 		}
 		if group == ProbeReaderGroup {
 			mode = "PROBE"
+		}
+		if paused {
+			mode = "IDLE"
 		}
 		if c.flowReconnect.Load() {
 			mode = "RECONNECT"

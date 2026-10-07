@@ -499,7 +499,7 @@ func (t *Torrent) progressTick() {
 	rate := t.DownloadSpeed
 	t.mu.Unlock()
 	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
-		cache.SetFlowDownloadRate(rate)
+		cache.SetFlowDownloadRate(rate, FlowIsPaused())
 	}
 	count := 0
 	if st.PieceLength > 0 && st.TotalSize > 0 {
