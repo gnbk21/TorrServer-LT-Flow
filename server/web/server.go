@@ -91,7 +91,7 @@ func Start() {
 	}
 
 	route := gin.New()
-	route.Use(log.WebLogger(), waf.WAF(), gin.Recovery(), cors.New(corsCfg), location.Default())
+	route.Use(log.WebLogger(), waf.WAF(), gin.Recovery(), api.ManagementPolicy(), cors.New(corsCfg), location.Default())
 	engineReady.Store(false)
 	diagnostics.MarkEngineReady(false)
 	route.Use(func(c *gin.Context) {
@@ -102,6 +102,7 @@ func Start() {
 		c.Next()
 	})
 	auth.SetupAuth(route)
+	route.Use(api.PlaybackPolicy())
 	route.Use(func(c *gin.Context) {
 		path := c.Request.URL.Path
 		if path == "/flow/maintenance" || strings.HasPrefix(path, "/flow/backup") || path == "/echo" || path == "/flow/tray" || path == "/flow/network" || path == "/runtime/status" || strings.HasPrefix(path, "/shutdown") || path == "/" || strings.HasPrefix(path, "/assets/") {

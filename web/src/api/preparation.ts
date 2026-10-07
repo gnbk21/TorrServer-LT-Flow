@@ -22,6 +22,7 @@ export const preparationSchema = z.object({
           contiguous_bytes: z.number().nonnegative(),
           playback_ready: z.boolean(),
           error_code: z.string().optional(),
+          scheduling_reason: z.string().optional(),
         })
         .refine(
           (j) =>
@@ -35,6 +36,9 @@ export const preparationSchema = z.object({
   quota_bytes: z.number().nonnegative(),
   reserved_bytes: z.number().nonnegative(),
   error_code: z.string().optional(),
+  remaining_bytes: z.number().nonnegative().optional(),
+  free_bytes: z.number().nonnegative().optional(),
+  concurrency: z.number().int().nonnegative().optional(),
 });
 export type PreparationStatus = z.infer<typeof preparationSchema>;
 export type PreparationAction =

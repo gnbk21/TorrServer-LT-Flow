@@ -197,16 +197,19 @@ func (p *Piece) expectedSize() int64 {
 
 // An alert can outlive eviction and refer to an older incarnation of this
 // piece. Never let it mark a new partial buffer complete or expose its holes.
-func (p *Piece) markVerifiedComplete() {
+func (p *Piece) markVerifiedComplete() bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.complete {
+		return false
+	}
 	expected := p.expectedSize()
 	if p.cache.totalSize.Load() == 0 && p.Id == p.cache.NumPieces-1 {
 		// Standalone callers without metadata retain short-final-piece support.
 		expected = p.size
 	}
 	if expected <= 0 || p.size < expected {
-		return
+		return false
 	}
 	blocks := int((expected + pieceBlockSize - 1) / pieceBlockSize)
 	if p.hashRecovery {
@@ -218,7 +221,7 @@ func (p *Piece) markVerifiedComplete() {
 		}
 		p.hashRecovery = false
 		p.complete = true
-		return
+		return true
 	}
 	for b := 0; b < blocks; b++ {
 		if p.cache.totalSize.Load() == 0 && p.Id == p.cache.NumPieces-1 &&
@@ -226,10 +229,11 @@ func (p *Piece) markVerifiedComplete() {
 			break
 		}
 		if b>>6 >= len(p.avail) || p.avail[b>>6]&(1<<uint(b&63)) == 0 {
-			return
+			return false
 		}
 	}
 	p.complete = true
+	return true
 }
 
 // release frees the in-memory buffer only. The on-disk file (if any)

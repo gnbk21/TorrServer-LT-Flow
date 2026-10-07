@@ -31,8 +31,16 @@ export function FlowHealthPanel({
     ],
     ["demand", known ? humanizeSpeed(session.playback_consumption_rate) : "—"],
     [
+      "usefulSupply",
+      session?.supply_qualified
+        ? humanizeSpeed(session.delivery?.long_rate)
+        : "—",
+    ],
+    [
       "sustainability",
-      known ? `${session.sustainability_ratio.toFixed(2)}×` : "—",
+      known && session.supply_qualified !== false
+        ? `${session.sustainability_ratio.toFixed(2)}×`
+        : "—",
     ],
     ["peers", session?.connected_peers ?? "—"],
     [
@@ -65,6 +73,31 @@ export function FlowHealthPanel({
         </strong>
       </div>
       <p className="text-sm text-slate-300">{t(health.description)}</p>
+      {session?.delivery && (
+        <p className="text-xs text-slate-400">
+          {t("flow.deliveryEvidence", {
+            mode: t(`flow.deliveryModes.${session.delivery.mode}`, {
+              defaultValue: session.delivery.mode,
+            }),
+            samples: session.delivery.samples,
+            age: session.delivery.age_ms < 0 ? "—" : session.delivery.age_ms,
+            confidence: t(`flow.confidence.${session.delivery.confidence}`, {
+              defaultValue: session.delivery.confidence,
+            }),
+          })}
+        </p>
+      )}
+      {session?.risk && (
+        <p className="text-sm">
+          {t(`flow.riskLevels.${session.risk.level}`, {
+            defaultValue: session.risk.level,
+          })}{" "}
+          ·{" "}
+          {t(`flow.riskReasons.${session.risk.reason}`, {
+            defaultValue: session.risk.reason,
+          })}
+        </p>
+      )}
       <dl className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {values.map(([key, value]) => (
           <div key={key}>

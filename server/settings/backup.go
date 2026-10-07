@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"regexp"
 	"time"
 
@@ -47,6 +48,20 @@ var portableSettingNames = []string{
 }
 var backupHash = regexp.MustCompile(`^[a-f0-9]{40}$`)
 
+var hostFlowFields = []string{"ManagementOrigins", "ManagementRateLimit", "SecurityProfile", "RequirePlaybackToken", "PlaybackTokenTTL", "TorrentInterface", "RequireTorrentInterface"}
+
+func portableFlowJSON(data json.RawMessage) json.RawMessage {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(data, &fields) != nil {
+		return data
+	}
+	for _, key := range hostFlowFields {
+		delete(fields, key)
+	}
+	out, _ := json.Marshal(fields)
+	return out
+}
+
 func ExportBackup() (*Backup, error) {
 	if BTsets() == nil || tdb == nil {
 		return nil, errors.New("settings are not ready")
@@ -62,6 +77,9 @@ func ExportBackup() (*Backup, error) {
 	out := &Backup{SchemaVersion: 1, Kind: "TorrServer-Flow portable backup", CreatedAt: time.Now().UTC(), Settings: map[string]json.RawMessage{}, Library: []BackupTorrent{}}
 	for _, name := range portableSettingNames {
 		out.Settings[name] = fields[name]
+		if name == "Flow" {
+			out.Settings[name] = portableFlowJSON(fields[name])
+		}
 	}
 	rows := ListTorrent()
 	if len(rows) > BackupTorrentLimit {
@@ -152,6 +170,12 @@ func (b *Backup) MergedSettings() (*BTSets, error) {
 	var sets BTSets
 	if err = json.Unmarshal(raw, &sets); err != nil {
 		return nil, errors.New("backup settings have invalid types")
+	}
+	if sets.Flow != nil && current.Flow != nil {
+		a, b := reflect.ValueOf(current.Flow).Elem(), reflect.ValueOf(sets.Flow).Elem()
+		for _, name := range hostFlowFields {
+			b.FieldByName(name).Set(a.FieldByName(name))
+		}
 	}
 	if sets.CacheSize < 0 || sets.CacheSize > 16<<30 || sets.ConnectionsLimit < 0 || sets.ConnectionsLimit > 10000 || sets.DHTConnectionsLimit < 0 || sets.DHTConnectionsLimit > 100000 || sets.ReaderReadAHead < 0 || sets.ReaderReadAHead > 100 || sets.PreloadCache < 0 || sets.PreloadCache > 100 || sets.PeersListenPort < 0 || sets.PeersListenPort > 65535 || sets.DownloadRateLimit < 0 || sets.UploadRateLimit < 0 || sets.TorrentDisconnectTimeout < 0 || sets.TorrentDisconnectTimeout > 86400 || sets.RetrackersMode < 0 || sets.RetrackersMode > 3 || len(sets.FriendlyName) > 512 {
 		return nil, errors.New("backup settings exceed supported bounds")

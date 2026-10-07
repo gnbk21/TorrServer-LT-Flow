@@ -290,6 +290,10 @@ func DropTorrent(hashHex string) {
 
 // SetSettings applies a new settings_pack and bounces the session.
 func SetSettings(set *sets.BTSets) error {
+	return ApplyConfiguration(set, "", "now")
+}
+
+func applySettings(set *sets.BTSets) error {
 	if sets.ReadOnly {
 		log.TLogln("torr.SetSettings: read-only DB mode")
 		return errors.New("database is read-only")
@@ -309,11 +313,16 @@ func SetSettings(set *sets.BTSets) error {
 			trackersChanged = set.TrackersListURL != cur.TrackersListURL || set.DefaultTrackers != cur.DefaultTrackers
 		}
 	}
+	previous := sets.CloneSettings(sets.BTsets())
+	restart := sets.NeedsEngineRestart(previous, set)
 	if err := sets.SetBTSetsChecked(set); err != nil {
 		return err
 	}
 	if trackersChanged {
 		utils.InvalidateTrackersCache()
+	}
+	if !restart || bts == nil {
+		return nil
 	}
 	log.TLogln("torr.SetSettings: dropping all torrents")
 	dropAllTorrent()
@@ -323,7 +332,16 @@ func SetSettings(set *sets.BTSets) error {
 	log.TLogln("torr.SetSettings: reconnect")
 	if err := bts.Connect(); err != nil {
 		log.TLogln("torr.SetSettings: connect:", err)
-		return err
+		// Do not publish a failed engine configuration as effective. Restore
+		// the previous persisted configuration before attempting recovery.
+		if restoreErr := sets.SetBTSetsChecked(previous); restoreErr != nil {
+			return errors.Join(err, fmt.Errorf("settings rollback: %w", restoreErr))
+		}
+		utils.InvalidateTrackersCache()
+		if restoreErr := bts.Connect(); restoreErr != nil {
+			return errors.Join(err, fmt.Errorf("engine rollback: %w", restoreErr))
+		}
+		return fmt.Errorf("configuration rejected; previous settings restored: %w", err)
 	}
 	return nil
 }
@@ -334,14 +352,8 @@ func SetDefSettings() {
 		log.TLogln("torr.SetDefSettings: read-only DB mode")
 		return
 	}
-	sets.SetDefaultConfig()
-	utils.InvalidateTrackersCache()
-	log.TLogln("torr.SetDefSettings: dropping all torrents")
-	dropAllTorrent()
-	time.Sleep(time.Second)
-	bts.Disconnect()
-	if err := bts.Connect(); err != nil {
-		log.TLogln("torr.SetDefSettings: connect:", err)
+	if err := SetSettings(sets.NewDefaultConfig()); err != nil {
+		log.TLogln("torr.SetDefSettings:", err)
 	}
 }
 

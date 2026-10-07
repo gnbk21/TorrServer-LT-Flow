@@ -876,6 +876,7 @@ func (t *Torrent) probeMediaInfo(index int) {
 	if settings.Ssl {
 		link = "https://127.0.0.1:" + settings.SslPort + "/play/" + t.Hash().HexString() + "/" + strconv.Itoa(index) + "?stat=ffprobe"
 	}
+	link += "&probe_key=" + probeAccessKey
 	// Bound how far ffprobe reads PAST the header: probesize stays generous so MKVs
 	// with large headers still parse, analyzeduration caps the clusters
 	// find_stream_info reads (2 s ~ a couple of MB, inside the resident head). This
@@ -900,7 +901,7 @@ func (t *Torrent) probeMediaInfo(index int) {
 		"-analyzeduration", "2000000",
 	)
 	if err != nil || data == nil || data.Format == nil {
-		log.TLogln("torr.probeMediaInfo: failed after", time.Since(probeStart).Truncate(time.Millisecond).String(), "err:", err)
+		log.TLogln("torr.probeMediaInfo: failed after", time.Since(probeStart).Truncate(time.Millisecond).String())
 		return
 	}
 	result = flow.ProbeResult{BitRate: data.Format.BitRate, Duration: data.Format.DurationSeconds}

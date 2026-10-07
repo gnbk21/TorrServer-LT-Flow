@@ -139,9 +139,9 @@ export function TorrentFilesDialog({
                   </div>
                   <PlaybackLinks
                     url={url}
-                    onInternal={() =>
+                    onInternal={(playbackURL) =>
                       setPlayer({
-                        url,
+                        url: playbackURL,
                         title: episode.displayTitle,
                         hash: torrent.hash,
                         index: file.id,

@@ -74,6 +74,10 @@ func serviceCommand(command string, p *args) error {
 			return err
 		}
 		defer s.Close()
+		if err := s.SetRecoveryActions([]mgr.RecoveryAction{{Type: mgr.ServiceRestart, Delay: 15 * time.Second}, {Type: mgr.ServiceRestart, Delay: 30 * time.Second}, {Type: mgr.ServiceRestart, Delay: 60 * time.Second}, {Type: mgr.NoAction}}, 86400); err != nil {
+			s.Delete()
+			return fmt.Errorf("configure bounded crash recovery: %w", err)
+		}
 		account := `NT SERVICE\` + flowServiceName
 		for _, grant := range []struct{ path, rights string }{{path, "(OI)(CI)M"}, {exe, "RX"}} {
 			if output, err := exec.Command("icacls.exe", grant.path, "/grant", account+":"+grant.rights).CombinedOutput(); err != nil {

@@ -1,6 +1,7 @@
 package torr
 
 import (
+	"errors"
 	"net"
 	"sort"
 	"strings"
@@ -8,7 +9,10 @@ import (
 
 	"server/flow"
 	"server/lt"
+	"server/netchange"
+	"server/netpolicy"
 	"server/settings"
+	"server/torr/storage/torrstor"
 )
 
 // FlowNetworkStatus reports local address readiness. ADDRESS_READY does not
@@ -46,6 +50,8 @@ type FlowNetworkStatus struct {
 	LastTrackerError         time.Time          `json:"last_tracker_error,omitempty"`
 	ConnectivityLostAt       time.Time          `json:"connectivity_lost_at,omitempty"`
 	LastError                string             `json:"last_error,omitempty"`
+	NotificationCount        uint64             `json:"notification_count"`
+	RecoveryReason           string             `json:"recovery_reason,omitempty"`
 }
 
 func (bt *BTServer) recordNetworkAlert(a *lt.Alert) {
@@ -213,7 +219,8 @@ func (bt *BTServer) reannounceOnNetworkChange(stop <-chan struct{}) (int, error)
 		if err := handle.ForceReannounce(); err != nil {
 			return count, err
 		}
-		if s := settings.BTsets(); s == nil || !s.DisableDHT {
+		state, stateErr := handle.Status()
+		if s := settings.BTsets(); stateErr == nil && state.HasMetadata && !state.Private && (s == nil || !s.DisableDHT) {
 			if err := handle.ForceDhtAnnounce(); err != nil {
 				return count, err
 			}
@@ -227,8 +234,13 @@ func (bt *BTServer) reannounceOnNetworkChange(stop <-chan struct{}) (int, error)
 // Windows notifications. It never blocks startup on an external host.
 func (bt *BTServer) networkLifecycle(stop <-chan struct{}, done chan<- struct{}) {
 	defer close(done)
+	events, closeWatch := netchange.Watch()
+	defer closeWatch()
+	var lastCheck, lastAnnounce time.Time
+	notified := false
 	defer func() { bt.networkMu.Lock(); bt.networkStatus.State = "STOPPED"; bt.networkMu.Unlock() }()
 	var tracker networkTracker
+	var interfaceFingerprint string
 	attempt := 0
 	started := time.Now()
 	for {
@@ -239,22 +251,35 @@ func (bt *BTServer) networkLifecycle(stop <-chan struct{}, done chan<- struct{})
 		}
 		checkStarted := time.Now()
 		addresses, err := localNetworkAddresses()
+		if policyErr := bt.reconcileInterfacePolicy(&interfaceFingerprint); policyErr != nil {
+			err = policyErr
+		}
+		if policy := netpolicy.Snapshot(); policy.Name != "" && policy.State != "BOUND" {
+			err = errors.New("selected torrent interface is unavailable")
+		}
 		now := time.Now()
+		resumed := !lastCheck.IsZero() && now.Sub(lastCheck) > 90*time.Second
+		lastCheck = now
 		ready := tracker.observe(addresses, err)
+		torrstor.Global().SetNetworkRecovering(!ready)
+		if (notified || resumed) && now.Sub(lastAnnounce) >= 30*time.Second {
+			tracker.needAnnounce = true
+		}
 		announced := 0
 		var announceDuration time.Duration
-		if ready && tracker.needAnnounce {
+		if ready && tracker.needAnnounce && (lastAnnounce.IsZero() || now.Sub(lastAnnounce) >= 30*time.Second) {
 			announceStarted := time.Now()
 			announced, err = bt.reannounceOnNetworkChange(stop)
 			announceDuration = time.Since(announceStarted)
 			if err == nil {
 				tracker.needAnnounce = false
+				lastAnnounce = now
 			}
 		}
 		f := settings.CurrentFlow()
 		wait := 15 * time.Second
 		if !ready || err != nil {
-			wait = flow.RetryDelay(attempt, f.NetworkRetryMinSec, f.NetworkRetryMaxSec)
+			wait = flow.RetryJitter(attempt, f.NetworkRetryMinSec, f.NetworkRetryMaxSec)
 			attempt++
 		} else {
 			attempt = 0
@@ -271,6 +296,14 @@ func (bt *BTServer) networkLifecycle(stop <-chan struct{}, done chan<- struct{})
 			status.RetryCount++
 		}
 		status.LastCheckDurationMs = time.Since(checkStarted).Milliseconds()
+		if notified {
+			status.NotificationCount++
+			status.RecoveryReason = "INTERFACE_OR_ROUTE_CHANGE"
+		}
+		if resumed {
+			status.RecoveryReason = "RESUME_OR_DELAYED_CHECK"
+		}
+		notified = false
 		if announceDuration > 0 {
 			status.LastReannounceDurationMs = announceDuration.Milliseconds()
 		}
@@ -309,6 +342,17 @@ func (bt *BTServer) networkLifecycle(stop <-chan struct{}, done chan<- struct{})
 			bt.networkMu.Unlock()
 			return
 		case <-timer.C:
+		case <-events:
+			timer.Stop()
+			// Debounce notification bursts and never block callback cancellation.
+			debounce := time.NewTimer(750 * time.Millisecond)
+			select {
+			case <-stop:
+				debounce.Stop()
+				return
+			case <-debounce.C:
+			}
+			notified = true
 		}
 	}
 }

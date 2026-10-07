@@ -68,20 +68,24 @@ const hashGraceSec = 30
 type Cache struct {
 	// Recent eviction markers distinguish missing native blocks from a new
 	// download. They contain no media data and are bounded to 2048 entries.
-	evicted         map[int]bool // guarded by mu
-	storage         *Storage
-	flowCounters    flow.Counters
-	flowMu          sync.Mutex
-	verifiedReads   atomic.Bool
-	flowScarce      map[int]bool // at most 256 bounded diagnostic entries
-	flowScarceAt    time.Time
-	flowGroups      map[string]*flowGroup
-	flowDownload    float64
-	flowRates       flow.RateWindow
-	flowLastRefresh time.Time
-	flowAhead       atomic.Int64 // zero retains the upstream window
-	flowWaiting     atomic.Int64 // actual external reads blocked on missing bytes
-	flowBufferFull  atomic.Bool  // sampled from contiguous active windows
+	evicted           map[int]bool // guarded by mu
+	storage           *Storage
+	flowCounters      flow.Counters
+	flowMu            sync.Mutex
+	verifiedReads     atomic.Bool
+	flowScarce        map[int]bool // at most 256 bounded diagnostic entries
+	flowScarceAt      time.Time
+	flowSuppliers     map[int]int
+	flowGroups        map[string]*flowGroup
+	flowDownload      float64
+	flowRates         flow.RateWindow
+	flowLastRefresh   time.Time
+	flowAhead         atomic.Int64 // zero retains the upstream window
+	flowWaiting       atomic.Int64 // actual external reads blocked on missing bytes
+	flowReconnect     atomic.Bool
+	flowBufferFull    atomic.Bool  // sampled from contiguous active windows
+	resourceBudget    atomic.Int64 // zero means not yet coordinated
+	backgroundLimited atomic.Bool
 
 	StorageID   int64
 	InfoHash    [20]byte
@@ -369,7 +373,9 @@ func (c *Cache) SignalPieceComplete(piece int) {
 	p := c.pieces[piece]
 	c.mu.RUnlock()
 	if p != nil {
-		p.markVerifiedComplete()
+		if p.markVerifiedComplete() {
+			c.observeVerifiedForward(piece, p.expectedSize())
+		}
 	}
 	c.signalPieceProgress(piece)
 }
@@ -608,17 +614,19 @@ func (c *Cache) StreamingReaders() int {
 // readerSnap is a lock-free snapshot of one reader's position + classification,
 // taken under readersMu so the anchor maths can run without holding it.
 type readerSnap struct {
-	group     string
-	cur       int
-	ffirst    int   // first torrent piece of this reader's file
-	flast     int   // last torrent piece of this reader's file (inclusive)
-	isProbe   bool  // offset-0 ServeContent probe (not a real playhead)
-	isTail    bool  // sitting in the file's EOF index pin (a pinned re-read)
-	belowHead bool  // inside the container-header pin (a header re-read)
-	stale     bool  // no Read for staleReaderSec — an idle/seek-abandoned connection
-	nearEOF   bool  // forward window reaches the file end (an EOF moov probe, or a seek-to-end)
-	isFocus   bool  // virtual snap from the group's wait focus (a fresh park), not a live reader
-	bornMs    int64 // reader's birth time (focus: of the parking reader); 0 = unknown/new
+	internal           bool
+	fileStart, fileEnd int64
+	group              string
+	cur                int
+	ffirst             int   // first torrent piece of this reader's file
+	flast              int   // last torrent piece of this reader's file (inclusive)
+	isProbe            bool  // offset-0 ServeContent probe (not a real playhead)
+	isTail             bool  // sitting in the file's EOF index pin (a pinned re-read)
+	belowHead          bool  // inside the container-header pin (a header re-read)
+	stale              bool  // no Read for staleReaderSec — an idle/seek-abandoned connection
+	nearEOF            bool  // forward window reaches the file end (an EOF moov probe, or a seek-to-end)
+	isFocus            bool  // virtual snap from the group's wait focus (a fresh park), not a live reader
+	bornMs             int64 // reader's birth time (focus: of the parking reader); 0 = unknown/new
 }
 
 // groupReaderSnaps buckets every active reader by its group (device), capturing
@@ -632,7 +640,7 @@ func (c *Cache) groupReaderSnaps() map[string][]readerSnap {
 	out := make(map[string][]readerSnap, len(c.readers))
 	for r := range c.readers {
 		cur := r.currentPiece()
-		s := readerSnap{group: r.group, cur: cur, ffirst: 0, flast: c.NumPieces - 1, bornMs: r.bornMs}
+		s := readerSnap{group: r.group, cur: cur, ffirst: 0, flast: c.NumPieces - 1, bornMs: r.bornMs, internal: r.internal, fileStart: r.file.Offset, fileEnd: r.file.Offset + r.file.Length}
 		if plen > 0 {
 			// File piece range, so the anchor maths can tell a deliberate cross-file
 			// switch (different file than the committed anchor) from a same-file seek.
@@ -1387,6 +1395,9 @@ func (c *Cache) baseReaderWindowPieces() (behind, ahead int) {
 	// idx1/cues/moov at the file end (tailReserve) — window + head + tail == the
 	// 64 MB cache. behind is rounded from the slider; ahead takes the rest.
 	cacheB := globalCacheSize()
+	if limit := c.resourceBudget.Load(); limit > 0 {
+		cacheB = min(cacheB, limit)
+	}
 	budget := int(cacheB / plen)
 	if budget < 1 {
 		budget = 1
@@ -2057,6 +2068,9 @@ func (c *Cache) capacity() int64 {
 // every reader + recompute every device anchor a second time in the same pass.
 func (c *Cache) capacityFor(protect [][2]int) int64 {
 	base := globalCacheSize()
+	if limit := c.resourceBudget.Load(); limit > 0 {
+		base = min(base, limit)
+	}
 	if base <= 0 {
 		// No configured budget (CacheSize is forced to 64 MB in production, so this is
 		// only the nil-settings test path): eviction is disabled. Do NOT let the

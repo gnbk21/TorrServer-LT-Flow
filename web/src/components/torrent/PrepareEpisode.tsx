@@ -52,6 +52,24 @@ export function PrepareEpisode({
             })}
           </p>
         )}
+        {query.data?.remaining_bytes !== undefined && (
+          <p className="text-xs">
+            {t("preparation.forecast", {
+              remaining: humanizeBytes(query.data.remaining_bytes),
+              free:
+                query.data.free_bytes === undefined
+                  ? "—"
+                  : humanizeBytes(query.data.free_bytes),
+            })}
+          </p>
+        )}
+        {job?.scheduling_reason && (
+          <p role="status">
+            {t(`preparation.scheduling.${job.scheduling_reason}`, {
+              defaultValue: job.scheduling_reason,
+            })}
+          </p>
+        )}
         {!!query.data?.error_code && (
           <p role="alert">
             {t(`preparation.errors.${query.data.error_code}`, {

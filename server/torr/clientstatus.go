@@ -12,20 +12,23 @@ import (
 // peer id or banned-IP count, so those are omitted; ListenPort is the configured
 // peer listener observed from native alerts (configured value before ready).
 type ClientStatusSnapshot struct {
-	ListenPort    int                  `json:"listen_port"`
-	ActiveStreams int32                `json:"active_streams"`
-	TorrentCount  int                  `json:"torrent_count"`
-	TotalSize     int64                `json:"total_size"`
-	LoadedSize    int64                `json:"loaded_size"`
-	ActivePeers   int                  `json:"active_peers"`
-	TotalPeers    int                  `json:"total_peers"`
-	Seeders       int                  `json:"connected_seeders"`
-	BytesRead     int64                `json:"bytes_read"`
-	BytesWritten  int64                `json:"bytes_written"`
-	DownloadSpeed float64              `json:"download_speed"`
-	UploadSpeed   float64              `json:"upload_speed"`
-	Torrents      []TorrentStatusBrief `json:"torrents"`
-	RawStat       string               `json:"raw_stat"`
+	ListenPort           int                  `json:"listen_port"`
+	ActiveStreams        int32                `json:"active_streams"`
+	TorrentCount         int                  `json:"torrent_count"`
+	TotalSize            int64                `json:"total_size"`
+	LoadedSize           int64                `json:"loaded_size"`
+	ActivePeers          int                  `json:"active_peers"`
+	TotalPeers           int                  `json:"total_peers"`
+	Seeders              int                  `json:"connected_seeders"`
+	BytesRead            int64                `json:"bytes_read"`
+	BytesWritten         int64                `json:"bytes_written"`
+	DownloadSpeed        float64              `json:"download_speed"`
+	UploadSpeed          float64              `json:"upload_speed"`
+	Torrents             []TorrentStatusBrief `json:"torrents"`
+	RawStat              string               `json:"raw_stat"`
+	UploadCapUtilization *float64             `json:"upload_cap_utilization,omitempty"`
+	UploadCapBusy        bool                 `json:"upload_cap_busy"`
+	WANQueueDelayKnown   bool                 `json:"wan_queue_delay_known"`
 }
 
 // TorrentStatusBrief is a compact per-torrent row for the Server Status UI.
@@ -110,5 +113,10 @@ func SnapshotClientStatus() ClientStatusSnapshot {
 		snap.UploadSpeed += st.UploadSpeed
 	}
 	snap.TorrentCount = len(snap.Torrents)
+	if s := settings.BTsets(); s != nil && s.UploadRateLimit > 0 {
+		ratio := snap.UploadSpeed / (float64(s.UploadRateLimit) * 1024)
+		snap.UploadCapUtilization = &ratio
+		snap.UploadCapBusy = ratio >= .9
+	}
 	return snap
 }

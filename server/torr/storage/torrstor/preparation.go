@@ -138,6 +138,9 @@ func (c *Cache) preparationRetains(piece int) bool {
 // Bound ordinary requests to 32 missing pieces per job, preserving throughput
 // without giving an entire episode time-critical deadlines.
 func (c *Cache) preparationDemand() []int {
+	if c.backgroundLimited.Load() {
+		return nil
+	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	var out []int

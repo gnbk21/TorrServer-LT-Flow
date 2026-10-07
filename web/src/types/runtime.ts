@@ -16,6 +16,9 @@ export interface TorrentStatusBrief {
 }
 
 export interface ClientStatus {
+  upload_cap_utilization?: number;
+  upload_cap_busy?: boolean;
+  wan_queue_delay_known?: boolean;
   listen_port: number;
   active_streams: number;
   torrent_count: number;
@@ -33,6 +36,33 @@ export interface ClientStatus {
 }
 
 export interface RuntimeStatus {
+  resources?: {
+    budget_bytes: number;
+    warm_budget_bytes: number;
+    memory_pressure: boolean;
+    protected_overcommit: boolean;
+    background_limited: boolean;
+    ram_resident_bytes: number;
+    disk_cache_bytes: number;
+  };
+  exposure?: {
+    http_auth: boolean;
+    legacy_playback: boolean;
+    security_profile: string;
+    management_rate_limit: number;
+    explicit_origin_policy: boolean;
+    http_port: string;
+    https: boolean;
+    torrent_interface: {
+      name: string;
+      state: string;
+      addresses: string[];
+      required: boolean;
+      dns_verified: boolean;
+      leak_protection_verified: boolean;
+    };
+    vpn_leak_protection_verified: boolean;
+  };
   memory?: {
     rss_bytes: number;
     rss_available: boolean;
@@ -42,6 +72,10 @@ export interface RuntimeStatus {
     handles: number;
     handles_available: boolean;
     sampled_at: string;
+    system_total_bytes?: number;
+    system_available_bytes?: number;
+    system_available?: boolean;
+    pressure?: boolean;
   };
   cache_allocation?: {
     caches: number;

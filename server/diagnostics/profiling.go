@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -25,6 +26,8 @@ func StartProfiling(address string) (func(), error) {
 	if err != nil {
 		return nil, err
 	}
+	previousMutexRate := runtime.SetMutexProfileFraction(10)
+	runtime.SetBlockProfileRate(1_000_000)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
@@ -49,6 +52,8 @@ func StartProfiling(address string) (func(), error) {
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 40 * time.Second, IdleTimeout: 10 * time.Second, MaxHeaderBytes: 8192}
 	go server.Serve(listener)
 	return func() {
+		runtime.SetMutexProfileFraction(previousMutexRate)
+		runtime.SetBlockProfileRate(0)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		server.Shutdown(ctx)

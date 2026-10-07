@@ -17,15 +17,22 @@ type flowGroup struct {
 	seen      time.Time
 	seconds   int
 	pieces    int
+	delivery  flow.DeliveryMeter
+	risk      flow.RiskDecision
+	buffer    int64
+	anchor    int
+	full      bool
 }
 
 type FlowWindowStatus struct {
-	RecentDownloadRate   float64 `json:"recent_download_rate"`
-	DownloadRateSamples  int     `json:"download_rate_samples"`
-	ObservedPlaybackRate float64 `json:"observed_playback_rate"`
-	ObservedConfidence   string  `json:"observed_confidence"`
-	TargetBufferSeconds  int     `json:"target_buffer_seconds"`
-	ForwardWindowPieces  int     `json:"forward_window_pieces"`
+	Delivery             flow.DeliveryEvidence `json:"delivery"`
+	Risk                 flow.RiskDecision     `json:"risk"`
+	RecentDownloadRate   float64               `json:"recent_download_rate"`
+	DownloadRateSamples  int                   `json:"download_rate_samples"`
+	ObservedPlaybackRate float64               `json:"observed_playback_rate"`
+	ObservedConfidence   string                `json:"observed_confidence"`
+	TargetBufferSeconds  int                   `json:"target_buffer_seconds"`
+	ForwardWindowPieces  int                   `json:"forward_window_pieces"`
 }
 
 func (c *Cache) SetScarceEvidence(snapshot lt.SparseSnapshot) {
@@ -35,14 +42,19 @@ func (c *Cache) SetScarceEvidence(snapshot lt.SparseSnapshot) {
 	c.flowMu.Lock()
 	defer c.flowMu.Unlock()
 	c.flowScarce = nil
+	c.flowSuppliers = nil
 	c.flowScarceAt = time.Time{}
 	age := time.Since(time.UnixMilli(snapshot.SampledAtMs))
 	if !snapshot.Known || snapshot.Truncated || age < 0 || age > 5*time.Second {
 		return
 	}
 	c.flowScarce = make(map[int]bool)
+	c.flowSuppliers = make(map[int]int)
 	for _, window := range snapshot.Windows {
 		for i, count := range window.Availability {
+			if len(c.flowSuppliers) < 256 {
+				c.flowSuppliers[window.FirstPiece+i] = count
+			}
 			if count == 1 && len(c.flowScarce) < 256 {
 				c.flowScarce[window.FirstPiece+i] = true
 			}
@@ -58,8 +70,12 @@ func (c *Cache) scarceDemand() (map[int]bool, bool) {
 	c.flowMu.Lock()
 	defer c.flowMu.Unlock()
 	age := time.Since(c.flowScarceAt)
-	stats := c.flowRates.Stats(time.Now())
-	if age < 0 || age > 5*time.Second || stats.Samples < 5 || stats.Variation <= .5 {
+	variable := false
+	for _, g := range c.flowGroups {
+		e := g.delivery.Snapshot(time.Now())
+		variable = variable || (e.Confidence != "unknown" && e.Samples >= 5 && e.Variation > .5)
+	}
+	if age < 0 || age > 5*time.Second || !variable {
 		return nil, false
 	}
 	out := make(map[int]bool, len(c.flowScarce))
@@ -81,10 +97,10 @@ func (c *Cache) demandRates() map[string]float64 {
 		if time.Since(g.seen) > 30*time.Second {
 			continue
 		}
-		if observed, confidence := g.tracker.Rate(); observed > 0 && confidence == "stable" {
-			rates[group] = observed
-		} else if g.estimate.Confidence == "medium" || g.estimate.Confidence == "high" {
+		if g.estimate.Confidence == "medium" || g.estimate.Confidence == "high" {
 			rates[group] = g.estimate.BytesPerSecond
+		} else if observed, confidence := g.tracker.Rate(); observed > 0 && confidence == "stable" {
+			rates[group] = observed
 		}
 	}
 	return rates
@@ -155,12 +171,66 @@ func (c *Cache) SetFlowDownloadRate(rate float64) {
 	if c == nil || !settings.CurrentFlow().Enabled {
 		return
 	}
+	if c.storage != nil {
+		c.storage.ReconcileResources()
+	}
 	// Sample the existing reader windows before flowMu: streamAnchors acquires
 	// reader/group locks and must not be called during controller reconciliation.
 	anchors := c.streamAnchors()
 	c.flowBufferFull.Store(c.deliveryWindowsFull(anchors))
+	snaps := c.groupReaderSnaps()
+	preparing := len(c.preparationDemand()) > 0
+	probing := len(snaps[ProbeReaderGroup]) > 0
+	type sample struct {
+		mode   string
+		buffer int64
+		anchor int
+		full   bool
+	}
+	samples := make(map[string]sample)
+	_, ahead := c.readerWindowPieces()
+	for group, first := range anchors {
+		for _, s := range snaps[group] {
+			if s.internal || s.isProbe || s.isFocus || s.stale || s.fileEnd <= s.fileStart {
+				continue
+			}
+			start := max(int64(first)*c.PieceLength, s.fileStart)
+			end := min(int64(min(c.NumPieces, first+ahead+1))*c.PieceLength, s.fileEnd)
+			if end <= start {
+				continue
+			}
+			buffer := c.ContiguousAvailable(start, end)
+			mode := "DEMAND"
+			full := buffer == end-start
+			if full {
+				mode = "FULL"
+			}
+			samples[group] = sample{mode, buffer, first, full}
+			break
+		}
+	}
 	c.flowMu.Lock()
 	now := time.Now()
+	for group, g := range c.flowGroups {
+		mode := "IDLE"
+		if preparing {
+			mode = "PREP"
+		}
+		if probing {
+			mode = "PROBE"
+		}
+		if s, ok := samples[group]; ok {
+			mode = s.mode
+			g.buffer, g.anchor, g.full = s.buffer, s.anchor, s.full
+		}
+		if group == ProbeReaderGroup {
+			mode = "PROBE"
+		}
+		if c.flowReconnect.Load() {
+			mode = "RECONNECT"
+		}
+		g.delivery.Observe(now, mode)
+	}
 	for group := range anchors {
 		if g := c.flowGroups[group]; g != nil {
 			g.seen = now
@@ -210,12 +280,38 @@ func (c *Cache) FlowWindow(group string) FlowWindowStatus {
 	g := c.flowGroups[group]
 	download, samples := c.flowRates.Mean(time.Now())
 	if g == nil {
-		return FlowWindowStatus{RecentDownloadRate: download, DownloadRateSamples: samples}
+		mode := "IDLE"
+		if group == ProbeReaderGroup {
+			mode = "PROBE"
+		}
+		if c.flowReconnect.Load() {
+			mode = "RECONNECT"
+		}
+		return FlowWindowStatus{RecentDownloadRate: download, DownloadRateSamples: samples,
+			Delivery: flow.DeliveryEvidence{Mode: mode, Confidence: "unknown", AgeMs: -1},
+			Risk:     flow.RiskDecision{Level: "UNKNOWN", Reason: "INSUFFICIENT_EVIDENCE", Confidence: "unknown"}}
 	}
 	rate, confidence := g.tracker.Rate()
 	return FlowWindowStatus{ObservedPlaybackRate: rate, ObservedConfidence: confidence,
+		Delivery: g.delivery.Snapshot(time.Now()), Risk: g.risk,
 		RecentDownloadRate: download, DownloadRateSamples: samples,
 		TargetBufferSeconds: g.seconds, ForwardWindowPieces: g.pieces}
+}
+
+func (s *Storage) SetNetworkRecovering(recovering bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, c := range s.caches {
+		if c.flowReconnect.Swap(recovering) == recovering {
+			continue
+		}
+		c.flowMu.Lock()
+		for _, g := range c.flowGroups {
+			g.delivery.Reset()
+			g.smoother.Reset()
+		}
+		c.flowMu.Unlock()
+	}
 }
 
 // refreshFlowWindowLocked uses the largest active group's requirement so two
@@ -241,11 +337,23 @@ func (c *Cache) refreshFlowWindowLocked(now time.Time) {
 			continue
 		}
 		rate := g.estimate.BytesPerSecond
-		if observed, _ := g.tracker.Rate(); observed > 0 {
+		if observed, _ := g.tracker.Rate(); observed > 0 && rate <= 0 {
 			rate = observed
 		}
-		g.seconds, g.pieces = flow.DeliveryWindow(rate, waitP95, c.flowRates.Stats(now), c.flowWaiting.Load() > 0, c.flowBufferFull.Load(),
-			f.TargetBufferSeconds, f.MaxBufferSeconds, f.StartupSafetyFactorPct,
+		evidence := g.delivery.Snapshot(now)
+		stats := flow.DeliveryStats{}
+		if evidence.Confidence != "unknown" {
+			stats = flow.DeliveryStats{Mean: evidence.LongRate, Samples: evidence.Samples, Variation: evidence.Variation, OutageSeconds: evidence.OutageSeconds}
+		}
+		var suppliers *int
+		if age := now.Sub(c.flowScarceAt); age >= 0 && age <= 5*time.Second {
+			if n, ok := c.flowSuppliers[g.anchor]; ok {
+				suppliers = &n
+			}
+		}
+		g.risk = flow.BufferRisk(g.buffer, rate, waitP95, suppliers, evidence, f.TargetBufferSeconds, f.MaxBufferSeconds)
+		g.seconds, g.pieces = flow.DeliveryWindow(rate, waitP95, stats, c.flowWaiting.Load() > 0, g.full,
+			g.risk.TargetSeconds, f.MaxBufferSeconds, f.StartupSafetyFactorPct,
 			c.PieceLength, maxAhead)
 		g.pieces = g.smoother.Apply(g.pieces, maxAhead, now)
 		if g.pieces > maxPieces {
@@ -265,7 +373,36 @@ func (c *Cache) ResetFlowWindow(group string, fileIndex int) {
 	if g := c.flowGroups[group]; g != nil && g.fileIndex == fileIndex {
 		g.smoother.Reset()
 		g.tracker.Reset()
+		g.delivery.Reset()
 		c.refreshFlowWindowLocked(time.Now())
 	}
 	c.flowMu.Unlock()
+}
+
+// Only a fresh verification within a live group's current forward window counts.
+// Probe, background preparation and old-window completions remain wire metrics.
+func (c *Cache) observeVerifiedForward(piece int, bytes int64) {
+	if c.StreamingReaders() == 0 || !settings.CurrentFlow().Enabled {
+		return
+	}
+	anchors := c.streamAnchors()
+	snaps := c.groupReaderSnaps()
+	_, ahead := c.readerWindowPieces()
+	now := time.Now()
+	c.flowMu.Lock()
+	defer c.flowMu.Unlock()
+	for group, first := range anchors {
+		last := min(c.NumPieces-1, first+ahead)
+		for _, snap := range snaps[group] {
+			if snap.internal || snap.isProbe || snap.isFocus || snap.stale || snap.fileEnd <= snap.fileStart {
+				continue
+			}
+			end := min(last, snap.flast)
+			if g := c.flowGroups[group]; g != nil && piece >= first && piece <= end {
+				useful := min(int64(piece)*c.PieceLength+bytes, snap.fileEnd) - max(int64(piece)*c.PieceLength, snap.fileStart)
+				g.delivery.AddVerified(useful, now)
+			}
+			break
+		}
+	}
 }

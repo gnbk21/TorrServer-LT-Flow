@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { BTSettings } from "../types/settings";
 import { useForm, type RegisterOptions } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { useSettings, useRuntime, queryClient } from "../hooks/queries";
@@ -51,6 +53,8 @@ const groups: Record<string, string[]> = {
     "PeersListenPort",
     "EnableLPD",
     "TrustedProxies",
+    "Flow.TorrentInterface",
+    "Flow.RequireTorrentInterface",
   ],
   integrations: [
     "EnableDLNA",
@@ -62,7 +66,16 @@ const groups: Record<string, string[]> = {
     "JacRedUrl",
     "JacRedKey",
   ],
-  security: ["SslPort", "SslCert", "SslKey"],
+  security: [
+    "SslPort",
+    "SslCert",
+    "SslKey",
+    "Flow.ManagementOrigins",
+    "Flow.ManagementRateLimit",
+    "Flow.SecurityProfile",
+    "Flow.RequirePlaybackToken",
+    "Flow.PlaybackTokenTTL",
+  ],
   advanced: [
     "PadTailPartial",
     "EnableDebug",
@@ -75,6 +88,16 @@ export default function Settings() {
   const { t } = useTranslation();
   const query = useSettings();
   const runtime = useRuntime();
+  const configuration = useQuery({
+    queryKey: ["configuration"],
+    queryFn: ({ signal }) => settingsApi.state(signal),
+    refetchInterval: 5000,
+  });
+  const [draftRevision, setDraftRevision] = useState("");
+  const [plan, setPlan] = useState<{
+    restart_required: boolean;
+    active_work: boolean;
+  }>();
   const { setDirty } = useDirty();
   const [tab, setTab] = useState("general");
   const [error, setError] = useState<unknown>();
@@ -127,8 +150,13 @@ export default function Settings() {
   );
   const values = decode(watch());
   useEffect(() => {
-    if (query.data && !formState.isDirty) reset(flattenSettings(query.data));
-  }, [query.data, reset, formState.isDirty]);
+    const saved = (configuration.data?.saved ?? query.data) as
+      BTSettings | undefined;
+    if (saved && !formState.isDirty) {
+      reset(flattenSettings(saved));
+      setDraftRevision(configuration.data?.revision ?? "");
+    }
+  }, [query.data, configuration.data, reset, formState.isDirty]);
   const dirty = formState.isDirty || integrationDirty;
   useEffect(() => {
     setDirty(dirty);
@@ -144,8 +172,8 @@ export default function Settings() {
   if (query.isPending) return <Loading />;
   if (!query.data)
     return <RequestError error={query.error} retry={() => query.refetch()} />;
-  const original = query.data;
-  const submit = (raw: Record<string, SettingsValue>) => {
+  const original = (configuration.data?.saved ?? query.data) as BTSettings;
+  const submit = async (raw: Record<string, SettingsValue>) => {
     const data = decode(raw);
     const errors = validateSettings(data);
     if (Object.keys(errors).length) {
@@ -167,19 +195,37 @@ export default function Settings() {
       );
       return;
     }
-    setPending(data);
-    setConfirm("save");
+    setError(undefined);
+    try {
+      setPlan(await settingsApi.plan(mergeSettings(original, data)));
+      setPending(data);
+      setConfirm("save");
+    } catch (e) {
+      setError(e);
+    }
   };
-  const apply = async () => {
+  const apply = async (when: "now" | "idle" = "now") => {
     setSaving(true);
     setError(undefined);
     try {
       if (confirm === "save" && pending) {
-        await settingsApi.set(mergeSettings(original, pending));
+        await settingsApi.apply(
+          mergeSettings(original, pending),
+          draftRevision,
+          when,
+        );
         const fresh = await settingsApi.get();
         queryClient.setQueryData(["settings"], fresh);
-        reset(flattenSettings(fresh));
-        setNotice(t("settings.saved"));
+        const state = await configuration.refetch();
+        reset(flattenSettings((state.data?.saved ?? fresh) as BTSettings));
+        setDraftRevision(state.data?.revision ?? "");
+        setNotice(
+          t(
+            when === "idle" && plan?.restart_required
+              ? "settings.queued"
+              : "settings.saved",
+          ),
+        );
       }
       if (confirm === "reset") {
         await settingsApi.reset();
@@ -202,7 +248,11 @@ export default function Settings() {
   };
   const keys = Object.keys(values).filter((key) =>
     tab === "flow"
-      ? key.startsWith("Flow.") && !key.startsWith("Flow.SwarmCustom.")
+      ? key.startsWith("Flow.") &&
+        key !== "Flow.SchemaVersion" &&
+        !groups.security!.includes(key) &&
+        !groups.network!.includes(key) &&
+        !key.startsWith("Flow.SwarmCustom.")
       : tab === "advanced"
         ? groups.advanced!.includes(key) || key.startsWith("Flow.SwarmCustom.")
         : tab === "integrations"
@@ -213,6 +263,55 @@ export default function Settings() {
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-semibold">{t("nav.settings")}</h1>
+      <div className="panel space-y-2" aria-live="polite">
+        <p>{t(dirty ? "settings.unsaved" : "settings.savedState")}</p>
+        <p className="text-sm">
+          {t("settings.cacheState", {
+            draft: (Number(values.CacheSize) / 1048576).toFixed(0),
+            saved: (original.CacheSize / 1048576).toFixed(0),
+            effective: configuration.data?.effective
+              ? (
+                  Number(configuration.data.effective.CacheSize) / 1048576
+                ).toFixed(0)
+              : "—",
+          })}
+        </p>
+        {configuration.data && (
+          <details className="text-xs break-all">
+            <summary>{t("settings.identity")}</summary>
+            <p>{configuration.data.executable}</p>
+            <p>{configuration.data.data_path}</p>
+            <p>{configuration.data.revision}</p>
+          </details>
+        )}
+        {configuration.data?.recovery.issue && (
+          <p role="alert">
+            {t("settings.recovered", {
+              source: configuration.data.recovery.source,
+            })}
+          </p>
+        )}
+        {configuration.data?.error && (
+          <p role="alert">{configuration.data.error}</p>
+        )}
+        {configuration.data?.pending && (
+          <div className="actions">
+            <span>{t("settings.queued")}</span>
+            <Button
+              onClick={async () => {
+                try {
+                  await settingsApi.cancelPending(configuration.data!.revision);
+                  await configuration.refetch();
+                } catch (e) {
+                  setError(e);
+                }
+              }}
+            >
+              {t("Cancel")}
+            </Button>
+          </div>
+        )}
+      </div>
       <div className="actions" role="tablist">
         {[
           "general",
@@ -274,7 +373,7 @@ export default function Settings() {
                 key={key}
               >
                 <label htmlFor={field(key)}>{label}</label>
-                {key === "CacheSize" && <span>{t("B")}</span>}
+                {key === "CacheSize" && <span>MiB</span>}
                 {key === "Flow.DiagnosticHistory" && (
                   <span className="text-xs text-slate-400">
                     {t("settings.historyHint")}
@@ -306,7 +405,21 @@ export default function Settings() {
                     {t(`SettingsDialog.${key}Hint`)}
                   </span>
                 )}
-                {typeof value === "boolean" ? (
+                {key === "CacheSize" ? (
+                  <input
+                    id={field(key)}
+                    type="number"
+                    min={1}
+                    max={16384}
+                    step={1}
+                    value={Number(value) / 1048576}
+                    onChange={(e) =>
+                      setValue(key, Number(e.target.value) * 1048576, {
+                        shouldDirty: true,
+                      })
+                    }
+                  />
+                ) : typeof value === "boolean" ? (
                   <input id={field(key)} type="checkbox" {...register(key)} />
                 ) : key === "Flow.SwarmProfile" ? (
                   <>
@@ -327,6 +440,15 @@ export default function Settings() {
                       {t(`settings.profileHints.${String(values[key])}`)}
                     </span>
                   </>
+                ) : key === "Flow.SecurityProfile" ? (
+                  <select id={field(key)} {...register(key)}>
+                    <option value="compatible">
+                      {t("settings.compatible")}
+                    </option>
+                    <option value="restricted">
+                      {t("settings.restricted")}
+                    </option>
+                  </select>
                 ) : key === "Flow.BootstrapTailMode" ? (
                   <select id={field(key)} {...register(key)}>
                     <option value="upstream-auto">
@@ -395,7 +517,9 @@ export default function Settings() {
           >
             {t("settings.discard")}
           </Button>
-          <p className="text-xs text-slate-400">{t("settings.restartHint")}</p>
+          <p className="text-xs text-slate-400" role="status">
+            {t(dirty ? "settings.unsaved" : "settings.savedState")}
+          </p>
         </div>
       </form>
       <IntegrationSettings tab={tab} onDirty={setIntegrationDirty} />
@@ -425,11 +549,22 @@ export default function Settings() {
       >
         <p>
           {t(
-            confirm === "save" && Number(runtime.data?.bt?.active_streams) > 0
+            confirm === "save" &&
+              plan?.restart_required &&
+              Number(runtime.data?.bt?.active_streams) > 0
               ? "settings.activeRestart"
               : "settings.confirmHint",
           )}
         </p>
+        {confirm === "save" && (
+          <p>
+            {t(
+              plan?.restart_required
+                ? "settings.needsRestart"
+                : "settings.hotApply",
+            )}
+          </p>
+        )}
         <div className="actions mt-4">
           <Button onClick={() => setConfirm(undefined)} disabled={saving}>
             {t("Cancel")}
@@ -441,6 +576,11 @@ export default function Settings() {
           >
             {t("settings.confirmAction")}
           </Button>
+          {confirm === "save" && plan?.restart_required && (
+            <Button isLoading={saving} onClick={() => void apply("idle")}>
+              {t("settings.applyIdle")}
+            </Button>
+          )}
         </div>
         {!!error && <RequestError error={error} />}
       </Modal>

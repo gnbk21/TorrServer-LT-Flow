@@ -740,9 +740,18 @@ lt_session lt_session_new_with_dht(const char* settings_json, const char* state,
         // in a shim-private key "tsl_disable_pex" and strip it before the settings
         // pass (otherwise it would be reported as an unknown setting).
         bool disable_pex = false;
+        bool network_paused = false;
         if (settings_json && *settings_json) {
             try {
                 auto j = json::parse(settings_json);
+                if (auto it = j.find("tsl_network_paused"); it != j.end()) {
+                    if (!it->is_boolean()) {
+                        set_err(LT_ERR_INVALID, "invalid network pause policy");
+                        return 0;
+                    }
+                    network_paused = it->get<bool>();
+                    j.erase(it);
+                }
                 if (auto it = j.find("tsl_disable_pex"); it != j.end()) {
                     if (it->is_boolean()) disable_pex = it->get<bool>();
                     j.erase(it);
@@ -784,6 +793,7 @@ lt_session lt_session_new_with_dht(const char* settings_json, const char* state,
             slot->s = std::make_unique<lt::session>(std::move(params));
         }
 
+        if (network_paused) slot->s->pause();
         int64_t id = g_next_sess++;
         {
             std::unique_lock<std::shared_mutex> lk(g_sess_mu);
@@ -808,8 +818,18 @@ int lt_session_apply_settings(lt_session id, const char* settings_json) {
 
     lt::settings_pack sp;
     std::string warn;
+    bool change_pause = false;
+    bool network_paused = false;
+    if (auto it = j.find("tsl_network_paused"); it != j.end()) {
+        if (!it->is_boolean()) return set_err(LT_ERR_INVALID, "invalid network pause policy");
+        change_pause = true;
+        network_paused = it->get<bool>();
+        j.erase(it);
+        if (network_paused) slot->s->pause();
+    }
     json_into_settings(j, sp, &warn);
     slot->s->apply_settings(std::move(sp));
+    if (change_pause && !network_paused) slot->s->resume();
     if (!warn.empty()) g_last_error = "settings warnings: " + warn;
     return LT_OK;
     WRAP_END(LT_ERR_INTERNAL)

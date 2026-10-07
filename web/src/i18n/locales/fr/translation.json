@@ -446,7 +446,10 @@
     "pagination": "Pages de la bibliothèque",
     "previousPage": "Page précédente",
     "nextPage": "Page suivante",
-    "pageCount": "Page {{page}} sur {{pages}}"
+    "pageCount": "Page {{page}} sur {{pages}}",
+    "expiringLink": "Créer / renouveler le lien temporaire",
+    "linkExpires": "Valable jusqu’au {{time}} ; le redémarrage du serveur révoque le lien.",
+    "linkFailed": "Impossible de créer le lien. Vérifiez l’authentification et les métadonnées."
   },
   "runtime": {
     "torrents": "Torrents",
@@ -457,7 +460,24 @@
     "peers": "Pairs actifs",
     "seeders": "Sources complètes connectées",
     "listenPort": "Port des pairs",
-    "total": "Taille totale des torrents"
+    "total": "Taille totale des torrents",
+    "ramBudget": "Budget du cache RAM (souple)",
+    "warmBudget": "Budget du cache inactif",
+    "ramCache": "Données du cache RAM",
+    "diskCache": "Données du cache disque",
+    "systemFree": "RAM système disponible",
+    "budgetHint": "Ce budget limite l’éviction du cache, pas la mémoire totale du processus. Les données des lecteurs actifs et du conteneur restent protégées.",
+    "backgroundLimited": "Les tâches en arrière-plan sont différées pour protéger la lecture.",
+    "overcommit": "Les données protégées des lecteurs dépassent le budget du cache.",
+    "uploadBusy": "L’envoi approche la limite configurée. Comparez avec une limite moindre et le SQM du routeur. Les files des pairs ne mesurent pas la latence WAN.",
+    "exposure": "Accès et politique réseau",
+    "accessSummary": "Gestion : {{auth}} · lecture : {{playback}}",
+    "protected": "Authentification HTTP activée",
+    "unprotected": "Authentification HTTP désactivée",
+    "compatible": "Liens classiques autorisés",
+    "capabilities": "Authentification ou liens temporaires",
+    "localExposure": "Les paramètres d’écoute ne prouvent pas l’accessibilité Internet. Gardez la gestion sur un LAN de confiance.",
+    "bindingLimit": "La liaison suspend le réseau torrent si l’adaptateur disparaît. Le routage DNS et l’absence de fuite VPN restent non vérifiés ; utilisez un coupe-circuit OS/VPN pour cette garantie."
   },
   "nav": {
     "dashboard": "Tableau de bord",
@@ -557,7 +577,8 @@
       "draining": "Le téléchargement mesuré est inférieur au besoin estimé et le buffer diminue. Vérifiez les pairs et la connexion réseau.",
       "waiting": "Une lecture serveur a attendu au moins 500 ms durant les 60 dernières secondes. Cela ne prouve pas un blocage du décodage.",
       "idle": "Aucune requête du lecteur n’est active. Il peut être en pause, déconnecté ou utiliser son propre buffer.",
-      "peers": "Aucun pair connecté et aucun octet contigu disponible. Vérifiez le réseau local et les trackers."
+      "peers": "Aucun pair connecté et aucun octet contigu disponible. Vérifiez le réseau local et les trackers.",
+      "prepare": "Préparez l’épisode à l’avance ou choisissez une version plus légère. Le cache RAM ne remplace pas le débit manquant du réseau de pairs."
     },
     "startupWait": "Attente au démarrage",
     "startupTimingHint": "Métadonnées : depuis l’ajout du torrent ; autres durées : depuis le préchargement. Un tiret signifie non observé.",
@@ -621,7 +642,35 @@
     },
     "sparseRequests": "Requêtes expirées : {{timeouts}} · requêtes abandonnées : {{dropped}}",
     "privatePolicy": "Torrent privé : niveaux de trackers autorisés uniquement ; découverte publique et indices de pairs désactivés.",
-    "connectivityHint": "Ports BitTorrent observés, distincts du port HTTP 8090. Autorisez TCP et UDP dans le pare-feu et le routeur. Un mappage réussi ne prouve pas l’accès externe et ne contourne pas le CGNAT. Conservez TCP et uTP lorsque disponibles ; la traversée NAT est conditionnelle. Un VPN avec redirection est facultatif. Le tableau de bord n’a pas besoin d’être exposé sur Internet."
+    "connectivityHint": "Ports BitTorrent observés, distincts du port HTTP 8090. Autorisez TCP et UDP dans le pare-feu et le routeur. Un mappage réussi ne prouve pas l’accès externe et ne contourne pas le CGNAT. Conservez TCP et uTP lorsque disponibles ; la traversée NAT est conditionnelle. Un VPN avec redirection est facultatif. Le tableau de bord n’a pas besoin d’être exposé sur Internet.",
+    "usefulSupply": "Données vérifiées reçues en avance",
+    "deliveryEvidence": "{{mode}} · {{samples}} secondes actives · âge {{age}} ms · confiance {{confidence}}",
+    "deliveryModes": {
+      "DEMAND": "Téléchargement pour lecture",
+      "FULL": "Fenêtre en avance pleine",
+      "IDLE": "Inactif",
+      "PROBE": "Analyse du média",
+      "PREPARATION": "Préparation en arrière-plan",
+      "RECONNECT": "Reconnexion"
+    },
+    "confidence": {
+      "unknown": "Inconnue",
+      "medium": "Moyenne",
+      "high": "Élevée"
+    },
+    "riskLevels": {
+      "UNKNOWN": "Risque de tampon inconnu",
+      "HEALTHY": "Alimentation normale du tampon",
+      "ELEVATED": "Risque accru de mise en mémoire tampon",
+      "HIGH": "Risque élevé de mise en mémoire tampon"
+    },
+    "riskReasons": {
+      "INSUFFICIENT_EVIDENCE": "Observations de téléchargement actif insuffisantes",
+      "SUFFICIENT_SUPPLY": "Le débit couvre la demande média estimée",
+      "SUPPLY_DEFICIT": "Le débit utile est inférieur à la demande estimée",
+      "PIECE_WAIT": "Des lectures récentes attendaient des pièces torrent",
+      "BUFFER_DRAINING": "Le tampon continu risque de s’épuiser bientôt"
+    }
   },
   "search": {
     "source": "Source",
@@ -749,7 +798,17 @@
         "PreparationQuotaMB": "Quota disque de préparation (Mio)",
         "PeerResumeHints": "Mémoriser les pairs publics utiles",
         "ScarcePieceHints": "Expérience de planification des pièces rares",
-        "RateAwareDeadlines": "Expérience de délais adaptés au débit"
+        "RateAwareDeadlines": "Expérience de délais adaptés au débit",
+        "GlobalCacheBudgetMB": "Budget total du cache RAM (MiB ; 0 = automatique)",
+        "WarmCacheBudgetMB": "Budget du cache inactif (MiB ; 0 = libérer)",
+        "PreparationConcurrency": "Préparations simultanées",
+        "ManagementOrigins": "Origines de gestion autorisées (séparées par des virgules)",
+        "ManagementRateLimit": "Requêtes de gestion par minute et IP (0 = illimité)",
+        "SecurityProfile": "Profil d’accès du navigateur",
+        "RequirePlaybackToken": "Exiger des liens temporaires (authentification HTTP requise)",
+        "PlaybackTokenTTL": "Durée du lien de lecture (secondes)",
+        "TorrentInterface": "Nom de l’adaptateur torrent (vide = routage système)",
+        "RequireTorrentInterface": "Exiger un adaptateur torrent explicitement choisi"
       }
     },
     "maintenance": {
@@ -775,7 +834,17 @@
     "dhtHint": "Réutiliser les nœuds DHT connus après redémarrage. Respecte la désactivation du DHT.",
     "peerHintsHelp": "Facultatif : jusqu’à 32 pairs publics utiles par torrent pendant 10 minutes, dans un état local privé distinct des diagnostics. Limite de 128 torrents. Les indices sont ignorés après un changement de réseau ; les délais natifs de reconnexion restent actifs. Aucun rétablissement pour les torrents privés.",
     "rateDeadlinesHelp": "Désactivée par défaut : les essais répétés ont donné des résultats mitigés lors des sauts. Les délais futurs utilisent la taille des pièces et un débit de lecture fiable ; la pièce bloquante reste immédiate.",
-    "scarceHintsHelp": "Désactivée par défaut. Avec une consommation fiable, une livraison variable et un échantillon complet récent, avance une des quatre prochaines pièces d’au plus une seconde. La lecture bloquée reste prioritaire. Aucun ajout de sources ; aucun gain établi sur les essaims publics."
+    "scarceHintsHelp": "Désactivée par défaut. Avec une consommation fiable, une livraison variable et un échantillon complet récent, avance une des quatre prochaines pièces d’au plus une seconde. La lecture bloquée reste prioritaire. Aucun ajout de sources ; aucun gain établi sur les essaims publics.",
+    "savedState": "Paramètres enregistrés",
+    "cacheState": "Cache : brouillon {{draft}} MiB · enregistré {{saved}} MiB · actif {{effective}} MiB",
+    "identity": "Exécutable, dossier de données et révision",
+    "queued": "Enregistré ; en attente de la fin de lecture",
+    "recovered": "Récupéré depuis {{source}}. Appliquez pour réparer ; l’original endommagé sera conservé avec un accès restreint.",
+    "needsRestart": "Ces changements redémarrent le moteur torrent. Vous pouvez attendre la fin de lecture.",
+    "hotApply": "Ces changements s’appliquent sans redémarrer le moteur torrent.",
+    "applyIdle": "Appliquer après la lecture",
+    "compatible": "Compatible",
+    "restricted": "Restreint"
   },
   "preparation": {
     "title": "Préparer cet épisode",
@@ -796,6 +865,14 @@
       "cancelled": "Annulé ; progression conservée",
       "error": "Erreur de stockage",
       "cleaning": "Nettoyage après lecture"
+    },
+    "forecast": "Média restant : {{remaining}} · disque libre : {{free}}",
+    "scheduling": {
+      "QUEUED": "En attente d’un créneau de préparation",
+      "MEMORY_PRESSURE": "Suspendu par le budget de ressources",
+      "PLAYBACK_PRIORITY": "La lecture active est prioritaire",
+      "QUOTA": "Quota de préparation dépassé",
+      "DISK_SPACE": "En attente d’espace disque libre"
     }
   },
   "sources": {

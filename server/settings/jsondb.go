@@ -7,8 +7,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"server/diagnostics"
 	"strings"
 	"sync"
+	"time"
 
 	"server/log"
 )
@@ -65,7 +67,20 @@ func (v *JsonDB) PutChecked(xPath, name string, value []byte) error {
 	defer v.unlock(filename)
 	root, err := v.readJsonFileAsMap(filename)
 	if err != nil {
-		return err
+		// Explicit Apply may repair a corrupt settings document after loading a
+		// known-good/default configuration. Preserve the original privately first.
+		if xPath != "Settings" || SettingsRecovery().Issue != "SETTINGS_UNREADABLE" {
+			return err
+		}
+		original, readErr := os.ReadFile(filepath.Join(v.Path, filename))
+		if readErr != nil {
+			return err
+		}
+		backup := filepath.Join(v.Path, fmt.Sprintf("flow-corrupt-settings-%d.json", time.Now().UnixNano()))
+		if backupErr := diagnostics.WritePrivateFile(backup, original); backupErr != nil {
+			return backupErr
+		}
+		root = map[string]interface{}{}
 	}
 	root[name] = object
 	return v.writeMapAsJsonFile(filename, root)
@@ -136,10 +151,7 @@ func (v *JsonDB) Clear(xPath string) {
 	v.lock(filename)
 	defer v.unlock(filename)
 
-	path := filepath.Join(v.Path, filename)
-	emptyData := []byte("{}")
-
-	if err := os.WriteFile(path, emptyData, v.fileMode); err != nil {
+	if err := v.writeMapAsJsonFile(filename, map[string]interface{}{}); err != nil {
 		v.log(fmt.Sprintf("Clear: error writing empty file for xPath %s: %v", xPath, err))
 	}
 }

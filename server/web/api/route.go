@@ -2,6 +2,7 @@ package api
 
 import (
 	config "server/settings"
+	"server/torr"
 	"server/web/auth"
 
 	"github.com/gin-gonic/gin"
@@ -12,12 +13,16 @@ type requestI struct {
 }
 
 func SetupRoute(route gin.IRouter) {
+	torr.StartConfigurationWorker(refreshIntegrations)
 	authorized := route.Group("/", auth.CheckAuth())
 
 	authorized.GET("/shutdown", shutdown)
 	authorized.GET("/shutdown/*reason", shutdown)
 
 	authorized.POST("/settings", settings)
+	authorized.POST("/flow/playback-link", playbackLink)
+	route.GET("/flow/play/:token", capabilityPlayback)
+	route.HEAD("/flow/play/:token", capabilityPlayback)
 	authorized.GET("/waf", getWAF)
 	authorized.POST("/waf", updateWAF)
 	authorized.POST("/torznab/test", torznabTest)

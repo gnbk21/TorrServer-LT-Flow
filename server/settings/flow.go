@@ -8,33 +8,44 @@ import (
 // FlowSettings keeps Flow controls independent of upstream settings.
 // A nil Flow field is migrated to these defaults when existing settings load.
 type FlowSettings struct {
-	Enabled                bool
-	AdaptiveStartup        bool
-	BootstrapHeadMB        int
-	BootstrapTailMode      string
-	ProbeGraceMs           int
-	StartupBufferSeconds   int
-	StartupBufferMinMB     int
-	StartupBufferMaxMB     int
-	StartupSafetyFactorPct int
-	AdaptiveReadAhead      bool
-	TargetBufferSeconds    int
-	MaxBufferSeconds       int
-	WarmSessionTimeoutSec  int
-	NetworkRetryMinSec     int
-	NetworkRetryMaxSec     int
-	SwarmProfile           string
-	SwarmCustom            FlowSwarmCustom
-	RangeTraceEnabled      bool
-	RangeClassification    bool
-	MetricsEnabled         bool
-	DebugFlow              bool
-	DiagnosticHistory      bool
-	DHTStatePersistence    bool
-	PreparationQuotaMB     int
-	PeerResumeHints        bool // opt-in local peer identities, outside history
-	ScarcePieceHints       bool // bounded scheduling experiment, off by default
-	RateAwareDeadlines     bool // measured scheduling experiment, off by default
+	SchemaVersion           int
+	Enabled                 bool
+	AdaptiveStartup         bool
+	BootstrapHeadMB         int
+	BootstrapTailMode       string
+	ProbeGraceMs            int
+	StartupBufferSeconds    int
+	StartupBufferMinMB      int
+	StartupBufferMaxMB      int
+	StartupSafetyFactorPct  int
+	AdaptiveReadAhead       bool
+	TargetBufferSeconds     int
+	MaxBufferSeconds        int
+	WarmSessionTimeoutSec   int
+	NetworkRetryMinSec      int
+	NetworkRetryMaxSec      int
+	SwarmProfile            string
+	SwarmCustom             FlowSwarmCustom
+	RangeTraceEnabled       bool
+	RangeClassification     bool
+	MetricsEnabled          bool
+	DebugFlow               bool
+	DiagnosticHistory       bool
+	DHTStatePersistence     bool
+	PreparationQuotaMB      int
+	PeerResumeHints         bool // opt-in local peer identities, outside history
+	ScarcePieceHints        bool // bounded scheduling experiment, off by default
+	RateAwareDeadlines      bool // measured scheduling experiment, off by default
+	GlobalCacheBudgetMB     int  // aggregate RAM eviction budget; zero chooses bounded auto policy
+	WarmCacheBudgetMB       int
+	PreparationConcurrency  int
+	ManagementOrigins       string // comma-separated browser origins, local dashboard always allowed
+	ManagementRateLimit     int    // requests/minute/client; zero disables compatibility limit
+	SecurityProfile         string // compatible or restricted
+	RequirePlaybackToken    bool
+	PlaybackTokenTTL        int
+	TorrentInterface        string // adapter name; empty retains OS routing
+	RequireTorrentInterface bool
 }
 
 // Zero custom values leave libtorrent's own setting unchanged.
@@ -61,7 +72,8 @@ func (f *FlowSettings) UnmarshalJSON(data []byte) error {
 
 func DefaultFlowSettings() *FlowSettings {
 	return &FlowSettings{
-		Enabled: true, AdaptiveStartup: true, BootstrapHeadMB: 16,
+		SchemaVersion: 1,
+		Enabled:       true, AdaptiveStartup: true, BootstrapHeadMB: 16,
 		BootstrapTailMode: "upstream-auto", ProbeGraceMs: 1500,
 		StartupBufferSeconds: 6, StartupBufferMinMB: 32,
 		StartupBufferMaxMB: 128, StartupSafetyFactorPct: 130,
@@ -71,11 +83,34 @@ func DefaultFlowSettings() *FlowSettings {
 		NetworkRetryMinSec: 2, NetworkRetryMaxSec: 60,
 		SwarmProfile:   "legacy",
 		MetricsEnabled: true, DHTStatePersistence: true, PreparationQuotaMB: 4096,
+		WarmCacheBudgetMB: 512, PreparationConcurrency: 1, SecurityProfile: "compatible", PlaybackTokenTTL: 3600,
 	}
 }
 
 // Normalize bounds user-supplied values without changing explicit false flags.
 func (f *FlowSettings) Normalize() {
+	if f.SchemaVersion == 0 {
+		f.SchemaVersion = 1
+	}
+	if f.GlobalCacheBudgetMB < 0 || f.GlobalCacheBudgetMB > 1048576 {
+		f.GlobalCacheBudgetMB = 0
+	}
+	if f.WarmCacheBudgetMB < 0 || f.WarmCacheBudgetMB > 65536 {
+		f.WarmCacheBudgetMB = 512
+	}
+	if f.PreparationConcurrency < 1 || f.PreparationConcurrency > 16 {
+		f.PreparationConcurrency = 1
+	}
+	if f.ManagementRateLimit < 0 || f.ManagementRateLimit > 60000 {
+		f.ManagementRateLimit = 0
+	}
+	if f.SecurityProfile != "restricted" {
+		f.SecurityProfile = "compatible"
+	}
+	if f.PlaybackTokenTTL < 30 || f.PlaybackTokenTTL > 86400 {
+		f.PlaybackTokenTTL = 3600
+	}
+	f.TorrentInterface = strings.TrimSpace(f.TorrentInterface)
 	if f.PreparationQuotaMB < 64 || f.PreparationQuotaMB > 1048576 {
 		f.PreparationQuotaMB = 4096
 	}

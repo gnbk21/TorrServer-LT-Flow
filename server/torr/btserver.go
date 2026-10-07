@@ -19,6 +19,7 @@ import (
 	"server/diagnostics"
 	"server/flow"
 	"server/lt"
+	"server/netpolicy"
 	"server/settings"
 	"server/torr/storage/torrstor"
 	"server/torr/utils"
@@ -579,6 +580,10 @@ func buildSessionConfig() (lt.SessionConfig, error) {
 	// --proxy-mode flag (tracker / peers / full).
 	applyProxyConfig(cfg)
 	applyFlowSwarmProfile(cfg, settings.CurrentFlow(), s.DisableEndGame)
+	if settings.CurrentFlow().TorrentInterface != "" && settings.Args != nil && settings.Args.ProxyURL != "" {
+		return nil, fmt.Errorf("torrent interface binding cannot be combined with --proxy-url")
+	}
+	applyInterfacePolicy(cfg, netpolicy.Snapshot(), s)
 
 	return cfg, nil
 }

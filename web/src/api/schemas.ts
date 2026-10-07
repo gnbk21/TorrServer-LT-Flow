@@ -40,6 +40,30 @@ export const settingsSchema = z
   .passthrough();
 export const flowSessionSchema = z
   .object({
+    supply_qualified: z.boolean().optional(),
+    delivery: z
+      .object({
+        mode: z.string(),
+        short_rate: z.number().nonnegative(),
+        long_rate: z.number().nonnegative(),
+        short_samples: z.number().int().nonnegative(),
+        samples: z.number().int().nonnegative(),
+        age_ms: z.number(),
+        confidence: z.string(),
+        variation: z.number().nonnegative(),
+        outage_seconds: z.number().int().nonnegative(),
+      })
+      .optional(),
+    risk: z
+      .object({
+        level: z.string(),
+        reason: z.string(),
+        score: z.number().min(0).max(100),
+        confidence: z.string(),
+        target_seconds: z.number().int().nonnegative(),
+        exhaustion_seconds: z.number().nonnegative().optional(),
+      })
+      .optional(),
     wait_reason: z.string().optional(),
     required_piece_suppliers: z.number().int().nonnegative().optional(),
     recent_window_seconds: z.number().int().nonnegative().optional(),

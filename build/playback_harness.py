@@ -242,6 +242,9 @@ def run_case(executable, directory, fixtures, label, rate, delay, disconnect, du
                         time.sleep(.5)
                     task.result()
                 report["profile_cycles"] = profile_cycle
+                for kind in ("heap", "allocs", "mutex", "block", "goroutine"):
+                    capture(kind, 1)
+                report["profile_scope"] = "Go CPU, allocations, waits, locks and trace; native CPU requires OS profiling"
             deadline = time.monotonic() + duration
             cycle = 0
             last = status["file_stats"][-1]

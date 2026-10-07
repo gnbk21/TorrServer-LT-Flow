@@ -45,10 +45,13 @@ func TestScarceEvidenceRejectsStaleTruncatedAndUnqualifiedDelivery(t *testing.T)
 	f.ScarcePieceHints = true
 	settings.StoreBTsets(&settings.BTSets{Flow: f})
 	t.Cleanup(func() { settings.StoreBTsets(old) })
-	c := &Cache{}
+	c := &Cache{flowGroups: map[string]*flowGroup{"phone": {}}}
 	for i := 0; i < 6; i++ {
-		c.flowRates.Observe(float64(1+i%2*20)*float64(flow.MiB), time.Now().Add(time.Duration(i-5)*time.Second))
+		at := time.Now().Add(time.Duration(i-6) * time.Second)
+		c.flowGroups["phone"].delivery.Observe(at, "DEMAND")
+		c.flowGroups["phone"].delivery.AddVerified(int64(1+i%2*20)*flow.MiB, at)
 	}
+	c.flowGroups["phone"].delivery.Observe(time.Now(), "DEMAND")
 	sample := lt.SparseSnapshot{Known: true, SampledAtMs: time.Now().UnixMilli(), Windows: []lt.SparseWindow{{FirstPiece: 10, Availability: []int{2, 1, 0}}}}
 	c.SetScarceEvidence(sample)
 	hints, variable := c.scarceDemand()
@@ -210,6 +213,21 @@ func TestAdaptiveWindowUsesExistingCacheBudget(t *testing.T) {
 		t.Fatalf("adaptive ahead=%d, budget maximum=%d", healthy, maxAhead)
 	}
 	c.SetFlowDownloadRate(float64(flow.MiB) / 2)
+	_, unqualified := c.readerWindowPieces()
+	if unqualified != healthy {
+		t.Fatal("aggregate wire rate changed qualified controller", unqualified, healthy)
+	}
+	c.flowMu.Lock()
+	g := c.flowGroups["phone"]
+	now := time.Now()
+	for i := 6; i > 0; i-- {
+		at := now.Add(-time.Duration(i) * time.Second)
+		g.delivery.Observe(at, "DEMAND")
+		g.delivery.AddVerified(flow.MiB/2, at)
+	}
+	g.delivery.Observe(now, "DEMAND")
+	c.refreshFlowWindowLocked(now)
+	c.flowMu.Unlock()
 	_, weak := c.readerWindowPieces()
 	if weak <= healthy || weak > maxAhead {
 		t.Fatalf("weak swarm ahead=%d, healthy=%d, max=%d", weak, healthy, maxAhead)

@@ -440,7 +440,10 @@
     "pagination": "Paginile bibliotecii",
     "previousPage": "Pagina precedentă",
     "nextPage": "Pagina următoare",
-    "pageCount": "Pagina {{page}} din {{pages}}"
+    "pageCount": "Pagina {{page}} din {{pages}}",
+    "expiringLink": "Creează / reînnoiește link temporar",
+    "linkExpires": "Valabil până la {{time}}; repornirea serverului revocă linkul.",
+    "linkFailed": "Linkul nu a putut fi creat. Verificați autentificarea și metadatele fișierului."
   },
   "runtime": {
     "torrents": "Torrente",
@@ -451,7 +454,24 @@
     "peers": "Parteneri activi",
     "seeders": "Surse complete conectate",
     "listenPort": "Port pentru parteneri",
-    "total": "Dimensiunea totală a torrentelor"
+    "total": "Dimensiunea totală a torrentelor",
+    "ramBudget": "Buget cache RAM (flexibil)",
+    "warmBudget": "Buget cache inactiv",
+    "ramCache": "Date cache în RAM",
+    "diskCache": "Date cache pe disc",
+    "systemFree": "RAM disponibilă în sistem",
+    "budgetHint": "Acesta limitează evacuarea cache-ului, nu memoria întregului proces. Datele cititorilor activi și ale containerului sunt protejate.",
+    "backgroundLimited": "Lucrările în fundal sunt amânate pentru a proteja redarea.",
+    "overcommit": "Datele protejate ale cititorilor depășesc bugetul cache-ului.",
+    "uploadBusy": "Încărcarea este aproape de limită. Comparați redarea cu o limită mai mică și SQM pe router. Cozile de cereri ale partenerilor nu măsoară latența WAN.",
+    "exposure": "Acces și politică de rețea",
+    "accessSummary": "Administrare: {{auth}} · redare: {{playback}}",
+    "protected": "Autentificare HTTP activă",
+    "unprotected": "Autentificare HTTP inactivă",
+    "compatible": "Linkuri clasice permise",
+    "capabilities": "Autentificare sau linkuri temporare",
+    "localExposure": "Setările de ascultare nu dovedesc accesul din Internet. Păstrați administrarea într-o LAN de încredere.",
+    "bindingLimit": "Legarea oprește rețeaua torrent când adaptorul dispare. Rutarea DNS și protecția VPN contra scurgerilor sunt neverificate; folosiți un kill switch OS/VPN pentru garanție."
   },
   "nav": {
     "dashboard": "Panou de control",
@@ -551,7 +571,8 @@
       "draining": "Descărcarea măsurată este sub consumul estimat și bufferul scade. Verifică peer-ii și conexiunea de rețea.",
       "waiting": "O citire a serverului a așteptat cel puțin 500 ms în ultimele 60 de secunde. Aceasta nu dovedește blocarea decodării.",
       "idle": "Nicio cerere a playerului nu este activă. Acesta poate fi în pauză, deconectat sau poate folosi propriul buffer.",
-      "peers": "Nu există peer-i conectați și nici octeți contigui disponibili. Verifică rețeaua locală și trackerele."
+      "peers": "Nu există peer-i conectați și nici octeți contigui disponibili. Verifică rețeaua locală și trackerele.",
+      "prepare": "Pregătiți episodul înainte sau alegeți o versiune mai mică. Cache-ul RAM nu poate înlocui viteza lipsă a roiului."
     },
     "startupWait": "Așteptare la pornire",
     "startupTimingHint": "Metadatele sunt măsurate de la adăugarea torrentului; restul, de la preîncărcare. Liniuța indică lipsa observației.",
@@ -615,7 +636,35 @@
     },
     "sparseRequests": "Cereri expirate: {{timeouts}} · cereri abandonate: {{dropped}}",
     "privatePolicy": "Torrent privat: doar nivelurile autorizate de trackere; descoperirea publică și indiciile despre peers sunt dezactivate.",
-    "connectivityHint": "Porturi BitTorrent observate, separate de HTTP 8090. Permiteți TCP și UDP în firewall și router. Maparea reușită nu dovedește accesul extern și nu evită CGNAT. Păstrați TCP și uTP când funcționează; traversarea NAT este condițională. Un VPN cu redirecționare este opțional. Panoul nu necesită expunere pe Internet."
+    "connectivityHint": "Porturi BitTorrent observate, separate de HTTP 8090. Permiteți TCP și UDP în firewall și router. Maparea reușită nu dovedește accesul extern și nu evită CGNAT. Păstrați TCP și uTP când funcționează; traversarea NAT este condițională. Un VPN cu redirecționare este opțional. Panoul nu necesită expunere pe Internet.",
+    "usefulSupply": "Date verificate primite în avans",
+    "deliveryEvidence": "{{mode}} · {{samples}} secunde active · vechime {{age}} ms · încredere {{confidence}}",
+    "deliveryModes": {
+      "DEMAND": "Descărcare pentru redare",
+      "FULL": "Fereastra în avans este plină",
+      "IDLE": "Inactiv",
+      "PROBE": "Analiză media",
+      "PREPARATION": "Pregătire în fundal",
+      "RECONNECT": "Reconectare"
+    },
+    "confidence": {
+      "unknown": "Necunoscută",
+      "medium": "Medie",
+      "high": "Ridicată"
+    },
+    "riskLevels": {
+      "UNKNOWN": "Risc de buffer necunoscut",
+      "HEALTHY": "Alimentare normală a bufferului",
+      "ELEVATED": "Risc crescut de întrerupere",
+      "HIGH": "Risc mare de întrerupere"
+    },
+    "riskReasons": {
+      "INSUFFICIENT_EVIDENCE": "Observații insuficiente de descărcare activă",
+      "SUFFICIENT_SUPPLY": "Descărcarea acoperă consumul media estimat",
+      "SUPPLY_DEFICIT": "Descărcarea utilă este sub consumul estimat",
+      "PIECE_WAIT": "Citirile recente au așteptat bucăți torrent",
+      "BUFFER_DRAINING": "Bufferul continuu se poate epuiza curând"
+    }
   },
   "search": {
     "source": "Sursă",
@@ -743,7 +792,17 @@
         "PreparationQuotaMB": "Cotă de pregătire pe disc (MiB)",
         "PeerResumeHints": "Reține peers publici utili",
         "ScarcePieceHints": "Experiment de planificare a pieselor rare",
-        "RateAwareDeadlines": "Experiment cu termene adaptate debitului"
+        "RateAwareDeadlines": "Experiment cu termene adaptate debitului",
+        "GlobalCacheBudgetMB": "Buget total cache RAM (MiB; 0 = automat)",
+        "WarmCacheBudgetMB": "Buget cache inactiv (MiB; 0 = eliberează)",
+        "PreparationConcurrency": "Pregătiri simultane",
+        "ManagementOrigins": "Origini de administrare permise (separate prin virgulă)",
+        "ManagementRateLimit": "Cereri de administrare pe minut per IP (0 = nelimitat)",
+        "SecurityProfile": "Profil de acces din browser",
+        "RequirePlaybackToken": "Solicită linkuri temporare (necesită autentificare HTTP)",
+        "PlaybackTokenTTL": "Valabilitate link de redare (secunde)",
+        "TorrentInterface": "Nume adaptor torrent (gol = rutare de sistem)",
+        "RequireTorrentInterface": "Solicită un adaptor torrent selectat explicit"
       }
     },
     "maintenance": {
@@ -769,7 +828,17 @@
     "dhtHint": "Reutilizează nodurile DHT cunoscute după repornire. Respectă dezactivarea DHT.",
     "peerHintsHelp": "Opțional: până la 32 peers publici utili per torrent timp de 10 minute, în date locale private separate de istoricul diagnosticului. Maximum 128 torrente. Indiciile sunt ignorate după schimbarea rețelei; întârzierile native de reconectare rămân active. Torrentele private nu restaurează acești peers.",
     "rateDeadlinesHelp": "Dezactivat implicit: testele repetate au arătat rezultate mixte la salturi. Termenele viitoare folosesc dimensiunea piesei și o rată de redare validată; piesa blocată rămâne urgentă.",
-    "scarceHintsHelp": "Dezactivat implicit. Cu un consum estimat sigur, livrare variabilă și un eșantion complet recent, devansează una dintre următoarele patru piese cu cel mult o secundă. Citirea blocată rămâne prioritară. Nu creează surse; nu există un câștig demonstrat în roiuri publice."
+    "scarceHintsHelp": "Dezactivat implicit. Cu un consum estimat sigur, livrare variabilă și un eșantion complet recent, devansează una dintre următoarele patru piese cu cel mult o secundă. Citirea blocată rămâne prioritară. Nu creează surse; nu există un câștig demonstrat în roiuri publice.",
+    "savedState": "Setări salvate",
+    "cacheState": "Cache: ciornă {{draft}} MiB · salvat {{saved}} MiB · activ {{effective}} MiB",
+    "identity": "Executabil, director de date și revizie",
+    "queued": "Salvat; se așteaptă încheierea redării",
+    "recovered": "Restaurat din {{source}}. Aplicați pentru reparare; originalul deteriorat va fi păstrat cu acces restricționat.",
+    "needsRestart": "Aceste modificări repornesc motorul torrent. Le puteți programa după redare.",
+    "hotApply": "Aceste modificări se aplică fără repornirea motorului torrent.",
+    "applyIdle": "Aplică după redare",
+    "compatible": "Compatibil",
+    "restricted": "Restricționat"
   },
   "preparation": {
     "title": "Pregătește episodul",
@@ -790,6 +859,14 @@
       "cancelled": "Anulat; progres păstrat",
       "error": "Eroare de stocare",
       "cleaning": "Curățare după redare"
+    },
+    "forecast": "Media rămasă: {{remaining}} · disc liber: {{free}}",
+    "scheduling": {
+      "QUEUED": "În așteptarea unui loc de pregătire",
+      "MEMORY_PRESSURE": "Oprit temporar din cauza bugetului de resurse",
+      "PLAYBACK_PRIORITY": "Redarea activă are prioritate",
+      "QUOTA": "Cota de pregătire este depășită",
+      "DISK_SPACE": "În așteptarea spațiului liber pe disc"
     }
   },
   "sources": {

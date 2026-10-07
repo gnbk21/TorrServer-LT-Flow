@@ -27,6 +27,8 @@ type RuntimeStatus struct {
 	Memory          diagnostics.MemoryStatus   `json:"memory"`
 	CacheAllocation torrstor.AllocationStatus  `json:"cache_allocation"`
 	Startup         diagnostics.StartupStatus  `json:"startup"`
+	Resources       torrstor.ResourceStatus    `json:"resources"`
+	Exposure        gin.H                      `json:"exposure"`
 }
 
 // runtimeStatus godoc
@@ -68,5 +70,7 @@ func runtimeStatus(c *gin.Context) {
 		Memory:          diagnostics.Memory(),
 		CacheAllocation: torrstor.Global().Allocations(),
 		Startup:         diagnostics.Startup(),
+		Resources:       torrstor.Resources(),
+		Exposure:        ExposureSummary(),
 	})
 }

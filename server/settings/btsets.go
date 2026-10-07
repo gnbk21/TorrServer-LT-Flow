@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"os"
 	"server/log"
 )
 
@@ -185,6 +186,9 @@ func SetBTSetsChecked(sets *BTSets) error {
 	if sets == nil {
 		return errors.New("settings are required")
 	}
+	if err := ValidateSettings(sets); err != nil {
+		return err
+	}
 	if sets.Flow == nil {
 		if old := BTsets(); old != nil && old.Flow != nil {
 			copy := *old.Flow
@@ -194,6 +198,7 @@ func SetBTSetsChecked(sets *BTSets) error {
 		}
 	}
 	sets.Flow.Normalize()
+	sets.Flow.SchemaVersion = 1
 	// failsafe checks (use defaults)
 	if sets.CacheSize == 0 {
 		sets.CacheSize = 64 * 1024 * 1024
@@ -249,14 +254,33 @@ func SetBTSetsChecked(sets *BTSets) error {
 	if err != nil {
 		return err
 	}
+	if old := BTsets(); old != nil {
+		if err := saveKnownGood(old); err != nil {
+			return errors.New("cannot save last-known-good settings")
+		}
+	}
 	if err := putChecked(tdb, "Settings", "BitTorr", buf); err != nil {
 		return err
 	}
 	StoreBTsets(sets)
+	recordRecovery("settings", "")
+	if err := saveKnownGood(sets); err != nil {
+		log.TLogln("Last-known-good snapshot unavailable")
+	}
 	return nil
 }
 
 func SetDefaultConfig() {
+	sets := defaultConfig()
+	StoreBTsets(sets)
+	if !ReadOnly {
+		SetBTSets(sets)
+	}
+}
+
+func NewDefaultConfig() *BTSets { return defaultConfig() }
+
+func defaultConfig() *BTSets {
 	sets := new(BTSets)
 	sets.Flow = DefaultFlowSettings()
 	sets.CacheSize = 64 * 1024 * 1024 // 64 MB
@@ -283,15 +307,7 @@ func SetDefaultConfig() {
 		ImageURL:   "https://image.tmdb.org",
 		ImageURLRu: "https://imagetmdb.com",
 	}
-	StoreBTsets(sets)
-	if !ReadOnly {
-		buf, err := json.Marshal(sets)
-		if err != nil {
-			log.TLogln("Error marshal btsets", err)
-			return
-		}
-		tdb.Set("Settings", "BitTorr", buf)
-	}
+	return sets
 }
 
 func loadBTSets() {
@@ -299,6 +315,9 @@ func loadBTSets() {
 	if len(buf) > 0 {
 		sets := new(BTSets)
 		err := json.Unmarshal(buf, sets)
+		if err == nil {
+			err = ValidateSettings(sets)
+		}
 		if err == nil {
 			if sets.Flow == nil {
 				sets.Flow = DefaultFlowSettings()
@@ -331,10 +350,27 @@ func loadBTSets() {
 				}
 			}
 			StoreBTsets(sets)
+			recordRecovery("settings", "")
+			if err := saveKnownGood(sets); err != nil {
+				log.TLogln("Last-known-good snapshot unavailable")
+			}
 			return
 		}
 		log.TLogln("Error unmarshal btsets", err)
 	}
+	if saved, err := readKnownGood(); err == nil {
+		StoreBTsets(saved)
+		recordRecovery("last_known_good", "SETTINGS_UNREADABLE")
+		log.TLogln("Recovered settings in memory from last-known-good snapshot; original database preserved")
+		return
+	}
 	// initialize defaults on error
-	SetDefaultConfig()
+	StoreBTsets(defaultConfig())
+	issue := ""
+	if len(buf) > 0 {
+		issue = "SETTINGS_UNREADABLE"
+	} else if raw, err := os.ReadFile(filepath.Join(Path, "settings.json")); err == nil && !json.Valid(raw) {
+		issue = "SETTINGS_UNREADABLE"
+	}
+	recordRecovery("defaults", issue)
 }

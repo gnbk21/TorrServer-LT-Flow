@@ -104,42 +104,45 @@ type FlowSessionStatus struct {
 	WaitReason             string `json:"wait_reason"`
 	RequiredPieceSuppliers *int   `json:"required_piece_suppliers,omitempty"`
 	flow.CounterSnapshot
-	Group                     string           `json:"group"`
-	FileIndex                 int              `json:"file_index"`
-	FileSize                  int64            `json:"file_size"`
-	State                     string           `json:"state"`
-	ActiveReaders             int              `json:"active_readers"`
-	PlaybackOffsetBytes       int64            `json:"playback_offset_bytes"`
-	PlaybackOffsetSeconds     float64          `json:"playback_offset_seconds"`
-	BufferAheadBytes          int64            `json:"buffer_ahead_bytes"`
-	BufferAheadSeconds        float64          `json:"buffer_ahead_seconds"`
-	BufferExhaustionSeconds   *float64         `json:"buffer_exhaustion_seconds,omitempty"`
-	BufferWarning             bool             `json:"buffer_warning"`
-	EstimatedMediaBitrate     float64          `json:"estimated_media_bitrate"`
-	ObservedPlaybackRate      float64          `json:"observed_playback_rate"`
-	ObservedConfidence        string           `json:"observed_confidence"`
-	PlaybackConsumptionRate   float64          `json:"playback_consumption_rate"`
-	TargetBufferSeconds       int              `json:"target_buffer_seconds"`
-	ForwardWindowPieces       int              `json:"forward_window_pieces"`
-	BitrateEstimateSource     string           `json:"bitrate_estimate_source"`
-	BitrateEstimateConfidence string           `json:"bitrate_estimate_confidence"`
-	DownloadRate              float64          `json:"download_rate"`
-	RecentDownloadRate        float64          `json:"recent_download_rate"`
-	DownloadRateSamples       int              `json:"download_rate_samples"`
-	UploadRate                float64          `json:"upload_rate"`
-	SustainabilityRatio       float64          `json:"sustainability_ratio"`
-	CacheUsed                 int64            `json:"cache_used"`
-	CacheSize                 int64            `json:"cache_size"`
-	ConnectedPeers            int              `json:"connected_peers"`
-	RangeRequestCount         uint64           `json:"range_request_count"`
-	RangeCancelCount          uint64           `json:"range_cancel_count"`
-	SeekCount                 uint64           `json:"seek_count"`
-	SeekRecoveryMs            int64            `json:"seek_recovery_ms"`
-	WarmReconnectCount        uint64           `json:"warm_reconnect_count"`
-	WarmReconnectTTFBMs       int64            `json:"warm_reconnect_ttfb_ms"`
-	LastClassification        string           `json:"last_classification"`
-	LastTTFBMs                int64            `json:"last_ttfb_ms"`
-	Traces                    []FlowRangeTrace `json:"traces,omitempty"`
+	Group                     string                `json:"group"`
+	FileIndex                 int                   `json:"file_index"`
+	FileSize                  int64                 `json:"file_size"`
+	State                     string                `json:"state"`
+	ActiveReaders             int                   `json:"active_readers"`
+	PlaybackOffsetBytes       int64                 `json:"playback_offset_bytes"`
+	PlaybackOffsetSeconds     float64               `json:"playback_offset_seconds"`
+	BufferAheadBytes          int64                 `json:"buffer_ahead_bytes"`
+	BufferAheadSeconds        float64               `json:"buffer_ahead_seconds"`
+	BufferExhaustionSeconds   *float64              `json:"buffer_exhaustion_seconds,omitempty"`
+	BufferWarning             bool                  `json:"buffer_warning"`
+	EstimatedMediaBitrate     float64               `json:"estimated_media_bitrate"`
+	ObservedPlaybackRate      float64               `json:"observed_playback_rate"`
+	ObservedConfidence        string                `json:"observed_confidence"`
+	PlaybackConsumptionRate   float64               `json:"playback_consumption_rate"`
+	TargetBufferSeconds       int                   `json:"target_buffer_seconds"`
+	ForwardWindowPieces       int                   `json:"forward_window_pieces"`
+	BitrateEstimateSource     string                `json:"bitrate_estimate_source"`
+	BitrateEstimateConfidence string                `json:"bitrate_estimate_confidence"`
+	DownloadRate              float64               `json:"download_rate"`
+	RecentDownloadRate        float64               `json:"recent_download_rate"`
+	DownloadRateSamples       int                   `json:"download_rate_samples"`
+	UploadRate                float64               `json:"upload_rate"`
+	SustainabilityRatio       float64               `json:"sustainability_ratio"`
+	SupplyQualified           bool                  `json:"supply_qualified"`
+	Delivery                  flow.DeliveryEvidence `json:"delivery"`
+	Risk                      flow.RiskDecision     `json:"risk"`
+	CacheUsed                 int64                 `json:"cache_used"`
+	CacheSize                 int64                 `json:"cache_size"`
+	ConnectedPeers            int                   `json:"connected_peers"`
+	RangeRequestCount         uint64                `json:"range_request_count"`
+	RangeCancelCount          uint64                `json:"range_cancel_count"`
+	SeekCount                 uint64                `json:"seek_count"`
+	SeekRecoveryMs            int64                 `json:"seek_recovery_ms"`
+	WarmReconnectCount        uint64                `json:"warm_reconnect_count"`
+	WarmReconnectTTFBMs       int64                 `json:"warm_reconnect_ttfb_ms"`
+	LastClassification        string                `json:"last_classification"`
+	LastTTFBMs                int64                 `json:"last_ttfb_ms"`
+	Traces                    []FlowRangeTrace      `json:"traces,omitempty"`
 }
 
 type flowSession struct {
@@ -419,16 +422,15 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 			s.RecentDownloadRate, s.DownloadRateSamples = w.RecentDownloadRate, w.DownloadRateSamples
 			s.ObservedPlaybackRate, s.ObservedConfidence = w.ObservedPlaybackRate, w.ObservedConfidence
 			s.TargetBufferSeconds, s.ForwardWindowPieces = w.TargetBufferSeconds, w.ForwardWindowPieces
+			s.Delivery = w.Delivery
+			s.SupplyQualified = w.Delivery.Confidence != "unknown"
 		}
 		s.PlaybackConsumptionRate = e.BytesPerSecond
-		if s.ObservedPlaybackRate > 0 {
+		if s.ObservedPlaybackRate > 0 && s.PlaybackConsumptionRate <= 0 {
 			s.PlaybackConsumptionRate = s.ObservedPlaybackRate
 		}
 		s.DownloadRate, s.UploadRate, s.ConnectedPeers = status.DownloadSpeed, status.UploadSpeed, status.ActivePeers
-		rate := s.DownloadRate
-		if s.DownloadRateSamples > 0 {
-			rate = s.RecentDownloadRate
-		}
+		rate := s.Delivery.LongRate
 		s.SustainabilityRatio = flow.Sustainability(rate,
 			flow.Estimate{BytesPerSecond: s.PlaybackConsumptionRate})
 		if cache == nil || cache.PieceLength <= 0 {
@@ -446,6 +448,9 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 		}
 		s.BufferAheadBytes = cache.ContiguousAvailable(start, end)
 		evidence := sparseSessionEvidence(sparse, int(start/cache.PieceLength), s.BufferAheadBytes, rate, s.PlaybackConsumptionRate, status.ActivePeers, status.PendingPeers)
+		if !s.SupplyQualified {
+			evidence.ConsumptionRate = 0
+		}
 		s.WaitReason = flow.SparseReason(evidence)
 		if evidence.Fresh && evidence.HasWindow {
 			suppliers := evidence.Suppliers
@@ -453,7 +458,8 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 		}
 		s.BufferAheadSeconds = flow.BufferSeconds(s.BufferAheadBytes,
 			flow.Estimate{BytesPerSecond: s.PlaybackConsumptionRate})
-		if s.ActiveReaders > 0 && s.PlaybackOffsetBytes > 0 && s.BufferAheadBytes < end-start {
+		s.Risk = flow.BufferRisk(s.BufferAheadBytes, s.PlaybackConsumptionRate, s.RecentPieceWaitP95Ms, s.RequiredPieceSuppliers, s.Delivery, settings.CurrentFlow().TargetBufferSeconds, settings.CurrentFlow().MaxBufferSeconds)
+		if s.SupplyQualified && s.ActiveReaders > 0 && s.PlaybackOffsetBytes > 0 && s.BufferAheadBytes < end-start {
 			if seconds, known := flow.BufferExhaustionSeconds(s.BufferAheadBytes, s.PlaybackConsumptionRate, rate); known {
 				s.BufferExhaustionSeconds = &seconds
 				s.BufferWarning = seconds < 30

@@ -1,9 +1,23 @@
 package flow
 
 import (
+	"math/rand/v2"
 	"net"
 	"time"
 )
+
+// Jitter avoids synchronized retries while retaining configured hard bounds.
+func RetryJitter(attempt, minimum, maximum int) time.Duration {
+	if minimum < 1 || minimum > 60 {
+		minimum = 2
+	}
+	if maximum < minimum || maximum > 600 {
+		maximum = 60
+	}
+	d := RetryDelay(attempt, minimum, maximum)
+	factor := 0.8 + rand.Float64()*0.4
+	return min(time.Duration(maximum)*time.Second, max(time.Duration(minimum)*time.Second, time.Duration(float64(d)*factor)))
+}
 
 // RetryDelay bounds repeated network checks and external announce attempts.
 func RetryDelay(attempt, minSeconds, maxSeconds int) time.Duration {

@@ -34,6 +34,26 @@ export interface FlowStartup {
 }
 
 export interface FlowSession {
+  supply_qualified?: boolean;
+  delivery?: {
+    mode: string;
+    short_rate: number;
+    long_rate: number;
+    short_samples: number;
+    samples: number;
+    age_ms: number;
+    confidence: string;
+    variation: number;
+    outage_seconds: number;
+  };
+  risk?: {
+    level: string;
+    reason: string;
+    score: number;
+    confidence: string;
+    target_seconds: number;
+    exhaustion_seconds?: number;
+  };
   wait_reason?: string;
   required_piece_suppliers?: number;
   recent_window_seconds?: number;

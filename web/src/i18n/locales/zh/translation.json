@@ -446,7 +446,10 @@
     "pagination": "媒体库分页",
     "previousPage": "上一页",
     "nextPage": "下一页",
-    "pageCount": "第 {{page}} 页，共 {{pages}} 页"
+    "pageCount": "第 {{page}} 页，共 {{pages}} 页",
+    "expiringLink": "创建或续期限时链接",
+    "linkExpires": "有效期至 {{time}}；服务器重启后链接失效。",
+    "linkFailed": "无法创建链接，请检查身份验证和文件元数据。"
   },
   "runtime": {
     "torrents": "种子",
@@ -457,7 +460,24 @@
     "peers": "活动节点",
     "seeders": "已连接的做种者",
     "listenPort": "节点端口",
-    "total": "种子总大小"
+    "total": "种子总大小",
+    "ramBudget": "内存缓存预算（软限制）",
+    "warmBudget": "空闲缓存预算",
+    "ramCache": "内存缓存数据",
+    "diskCache": "磁盘缓存数据",
+    "systemFree": "系统可用内存",
+    "budgetHint": "此预算约束缓存淘汰，而非进程总内存。当前读取和容器数据仍受保护。",
+    "backgroundLimited": "已推迟后台任务以保障播放。",
+    "overcommit": "受保护的读取数据已超出缓存预算。",
+    "uploadBusy": "上传接近配置上限。可对比降低上传上限并启用路由器 SQM 后的播放效果。对等端请求队列无法衡量广域网缓冲膨胀。",
+    "exposure": "访问和网络策略",
+    "accessSummary": "管理：{{auth}} · 播放：{{playback}}",
+    "protected": "已启用 HTTP 身份验证",
+    "unprotected": "未启用 HTTP 身份验证",
+    "compatible": "允许传统链接",
+    "capabilities": "身份验证或限时链接",
+    "localExposure": "监听设置不能证明互联网可达性，请在可信局域网中管理。",
+    "bindingLimit": "网卡消失时会暂停种子网络。DNS 路由和 VPN 防泄漏尚未验证；此类保证需依靠系统或 VPN 的断网保护。"
   },
   "nav": {
     "dashboard": "概览",
@@ -557,7 +577,8 @@
       "draining": "实测下载速率低于估算需求，缓冲正在消耗。请检查节点和网络连接。",
       "waiting": "最近 60 秒内某次服务器读取等待至少 500 毫秒。这不能证明播放器解码停顿。",
       "idle": "没有活动的播放器请求。播放器可能已暂停、断开连接，或正在使用自身缓冲。",
-      "peers": "没有已连接节点，也没有连续可用字节。请检查本地网络就绪情况和追踪器状态。"
+      "peers": "没有已连接节点，也没有连续可用字节。请检查本地网络就绪情况和追踪器状态。",
+      "prepare": "请提前准备剧集或选择较小的版本。更大的内存缓存无法弥补群集供给不足。"
     },
     "startupWait": "启动等待原因",
     "startupTimingHint": "元数据耗时从添加种子开始计算，其他耗时从预加载开始计算。横线表示尚未观察到。",
@@ -621,7 +642,35 @@
     },
     "sparseRequests": "请求超时：{{timeouts}} · 丢弃请求：{{dropped}}",
     "privatePolicy": "私有种子：仅使用授权的 tracker 层级；已禁用公共发现和节点提示。",
-    "connectivityHint": "这些是观测到的 BitTorrent 节点端口，与 HTTP 8090 端口分开。请在防火墙和路由器中允许 TCP 和 UDP。映射成功并不证明外部可访问，也不能绕过 CGNAT。可用时保留 TCP 和 uTP；NAT 打洞有条件限制。支持端口转发的 VPN 是可选方案。无需将管理面板暴露到互联网。"
+    "connectivityHint": "这些是观测到的 BitTorrent 节点端口，与 HTTP 8090 端口分开。请在防火墙和路由器中允许 TCP 和 UDP。映射成功并不证明外部可访问，也不能绕过 CGNAT。可用时保留 TCP 和 uTP；NAT 打洞有条件限制。支持端口转发的 VPN 是可选方案。无需将管理面板暴露到互联网。",
+    "usefulSupply": "已验证的前向数据速率",
+    "deliveryEvidence": "{{mode}} · {{samples}} 个活跃秒 · {{age}} 毫秒前 · 可信度 {{confidence}}",
+    "deliveryModes": {
+      "DEMAND": "正在获取播放数据",
+      "FULL": "前向窗口已满",
+      "IDLE": "空闲",
+      "PROBE": "媒体探测",
+      "PREPARATION": "后台准备",
+      "RECONNECT": "正在重新连接"
+    },
+    "confidence": {
+      "unknown": "未知",
+      "medium": "中",
+      "high": "高"
+    },
+    "riskLevels": {
+      "UNKNOWN": "缓冲风险未知",
+      "HEALTHY": "缓冲供给正常",
+      "ELEVATED": "缓冲风险较高",
+      "HIGH": "缓冲风险高"
+    },
+    "riskReasons": {
+      "INSUFFICIENT_EVIDENCE": "活跃供给观测不足",
+      "SUFFICIENT_SUPPLY": "供给覆盖估算的媒体需求",
+      "SUPPLY_DEFICIT": "有效供给低于估算需求",
+      "PIECE_WAIT": "最近读取曾等待种子分片",
+      "BUFFER_DRAINING": "连续缓冲可能即将耗尽"
+    }
   },
   "search": {
     "source": "来源",
@@ -665,7 +714,7 @@
     "activeRestart": "正在播放。应用设置将重启种子引擎并中断流。",
     "confirmHint": "此操作会改变服务器状态，请确认。",
     "confirmAction": "确认",
-    "unsaved": "未保存的更改",
+    "unsaved": "有未保存的更改",
     "unsavedHint": "离开页面前放弃更改？",
     "keepEditing": "继续编辑",
     "authHelp": "HTTP 身份验证在服务器启动时配置。已知种子的播放访问遵循上游规则。仅填写 SSL 设置不会启用 HTTPS，还需要以 SSL 模式启动服务器。",
@@ -749,7 +798,17 @@
         "PreparationQuotaMB": "准备磁盘配额（MiB）",
         "PeerResumeHints": "记住有用的公共节点",
         "ScarcePieceHints": "稀有分片调度实验",
-        "RateAwareDeadlines": "按码率调整期限的实验"
+        "RateAwareDeadlines": "按码率调整期限的实验",
+        "GlobalCacheBudgetMB": "总内存缓存预算（MiB；0 为自动）",
+        "WarmCacheBudgetMB": "空闲缓存预算（MiB；0 为释放）",
+        "PreparationConcurrency": "同时准备的任务数",
+        "ManagementOrigins": "允许的管理来源（逗号分隔）",
+        "ManagementRateLimit": "每个 IP 每分钟管理请求数（0 为不限）",
+        "SecurityProfile": "浏览器访问模式",
+        "RequirePlaybackToken": "要求限时播放链接（需 HTTP 身份验证）",
+        "PlaybackTokenTTL": "播放链接有效期（秒）",
+        "TorrentInterface": "种子网卡名称（留空使用系统路由）",
+        "RequireTorrentInterface": "要求明确选择种子网卡"
       }
     },
     "maintenance": {
@@ -775,7 +834,17 @@
     "dhtHint": "重启后重用已知的 DHT 节点；始终遵守禁用 DHT 的设置。",
     "peerHintsHelp": "可选：每个种子保存最多 32 个有用的公共节点，保留 10 分钟，存放于独立于诊断历史的私有本地状态。最多保存 128 个种子。网络改变后忽略这些提示；原生重连退避仍然有效。私有种子不会恢复这些节点。",
     "rateDeadlinesHelp": "默认关闭：重复测试的跳转结果不一致。未来分片的期限按分片大小和可信的播放码率计算；阻塞读取的分片仍立即请求。",
-    "scarceHintsHelp": "默认关闭。在消费速率可靠、传输波动且节点样本完整新鲜时，将接下来四个分片中的一个最多提前一秒请求。阻塞读取仍然最优先。无法创造缺失的数据源，尚未证实在公共种群中有速度优势。"
+    "scarceHintsHelp": "默认关闭。在消费速率可靠、传输波动且节点样本完整新鲜时，将接下来四个分片中的一个最多提前一秒请求。阻塞读取仍然最优先。无法创造缺失的数据源，尚未证实在公共种群中有速度优势。",
+    "savedState": "设置已保存",
+    "cacheState": "缓存：草稿 {{draft}} MiB · 已保存 {{saved}} MiB · 生效 {{effective}} MiB",
+    "identity": "可执行文件、数据目录和修订号",
+    "queued": "已保存，等待播放空闲",
+    "recovered": "已从 {{source}} 恢复。应用后修复设置，损坏的原文件将以受限权限保留。",
+    "needsRestart": "这些更改会重启种子引擎，可安排在播放空闲时应用。",
+    "hotApply": "这些更改无需重启种子引擎。",
+    "applyIdle": "空闲时应用",
+    "compatible": "兼容",
+    "restricted": "受限"
   },
   "preparation": {
     "title": "准备剧集",
@@ -796,6 +865,14 @@
       "cancelled": "已取消；保留进度",
       "error": "存储错误",
       "cleaning": "播放结束后清理"
+    },
+    "forecast": "剩余媒体：{{remaining}} · 可用磁盘：{{free}}",
+    "scheduling": {
+      "QUEUED": "等待准备任务名额",
+      "MEMORY_PRESSURE": "因资源预算暂停",
+      "PLAYBACK_PRIORITY": "优先保障正在进行的播放",
+      "QUOTA": "准备配额已超出",
+      "DISK_SPACE": "等待可用磁盘空间"
     }
   },
   "sources": {

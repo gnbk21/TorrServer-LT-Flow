@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"server/log"
+	"server/netpolicy"
 	"server/settings"
 )
 
@@ -216,7 +217,7 @@ func fetchTrackersFromURLs(urls []string, local []string) ([]string, string, err
 }
 
 func fetchTrackersFromURL(url string, local []string) ([]string, error) {
-	client := &http.Client{Timeout: trackersFetchTimeout}
+	client := &http.Client{Timeout: trackersFetchTimeout, Transport: netpolicy.HTTPTransport()}
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err

@@ -7,14 +7,18 @@ import (
 )
 
 type MemoryStatus struct {
-	RSSBytes         uint64    `json:"rss_bytes"`
-	RSSAvailable     bool      `json:"rss_available"`
-	Handles          uint64    `json:"handles"`
-	HandlesAvailable bool      `json:"handles_available"`
-	GoHeapBytes      uint64    `json:"go_heap_bytes"`
-	GoSystemBytes    uint64    `json:"go_system_bytes"`
-	Goroutines       int       `json:"goroutines"`
-	SampledAt        time.Time `json:"sampled_at"`
+	RSSBytes             uint64    `json:"rss_bytes"`
+	RSSAvailable         bool      `json:"rss_available"`
+	Handles              uint64    `json:"handles"`
+	HandlesAvailable     bool      `json:"handles_available"`
+	GoHeapBytes          uint64    `json:"go_heap_bytes"`
+	GoSystemBytes        uint64    `json:"go_system_bytes"`
+	Goroutines           int       `json:"goroutines"`
+	SampledAt            time.Time `json:"sampled_at"`
+	SystemTotalBytes     uint64    `json:"system_total_bytes"`
+	SystemAvailableBytes uint64    `json:"system_available_bytes"`
+	SystemAvailable      bool      `json:"system_available"`
+	Pressure             bool      `json:"pressure"`
 }
 
 var memoryMu sync.Mutex
@@ -31,6 +35,9 @@ func Memory() MemoryStatus {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	rss, handles, rssOK, handlesOK := processMemory()
-	memorySample = MemoryStatus{rss, rssOK, handles, handlesOK, m.HeapAlloc, m.Sys, runtime.NumGoroutine(), time.Now()}
+	memorySample = MemoryStatus{RSSBytes: rss, RSSAvailable: rssOK, Handles: handles, HandlesAvailable: handlesOK, GoHeapBytes: m.HeapAlloc, GoSystemBytes: m.Sys, Goroutines: runtime.NumGoroutine(), SampledAt: time.Now()}
+	total, available, known := systemMemory()
+	memorySample.SystemTotalBytes, memorySample.SystemAvailableBytes, memorySample.SystemAvailable = total, available, known
+	memorySample.Pressure = known && available < max(uint64(512<<20), total/20)
 	return memorySample
 }

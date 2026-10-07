@@ -498,7 +498,8 @@
       "draining": "Measured download is below estimated demand and the buffer is draining. Check swarm peers and the network connection.",
       "waiting": "A server read waited at least 500 ms within the last 60 seconds. This does not prove a player decoding stall.",
       "idle": "No player request is active. The player may be paused, disconnected, or consuming its own buffer.",
-      "peers": "No connected peers and no contiguous bytes are available. Check local network readiness and tracker status."
+      "peers": "No connected peers and no contiguous bytes are available. Check local network readiness and tracker status.",
+      "prepare": "Prepare the episode before watching, or choose a smaller release. A larger RAM cache cannot replace missing swarm capacity."
     },
     "startupWait": "Startup wait",
     "startupTimingHint": "Metadata time is measured from torrent registration; other times from preload. A dash means not observed.",
@@ -562,7 +563,35 @@
     },
     "sparseRequests": "Request timeouts: {{timeouts}} · dropped requests: {{dropped}}",
     "privatePolicy": "Private torrent: authorized tracker tiers only; public discovery and peer hints are disabled.",
-    "connectivityHint": "These are observed BitTorrent peer ports, separate from HTTP port 8090. Allow TCP and UDP through your firewall and router. Mapping success alone does not prove external reachability or bypass CGNAT. Keep TCP and uTP enabled where usable; hole punching is conditional. A forwarding-capable VPN is optional. The dashboard does not need Internet exposure."
+    "connectivityHint": "These are observed BitTorrent peer ports, separate from HTTP port 8090. Allow TCP and UDP through your firewall and router. Mapping success alone does not prove external reachability or bypass CGNAT. Keep TCP and uTP enabled where usable; hole punching is conditional. A forwarding-capable VPN is optional. The dashboard does not need Internet exposure.",
+    "usefulSupply": "Verified forward supply",
+    "deliveryEvidence": "{{mode}} · {{samples}} active seconds · age {{age}} ms · confidence {{confidence}}",
+    "deliveryModes": {
+      "DEMAND": "Fetching for playback",
+      "FULL": "Forward window full",
+      "IDLE": "Idle",
+      "PROBE": "Media probe",
+      "PREPARATION": "Background preparation",
+      "RECONNECT": "Reconnecting"
+    },
+    "confidence": {
+      "unknown": "Unknown",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "riskLevels": {
+      "UNKNOWN": "Buffer risk unknown",
+      "HEALTHY": "Buffer supply is healthy",
+      "ELEVATED": "Elevated buffer risk",
+      "HIGH": "High buffer risk"
+    },
+    "riskReasons": {
+      "INSUFFICIENT_EVIDENCE": "Not enough active supply observations",
+      "SUFFICIENT_SUPPLY": "Supply covers estimated media demand",
+      "SUPPLY_DEFICIT": "Useful supply is below estimated demand",
+      "PIECE_WAIT": "Recent reads waited for torrent pieces",
+      "BUFFER_DRAINING": "The contiguous buffer may run out soon"
+    }
   },
   "torrent": {
     "justPlayer": "Play in Just Player",
@@ -618,7 +647,10 @@
     "pagination": "Library pages",
     "previousPage": "Previous page",
     "nextPage": "Next page",
-    "pageCount": "Page {{page}} of {{pages}}"
+    "pageCount": "Page {{page}} of {{pages}}",
+    "expiringLink": "Create / renew expiring link",
+    "linkExpires": "Valid until {{time}}; server restart revokes this link.",
+    "linkFailed": "Could not create a link. Check authentication and file metadata."
   },
   "pairing": {
     "title": "Connect your phone",
@@ -760,7 +792,17 @@
         "PreparationQuotaMB": "Preparation disk quota (MiB)",
         "PeerResumeHints": "Remember useful public peers",
         "ScarcePieceHints": "Scarce-piece scheduling experiment",
-        "RateAwareDeadlines": "Rate-aware deadline experiment"
+        "RateAwareDeadlines": "Rate-aware deadline experiment",
+        "GlobalCacheBudgetMB": "Total RAM cache budget (MiB; 0 = automatic)",
+        "WarmCacheBudgetMB": "Idle cache budget (MiB; 0 = release)",
+        "PreparationConcurrency": "Concurrent preparation jobs",
+        "ManagementOrigins": "Allowed management origins (comma separated)",
+        "ManagementRateLimit": "Management requests per minute per IP (0 = unlimited)",
+        "SecurityProfile": "Browser access profile",
+        "RequirePlaybackToken": "Require expiring playback links (HTTP auth required)",
+        "PlaybackTokenTTL": "Playback link lifetime (seconds)",
+        "TorrentInterface": "Torrent adapter name (empty = system routing)",
+        "RequireTorrentInterface": "Require an explicitly selected torrent adapter"
       }
     },
     "maintenance": {
@@ -786,7 +828,17 @@
     "dhtHint": "Reuse known DHT nodes after a restart. Disabled DHT is always respected.",
     "peerHintsHelp": "Optional: keep up to 32 recently useful public peers per torrent for 10 minutes, in private local state separate from diagnostic history. At most 128 torrents are retained. Hints expire after a network change; native reconnect backoff still applies. Private torrents never restore these peers.",
     "rateDeadlinesHelp": "Off by default: repeated tests showed mixed seek results. Uses piece size and qualified playback rate for future deadlines; the blocked piece remains immediate.",
-    "scarceHintsHelp": "Off by default. With a qualified consumption rate, variable delivery and a fresh complete peer sample, advance one piece among the next four by at most one second. Blocked reads remain first. This cannot create missing sources and has no established public-swarm speed advantage."
+    "scarceHintsHelp": "Off by default. With a qualified consumption rate, variable delivery and a fresh complete peer sample, advance one piece among the next four by at most one second. Blocked reads remain first. This cannot create missing sources and has no established public-swarm speed advantage.",
+    "savedState": "Saved settings",
+    "cacheState": "Cache: draft {{draft}} MiB · saved {{saved}} MiB · effective {{effective}} MiB",
+    "identity": "Executable, data directory and revision",
+    "queued": "Saved; waiting for idle playback",
+    "recovered": "Recovered from {{source}}. Apply to repair settings; the damaged original will be retained privately.",
+    "needsRestart": "These changes restart the torrent engine. You can schedule them for idle playback.",
+    "hotApply": "These changes apply without restarting the torrent engine.",
+    "applyIdle": "Apply when idle",
+    "compatible": "Compatible",
+    "restricted": "Restricted"
   },
   "runtime": {
     "torrents": "Torrents",
@@ -797,7 +849,24 @@
     "peers": "Active peers",
     "seeders": "Connected seeders",
     "listenPort": "Peer port",
-    "total": "Total torrent size"
+    "total": "Total torrent size",
+    "ramBudget": "RAM cache budget (soft)",
+    "warmBudget": "Idle cache budget",
+    "ramCache": "RAM cache bytes",
+    "diskCache": "Disk cache bytes",
+    "systemFree": "Available system RAM",
+    "budgetHint": "This limits cache eviction, not total process memory. Immediate reader and container data remain protected.",
+    "backgroundLimited": "Background work is deferred to protect playback.",
+    "overcommit": "Protected reader data exceeds the cache budget.",
+    "uploadBusy": "Upload is near the configured cap. Compare playback with a lower upload cap and router SQM. Peer request queues do not measure WAN bufferbloat.",
+    "exposure": "Access and network policy",
+    "accessSummary": "Management: {{auth}} · playback: {{playback}}",
+    "protected": "HTTP authentication enabled",
+    "unprotected": "HTTP authentication disabled",
+    "compatible": "Legacy links allowed",
+    "capabilities": "Authenticated or expiring links",
+    "localExposure": "Listener settings do not prove Internet reachability. Keep management on a trusted LAN.",
+    "bindingLimit": "Binding pauses torrent networking when the adapter disappears. DNS routing and VPN leak protection remain unverified; use an OS/VPN kill switch for that guarantee."
   },
   "app": {
     "error": "Unable to display this page.",
@@ -826,6 +895,14 @@
       "cancelled": "Cancelled; progress retained",
       "error": "Storage error",
       "cleaning": "Cleaning after playback"
+    },
+    "forecast": "Remaining media: {{remaining}} · disk free: {{free}}",
+    "scheduling": {
+      "QUEUED": "Waiting for a preparation slot",
+      "MEMORY_PRESSURE": "Paused by the resource budget",
+      "PLAYBACK_PRIORITY": "Foreground playback has priority",
+      "QUOTA": "Preparation quota exceeded",
+      "DISK_SPACE": "Waiting for free disk space"
     }
   },
   "sources": {

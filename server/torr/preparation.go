@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"server/diagnostics"
 	"server/flow"
 	"server/lt"
 	"server/settings"
@@ -18,15 +19,16 @@ import (
 const maxPreparationJobs = 16
 
 type PreparationJob struct {
-	ID              string `json:"id"`
-	Hash            string `json:"hash"`
-	FileIndex       int    `json:"file_index"`
-	State           string `json:"state"`
-	Length          int64  `json:"length"`
-	VerifiedBytes   int64  `json:"verified_bytes"`
-	ContiguousBytes int64  `json:"contiguous_bytes"`
-	PlaybackReady   bool   `json:"playback_ready"`
-	ErrorCode       string `json:"error_code,omitempty"`
+	ID               string `json:"id"`
+	Hash             string `json:"hash"`
+	FileIndex        int    `json:"file_index"`
+	State            string `json:"state"`
+	Length           int64  `json:"length"`
+	VerifiedBytes    int64  `json:"verified_bytes"`
+	ContiguousBytes  int64  `json:"contiguous_bytes"`
+	PlaybackReady    bool   `json:"playback_ready"`
+	ErrorCode        string `json:"error_code,omitempty"`
+	SchedulingReason string `json:"scheduling_reason,omitempty"`
 }
 type preparationRecord struct {
 	PreparationJob
@@ -37,10 +39,13 @@ type preparationRecord struct {
 	PieceLength, TotalSize int64
 }
 type PreparationStatus struct {
-	Jobs          []PreparationJob `json:"jobs"`
-	QuotaBytes    int64            `json:"quota_bytes"`
-	ReservedBytes int64            `json:"reserved_bytes"`
-	ErrorCode     string           `json:"error_code,omitempty"`
+	Jobs           []PreparationJob `json:"jobs"`
+	QuotaBytes     int64            `json:"quota_bytes"`
+	ReservedBytes  int64            `json:"reserved_bytes"`
+	ErrorCode      string           `json:"error_code,omitempty"`
+	RemainingBytes int64            `json:"remaining_bytes"`
+	FreeBytes      *uint64          `json:"free_bytes,omitempty"`
+	Concurrency    int              `json:"concurrency"`
 }
 type preparationManager struct {
 	mu                  sync.Mutex
@@ -110,6 +115,7 @@ func newPreparationManager(bt *BTServer) *preparationManager {
 			return p
 		}
 		j.VerifiedBytes = 0
+		j.SchedulingReason = "QUEUED"
 		j.ContiguousBytes = 0
 		j.PlaybackReady = false
 		if j.State == "ready" {
@@ -158,7 +164,7 @@ func (p *preparationManager) configure(hash Hash) error {
 	ranges := make(map[string]torrstor.PreparationRange)
 	for id, j := range p.jobs {
 		if j.Spec.InfoHash == hash {
-			ranges[id] = torrstor.PreparationRange{First: j.First, Last: j.Last, Active: j.State == "downloading"}
+			ranges[id] = torrstor.PreparationRange{First: j.First, Last: j.Last, Active: j.State == "downloading" && j.SchedulingReason == ""}
 		}
 	}
 	return torrstor.Global().ConfigurePreparation(hash, torrstor.PreparationStorage{Root: p.root, Ranges: ranges})
@@ -204,8 +210,13 @@ func PreparationSnapshot() PreparationStatus {
 	defer p.mu.Unlock()
 	out := PreparationStatus{Jobs: make([]PreparationJob, 0, len(p.jobs)), QuotaBytes: int64(settings.CurrentFlow().PreparationQuotaMB) << 20, ErrorCode: p.failure}
 	out.ReservedBytes, _ = p.reserved()
+	out.Concurrency = settings.CurrentFlow().PreparationConcurrency
+	if free, ok := preparationFree(p.root); ok {
+		out.FreeBytes = &free
+	}
 	for _, j := range p.records() {
 		out.Jobs = append(out.Jobs, j.PreparationJob)
+		out.RemainingBytes += max(0, j.Length-j.VerifiedBytes)
 	}
 	return out
 }
@@ -270,6 +281,7 @@ func PrepareEpisode(hashText string, index int, action string) error {
 			return errors.New("file not found")
 		}
 		j = &preparationRecord{PreparationJob: PreparationJob{ID: id, Hash: hash.HexString(), FileIndex: index, State: "downloading", Length: selected.Size}, Spec: spec, StorageRoot: p.root, Offset: selected.Offset, PieceLength: metadata.PieceLength, TotalSize: metadata.TotalSize}
+		j.SchedulingReason = "QUEUED"
 		j.First = int(j.Offset / j.PieceLength)
 		j.Last = int((j.Offset + j.Length - 1) / j.PieceLength)
 		p.jobs[id] = j
@@ -309,6 +321,7 @@ func PrepareEpisode(hashText string, index int, action string) error {
 			return errors.New("preparation disk quota exceeded")
 		}
 		j.State = "downloading"
+		j.SchedulingReason = "QUEUED"
 		j.ErrorCode = ""
 	case "pause":
 		j.State = "paused"
@@ -345,12 +358,58 @@ func (p *preparationManager) run(stop <-chan struct{}, done chan<- struct{}) {
 }
 
 func (p *preparationManager) tick() {
+	torrstor.Global().ReconcileResources()
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.failure != "" {
 		return
 	}
 	changed := false
+	// Scheduling changes priorities only; verified data and job intent survive
+	// resource pressure, foreground playback and restarts.
+	resources := torrstor.Resources()
+	foreground := false
+	for _, t := range p.bt.ListTorrents() {
+		if t != nil {
+			if c := torrstor.Global().CacheByHash([20]byte(t.Hash())); c != nil && c.StreamingReaders() > 0 {
+				foreground = true
+				break
+			}
+		}
+	}
+	free, freeKnown := preparationFree(p.root)
+	reserved, _ := p.reserved()
+	admitted := 0
+	reschedule := make(map[Hash]bool)
+	for _, j := range p.records() {
+		reason := ""
+		if j.State == "downloading" {
+			switch {
+			case resources.BackgroundLimited:
+				reason = "MEMORY_PRESSURE"
+			case foreground:
+				reason = "PLAYBACK_PRIORITY"
+			case reserved > int64(settings.CurrentFlow().PreparationQuotaMB)<<20:
+				reason = "QUOTA"
+			case freeKnown && free < uint64(max(64<<20, 2*j.PieceLength)):
+				reason = "DISK_SPACE"
+			case admitted >= settings.CurrentFlow().PreparationConcurrency:
+				reason = "QUEUED"
+			default:
+				admitted++
+			}
+		}
+		if reason != j.SchedulingReason {
+			j.SchedulingReason = reason
+			reschedule[j.Spec.InfoHash] = true
+		}
+	}
+	for hash := range reschedule {
+		if err := p.configure(hash); err != nil {
+			p.failure = "DISK_WRITE"
+			return
+		}
+	}
 	cleaning := make(map[Hash]bool)
 	diskFailure := make(map[Hash]bool)
 	for _, j := range p.jobs {
@@ -417,6 +476,20 @@ func (p *preparationManager) tick() {
 		if err := p.save(); err != nil {
 			p.failure = "STATE_WRITE"
 		}
+	}
+}
+
+// Query an existing ancestor; a new preparation directory has no files yet.
+func preparationFree(root string) (uint64, bool) {
+	for {
+		if _, err := os.Stat(root); err == nil {
+			return diagnostics.DiskFree(root)
+		}
+		parent := filepath.Dir(root)
+		if parent == root {
+			return 0, false
+		}
+		root = parent
 	}
 }
 

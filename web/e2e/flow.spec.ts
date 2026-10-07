@@ -192,6 +192,8 @@ async function mockServer(
   { status = 200, active = false }: { status?: number; active?: boolean } = {},
 ) {
   const saves: unknown[] = [];
+  let saved = settings;
+  let revision = "fixture-revision-1";
   await page.route("**/*", async (route) => {
     const path = new URL(route.request().url()).pathname;
     const json = (data: unknown, code = 200) =>
@@ -247,8 +249,24 @@ async function mockServer(
       );
     if (path === "/settings") {
       const body = route.request().postDataJSON();
-      if (body.action === "get") return json(settings);
+      if (body.action === "get") return json(saved);
+      if (body.action === "state")
+        return json({
+          revision,
+          saved,
+          effective: saved,
+          applying: false,
+          recovery: { source: "settings", schema_version: 1 },
+          data_path: "fixture-state",
+          executable: "fixture-server",
+        });
+      if (body.action === "plan")
+        return json({ restart_required: false, active_work: active });
       saves.push(body);
+      if (body.action === "set") {
+        saved = body.sets;
+        revision = "fixture-revision-2";
+      }
       return route.fulfill({ body: "" });
     }
     if (path === "/torrents") {
@@ -376,7 +394,11 @@ test("settings cancel is inert, apply preserves Flow and unknown fields", async 
   await page
     .getByRole("button", { name: "Apply settings", exact: true })
     .click();
-  await expect(page.getByText(/Playback is active/)).toBeVisible();
+  await expect(
+    page.getByText(
+      "These changes apply without restarting the torrent engine.",
+    ),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   expect(saves).toHaveLength(0);
   await page

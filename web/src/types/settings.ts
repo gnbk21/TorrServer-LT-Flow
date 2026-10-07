@@ -8,6 +8,17 @@ export interface FlowSwarmCustom {
 }
 
 export interface FlowSettings {
+  SchemaVersion?: number;
+  GlobalCacheBudgetMB?: number;
+  WarmCacheBudgetMB?: number;
+  PreparationConcurrency?: number;
+  ManagementOrigins?: string;
+  ManagementRateLimit?: number;
+  SecurityProfile?: string;
+  RequirePlaybackToken?: boolean;
+  PlaybackTokenTTL?: number;
+  TorrentInterface?: string;
+  RequireTorrentInterface?: boolean;
   Enabled: boolean;
   AdaptiveStartup: boolean;
   BootstrapHeadMB: number;

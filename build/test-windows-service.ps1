@@ -35,7 +35,19 @@ try {
     if ($service.StartName -ne 'NT SERVICE\TorrServer-Flow') { throw 'Service is not using its virtual account.' }
     $sidType = (Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\TorrServer-Flow').ServiceSidType
     if ($sidType -ne 3) { throw 'Service SID is not restricted.' }
+    $failurePolicy = (& sc.exe qfailure TorrServer-Flow | Out-String)
+    if ($LASTEXITCODE -ne 0 -or $failurePolicy -notmatch '15000' -or $failurePolicy -notmatch '30000' -or $failurePolicy -notmatch '60000' -or $failurePolicy -notmatch 'NONE') { throw 'Bounded recovery actions missing.' }
     Command -Arguments @('--service','start'); Health
+    $crashedPID = (Get-CimInstance Win32_Service -Filter "Name='TorrServer-Flow'").ProcessId
+    if ($crashedPID -le 0) { throw 'Fixture service PID missing.' }
+    Stop-Process -Id $crashedPID -Force
+    $deadline = [DateTime]::UtcNow.AddSeconds(45)
+    do {
+        Start-Sleep -Milliseconds 500
+        $recovered = Get-CimInstance Win32_Service -Filter "Name='TorrServer-Flow'"
+    } while (($recovered.ProcessId -eq 0 -or $recovered.ProcessId -eq $crashedPID) -and [DateTime]::UtcNow -lt $deadline)
+    if ($recovered.ProcessId -eq 0 -or $recovered.ProcessId -eq $crashedPID) { throw 'SCM crash recovery failed.' }
+    Health
     $lease = Invoke-RestMethod -Uri "$baseUri/flow/maintenance" -Method Post -ContentType 'application/json' -Body '{"enabled":true}' -Headers $headers
     if (-not $lease.token) { throw 'Maintenance lease missing.' }
     Invoke-RestMethod -Uri "$baseUri/flow/maintenance" -Method Post -ContentType 'application/json' -Body (@{enabled=$false;token=$lease.token}|ConvertTo-Json -Compress) -Headers $headers | Out-Null
@@ -44,7 +56,7 @@ try {
     if (($report|ConvertTo-Json -Depth 20) -match 'service-fixture-only') { throw 'Support report leaked an account.' }
     Command -Arguments @('--service','stop')
     if ((Get-Service -Name 'TorrServer-Flow').Status -ne 'Stopped') { throw 'Service did not stop.' }
-    @{passed=$true;restricted_account=$true;restricted_sid=$true;restart=$true;clean_stop=$true;path=$state} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $state 'service-test.json')
+    @{passed=$true;restricted_account=$true;restricted_sid=$true;restart=$true;clean_stop=$true;bounded_crash_policy=$true;crash_recovery=$true;path=$state} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $state 'service-test.json')
 } finally {
     if ($installed) { Command -Arguments @('--service','uninstall') }
 }

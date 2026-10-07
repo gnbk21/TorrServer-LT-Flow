@@ -14,6 +14,7 @@ export function PlaybackTroubleshooting({
   )
     conditions.push("estimate");
   if (session?.buffer_warning) conditions.push("draining");
+  if (session?.risk?.level === "HIGH") conditions.push("prepare");
   if ((session?.recent_server_read_stalls ?? 0) > 0) conditions.push("waiting");
   if (session?.state === "WARM_IDLE") conditions.push("idle");
   if (

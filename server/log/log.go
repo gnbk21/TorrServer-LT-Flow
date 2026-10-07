@@ -1,9 +1,7 @@
 package log
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -209,32 +207,23 @@ func WebLogger() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		body := ""
-		// save body if not form or file
-		if !strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
-			bodyBytes, _ := io.ReadAll(c.Request.Body)
-			c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-			body = string(bodyBytes)
-		} else {
-			body = "body hidden, too large"
-		}
+		// Request bodies and query strings may contain passwords, tracker
+		// passkeys and playback capabilities. Never buffer or log them.
 		c.Next()
 
 		statusCode := c.Writer.Status()
 		clientIP := c.ClientIP()
 		method := c.Request.Method
 		path := c.Request.URL.Path
-		raw := c.Request.URL.RawQuery
-		if raw != "" {
-			path = path + "?" + raw
+		if strings.HasPrefix(path, "/flow/play/") {
+			path = "/flow/play/[redacted]"
 		}
 
-		logStr := fmt.Sprintf("%3d | %12s | %-7s %#v %v",
+		logStr := fmt.Sprintf("%3d | %12s | %-7s %#v",
 			statusCode,
 			clientIP,
 			method,
 			path,
-			body,
 		)
 		WebLogln(logStr)
 	}
