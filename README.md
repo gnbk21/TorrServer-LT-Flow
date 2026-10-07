@@ -70,7 +70,20 @@ retains local credentials. The library renders 50 cards per page while searching
 all entries. See [distribution guidance](DISTRIBUTION.md) and
 [measurements](MEASUREMENTS.md) for usage and verification limits.
 
-Flow settings are in the web interface's **Flow** tab and under `BitTorr.Flow` in `settings.json`. Flow is enabled by default. Saving settings restarts the torrent engine and interrupts active streams. `GET /flow/status/<torrent-hash>` exposes per-torrent diagnostics; `/flow/network` reports network readiness. Both follow the server's HTTP authentication setting. See [FLOW.md](FLOW.md) for defaults, endpoint behavior, and the comparison procedure.
+Flow settings are in the web interface's **Flow** tab and under `BitTorr.Flow` in `settings.json`. Flow is enabled by default. Published Preview 2 `.5` restarts the engine when settings are saved. Current development builds apply safe runtime changes immediately and offer **Apply when idle** for changes requiring an engine restart. `GET /flow/status/<torrent-hash>` exposes per-torrent diagnostics; `/flow/network` reports network readiness. Both follow the server's HTTP authentication setting. See [FLOW.md](FLOW.md) for defaults, endpoint behavior, and the comparison procedure.
+
+## Adaptive reliability (current development branch)
+
+Current development builds add verified useful-delivery rates, confidence and
+buffer risk; shared active/warm RAM budgets; preparation scheduling; Windows
+network notifications and recovery; configuration revisions, idle application
+and last-known-good recovery. Settings shows unsaved, saved and effective values.
+Optional origin/rate policies, expiring file links and torrent interface binding
+are available without changing compatibility defaults. Interface binding is not
+a verified VPN kill switch; OS DNS and physical disconnect tests remain separate.
+See [the reliability guide](ADAPTIVE_RELIABILITY.md) for settings, behavior,
+compatibility limits and test commands, and [the checklist](ADAPTIVE_RELIABILITY_CHECKLIST.md)
+for verification and remaining device gates. These features are not in `.5`.
 
 ## Weak swarms and episode preparation (current development branch)
 

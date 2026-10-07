@@ -67,6 +67,8 @@ func TestRejectedSchemaSurvivesExplicitRepair(t *testing.T) {
 			if err := putChecked(tdb, "Settings", "BitTorr", rejected); err != nil {
 				t.Fatal(err)
 			}
+			// The JSON backend normalizes object key order when serializing.
+			rejected = append([]byte(nil), tdb.Get("Settings", "BitTorr")...)
 			loadBTSets()
 			if SettingsRecovery().Source != "last_known_good" || !bytes.Equal(tdb.Get("Settings", "BitTorr"), rejected) {
 				t.Fatal("load replaced rejected schema", SettingsRecovery())

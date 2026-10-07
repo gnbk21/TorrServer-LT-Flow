@@ -28,6 +28,27 @@ func TestPreparationCleanupCannotBeReversed(t *testing.T) {
 	}
 }
 
+func TestPreparationActionSaveFailurePreservesScheduling(t *testing.T) {
+	previous, readOnly := bts, settings.ReadOnly
+	settings.ReadOnly = false
+	t.Cleanup(func() { bts, settings.ReadOnly = previous, readOnly })
+	hash := NewHashFromHex("0123456789012345678901234567890123456789")
+	id := preparationID(hash, 1)
+	root := t.TempDir()
+	blocked := filepath.Join(root, "blocked")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	job := &preparationRecord{PreparationJob: PreparationJob{ID: id, State: "paused", ErrorCode: "previous", SchedulingReason: "PLAYBACK_PRIORITY"}}
+	bts = &BTServer{preparation: &preparationManager{name: filepath.Join(blocked, "jobs.json"), root: root, jobs: map[string]*preparationRecord{id: job}}}
+	if err := PrepareEpisode(hash.HexString(), 1, "resume"); err == nil {
+		t.Fatal("failed write was accepted")
+	}
+	if job.State != "paused" || job.ErrorCode != "previous" || job.SchedulingReason != "PLAYBACK_PRIORITY" {
+		t.Fatal("failed action changed scheduling", job.PreparationJob)
+	}
+}
+
 func TestLibraryDeletionSchedulesAllPreparationJobsAndRollsBackSaveFailure(t *testing.T) {
 	previous := settings.ReadOnly
 	settings.ReadOnly = false
