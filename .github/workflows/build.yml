@@ -360,6 +360,7 @@ jobs:
           python3 build/preparation_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/preparation-check
           python3 build/peerhint_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/peerhint-check
           python3 build/webseed_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/webseed-check
+          python3 build/adaptive_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/adaptive-check
           python3 build/sparse_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/sparse-check
           python3 build/sparse_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/sparse-rate-check --rate-aware --cases below complementary late-have
       - uses: actions/upload-artifact@v4
@@ -388,6 +389,8 @@ jobs:
             _out/sparse-rate-check/*/server-output.log
             _out/discovery-check/*/server-output.log
             _out/maintenance-check/report.json
+            _out/adaptive-check/report.json
+            _out/adaptive-check/state/server-output.log
             _out/library-upsert-benchmark.txt
           if-no-files-found: warn
 

@@ -15,6 +15,7 @@ func systemMemory() (uint64, uint64, bool) {
 		return 0, 0, false
 	}
 	var total, available uint64
+	availableKnown := false
 	for _, line := range strings.Split(string(b), "\n") {
 		f := strings.Fields(line)
 		if len(f) < 2 {
@@ -26,9 +27,10 @@ func systemMemory() (uint64, uint64, bool) {
 		}
 		if f[0] == "MemAvailable:" {
 			available = n * 1024
+			availableKnown = true
 		}
 	}
-	return total, available, total > 0 && available > 0
+	return total, available, total > 0 && availableKnown
 }
 func DiskFree(path string) (uint64, bool) {
 	var s unix.Statfs_t

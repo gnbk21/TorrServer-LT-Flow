@@ -844,7 +844,8 @@
     "hotApply": "这些更改无需重启种子引擎。",
     "applyIdle": "空闲时应用",
     "compatible": "兼容",
-    "restricted": "受限"
+    "restricted": "受限",
+    "applying": "正在应用设置…"
   },
   "preparation": {
     "title": "准备剧集",

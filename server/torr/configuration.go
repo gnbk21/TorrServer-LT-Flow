@@ -88,7 +88,7 @@ func ApplyConfiguration(next *settings.BTSets, revision, when string) error {
 	if settings.ReadOnly {
 		return errors.New("database is read-only")
 	}
-	next = settings.CloneSettings(next)
+	next = settings.NormalizeConfiguration(next)
 	restart := settings.NeedsEngineRestart(settings.BTsets(), next)
 	if when == "idle" && settings.NeedsEngineRestart(settings.BTsets(), next) {
 		pending := &pendingConfiguration{settings.SettingsRevision(settings.BTsets()), next}
@@ -106,7 +106,7 @@ func ApplyConfiguration(next *settings.BTSets, revision, when string) error {
 	}
 	configControl.pending = nil
 	configControl.error = ""
-	_ = os.Remove(pendingPath())
+	retirePendingLocked()
 	return nil
 }
 func CancelPendingConfiguration(revision string) error {
@@ -134,7 +134,11 @@ func StartConfigurationWorker(integration func(*settings.BTSets)) {
 		if data, err := os.ReadFile(pendingPath()); err == nil {
 			var p pendingConfiguration
 			if len(data) <= 1<<20 && json.Unmarshal(data, &p) == nil && settings.ValidateSettings(p.Settings) == nil {
-				configControl.pending = &p
+				if settings.SettingsRevision(p.Settings) == settings.SettingsRevision(settings.BTsets()) {
+					retirePendingLocked()
+				} else {
+					configControl.pending = &p
+				}
 			} else {
 				configControl.error = "INVALID_PENDING_SETTINGS"
 			}
@@ -176,7 +180,13 @@ func applyPendingConfiguration() {
 	}
 	configControl.pending = nil
 	configControl.error = ""
-	_ = os.Remove(pendingPath())
+	retirePendingLocked()
+}
+
+func retirePendingLocked() {
+	if err := os.Remove(pendingPath()); err != nil && !os.IsNotExist(err) {
+		configControl.error = "SETTINGS_APPLIED_PENDING_FILE_CLEANUP_FAILED"
+	}
 }
 
 // Keep status polling responsive while native teardown/reconnection runs.

@@ -9,6 +9,17 @@ test("legacy zero-cache settings remain accessible for explicit repair", async (
   await page.route("**/settings", (route) => {
     if (new URL(route.request().url()).pathname !== "/settings")
       return route.fallback();
+    if (route.request().postDataJSON().action === "state")
+      return route.fulfill({
+        json: {
+          revision: "fixture-zero",
+          saved: { ...settings, CacheSize: 0 },
+          effective: { ...settings, CacheSize: 0 },
+          recovery: { source: "settings", schema_version: 1 },
+          data_path: "fixture-state",
+          executable: "fixture-server",
+        },
+      });
     return route.fulfill({ json: { ...settings, CacheSize: 0 } });
   });
   await page.goto("/#/settings");
@@ -414,6 +425,91 @@ test("settings cancel is inert, apply preserves Flow and unknown fields", async 
     },
   });
 });
+test("settings polling preserves draft revision and rejects conflicting save", async ({
+  page,
+}) => {
+  await mockServer(page);
+  let revision = "draft-base";
+  let submitted = "";
+  await page.route("**/settings", (route) => {
+    const body = route.request().postDataJSON();
+    if (body.action === "state")
+      return route.fulfill({
+        json: {
+          revision,
+          saved: settings,
+          effective: settings,
+          recovery: { source: "settings", schema_version: 1 },
+          data_path: "fixture-state",
+          executable: "fixture-server",
+        },
+      });
+    if (body.action === "set") {
+      submitted = body.revision;
+      return route.fulfill({
+        status: 409,
+        json: { error: "settings changed; reload before applying your draft" },
+      });
+    }
+    return route.fallback();
+  });
+  await page.goto("/#/settings");
+  await page.getByRole("button", { name: "512 MiB", exact: true }).click();
+  revision = "external-change";
+  await expect(page.getByText("external-change", { exact: true })).toHaveCount(
+    1,
+    {
+      timeout: 10000,
+    },
+  );
+  await expect(
+    page.getByRole("spinbutton", { name: "Cache Size", exact: true }),
+  ).toHaveValue("512");
+  await page
+    .getByRole("button", { name: "Apply settings", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect.poll(() => submitted).toBe("draft-base");
+  await expect(page.getByRole("dialog").getByRole("alert")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(
+    page.getByRole("spinbutton", { name: "Cache Size", exact: true }),
+  ).toHaveValue("512");
+});
+
+test("required expiring playback links preserve the playlist session", async ({
+  page,
+}) => {
+  await mockServer(page);
+  await page.route("**/settings", (route) =>
+    route.request().postDataJSON().action === "get"
+      ? route.fulfill({
+          json: {
+            ...settings,
+            Flow: { ...settings.Flow, RequirePlaybackToken: true },
+          },
+        })
+      : route.fallback(),
+  );
+  let requested: unknown;
+  await page.route("**/flow/playback-link", (route) => {
+    requested = route.request().postDataJSON();
+    return route.fulfill({
+      json: {
+        path: "/flow/play/fixture.signed",
+        expires_at: new Date(Date.now() + 3600000).toISOString(),
+      },
+    });
+  });
+  await page.goto("/#/torrents");
+  await page.getByRole("button", { name: "Files / Play" }).click();
+  await expect(
+    page.getByRole("link", { name: "Open stream", exact: true }),
+  ).toHaveAttribute("href", /\/flow\/play\/fixture\.signed\?ss=/);
+  expect(requested).toEqual({ hash, index: 1 });
+  await expect(page.getByText(/Valid until/)).toBeVisible();
+});
+
 test("deadline experiment is off by default and saves only after confirmation", async ({
   page,
 }) => {

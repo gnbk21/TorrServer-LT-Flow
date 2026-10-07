@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"server/flow"
 	"server/netpolicy"
-	"server/settings"
+	sets "server/settings"
 	"server/torr"
 	"strconv"
 	"strings"
@@ -25,7 +25,7 @@ func managementPath(path string) bool {
 // policy. Originless native clients retain their existing authentication path.
 func ManagementPolicy() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		f := settings.CurrentFlow()
+		f := sets.CurrentFlow()
 		if !managementPath(c.Request.URL.Path) {
 			c.Next()
 			return
@@ -66,7 +66,7 @@ func PlaybackPolicy() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		p := c.Request.URL.Path
 		legacy := strings.HasPrefix(p, "/stream") || strings.HasPrefix(p, "/play/") || strings.HasPrefix(p, "/playlist")
-		if legacy && settings.CurrentFlow().RequirePlaybackToken && c.GetString(gin.AuthUserKey) == "" && !torr.IsInternalProbe(c.Request) {
+		if legacy && sets.CurrentFlow().RequirePlaybackToken && c.GetString(gin.AuthUserKey) == "" && !torr.IsInternalProbe(c.Request) {
 			c.AbortWithStatusJSON(401, gin.H{"error": "a playback capability or authentication is required"})
 			return
 		}
@@ -75,7 +75,7 @@ func PlaybackPolicy() gin.HandlerFunc {
 }
 
 func playbackLink(c *gin.Context) {
-	if settings.CurrentFlow().RequirePlaybackToken && c.GetString(gin.AuthUserKey) == "" {
+	if sets.CurrentFlow().RequirePlaybackToken && c.GetString(gin.AuthUserKey) == "" {
 		c.AbortWithStatus(401)
 		return
 	}
@@ -107,7 +107,7 @@ func playbackLink(c *gin.Context) {
 		c.AbortWithStatus(503)
 		return
 	}
-	expires := time.Now().Add(time.Duration(settings.CurrentFlow().PlaybackTokenTTL) * time.Second)
+	expires := time.Now().Add(time.Duration(sets.CurrentFlow().PlaybackTokenTTL) * time.Second)
 	token, err := playbackSigner.Mint(flow.PlaybackClaim{Hash: strings.ToLower(req.Hash), Index: req.Index, Expires: expires.Unix()}, time.Now())
 	if err != nil {
 		c.AbortWithStatus(400)
@@ -152,7 +152,7 @@ func capabilityPlayback(c *gin.Context) {
 }
 
 func ExposureSummary() gin.H {
-	f := settings.CurrentFlow()
+	f := sets.CurrentFlow()
 	policy := netpolicy.Snapshot()
-	return gin.H{"http_auth": settings.HttpAuth, "legacy_playback": !f.RequirePlaybackToken, "security_profile": f.SecurityProfile, "management_rate_limit": f.ManagementRateLimit, "explicit_origin_policy": f.ManagementOrigins != "" || f.SecurityProfile == "restricted", "listen_addresses": settings.IPs, "http_port": settings.Port, "https": settings.Ssl, "torrent_interface": policy, "vpn_leak_protection_verified": false}
+	return gin.H{"http_auth": sets.HttpAuth, "legacy_playback": !f.RequirePlaybackToken, "security_profile": f.SecurityProfile, "management_rate_limit": f.ManagementRateLimit, "explicit_origin_policy": f.ManagementOrigins != "" || f.SecurityProfile == "restricted", "listen_addresses": sets.IPs, "http_port": sets.Port, "https": sets.Ssl, "torrent_interface": policy, "vpn_leak_protection_verified": false}
 }

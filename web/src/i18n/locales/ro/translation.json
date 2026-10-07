@@ -838,7 +838,8 @@
     "hotApply": "Aceste modificări se aplică fără repornirea motorului torrent.",
     "applyIdle": "Aplică după redare",
     "compatible": "Compatibil",
-    "restricted": "Restricționat"
+    "restricted": "Restricționat",
+    "applying": "Se aplică setările…"
   },
   "preparation": {
     "title": "Pregătește episodul",

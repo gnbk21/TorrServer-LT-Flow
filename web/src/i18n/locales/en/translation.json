@@ -838,7 +838,8 @@
     "hotApply": "These changes apply without restarting the torrent engine.",
     "applyIdle": "Apply when idle",
     "compatible": "Compatible",
-    "restricted": "Restricted"
+    "restricted": "Restricted",
+    "applying": "Applying settings…"
   },
   "runtime": {
     "torrents": "Torrents",

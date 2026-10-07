@@ -266,14 +266,16 @@ func SetBTSetsChecked(sets *BTSets) error {
 	recordRecovery("settings", "")
 	if err := saveKnownGood(sets); err != nil {
 		log.TLogln("Last-known-good snapshot unavailable")
+		recordRecovery("settings", "RECOVERY_SNAPSHOT_WRITE_FAILED")
 	}
 	return nil
 }
 
 func SetDefaultConfig() {
 	sets := defaultConfig()
-	StoreBTsets(sets)
-	if !ReadOnly {
+	if ReadOnly {
+		StoreBTsets(sets)
+	} else {
 		SetBTSets(sets)
 	}
 }

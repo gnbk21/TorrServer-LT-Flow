@@ -52,6 +52,43 @@ func CloneSettings(s *BTSets) *BTSets {
 	return &out
 }
 
+// NormalizeConfiguration makes preview, queued intent and persisted settings
+// agree, including the compatibility defaults used by older API clients.
+func NormalizeConfiguration(s *BTSets) *BTSets {
+	n := CloneSettings(s)
+	if n == nil {
+		return nil
+	}
+	if current := BTsets(); current != nil {
+		n.StoreSettingsInJson, n.StoreViewedInJson = current.StoreSettingsInJson, current.StoreViewedInJson
+		if n.Flow == nil {
+			n.Flow = CloneSettings(current).Flow
+		}
+	}
+	if n.Flow == nil {
+		n.Flow = DefaultFlowSettings()
+	}
+	n.Flow.Normalize()
+	if n.CacheSize == 0 {
+		n.CacheSize = 64 << 20
+	}
+	if n.ConnectionsLimit == 0 {
+		n.ConnectionsLimit = 50
+	}
+	if n.DHTConnectionsLimit <= 0 {
+		n.DHTConnectionsLimit = 500
+	}
+	if n.TorrentDisconnectTimeout == 0 {
+		n.TorrentDisconnectTimeout = 30
+	}
+	n.ReaderReadAHead = max(5, min(100, n.ReaderReadAHead))
+	n.PreloadCache = max(0, min(100, n.PreloadCache))
+	if n.TorrentsSavePath == "" {
+		n.UseDisk = false
+	}
+	return n
+}
+
 func ValidateSettings(s *BTSets) error {
 	if s == nil {
 		return errors.New("settings are required")
@@ -60,6 +97,9 @@ func ValidateSettings(s *BTSets) error {
 		return errors.New("settings exceed supported bounds")
 	}
 	if f := s.Flow; f != nil {
+		if f.GlobalCacheBudgetMB < 0 || f.GlobalCacheBudgetMB > 1048576 || f.WarmCacheBudgetMB < 0 || f.WarmCacheBudgetMB > 65536 || f.PreparationConcurrency < 0 || f.PreparationConcurrency > 16 || f.ManagementRateLimit < 0 || f.ManagementRateLimit > 60000 || (f.PlaybackTokenTTL != 0 && (f.PlaybackTokenTTL < 30 || f.PlaybackTokenTTL > 86400)) {
+			return errors.New("Flow resource or access settings exceed supported bounds")
+		}
 		if f.SchemaVersion != 0 && f.SchemaVersion != 1 {
 			return errors.New("unsupported Flow settings schema")
 		}
@@ -79,7 +119,7 @@ func ValidateSettings(s *BTSets) error {
 				return errors.New("management origins must be exact http(s) origins")
 			}
 		}
-		if f.RequireTorrentInterface && f.TorrentInterface == "" {
+		if f.RequireTorrentInterface && strings.TrimSpace(f.TorrentInterface) == "" {
 			return errors.New("a required torrent interface must be selected")
 		}
 	}

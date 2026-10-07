@@ -844,7 +844,8 @@
     "hotApply": "Ces changements s’appliquent sans redémarrer le moteur torrent.",
     "applyIdle": "Appliquer après la lecture",
     "compatible": "Compatible",
-    "restricted": "Restreint"
+    "restricted": "Restreint",
+    "applying": "Application des paramètres…"
   },
   "preparation": {
     "title": "Préparer cet épisode",

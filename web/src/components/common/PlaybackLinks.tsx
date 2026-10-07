@@ -31,10 +31,14 @@ export function PlaybackLinks({
     retry: false,
     staleTime: 0,
   });
+  const capabilityURL = capability.data
+    ? new URL(capability.data.path, input.origin)
+    : undefined;
+  // Preserve the playlist's device/session grouping across every Range request.
+  if (capabilityURL && input.searchParams.has("ss"))
+    capabilityURL.searchParams.set("ss", input.searchParams.get("ss")!);
   const url =
-    capability.data && (secure || required)
-      ? new URL(capability.data.path, input.origin).href
-      : originalURL;
+    capability.data && (secure || required) ? capabilityURL!.href : originalURL;
   const blocked = required && !capability.data;
   const intents = buildIntentUrls(url);
   const linkClass =

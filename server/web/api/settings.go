@@ -56,7 +56,7 @@ func settings(c *gin.Context) {
 			abortWithJSONError(c, 400, err)
 			return
 		}
-		c.JSON(200, gin.H{"restart_required": sets.NeedsEngineRestart(sets.BTsets(), req.Sets), "active_work": torr.FlowHasActiveWork()})
+		c.JSON(200, gin.H{"restart_required": sets.NeedsEngineRestart(sets.BTsets(), sets.NormalizeConfiguration(req.Sets)), "active_work": torr.FlowHasActiveWork()})
 		return
 	} else if req.Action == "cancel_pending" {
 		if err := torr.CancelPendingConfiguration(req.Revision); err != nil {

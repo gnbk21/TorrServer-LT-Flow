@@ -169,7 +169,7 @@ export default function Settings() {
       setDirty(false);
     };
   }, [dirty, setDirty]);
-  if (query.isPending) return <Loading />;
+  if (query.isPending || configuration.isPending) return <Loading />;
   if (!query.data)
     return <RequestError error={query.error} retry={() => query.refetch()} />;
   const original = (configuration.data?.saved ?? query.data) as BTSettings;
@@ -228,10 +228,11 @@ export default function Settings() {
         );
       }
       if (confirm === "reset") {
-        await settingsApi.reset();
+        await settingsApi.reset(draftRevision);
         const fresh = await settingsApi.get();
         queryClient.setQueryData(["settings"], fresh);
         reset(flattenSettings(fresh));
+        await configuration.refetch();
       }
       if (confirm === "wipe") {
         await torrentsApi.wipe();
@@ -336,6 +337,15 @@ export default function Settings() {
         <RequestError error={query.error} stale retry={() => query.refetch()} />
       )}{" "}
       {!!error && <RequestError error={error} />}{" "}
+      {configuration.error && (
+        <RequestError
+          error={configuration.error}
+          retry={() => configuration.refetch()}
+        />
+      )}
+      {configuration.data?.applying && (
+        <p role="status">{t("settings.applying")}</p>
+      )}
       {notice && <p role="status">{notice}</p>}
       <form onSubmit={handleSubmit(submit)} className="space-y-5">
         {tab === "flow" && (
@@ -507,7 +517,12 @@ export default function Settings() {
           <Button
             type="submit"
             variant="primary"
-            disabled={!formState.isDirty || saving}
+            disabled={
+              !formState.isDirty ||
+              saving ||
+              !draftRevision ||
+              !!configuration.data?.applying
+            }
           >
             {t("settings.apply")}
           </Button>

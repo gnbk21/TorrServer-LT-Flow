@@ -5,6 +5,7 @@ import { z } from "zod";
 
 const stateSchema = z.object({
   revision: z.string(),
+  applying: z.boolean().optional(),
   saved: settingsSchema,
   effective: settingsSchema.nullable(),
   pending: settingsSchema.optional(),
@@ -46,6 +47,10 @@ export const settingsApi = {
     ),
 
   // This resets persisted settings and restarts the engine; never use for reads.
-  reset: (signal?: AbortSignal) =>
-    api.post<{ action: string }, void>("/settings", { action: "def" }, signal),
+  reset: (revision = "", signal?: AbortSignal) =>
+    api.post<{ action: string; revision: string }, void>(
+      "/settings",
+      { action: "def", revision },
+      signal,
+    ),
 };
