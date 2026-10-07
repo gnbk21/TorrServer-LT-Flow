@@ -173,6 +173,7 @@ func (s *Storage) Allocations() AllocationStatus {
 func (s *Storage) callbackOpen(storage int64, hash [20]byte, numPieces int, pieceLength int64) {
 	c := newCache(s, storage, hash, numPieces, pieceLength)
 	s.mu.Lock()
+	c.flowReconnect.Store(s.networkRecovering.Load())
 	resume := s.resumes[hash]
 	delete(s.resumes, hash)
 	c.resume = resume.bitmap

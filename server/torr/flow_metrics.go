@@ -396,6 +396,8 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 	sparse := t.SparseStatus()
 	for i := range out {
 		s := &out[i]
+		s.Delivery = flow.DeliveryEvidence{Mode: "IDLE", Confidence: "unknown", AgeMs: -1}
+		s.Risk = flow.RiskDecision{Level: "UNKNOWN", Reason: "INSUFFICIENT_EVIDENCE", Confidence: "unknown"}
 		f := t.fileByID(s.FileIndex)
 		if f == nil {
 			continue
@@ -423,10 +425,10 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 			s.ObservedPlaybackRate, s.ObservedConfidence = w.ObservedPlaybackRate, w.ObservedConfidence
 			s.TargetBufferSeconds, s.ForwardWindowPieces = w.TargetBufferSeconds, w.ForwardWindowPieces
 			s.Delivery = w.Delivery
-			s.SupplyQualified = w.Delivery.Confidence != "unknown"
+			s.SupplyQualified = w.Delivery.Confidence == "medium" || w.Delivery.Confidence == "high"
 		}
 		s.PlaybackConsumptionRate = e.BytesPerSecond
-		if s.ObservedPlaybackRate > 0 && s.PlaybackConsumptionRate <= 0 {
+		if s.ObservedPlaybackRate > 0 && s.ObservedConfidence == "stable" && s.PlaybackConsumptionRate <= 0 {
 			s.PlaybackConsumptionRate = s.ObservedPlaybackRate
 		}
 		s.DownloadRate, s.UploadRate, s.ConnectedPeers = status.DownloadSpeed, status.UploadSpeed, status.ActivePeers

@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { BTSettings } from "../types/settings";
 import { useForm, type RegisterOptions } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { useSettings, useRuntime, queryClient } from "../hooks/queries";
+import { useSettings, useRuntime, useVisible, queryClient } from "../hooks/queries";
 import { useDirty } from "../hooks/dirty";
 import { settingsApi } from "../api/settings";
 import { torrentsApi } from "../api/torrents";
@@ -88,10 +88,11 @@ export default function Settings() {
   const { t } = useTranslation();
   const query = useSettings();
   const runtime = useRuntime();
+  const visible = useVisible();
   const configuration = useQuery({
     queryKey: ["configuration"],
     queryFn: ({ signal }) => settingsApi.state(signal),
-    refetchInterval: 5000,
+    refetchInterval: visible ? 5000 : false,
   });
   const [draftRevision, setDraftRevision] = useState("");
   const [plan, setPlan] = useState<{

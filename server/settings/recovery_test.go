@@ -49,6 +49,43 @@ func TestSettingsRecoverPreserveAndExplicitRepair(t *testing.T) {
 	}
 }
 
+func TestRejectedSchemaSurvivesExplicitRepair(t *testing.T) {
+	for _, backend := range []string{"bbolt", "json"} {
+		t.Run(backend, func(t *testing.T) {
+			backupTestDB(t)
+			if backend == "json" {
+				tdb = &JsonDB{Path: Path, filenameDelimiter: ".", filenameExtension: ".json", fileMode: 0600, xPathDelimeter: "/"}
+			}
+			t.Cleanup(func() { recordRecovery("settings", "") })
+			good := CloneSettings(BTsets())
+			if err := SetBTSetsChecked(good); err != nil {
+				t.Fatal(err)
+			}
+			future := CloneSettings(good)
+			future.Flow.SchemaVersion = 2
+			rejected, _ := json.Marshal(future)
+			if err := putChecked(tdb, "Settings", "BitTorr", rejected); err != nil {
+				t.Fatal(err)
+			}
+			loadBTSets()
+			if SettingsRecovery().Source != "last_known_good" || !bytes.Equal(tdb.Get("Settings", "BitTorr"), rejected) {
+				t.Fatal("load replaced rejected schema", SettingsRecovery())
+			}
+			if err := SetBTSetsChecked(CloneSettings(BTsets())); err != nil {
+				t.Fatal(err)
+			}
+			backups, _ := filepath.Glob(filepath.Join(Path, "flow-rejected-settings-*.json"))
+			if len(backups) != 1 {
+				t.Fatal("rejected schema was not retained")
+			}
+			original, _ := os.ReadFile(backups[0])
+			if !bytes.Equal(original, rejected) {
+				t.Fatal("rejected schema changed")
+			}
+		})
+	}
+}
+
 func TestRecoveryFailureDoesNotPublishSettings(t *testing.T) {
 	backupTestDB(t)
 	before := CloneSettings(BTsets())

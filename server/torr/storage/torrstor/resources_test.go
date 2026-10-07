@@ -82,6 +82,10 @@ func TestVerifiedDeliveryCountsOnceAndResetsForReconnect(t *testing.T) {
 		t.Fatal("completion not counted exactly once", e)
 	}
 	s.SetNetworkRecovering(true)
+	s.callbackOpen(9, mkHash(89), 100, flow.MiB)
+	if !s.lookup(9).flowReconnect.Load() {
+		t.Fatal("cache created during recovery lost network state")
+	}
 	c.SetFlowDownloadRate(0)
 	if e = c.FlowWindow("phone").Delivery; e.Mode != "RECONNECT" || e.Confidence != "unknown" {
 		t.Fatal(e)

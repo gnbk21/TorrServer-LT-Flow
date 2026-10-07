@@ -338,7 +338,8 @@ func (c *Cache) refreshFlowWindowLocked(now time.Time) {
 			continue
 		}
 		rate := g.estimate.BytesPerSecond
-		if observed, _ := g.tracker.Rate(); observed > 0 && rate <= 0 {
+		observed, confidence := g.tracker.Rate()
+		if observed > 0 && confidence == "stable" && rate <= 0 {
 			rate = observed
 		}
 		evidence := g.delivery.Snapshot(now)
@@ -352,7 +353,11 @@ func (c *Cache) refreshFlowWindowLocked(now time.Time) {
 				suppliers = &n
 			}
 		}
-		g.risk = flow.BufferRisk(g.buffer, rate, waitP95, suppliers, evidence, f.TargetBufferSeconds, f.MaxBufferSeconds)
+		riskRate := rate
+		if g.estimate.Confidence != "medium" && g.estimate.Confidence != "high" && confidence != "stable" {
+			riskRate = 0
+		}
+		g.risk = flow.BufferRisk(g.buffer, riskRate, waitP95, suppliers, evidence, f.TargetBufferSeconds, f.MaxBufferSeconds)
 		g.seconds, g.pieces = flow.DeliveryWindow(rate, waitP95, stats, c.flowWaiting.Load() > 0, g.full,
 			g.risk.TargetSeconds, f.MaxBufferSeconds, f.StartupSafetyFactorPct,
 			c.PieceLength, maxAhead)
