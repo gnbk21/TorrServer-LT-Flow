@@ -1,8 +1,9 @@
-param([Parameter(Mandatory)][string]$Executable, [Parameter(Mandatory)][string]$OutputDirectory)
+param([Parameter(Mandatory)][string]$Executable, [Parameter(Mandatory)][string]$OutputDirectory, [Parameter(Mandatory)][string]$RecoveryProbe)
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true') { throw 'This destructive service lifecycle test is restricted to disposable CI runners.' }
 if (Get-Service -Name 'TorrServer-Flow' -ErrorAction SilentlyContinue) { throw 'A service already exists; refusing to touch it.' }
 $exe = (Resolve-Path -LiteralPath $Executable).Path
+$recoveryProbePath = (Resolve-Path -LiteralPath $RecoveryProbe).Path
 $state = [IO.Path]::GetFullPath($OutputDirectory)
 if (Test-Path -LiteralPath $state) { throw 'Test state must be new.' }
 [void](New-Item -ItemType Directory -Path $state)
@@ -36,7 +37,11 @@ try {
     $sidType = (Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\TorrServer-Flow').ServiceSidType
     if ($sidType -ne 3) { throw 'Service SID is not restricted.' }
     $failurePolicy = (& sc.exe qfailure TorrServer-Flow | Out-String)
-    if ($LASTEXITCODE -ne 0 -or $failurePolicy -notmatch '15000' -or $failurePolicy -notmatch '30000' -or $failurePolicy -notmatch '60000' -or $failurePolicy -notmatch 'NONE') { throw 'Bounded recovery actions missing.' }
+    $failurePolicy | Set-Content -LiteralPath (Join-Path $state 'recovery-display.txt')
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot read service recovery policy.' }
+    $policy = (& $recoveryProbePath | Out-String)
+    $policy | Set-Content -LiteralPath (Join-Path $state 'recovery-policy.json')
+    if ($LASTEXITCODE -ne 0) { throw "Bounded recovery policy mismatch: $policy" }
     Command -Arguments @('--service','start'); Health
     $crashedPID = (Get-CimInstance Win32_Service -Filter "Name='TorrServer-Flow'").ProcessId
     if ($crashedPID -le 0) { throw 'Fixture service PID missing.' }

@@ -469,13 +469,20 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: Build read-only SCM policy probe
+        working-directory: server
+        run: go build -o ../service-recovery-probe.exe ../build/service_recovery_probe_windows.go
       - uses: actions/download-artifact@v4
         with:
           name: TorrServer-LT-windows-amd64
           path: service-binary
       - name: Restricted account lifecycle
         shell: pwsh
-        run: ./build/test-windows-service.ps1 -Executable ./service-binary/TorrServer-LT-windows-amd64.exe -OutputDirectory ./service-test-state
+        run: ./build/test-windows-service.ps1 -Executable ./service-binary/TorrServer-LT-windows-amd64.exe -OutputDirectory ./service-test-state -RecoveryProbe ./service-recovery-probe.exe
       - uses: actions/download-artifact@v4
         with:
           name: flow-windows-update-fixture
@@ -497,6 +504,8 @@ jobs:
           name: flow-windows-service-check
           path: |
             service-test-state/service-test.json
+            service-test-state/recovery-display.txt
+            service-test-state/recovery-policy.json
             service-test-state/flow.log
             update-test-state/report.json
             service-update-test-state/report.json
