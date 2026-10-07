@@ -1,0 +1,321 @@
+{
+  "schema_version": 1,
+  "recorded_date": "2026-10-08",
+  "scope": "Upstream native API and short synthetic scheduling screen; not Flow cache/HTTP or decoded playback",
+  "production_profile_implemented": false,
+  "better_than_legacy_established": false,
+  "runner": "Windows amd64, CPython 3.12.14",
+  "binding": {
+    "native_version": "2.1.2.0",
+    "upstream_only": true,
+    "release_url": "https://github.com/arvidn/libtorrent/releases/tag/v2.1.2",
+    "asset": "libtorrent-2.1.2-cp312-cp312-win_amd64.whl",
+    "sha256": "cc449840f75377a0e37dc1015b43a0558024577c3d87c7e68647e15a70a322d2",
+    "github_asset_digest_verified": true,
+    "flow_native_patches_included": false
+  },
+  "scripts": {
+    "build/native_priority_probe.py": "4b6d146f960143291649f02bb32b0e22b574826857b8109ba3173ed3afc902c5",
+    "build/native_stream_screen.py": "d993957e717c8f75b8e75cb0becda27fce40401d1603b7a5de2ecb220cdadb2b",
+    "build/controlled_peer.py": "11bbca6c637849cdd12ee2326cc97b3b7e0fb5c5626f162346f63c1bdd100adf"
+  },
+  "priority_probe": {
+    "cases": 2,
+    "deadline_leads": [
+      32,
+      8
+    ],
+    "before": "graded priorities",
+    "after_deadlines": "priority 7 for every incomplete deadlined piece",
+    "after_clear": "priority 1 for every cleared piece",
+    "after_explicit_restore": "original graded vector",
+    "passed": true
+  },
+  "screen": {
+    "native_version": "2.1.2.0",
+    "upstream_binding_only": true,
+    "flow_cache_http_test": false,
+    "decoded_playback_test": false,
+    "demand_bytes_per_second": 11245516,
+    "piece_bytes": 4194304,
+    "playback_seconds": 8,
+    "window_pieces": 32,
+    "source_bytes": 201326592,
+    "source_sha256": "f258fbcc407e81c44da34e332e9a01d750c228b13abf09e221a86c83b61bd8a6"
+  },
+  "cases": [
+    {
+      "policy": "full",
+      "rotation": 0,
+      "startup_seconds": 8.28099999999904,
+      "read_bytes": 89795445,
+      "verified_prefix": true,
+      "blocked_poll_count": 0,
+      "elapsed_seconds": 16.328,
+      "payload_bytes": 162070528,
+      "peer_sent_bytes": 162070528
+    },
+    {
+      "policy": "bounded-8",
+      "rotation": 0,
+      "startup_seconds": 3.79700000000048,
+      "read_bytes": 89784199,
+      "verified_prefix": true,
+      "blocked_poll_count": 186,
+      "elapsed_seconds": 11.844,
+      "payload_bytes": 97222656,
+      "peer_sent_bytes": 97222656
+    },
+    {
+      "policy": "graded-after",
+      "rotation": 0,
+      "startup_seconds": 2.563000000000102,
+      "read_bytes": 88029899,
+      "verified_prefix": true,
+      "blocked_poll_count": 212,
+      "elapsed_seconds": 10.609,
+      "payload_bytes": 95928320,
+      "peer_sent_bytes": 95928320
+    },
+    {
+      "policy": "bounded-8",
+      "rotation": 1,
+      "startup_seconds": 7.390999999999622,
+      "read_bytes": 89784199,
+      "verified_prefix": true,
+      "blocked_poll_count": 0,
+      "elapsed_seconds": 15.437,
+      "payload_bytes": 142082048,
+      "peer_sent_bytes": 142082048
+    },
+    {
+      "policy": "graded-after",
+      "rotation": 1,
+      "startup_seconds": 2.561999999999898,
+      "read_bytes": 89795445,
+      "verified_prefix": true,
+      "blocked_poll_count": 120,
+      "elapsed_seconds": 10.594,
+      "payload_bytes": 105267200,
+      "peer_sent_bytes": 105267200
+    },
+    {
+      "policy": "full",
+      "rotation": 1,
+      "startup_seconds": 8.29700000000048,
+      "read_bytes": 89784199,
+      "verified_prefix": true,
+      "blocked_poll_count": 0,
+      "elapsed_seconds": 16.344,
+      "payload_bytes": 162725888,
+      "peer_sent_bytes": 162725888
+    },
+    {
+      "policy": "graded-after",
+      "rotation": 2,
+      "startup_seconds": 2.54700000000048,
+      "read_bytes": 89784199,
+      "verified_prefix": true,
+      "blocked_poll_count": 208,
+      "elapsed_seconds": 10.594,
+      "payload_bytes": 103727104,
+      "peer_sent_bytes": 103727104
+    },
+    {
+      "policy": "full",
+      "rotation": 2,
+      "startup_seconds": 8.296999999998661,
+      "read_bytes": 89795445,
+      "verified_prefix": true,
+      "blocked_poll_count": 0,
+      "elapsed_seconds": 16.344,
+      "payload_bytes": 177029120,
+      "peer_sent_bytes": 177029120
+    },
+    {
+      "policy": "bounded-8",
+      "rotation": 2,
+      "startup_seconds": 3.563000000000102,
+      "read_bytes": 88029899,
+      "verified_prefix": true,
+      "blocked_poll_count": 63,
+      "elapsed_seconds": 11.61,
+      "payload_bytes": 103989248,
+      "peer_sent_bytes": 103989248
+    }
+  ],
+  "summary": [
+    {
+      "policy": "full",
+      "runs": 3,
+      "startup_seconds_median": 8.297,
+      "blocked_poll_count_median": 0,
+      "read_bytes_min": 89784199,
+      "read_bytes_max": 89795445,
+      "verified_prefixes": 3
+    },
+    {
+      "policy": "bounded-8",
+      "runs": 3,
+      "startup_seconds_median": 3.797,
+      "blocked_poll_count_median": 63,
+      "read_bytes_min": 88029899,
+      "read_bytes_max": 89784199,
+      "verified_prefixes": 3
+    },
+    {
+      "policy": "graded-after",
+      "runs": 3,
+      "startup_seconds_median": 2.562,
+      "blocked_poll_count_median": 208,
+      "read_bytes_min": 88029899,
+      "read_bytes_max": 89795445,
+      "verified_prefixes": 3
+    }
+  ],
+  "limitations": [
+    "Three rotations of one short mixed-peer/outage setup; no statistical superiority claim",
+    "Eight-second paced complete-piece receiver, two-piece bootstrap, 128 MiB window; differs from Flow",
+    "Blocked poll counts are not elapsed stall seconds or decoded-frame stalls",
+    "Upstream binding has no Flow custom disk/cache or private queue patches",
+    "Loopback does not model WAN latency/loss, Wi-Fi or player buffering",
+    "Verified prefixes do not imply the paced target was sustained",
+    "No running user server, media, settings, router or preparation jobs modified"
+  ],
+  "raw_screen_sha256": "0a2146ad99adac2777ce9ed48918a1e29fe387fcbaca15f5cb37a74fe2d66e25",
+  "exploratory_screen": {
+    "script_sha256": "e89c7756531275323064dc082b35918cb2b8482f6b128cf7880cf2e35f15ace7",
+    "raw_sha256": "db2d24423370fe4d1694c58db6e7b63c70905a97b4395b9f9fbc1672f5a61880",
+    "cases": [
+      {
+        "policy": "full",
+        "rotation": 0,
+        "startup_seconds": 7.438000000000102,
+        "read_bytes": 89784199,
+        "verified_prefix": true,
+        "blocked_poll_count": 12,
+        "elapsed_seconds": 15.516,
+        "payload_bytes": 149798912,
+        "peer_sent_bytes": 149798912
+      },
+      {
+        "policy": "bounded-8",
+        "rotation": 0,
+        "startup_seconds": 3.563000000000102,
+        "read_bytes": 89784199,
+        "verified_prefix": true,
+        "blocked_poll_count": 259,
+        "elapsed_seconds": 11.813,
+        "payload_bytes": 105332736,
+        "peer_sent_bytes": 105332736
+      },
+      {
+        "policy": "graded-after",
+        "rotation": 0,
+        "startup_seconds": 2.5310000000008586,
+        "read_bytes": 89795445,
+        "verified_prefix": true,
+        "blocked_poll_count": 288,
+        "elapsed_seconds": 10.766,
+        "payload_bytes": 105021440,
+        "peer_sent_bytes": 105021440
+      },
+      {
+        "policy": "bounded-8",
+        "rotation": 1,
+        "startup_seconds": 3.7960000000002765,
+        "read_bytes": 89795445,
+        "verified_prefix": true,
+        "blocked_poll_count": 192,
+        "elapsed_seconds": 11.859,
+        "payload_bytes": 109281280,
+        "peer_sent_bytes": 109281280
+      },
+      {
+        "policy": "graded-after",
+        "rotation": 1,
+        "startup_seconds": 2.5469999999986612,
+        "read_bytes": 89795445,
+        "verified_prefix": true,
+        "blocked_poll_count": 254,
+        "elapsed_seconds": 10.641,
+        "payload_bytes": 103628800,
+        "peer_sent_bytes": 103628800
+      },
+      {
+        "policy": "full",
+        "rotation": 1,
+        "startup_seconds": 8.70299999999952,
+        "read_bytes": 89784199,
+        "verified_prefix": true,
+        "blocked_poll_count": 143,
+        "elapsed_seconds": 16.812,
+        "payload_bytes": 172998656,
+        "peer_sent_bytes": 172998656
+      },
+      {
+        "policy": "graded-after",
+        "rotation": 2,
+        "startup_seconds": 2.54700000000048,
+        "read_bytes": 75378693,
+        "verified_prefix": true,
+        "blocked_poll_count": 366,
+        "elapsed_seconds": 10.609,
+        "payload_bytes": 104464384,
+        "peer_sent_bytes": 104464384
+      },
+      {
+        "policy": "full",
+        "rotation": 2,
+        "startup_seconds": 8.688000000000102,
+        "read_bytes": 89784199,
+        "verified_prefix": true,
+        "blocked_poll_count": 71,
+        "elapsed_seconds": 16.813,
+        "payload_bytes": 165167104,
+        "peer_sent_bytes": 165167104
+      },
+      {
+        "policy": "bounded-8",
+        "rotation": 2,
+        "startup_seconds": 3.5469999999986612,
+        "read_bytes": 89784199,
+        "verified_prefix": true,
+        "blocked_poll_count": 239,
+        "elapsed_seconds": 11.672,
+        "payload_bytes": 112951296,
+        "peer_sent_bytes": 112951296
+      }
+    ],
+    "summary": [
+      {
+        "policy": "full",
+        "runs": 3,
+        "startup_seconds_median": 8.688,
+        "blocked_poll_count_median": 71,
+        "read_bytes_min": 89784199,
+        "read_bytes_max": 89784199,
+        "verified_prefixes": 3
+      },
+      {
+        "policy": "bounded-8",
+        "runs": 3,
+        "startup_seconds_median": 3.563,
+        "blocked_poll_count_median": 239,
+        "read_bytes_min": 89784199,
+        "read_bytes_max": 89795445,
+        "verified_prefixes": 3
+      },
+      {
+        "policy": "graded-after",
+        "runs": 3,
+        "startup_seconds_median": 2.547,
+        "blocked_poll_count_median": 288,
+        "read_bytes_min": 75378693,
+        "read_bytes_max": 89795445,
+        "verified_prefixes": 3
+      }
+    ],
+    "note": "Earlier screen before adding nonempty/startup assertions and a bounded prefix verification read; scheduling algorithm unchanged"
+  }
+}

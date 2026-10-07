@@ -117,8 +117,8 @@ The native dependency is pinned to libtorrent v2.1.2 plus the reviewed queue-tim
 arithmetic fix. Delivery variation/outage feedback retains existing buffer
 budgets and independent reader reconciliation. **Legacy
 remains the default profile.** These changes cannot obtain bytes absent from all
-accessible sources. Choose a smaller release explicitly when delivery stays below
-consumption; different encodes cannot share pieces.
+accessible sources. Diagnostics distinguish a useful-supply deficit from local
+request/cache delays; different encodes cannot share pieces.
 
 All of this works without a paid provider or account. See the [sparse streaming
 guide](SPARSE_STREAMING.md) for settings, storage, privacy, endpoints and verification
@@ -143,6 +143,12 @@ for swarm tuning with these shared streaming lifecycle controls. Startup preload
 sets piece priorities without pausing and disconnecting the swarm. Saving a
 profile restarts the torrent engine and stops active streams. Keep **Legacy**
 unless testing shows another profile works better for your network and torrents.
+
+The proposed **Adaptive Streaming** profile is [research, not an available
+setting](STREAMING_PROFILE_RESEARCH.md). The investigation targets high bitrate
+streaming with a bounded rolling cache; neither full episode preparation nor a
+paid provider is required. Initial native comparisons exposed startup/continuity
+tradeoffs and do not establish an improvement over Legacy.
 
 ## Startup diagnostics in development builds
 

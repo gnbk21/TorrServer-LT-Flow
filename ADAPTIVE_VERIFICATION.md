@@ -242,6 +242,32 @@ does not establish sustained public-swarm throughput, eliminate future stalls
 or measure the player's decoded buffer. Anonymous numeric samples are retained
 locally in `.tools/live-preload-20261008/`.
 
+The user subsequently reported stuttering again. Seven samples over 30 seconds
+recorded 0–7.5 seconds of contiguous data, 17–20 recent server-read stalls and
+qualified long-window useful delivery of 7.4–9.1 MB/s against 11.2 MB/s demand.
+Upload-only mode remained zero, and no hash-failed bytes were reported. Urgent
+pieces had connected suppliers; a nearly full 2 GiB cache included data beyond
+gaps and older retained pieces. Cache fullness therefore did not establish a
+playable contiguous buffer. The earlier pause relieved symptoms temporarily;
+it did not resolve sustained intermittent delivery. No profile or experimental
+deadline setting was changed automatically.
+
+With explicit user approval, a revision-checked change switched only the swarm
+profile from Balanced to Legacy. Saved/effective cache remained 2048 MiB; both
+experimental deadline controls remained off. The engine restarted successfully
+and Just Player reconnected automatically. Delivery initially exceeded estimated
+demand and recent read stalls briefly dropped to zero, but within the next two
+minutes the buffer returned near zero and piece waits rose again. The user
+reported "Better, but still stutters". This is a partial symptom improvement,
+not a demonstrated sustained-throughput fix or a controlled profile ranking.
+No full episode preparation or quota increase was started. The user explicitly
+requested preserving high-quality streaming rather than preparing the whole
+episode or using a lower-bitrate release. The subsequent
+[streaming investigation](STREAMING_PROFILE_RESEARCH.md) evaluates the existing
+scheduler, native priority semantics and candidate policies using separate
+synthetic probes. No experimental policy was applied to this live stream and
+no new profile is claimed to outperform Legacy.
+
 The follow-up guard rejects active disk-cache paths beginning or ending with a
 literal double quote, including quotes surrounded by whitespace. The API's
 shared settings validator covers planning, saving and queued application; the
@@ -255,10 +281,16 @@ Local verification passed the portable Go path cases, 49 frontend unit/component
 tests, TypeScript, targeted ESLint and the production build with original
 dependency notices. A focused Playwright regression verified the inline error,
 field focus, no plan/save for quoted input and successful save after correction.
-Initial JS is 173.44 kB gzip; HLS remains lazy. Full native settings integration
-and the complete platform/browser suite require the follow-up commit's CI;
-earlier passing CI does not verify this changed source. The running executable
-has the repaired configuration but predates the new validation guard.
+Initial JS is 173.44 kB gzip; HLS remains lazy. Source `02589c52` subsequently
+passed [cross/native/service CI](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/37685856711),
+[both macOS builds](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/37685856809)
+and [branch checks](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/37685856693).
+This includes native settings integration, complete browser regressions,
+unit/vet/race/contracts/vulnerability/fuzz checks, controlled runtime scenarios
+and restricted Windows service update/rollback. The running executable has the
+repaired configuration but predates the new validation guard. The subsequent
+streaming research adds optional probes and records evidence without modifying
+the tested server/frontend source trees.
 
 ## Requirement reconciliation
 
