@@ -12,11 +12,15 @@ import (
 	"time"
 )
 
-func TestUnauthorizedSplitBodyConnectionClose(t *testing.T) {
+func TestRejectedSplitBodyConnectionClose(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer discardRejectedBody(w, r)
 		w.Header().Set("WWW-Authenticate", "Basic realm=Authorization Required")
-		w.WriteHeader(http.StatusUnauthorized)
+		if r.URL.Path == "/settings" {
+			w.WriteHeader(http.StatusUnauthorized)
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}
 	}))
 	t.Cleanup(server.Close)
 	address := strings.TrimPrefix(server.URL, "http://")
@@ -26,7 +30,11 @@ func TestUnauthorizedSplitBodyConnectionClose(t *testing.T) {
 			t.Fatal(err)
 		}
 		connection.SetDeadline(time.Now().Add(3 * time.Second))
-		_, err = io.WriteString(connection, "POST /settings HTTP/1.1\r\nHost: fixture\r\nConnection: close\r\nContent-Length: 16\r\n\r\n")
+		path, expected := "/settings", 401
+		if i%2 != 0 {
+			path, expected = "/maintenance", 503
+		}
+		_, err = fmt.Fprintf(connection, "POST %s HTTP/1.1\r\nHost: fixture\r\nConnection: close\r\nContent-Length: 16\r\n\r\n", path)
 		if err == nil {
 			_, err = io.WriteString(connection, `{"action":"get"}`)
 		}
@@ -39,7 +47,7 @@ func TestUnauthorizedSplitBodyConnectionClose(t *testing.T) {
 			connection.Close()
 			t.Fatalf("request %d: %v", i, err)
 		}
-		if response.StatusCode != 401 || response.Header.Get("WWW-Authenticate") == "" {
+		if response.StatusCode != expected || response.Header.Get("WWW-Authenticate") == "" {
 			t.Errorf("unexpected response: %v", response.Status)
 		}
 		response.Body.Close()

@@ -8,7 +8,7 @@ import (
 
 // Go's HTTP/1 server can close a Connection: close request without consuming
 // its body. On Windows, unread TCP bytes can then reset the connection before
-// the client receives the 401. Consume only small, fixed-length bodies, with a
+// the client receives a rejection. Consume only small, fixed-length bodies, with a
 // deadline; never wait for an upload or solicit an Expect: 100-continue body.
 func discardRejectedBody(w http.ResponseWriter, r *http.Request) {
 	const limit = 4096

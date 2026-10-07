@@ -78,7 +78,6 @@ func CheckAuth() gin.HandlerFunc {
 		if _, ok := c.Get(gin.AuthUserKey); ok {
 			return
 		}
-		defer discardRejectedBody(c.Writer, c.Request)
 
 		// SPA XHR/fetch probes must not trigger the browser's native Basic dialog.
 		// The initial document navigation (Accept: text/html) and third-party
@@ -91,6 +90,19 @@ func CheckAuth() gin.HandlerFunc {
 
 		c.Header("WWW-Authenticate", "Basic realm=Authorization Required")
 		c.AbortWithStatus(http.StatusUnauthorized)
+	}
+}
+
+// PreserveRejectedBody also covers temporary readiness and maintenance errors,
+// origin/rate rejection and WAF responses, before those handlers return early.
+func PreserveRejectedBody() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		defer func() {
+			if c.Writer.Status() >= http.StatusBadRequest {
+				discardRejectedBody(c.Writer, c.Request)
+			}
+		}()
+		c.Next()
 	}
 }
 

@@ -91,7 +91,7 @@ func Start() {
 	}
 
 	route := gin.New()
-	route.Use(log.WebLogger(), waf.WAF(), gin.Recovery(), api.ManagementPolicy(), cors.New(corsCfg), location.Default())
+	route.Use(log.WebLogger(), auth.PreserveRejectedBody(), waf.WAF(), gin.Recovery(), api.ManagementPolicy(), cors.New(corsCfg), location.Default())
 	engineReady.Store(false)
 	diagnostics.MarkEngineReady(false)
 	route.Use(func(c *gin.Context) {
