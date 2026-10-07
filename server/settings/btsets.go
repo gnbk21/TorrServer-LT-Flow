@@ -3,6 +3,7 @@ package settings
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"os"
+	"server/diagnostics"
 	"server/log"
 )
 
@@ -259,6 +261,14 @@ func SetBTSetsChecked(sets *BTSets) error {
 			return errors.New("cannot save last-known-good settings")
 		}
 	}
+	if status := SettingsRecovery(); status.Issue == "SETTINGS_UNREADABLE" {
+		if rejected := tdb.Get("Settings", "BitTorr"); len(rejected) > 0 {
+			name := filepath.Join(Path, fmt.Sprintf("flow-rejected-settings-%d.json", time.Now().UnixNano()))
+			if err := diagnostics.WritePrivateFile(name, rejected); err != nil {
+				return errors.New("cannot retain rejected settings before repair")
+			}
+		}
+	}
 	if err := putChecked(tdb, "Settings", "BitTorr", buf); err != nil {
 		return err
 	}
@@ -355,6 +365,7 @@ func loadBTSets() {
 			recordRecovery("settings", "")
 			if err := saveKnownGood(sets); err != nil {
 				log.TLogln("Last-known-good snapshot unavailable")
+				recordRecovery("settings", "RECOVERY_SNAPSHOT_WRITE_FAILED")
 			}
 			return
 		}

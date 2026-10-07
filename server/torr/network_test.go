@@ -33,6 +33,24 @@ func TestNetworkTrackerRecoversAfterAddressChanges(t *testing.T) {
 	}
 }
 
+func TestNetworkTrackerRecoversWithSameAddress(t *testing.T) {
+	var tracker networkTracker
+	addresses := []string{"192.168.1.10"}
+	tracker.observe(addresses, nil)
+	tracker.needAnnounce = false
+	if tracker.observe(addresses, errors.New("interface unavailable")) || tracker.needAnnounce {
+		t.Fatal("unavailable interface should not announce")
+	}
+	if !tracker.observe(addresses, nil) || !tracker.needAnnounce {
+		t.Fatal("same-address recovery should request an announce")
+	}
+	tracker.needAnnounce = false
+	tracker.observe(addresses, nil)
+	if tracker.needAnnounce {
+		t.Fatal("healthy polling repeated recovery")
+	}
+}
+
 func TestTrackerRecoveryUsesConnectivityLossRatherThanAddressAge(t *testing.T) {
 	bt := &BTServer{networkStatus: FlowNetworkStatus{State: "ADDRESS_READY", Connectivity: "DEGRADED", ChangedAt: time.Now().Add(-time.Hour), ConnectivityLostAt: time.Now().Add(-2 * time.Second)}}
 	bt.recordTrackerConnectivity("tracker_reply")

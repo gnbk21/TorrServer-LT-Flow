@@ -214,7 +214,7 @@ func (c *Cache) SetFlowDownloadRate(rate float64) {
 	for group, g := range c.flowGroups {
 		mode := "IDLE"
 		if preparing {
-			mode = "PREP"
+			mode = "PREPARATION"
 		}
 		if probing {
 			mode = "PROBE"
@@ -299,6 +299,7 @@ func (c *Cache) FlowWindow(group string) FlowWindowStatus {
 }
 
 func (s *Storage) SetNetworkRecovering(recovering bool) {
+	s.networkRecovering.Store(recovering)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, c := range s.caches {

@@ -250,7 +250,7 @@ type waitFocusEntry struct {
 const waitFocusLingerMs = 5000
 
 func newCache(s *Storage, sid int64, hash [20]byte, numPieces int, pieceLength int64) *Cache {
-	return &Cache{
+	c := &Cache{
 		storage:     s,
 		StorageID:   sid,
 		InfoHash:    hash,
@@ -264,6 +264,10 @@ func newCache(s *Storage, sid int64, hash [20]byte, numPieces int, pieceLength i
 		refetchedAt: map[int]int64{},
 		waitFocus:   map[string]waitFocusEntry{},
 	}
+	if s != nil {
+		c.flowReconnect.Store(s.networkRecovering.Load())
+	}
+	return c
 }
 
 // setWaitFocus records the group's current blocked/seek-target piece (called on

@@ -313,7 +313,7 @@ func PrepareEpisode(hashText string, index int, action string) error {
 		}
 		return errors.New("wait for preparation cleanup to finish")
 	}
-	previous, previousError := j.State, j.ErrorCode
+	previous, previousError, previousReason := j.State, j.ErrorCode, j.SchedulingReason
 	switch action {
 	case "start", "resume":
 		reserved, _ := p.reserved()
@@ -335,6 +335,7 @@ func PrepareEpisode(hashText string, index int, action string) error {
 	if err := p.save(); err != nil {
 		j.State = previous
 		j.ErrorCode = previousError
+		j.SchedulingReason = previousReason
 		return errors.New("cannot persist preparation action")
 	}
 	if err := p.configure(hash); err != nil {

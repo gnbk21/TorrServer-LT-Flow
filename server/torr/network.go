@@ -98,15 +98,17 @@ func (bt *BTServer) recordNetworkAlert(a *lt.Alert) {
 type networkTracker struct {
 	fingerprint  string
 	needAnnounce bool
+	ready        bool
 }
 
 func (t *networkTracker) observe(addresses []string, err error) bool {
 	ready := len(addresses) > 0 && err == nil
 	fingerprint := strings.Join(addresses, ",")
-	if fingerprint != t.fingerprint {
+	if fingerprint != t.fingerprint || ready != t.ready {
 		t.fingerprint = fingerprint
 		t.needAnnounce = ready
 	}
+	t.ready = ready
 	return ready
 }
 

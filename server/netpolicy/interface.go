@@ -47,7 +47,8 @@ func Snapshot() InterfaceStatus {
 	}
 	for _, a := range addresses {
 		ip, _, err := net.ParseCIDR(a.String())
-		ipv6 := settings.BTsets() != nil && settings.BTsets().EnableIPv6
+		current := settings.BTsets()
+		ipv6 := current != nil && current.EnableIPv6
 		if err == nil && ip.IsGlobalUnicast() && !ip.IsLinkLocalUnicast() && (ip.To4() != nil || ipv6) {
 			s.Addresses = append(s.Addresses, ip.String())
 		}

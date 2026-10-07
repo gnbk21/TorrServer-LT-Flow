@@ -42,7 +42,13 @@ def anonymous_range(server, path, source, start, end, method='GET'):
 def wait_effective(server, expected):
     deadline = time.monotonic()+45
     while time.monotonic() < deadline:
-        current = state(server)
+        try:
+            current = state(server)
+        except urllib.error.HTTPError as error:
+            if error.code != 503:
+                raise
+            time.sleep(.25)
+            continue
         if current.get('error'):
             raise AssertionError(current['error'])
         if not current.get('pending') and current.get('effective') == expected:

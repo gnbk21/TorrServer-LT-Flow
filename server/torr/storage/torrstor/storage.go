@@ -12,6 +12,7 @@ import (
 	"errors"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"server/lt"
@@ -21,12 +22,13 @@ import (
 // into libtorrent via Install(); calls from libtorrent's disk threads
 // land on its Read/Write/Open/Close/Deleted/Have methods.
 type Storage struct {
-	mu            sync.RWMutex
-	caches        map[int64]*Cache    // by libtorrent storage_id
-	byHash        map[[20]byte]*Cache // by info hash for Reader lookup from torr
-	resumes       map[[20]byte]verifiedResume
-	preparations  map[[20]byte]PreparationStorage
-	verifiedReads map[[20]byte]bool
+	mu                sync.RWMutex
+	caches            map[int64]*Cache    // by libtorrent storage_id
+	byHash            map[[20]byte]*Cache // by info hash for Reader lookup from torr
+	resumes           map[[20]byte]verifiedResume
+	preparations      map[[20]byte]PreparationStorage
+	verifiedReads     map[[20]byte]bool
+	networkRecovering atomic.Bool
 }
 
 type verifiedResume struct {
