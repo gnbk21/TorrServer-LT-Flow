@@ -700,6 +700,7 @@
   "settings": {
     "validationOrder": "Le maximum doit être supérieur ou égal au minimum.",
     "pathRequired": "Un dossier de cache disque est nécessaire.",
+    "pathNoQuotes": "Saisissez le chemin du dossier sans guillemets autour.",
     "tailMode": "Réservation automatique de la fin, comme en amont",
     "fixErrors": "Corrigez les paramètres signalés avant de les appliquer.",
     "saved": "Enregistré.",

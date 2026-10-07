@@ -694,6 +694,7 @@
   "settings": {
     "validationOrder": "Maximul trebuie să fie cel puțin egal cu minimul.",
     "pathRequired": "Este necesar un director pentru cache-ul pe disc.",
+    "pathNoQuotes": "Introduceți calea folderului fără ghilimele la început și la sfârșit.",
     "tailMode": "Rezervare automată a finalului, ca în original",
     "fixErrors": "Corectează setările marcate înainte de aplicare.",
     "saved": "Salvat.",

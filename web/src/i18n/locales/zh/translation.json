@@ -700,6 +700,7 @@
   "settings": {
     "validationOrder": "最大值必须大于或等于最小值。",
     "pathRequired": "必须指定磁盘缓存目录。",
+    "pathNoQuotes": "请输入文件夹路径，不要在两端加引号。",
     "tailMode": "沿用上游的自动尾部预留",
     "fixErrors": "请先修正标出的设置。",
     "saved": "保存成功。",

@@ -93,6 +93,9 @@ func ValidateSettings(s *BTSets) error {
 	if s == nil {
 		return errors.New("settings are required")
 	}
+	if err := validateDiskCachePath(s.UseDisk, s.TorrentsSavePath); err != nil {
+		return err
+	}
 	if s.CacheSize < 0 || s.CacheSize > 16<<30 || s.PeersListenPort < 0 || s.PeersListenPort > 65535 || s.ConnectionsLimit < 0 || s.ConnectionsLimit > 10000 || s.DownloadRateLimit < 0 || s.UploadRateLimit < 0 {
 		return errors.New("settings exceed supported bounds")
 	}

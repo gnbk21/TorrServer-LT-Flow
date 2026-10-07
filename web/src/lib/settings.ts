@@ -112,6 +112,9 @@ export function validateSettings(
       errors[`Flow.${max}`] = "settings.validationOrder";
   if (values.UseDisk && !String(values.TorrentsSavePath || "").trim())
     errors.TorrentsSavePath = "settings.pathRequired";
+  const cachePath = String(values.TorrentsSavePath || "").trim();
+  if (values.UseDisk && (cachePath.startsWith('"') || cachePath.endsWith('"')))
+    errors.TorrentsSavePath = "settings.pathNoQuotes";
   if (
     values["Flow.BootstrapTailMode"] !== undefined &&
     values["Flow.BootstrapTailMode"] !== "upstream-auto"

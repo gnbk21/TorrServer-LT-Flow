@@ -128,6 +128,27 @@ func TestSettingsHotApplicationAndSchema(t *testing.T) {
 	}
 }
 
+func TestSettingsRejectQuotedActiveDiskCache(t *testing.T) {
+	backupTestDB(t)
+	before := SettingsRevision(BTsets())
+	s := NewDefaultConfig()
+	s.UseDisk = true
+	s.TorrentsSavePath = `"C:\cache folder"`
+	if ValidateSettings(s) == nil {
+		t.Fatal("settings accepted a quoted disk cache path")
+	}
+	if err := SetBTSetsChecked(s); err == nil {
+		t.Fatal("settings persisted a quoted disk cache path")
+	}
+	if SettingsRevision(BTsets()) != before {
+		t.Fatal("rejected disk path changed the active settings")
+	}
+	s.TorrentsSavePath = `C:\cache folder`
+	if err := ValidateSettings(s); err != nil {
+		t.Fatal("settings rejected an unquoted disk cache path", err)
+	}
+}
+
 func TestRecoveryRejectsTrailingDataAndPortablePolicyPreserved(t *testing.T) {
 	backupTestDB(t)
 	s := CloneSettings(BTsets())

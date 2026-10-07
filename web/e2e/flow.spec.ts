@@ -425,6 +425,49 @@ test("settings cancel is inert, apply preserves Flow and unknown fields", async 
     },
   });
 });
+test("quoted disk cache paths show a correction before any settings save", async ({
+  page,
+}) => {
+  const saves = await mockServer(page);
+  let plans = 0;
+  page.on("request", (request) => {
+    if (
+      new URL(request.url()).pathname === "/settings" &&
+      request.postDataJSON()?.action === "plan"
+    )
+      plans++;
+  });
+  await page.goto("/#/settings");
+  await page.locator("#UseDisk").check();
+  const path = page.locator("#TorrentsSavePath");
+  await path.fill('"C:\\cache folder"');
+  await page
+    .getByRole("button", { name: "Apply settings", exact: true })
+    .click();
+  await expect(
+    page.getByText(
+      "Enter the folder path without surrounding quotation marks.",
+      {
+        exact: true,
+      },
+    ),
+  ).toBeVisible();
+  await expect(path).toBeFocused();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(plans).toBe(0);
+  expect(saves).toHaveLength(0);
+  await path.fill("C:\\cache folder");
+  await page
+    .getByRole("button", { name: "Apply settings", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0]).toMatchObject({
+    action: "set",
+    sets: { UseDisk: true, TorrentsSavePath: "C:\\cache folder" },
+  });
+});
+
 test("settings polling preserves draft revision and rejects conflicting save", async ({
   page,
 }) => {

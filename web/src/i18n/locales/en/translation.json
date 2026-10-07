@@ -702,6 +702,7 @@
     },
     "validationOrder": "Maximum must be at least the minimum.",
     "pathRequired": "A disk cache directory is required.",
+    "pathNoQuotes": "Enter the folder path without surrounding quotation marks.",
     "tailMode": "Upstream automatic tail reservation",
     "fixErrors": "Correct the marked settings before applying.",
     "saved": "Saved successfully.",

@@ -47,9 +47,9 @@ and `web/` trees are identical to `1e796532`. Final verification CI:
 - [macOS](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/37679503229): passed, both architectures.
 - [Branch checks](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/37679502931): passed.
 
-Subsequent documentation-only commits do not change the tested server, frontend
-or verification tooling. The links above identify the tested source explicitly;
-they are not claims about the status of a later documentation-triggered run.
+Documentation-only `ebe90299` retains those tested source trees; its cross/native/
+service, macOS and branch reruns also passed. The later cache-path correction
+below changes server/frontend source and has its own verification record.
 
 The successful Linux `1e796532` reports are retained locally at
 `.tools/adaptive-final-1e796532-linux/`: controlled playback, both startup
@@ -214,6 +214,51 @@ Reproduce the full acceptance with a new output directory:
 ```powershell
 python build/adaptive_harness.py --executable .tools/artifacts/windows-adaptive-final-1e796532/TorrServer-LT-windows-amd64.exe --output .tools/adaptive-acceptance-new
 ```
+
+## Live disk-cache incident and path validation (8 October 2026)
+
+The active Windows server had literal surrounding quotation marks in its saved
+disk-cache folder path. The console reported `Access is denied`, native status
+showed upload-only mode and verified cache remained empty despite connected
+peers. The intended unquoted folder existed and a temporary write/flush/delete
+probe succeeded. Removing only those quotes through the revision-checked
+settings API and applying the engine restart restored cache writes. Saved and
+effective cache size remained 2048 MiB; the selected Balanced profile was retained.
+
+The retry reached its first useful block in 410 ms, completed bootstrap/probing
+in about nine seconds and its startup prebuffer in 24 seconds. These measure
+server stages, not decoded time to first frame. The user confirmed playback
+started. No further disk-write error or upload-only mode was observed.
+
+Subsequent intermittent playback had a separate visible constraint: the probed
+media bitrate was about 90 Mbps (11.2 MB/s), useful delivery sometimes fell below
+that demand, contiguous data drained and server reads waited for pieces. Wire
+traffic and connected-peer counts alone did not establish playable supply.
+Pausing in Just Player left downloads enabled; the HTTP read position then had
+about 74 seconds of contiguous data ahead. After resuming, the user reported
+smooth playback; six samples over 25 seconds recorded no recent read stalls,
+with contiguous ahead data ranging from 37 to 102 seconds. This short observation
+does not establish sustained public-swarm throughput, eliminate future stalls
+or measure the player's decoded buffer. Anonymous numeric samples are retained
+locally in `.tools/live-preload-20261008/`.
+
+The follow-up guard rejects active disk-cache paths beginning or ending with a
+literal double quote, including quotes surrounded by whitespace. The API's
+shared settings validator covers planning, saving and queued application; the
+web form displays a field correction in all seven languages before sending a
+plan or save. Inactive disk settings and existing unquoted absolute, UNC and
+relative paths remain compatible. Paths are never silently rewritten. Existing
+invalid stored configurations follow the established last-known-good recovery
+and explicit repair policy.
+
+Local verification passed the portable Go path cases, 49 frontend unit/component
+tests, TypeScript, targeted ESLint and the production build with original
+dependency notices. A focused Playwright regression verified the inline error,
+field focus, no plan/save for quoted input and successful save after correction.
+Initial JS is 173.44 kB gzip; HLS remains lazy. Full native settings integration
+and the complete platform/browser suite require the follow-up commit's CI;
+earlier passing CI does not verify this changed source. The running executable
+has the repaired configuration but predates the new validation guard.
 
 ## Requirement reconciliation
 
