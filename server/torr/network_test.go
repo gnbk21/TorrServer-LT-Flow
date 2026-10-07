@@ -51,6 +51,25 @@ func TestNetworkTrackerRecoversWithSameAddress(t *testing.T) {
 	}
 }
 
+func TestNetworkTransitionInvalidatesHistoricalConnectivity(t *testing.T) {
+	now := time.Now()
+	s := FlowNetworkStatus{Connectivity: "ONLINE", LastTrackerReply: now.Add(-time.Minute)}
+	s.invalidateConnectivity(now, true)
+	if s.Connectivity != "INTERNET_WAIT" || !s.ConnectivityLostAt.Equal(now) {
+		t.Fatal("same-address recovery retained historical tracker success", s)
+	}
+	s.Connectivity, s.LastTrackerReply = "ONLINE", now.Add(time.Millisecond)
+	s.ConnectivityLostAt = time.Time{}
+	s.invalidateConnectivity(now, true)
+	if s.Connectivity != "ONLINE" || !s.ConnectivityLostAt.IsZero() {
+		t.Fatal("recovery check overwrote a fresh tracker reply", s)
+	}
+	s.invalidateConnectivity(now, false)
+	if s.Connectivity != "INTERNET_WAIT" {
+		t.Fatal("reply overrode unavailable local networking", s)
+	}
+}
+
 func TestTrackerRecoveryUsesConnectivityLossRatherThanAddressAge(t *testing.T) {
 	bt := &BTServer{networkStatus: FlowNetworkStatus{State: "ADDRESS_READY", Connectivity: "DEGRADED", ChangedAt: time.Now().Add(-time.Hour), ConnectivityLostAt: time.Now().Add(-2 * time.Second)}}
 	bt.recordTrackerConnectivity("tracker_reply")

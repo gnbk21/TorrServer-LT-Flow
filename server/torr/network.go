@@ -101,6 +101,19 @@ type networkTracker struct {
 	ready        bool
 }
 
+// Old tracker success is historical evidence after a route change or wake.
+// Preserve a reply that already arrived during this recovery check instead of
+// overwriting it when the lifecycle publishes its local-readiness observation.
+func (s *FlowNetworkStatus) invalidateConnectivity(at time.Time, ready bool) {
+	if ready && s.Connectivity == "ONLINE" && !s.LastTrackerReply.Before(at) {
+		return
+	}
+	s.Connectivity = "INTERNET_WAIT"
+	if s.ConnectivityLostAt.IsZero() {
+		s.ConnectivityLostAt = at
+	}
+}
+
 func (t *networkTracker) observe(addresses []string, err error) bool {
 	ready := len(addresses) > 0 && err == nil
 	fingerprint := strings.Join(addresses, ",")
@@ -261,6 +274,7 @@ func (bt *BTServer) networkLifecycle(stop <-chan struct{}, done chan<- struct{})
 		}
 		now := time.Now()
 		resumed := !lastCheck.IsZero() && now.Sub(lastCheck) > 90*time.Second
+		networkTransition := notified || resumed
 		lastCheck = now
 		previousFingerprint, previouslyReady := tracker.fingerprint, tracker.ready
 		ready := tracker.observe(addresses, err)
@@ -330,11 +344,8 @@ func (bt *BTServer) networkLifecycle(stop <-chan struct{}, done chan<- struct{})
 			status.TransitionCount++
 			status.ChangedAt = now
 		}
-		if !ready || addressChanged {
-			status.Connectivity = "INTERNET_WAIT"
-			if status.ConnectivityLostAt.IsZero() {
-				status.ConnectivityLostAt = now
-			}
+		if !ready || addressChanged || networkTransition {
+			status.invalidateConnectivity(checkStarted, ready)
 		}
 		status.State, status.Addresses, status.CheckedAt = state, addresses, now
 		status.NextCheckSeconds = int(wait / time.Second)
