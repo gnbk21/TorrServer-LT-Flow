@@ -17,10 +17,12 @@ export function deriveFlowHealth(session?: FlowSession): HealthDerivation {
     // Present the server's warning and measured rate. Do not infer a stall from
     // zero throughput: the player may be paused or reading entirely from cache.
     if (session.state === "STALLED") state = "STALLED";
-    else if (session.buffer_warning) state = "BUFFER_RISK";
+    else if (session.buffer_warning || session.risk?.level === "HIGH")
+      state = "BUFFER_RISK";
     else if (
-      session.sustainability_ratio < 1 &&
-      session.buffer_exhaustion_seconds != null
+      session.risk?.level === "ELEVATED" ||
+      (session.sustainability_ratio < 1 &&
+        session.buffer_exhaustion_seconds != null)
     )
       state = "MARGINAL";
     else if (session.buffer_ahead_seconds > 0) state = "HEALTHY";

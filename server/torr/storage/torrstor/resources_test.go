@@ -72,13 +72,13 @@ func TestVerifiedDeliveryCountsOnceAndResetsForReconnect(t *testing.T) {
 	r.lastRead.Store(time.Now().Unix())
 	c.SetFlowMediaEstimate("phone", 1, flow.Estimate{BytesPerSecond: 1024, Confidence: "high"})
 	c.SetFlowDownloadRate(0)
-	_, _ = s.callbackWrite(8, 20, 0, bytes.Repeat([]byte{1}, flow.MiB))
+	_, _ = s.callbackWrite(8, 20, 0, bytes.Repeat([]byte{1}, int(flow.MiB)))
 	c.SignalPieceComplete(20)
 	c.SignalPieceComplete(20)
 	c.flowMu.Lock()
 	e := c.flowGroups["phone"].delivery.Snapshot(time.Now().Add(time.Second))
 	c.flowMu.Unlock()
-	if e.LongRate != flow.MiB || e.Samples != 1 {
+	if e.LongRate != float64(flow.MiB) || e.Samples != 1 {
 		t.Fatal("completion not counted exactly once", e)
 	}
 	s.SetNetworkRecovering(true)
