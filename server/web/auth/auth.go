@@ -78,6 +78,7 @@ func CheckAuth() gin.HandlerFunc {
 		if _, ok := c.Get(gin.AuthUserKey); ok {
 			return
 		}
+		defer discardRejectedBody(c.Writer, c.Request)
 
 		// SPA XHR/fetch probes must not trigger the browser's native Basic dialog.
 		// The initial document navigation (Accept: text/html) and third-party

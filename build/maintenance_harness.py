@@ -17,6 +17,7 @@ def expect_status(server, path, status, data=None, headers=None):
             actual = response.status
     except urllib.error.HTTPError as error:
         actual = error.code
+        error.close()
     if actual != status:
         raise AssertionError(f"{path}: expected {status}, got {actual}")
 
