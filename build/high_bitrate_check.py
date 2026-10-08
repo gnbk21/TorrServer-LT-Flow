@@ -143,20 +143,34 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb):
                                       rate, seconds, case == 'bursts')
                 while not pending.done():
                     status = server.json('/flow/status/'+info_hash, timeout=5)
+                    sessions = status.get('sessions') or []
                     report['samples'].append({
                         'elapsed_s': time.monotonic()-swarm.started,
-                        'cache_used': status.get('cache_used'),
-                        'cache_size': status.get('cache_size'),
-                        'sessions': status.get('sessions'),
+                        'cache_used': max((s['cache_used'] for s in sessions), default=0),
+                        'cache_size': max((s['cache_size'] for s in sessions), default=0),
+                        'sessions': sessions,
                         'urgent': status.get('sparse', {}).get('urgent'),
                         'urgent_truncated': status.get('sparse', {}).get('urgent_truncated')})
                     time.sleep(1)
                 report['delivery'] = pending.result()
+            report['peak_observed_cache_bytes'] = max(s['cache_used'] for s in report['samples'])
+            if report['peak_observed_cache_bytes'] > (cache_mb+8)*MIB:
+                raise AssertionError('Observed cache exceeded budget plus two-piece concurrency allowance')
             report['ranges'] = []
             for start, cancel in ((len(swarm.data)//2, False), (0, False),
-                                  (len(swarm.data)-65536, False), (len(swarm.data)//3, True)):
+                                  (len(swarm.data)-65536, False), (len(swarm.data)//3, True), (0, False)):
                 report['ranges'].append(range_read(server, info_hash, index,
                     swarm.data, start, min(len(swarm.data)-1, start+65535), cancel))
+            deadline = time.monotonic()+5
+            while True:
+                status = server.json('/flow/status/'+info_hash)
+                active = sum(s['active_readers'] for s in status.get('sessions') or [])
+                if active == 0:
+                    break
+                if time.monotonic() >= deadline:
+                    raise AssertionError('Readers leaked after cancellation')
+                time.sleep(.2)
+            report['active_readers_after_cancellation'] = active
             report['runtime'] = server.json('/runtime/status')
             report['swarm'] = swarm.status()
             report['passed'] = True

@@ -144,7 +144,9 @@ class LocalSwarm:
         class Peer(socketserver.BaseRequestHandler):
             def handle(self):
                 sock = self.request
-                sock.settimeout(.2)
+                # At high transport rates a short send timeout can mistake
+                # ordinary local socket backpressure for a peer disconnect.
+                sock.settimeout(5 if high_throughput else .2)
                 plan, index = self.server.plan, self.server.index
                 stats = owner.peer_stats[index]
                 elapsed = lambda: time.monotonic() - owner.started

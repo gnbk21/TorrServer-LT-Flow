@@ -32,11 +32,12 @@ func Start() {
 				settings.BTsets().SslPort = dbSSlPort
 			}
 		}
-		// check if ssl cert and key files exist
-		if settings.Args.SslCert != "" && settings.Args.SslKey != "" {
-			// set settings ssl cert and key files
-			settings.BTsets().SslCert = settings.Args.SslCert
-			settings.BTsets().SslKey = settings.Args.SslKey
+		// Pass a partial CLI pair through to EnsureCert so it fails clearly;
+		// silently ignoring it could generate a different certificate instead.
+		if settings.Args.SslCert != "" || settings.Args.SslKey != "" {
+			next := settings.CloneSettings(settings.BTsets())
+			next.SslCert, next.SslKey = settings.Args.SslCert, settings.Args.SslKey
+			settings.StoreBTsets(next)
 		}
 		log.TLogln("Check web ssl port", settings.Args.SslPort)
 		if err := netbind.CheckPort(settings.Args.IPs, settings.Args.SslPort); err != nil {

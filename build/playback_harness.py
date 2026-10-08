@@ -26,7 +26,7 @@ MIB = 1024 * 1024
 
 
 class OwnedServer:
-    def __init__(self, executable, state, profile=False, auth=False, extra_settings=None, seed_files=None):
+    def __init__(self, executable, state, profile=False, auth=False, extra_settings=None, seed_files=None, extra_arguments=None):
         self.executable, self.state = executable.resolve(), state.resolve()
         state.mkdir(parents=True, exist_ok=False)
         with socket.socket() as reservation:
@@ -56,6 +56,7 @@ class OwnedServer:
         self.log = (state / "server-output.log").open("wb")
         flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         arguments = [str(self.executable), "--path", str(self.state), "--port", str(self.port), "--ip", "127.0.0.1"]
+        arguments += extra_arguments or []
         if auth: arguments.append("--httpauth")
         self.profile_base = None
         if profile:

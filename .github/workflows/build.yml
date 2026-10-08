@@ -328,7 +328,9 @@ jobs:
 
       - name: Authenticated backup, maintenance and startup diagnostics
         if: matrix.target == 'linux-amd64'
-        run: python3 build/maintenance_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/maintenance-check
+        run: |
+          python3 build/maintenance_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/maintenance-check
+          python3 build/upstream_tls_check.py --executable _out/TorrServer-LT-linux-amd64 --output _out/upstream-tls-check
 
       - name: Console presentation and command compatibility
         if: matrix.target == 'linux-amd64'
@@ -393,6 +395,8 @@ jobs:
             _out/sparse-rate-check/*/server-output.log
             _out/discovery-check/*/server-output.log
             _out/maintenance-check/report.json
+              _out/upstream-tls-check/report.json
+              _out/upstream-tls-check/*/server-output.log
             _out/adaptive-check/report.json
             _out/adaptive-check/state/server-output.log
             _out/library-upsert-benchmark.txt
