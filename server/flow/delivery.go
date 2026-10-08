@@ -20,15 +20,16 @@ type DeliveryMeter struct {
 }
 
 type DeliveryEvidence struct {
-	Mode          string  `json:"mode"`
-	ShortRate     float64 `json:"short_rate"`
-	LongRate      float64 `json:"long_rate"`
-	ShortSamples  int     `json:"short_samples"`
-	Samples       int     `json:"samples"`
-	AgeMs         int64   `json:"age_ms"`
-	Confidence    string  `json:"confidence"`
-	Variation     float64 `json:"variation"`
-	OutageSeconds int     `json:"outage_seconds"`
+	Mode                string  `json:"mode"`
+	ShortRate           float64 `json:"short_rate"`
+	LongRate            float64 `json:"long_rate"`
+	ShortSamples        int     `json:"short_samples"`
+	Samples             int     `json:"samples"`
+	AgeMs               int64   `json:"age_ms"`
+	Confidence          string  `json:"confidence"`
+	Variation           float64 `json:"variation"`
+	OutageSeconds       int     `json:"outage_seconds"`
+	RecentOutageSeconds int     `json:"recent_outage_seconds"`
 }
 
 func (m *DeliveryMeter) Reset() { *m = DeliveryMeter{} }
@@ -116,6 +117,19 @@ func (m *DeliveryMeter) Snapshot(now time.Time) DeliveryEvidence {
 			break
 		}
 		out.OutageSeconds++
+	}
+	// Remember recent consecutive delivery gaps after supply returns. Otherwise
+	// a reserve can contract immediately after the very outage it should absorb.
+	run := 0
+	for age := int64(1); age <= 30 && now.Unix()-age > 0; age++ {
+		second := now.Unix() - age
+		s := m.slots[second%60]
+		if s.second == second && s.demand && !s.tainted && s.bytes == 0 {
+			run++
+			out.RecentOutageSeconds = max(out.RecentOutageSeconds, run)
+		} else {
+			run = 0
+		}
 	}
 	if out.Mode == "DEMAND" && out.AgeMs >= 0 && out.AgeMs <= 2500 && out.ShortSamples >= 3 {
 		out.Confidence = "medium"

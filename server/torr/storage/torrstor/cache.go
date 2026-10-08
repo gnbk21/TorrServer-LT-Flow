@@ -1255,13 +1255,35 @@ func (c *Cache) applyStreamPriorities() {
 	c.priMu.Lock()
 	defer c.priMu.Unlock()
 	c.lastApplyMs.Store(now)
+	// Native deadline removal demotes pieces to priority 1, even when a
+	// preceding vector already parked them at zero. Clear before reconciling
+	// priorities so old windows cannot keep fetching or override pinned work.
+	rebuildDeadlines := seekCancel && len(desired) > 0
+	clearedDeadlines := false
+	if rebuildDeadlines {
+		if err := h.ClearPieceDeadlines(); err != nil {
+			return
+		}
+		clear(c.deadlined)
+		clearedDeadlines = true
+	} else {
+		for piece := range c.deadlined {
+			if _, wanted := desired[piece]; !wanted {
+				if err := h.ResetPieceDeadline(piece); err != nil {
+					return
+				}
+				delete(c.deadlined, piece)
+				clearedDeadlines = true
+			}
+		}
+	}
 	// Only push the whole priority vector when it actually changed: a steady stream
 	// rebuilds the identical vector every tick, and re-marshalling NumPieces ints through
 	// cgo + re-poking the picker each time is pure overhead. prios is freshly allocated
 	// per call and never mutated afterwards, so we keep the reference as the new baseline.
 	// (Deadlines below are still reconciled every tick — they are relative-to-now and must
 	// refresh; the refetch loop still un-haves holes and re-applies prios[piece] atomically.)
-	if !intSliceEqual(c.lastPrios, prios) {
+	if clearedDeadlines || !intSliceEqual(c.lastPrios, prios) {
 		if s := settings.BTsets(); s != nil && s.EnableDebug {
 			nz, lo, hi := 0, -1, -1
 			for i, p := range prios {
@@ -1282,7 +1304,7 @@ func (c *Cache) applyStreamPriorities() {
 		c.lastPrios = prios
 	}
 	// Reconcile deadlines: clear the ones that scrolled out, set/refresh the rest.
-	if seekCancel && len(desired) > 0 {
+	if rebuildDeadlines {
 		// A far seek just snapped the anchor: rebuild the time-critical set from
 		// scratch instead of reconciling. The empty→non-empty transition re-arms
 		// libtorrent's cancel_non_critical (see takeSnapCancels), which CANCELs the
@@ -1291,10 +1313,6 @@ func (c *Cache) applyStreamPriorities() {
 		// Ascending deadline order: the first set (the target, deadline 0) fires the
 		// posted cancel; the rest of the ramp lands before the cancel runs on the
 		// network thread, so the whole NEW set is spared and only stale requests die.
-		_ = h.ClearPieceDeadlines()
-		for piece := range c.deadlined {
-			delete(c.deadlined, piece)
-		}
 		if s := settings.BTsets(); s != nil && s.EnableDebug {
 			log.TLogln("torrstor.Cache: SEEK-CANCEL rebuilding", len(desired),
 				"deadlines (cancel_non_critical armed)")
@@ -1304,7 +1322,12 @@ func (c *Cache) applyStreamPriorities() {
 		for piece, dl := range desired {
 			ordered = append(ordered, pieceDeadline{piece, dl})
 		}
-		sort.Slice(ordered, func(i, j int) bool { return ordered[i].dlMs < ordered[j].dlMs })
+		sort.Slice(ordered, func(i, j int) bool {
+			if ordered[i].dlMs == ordered[j].dlMs {
+				return ordered[i].piece < ordered[j].piece
+			}
+			return ordered[i].dlMs < ordered[j].dlMs
+		})
 		// Deadline ONLY the target + its next piece on this first post-seek apply.
 		// With the full ramp re-armed at once the time-critical picker parallelises
 		// across the ramp and the TARGET loses the race it must win — the field log
@@ -1313,7 +1336,8 @@ func (c *Cache) applyStreamPriorities() {
 		// non-zero priorities either way (the normal picker still fetches them), and
 		// the next periodic apply (≤1s) re-arms the full ascending ramp through the
 		// reconcile branch below once the target has had the swarm to itself.
-		if len(ordered) > 2 {
+		// Independent devices retain their forward pipelines during a seek.
+		if len(anchors) <= 1 && len(ordered) > 2 {
 			ordered = ordered[:2]
 		}
 		for _, d := range ordered {
@@ -1321,12 +1345,6 @@ func (c *Cache) applyStreamPriorities() {
 			c.deadlined[d.piece] = true
 		}
 	} else {
-		for piece := range c.deadlined {
-			if _, ok := desired[piece]; !ok {
-				_ = h.ResetPieceDeadline(piece)
-				delete(c.deadlined, piece)
-			}
-		}
 		for piece, dl := range desired {
 			_ = h.SetPieceDeadline(piece, dl, false)
 			c.deadlined[piece] = true

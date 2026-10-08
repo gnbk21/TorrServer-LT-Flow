@@ -157,6 +157,20 @@ export interface FlowStatusResponse {
 }
 
 export interface SparseSnapshot {
+  urgent_truncated?: boolean;
+  urgent?: {
+    piece: number;
+    priority: number;
+    blocks: number;
+    unrequested: number;
+    requested: number;
+    writing: number;
+    finished: number;
+    duplicate_requests: number;
+    verified: boolean;
+    receiving_blocks: number;
+    receiving_bytes: number;
+  }[];
   request_timeouts?: number;
   requests_dropped?: number;
   known: boolean;

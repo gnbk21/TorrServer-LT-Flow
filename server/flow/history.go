@@ -37,17 +37,27 @@ type HistoryEvent struct {
 }
 
 type SparseHistory struct {
-	SampledPeers     int    `json:"sampled_peers"`
-	Truncated        bool   `json:"truncated"`
-	UsefulPeers      int    `json:"useful_peers"`
-	ChokedPeers      int    `json:"choked_peers"`
-	SnubbedPeers     int    `json:"snubbed_peers"`
-	OutstandingBytes int64  `json:"outstanding_bytes"`
-	MaxQueueMs       int64  `json:"max_queue_ms"`
-	FailedBytes      int64  `json:"failed_bytes"`
-	RedundantBytes   int64  `json:"redundant_bytes"`
-	RequestTimeouts  uint64 `json:"request_timeouts"`
-	RequestsDropped  uint64 `json:"requests_dropped"`
+	UrgentKnown          bool   `json:"urgent_known,omitempty"`
+	UrgentTruncated      bool   `json:"urgent_truncated,omitempty"`
+	UrgentPiece          int    `json:"urgent_piece,omitempty"`
+	UrgentPriority       int    `json:"urgent_priority,omitempty"`
+	UrgentUnrequested    int    `json:"urgent_unrequested,omitempty"`
+	UrgentRequested      int    `json:"urgent_requested,omitempty"`
+	UrgentWriting        int    `json:"urgent_writing,omitempty"`
+	UrgentFinished       int    `json:"urgent_finished,omitempty"`
+	UrgentReceivingBytes int    `json:"urgent_receiving_bytes,omitempty"`
+	UrgentDuplicates     int    `json:"urgent_duplicates,omitempty"`
+	SampledPeers         int    `json:"sampled_peers"`
+	Truncated            bool   `json:"truncated"`
+	UsefulPeers          int    `json:"useful_peers"`
+	ChokedPeers          int    `json:"choked_peers"`
+	SnubbedPeers         int    `json:"snubbed_peers"`
+	OutstandingBytes     int64  `json:"outstanding_bytes"`
+	MaxQueueMs           int64  `json:"max_queue_ms"`
+	FailedBytes          int64  `json:"failed_bytes"`
+	RedundantBytes       int64  `json:"redundant_bytes"`
+	RequestTimeouts      uint64 `json:"request_timeouts"`
+	RequestsDropped      uint64 `json:"requests_dropped"`
 }
 
 type HistoryStatus struct {

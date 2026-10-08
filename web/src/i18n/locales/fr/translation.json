@@ -670,7 +670,10 @@
       "SUPPLY_DEFICIT": "Le débit utile est inférieur à la demande estimée",
       "PIECE_WAIT": "Des lectures récentes attendaient des pièces torrent",
       "BUFFER_DRAINING": "Le tampon continu risque de s’épuiser bientôt"
-    }
+    },
+    "urgentTitle": "Pièces urgentes",
+    "urgentProgress": "Pièce {{piece}} · priorité {{priority}} · en attente {{unrequested}} · demandés {{requested}} · écriture {{writing}} · terminés {{finished}}/{{blocks}} · réception {{receiving_bytes}} o · demandes en double {{duplicate_requests}}",
+    "urgentHint": "Les blocs terminés peuvent encore attendre la vérification. La réception fait partie des demandes. Cet instantané limité ne mesure pas l’âge des demandes."
   },
   "search": {
     "source": "Source",
@@ -746,14 +749,16 @@
       "conservative": "Prudent",
       "balanced": "Équilibré",
       "aggressive": "Agressif",
-      "custom": "Personnalisé"
+      "custom": "Personnalisé",
+      "adaptive": "Streaming adaptatif (expérimental)"
     },
     "profileHints": {
       "legacy": "Conserve le comportement des connexions de TorrServer-LT. Choix par défaut en attendant des comparaisons mesurées.",
       "conservative": "Réduit la pression des connexions et allonge les délais. Peut réduire la charge sans garantir une meilleure lecture.",
       "balanced": "Connexions et délais modérés pour un usage général. Comparez sur vos propres essaims.",
       "aggressive": "100 tentatives de connexion par seconde et un démarrage avec 80 pairs, avec les délais par défaut de libtorrent. Peut accélérer la découverte au prix de reconnexions et d’une charge accrues.",
-      "custom": "Applique vos six paramètres personnalisés. Zéro laisse le réglage libtorrent correspondant inchangé."
+      "custom": "Applique vos six paramètres personnalisés. Zéro laisse le réglage libtorrent correspondant inchangé.",
+      "adaptive": "Réglages de pairs Legacy avec une marge VBR bornée et une réserve après les interruptions récentes. Utilise le cache et les échéances existants, sans changement automatique de profil. Aucun gain sur Legacy encore démontré."
     },
     "storageFields": {
       "settings": "Stockage des paramètres",

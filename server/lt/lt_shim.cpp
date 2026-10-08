@@ -75,6 +75,8 @@ extern void tsl_install_disk_io_on(libtorrent::session_params& params);
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <type_traits>
+#include <map>
 
 namespace lt = libtorrent;
 
@@ -1146,6 +1148,47 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
                                     {"unchoked_suppliers", 0}});
                             }
                             int sampled = 0, useful = 0, downloading = 0, choked = 0, snubbed = 0, pending = 0;
+                            // Copy a bounded urgent frontier directly on the network thread.
+                            // No full download-queue allocation, peer identities or native
+                            // pointers escape this snapshot. Blocks still requested may be
+                            // receiving; that progress is aggregated separately below.
+                            json urgent = json::array();
+                            std::map<int, std::size_t> urgent_index;
+                            std::map<std::pair<int, int>, int> receiving;
+                            bool blocks_truncated = false;
+                            int inspected_blocks = 0;
+                            for (auto const& window : windows) {
+                                int const first = window["first_piece"].get<int>();
+                                int const count = std::min<int>(8, window["availability"].size());
+                                for (int i = first; i < first + count; ++i) {
+                                    if (urgent_index.count(i)) continue;
+                                    auto const piece = lt::piece_index_t{i};
+                                    int const block_count = (tor->torrent_file().piece_size(piece) + 16383) / 16384;
+                                    if (inspected_blocks + block_count > 8192) { blocks_truncated = true; continue; }
+                                    inspected_blocks += block_count;
+                                    int requested = 0, writing = 0, finished = 0, duplicates = 0;
+                                    bool const have = tor->have_piece(piece);
+                                    if (have) finished = block_count;
+                                    else if (tor->has_picker() && tor->picker().piece_stats(piece).downloading) {
+                                        auto const& picker = tor->picker();
+                                        using Picker = std::remove_cv_t<std::remove_reference_t<decltype(picker)>>;
+                                        Picker::downloading_piece partial;
+                                        picker.piece_info(piece, partial);
+                                        for (auto const& block : picker.blocks_for_piece(partial)) {
+                                            requested += block.state == Picker::block_info::state_requested;
+                                            writing += block.state == Picker::block_info::state_writing;
+                                            finished += block.state == Picker::block_info::state_finished;
+                                            duplicates += std::max(0, int(block.num_peers) - 1);
+                                        }
+                                    }
+                                    urgent_index[i] = urgent.size();
+                                    urgent.push_back({{"piece", i}, {"priority", int(tor->piece_priority(piece))},
+                                        {"blocks", block_count}, {"unrequested", std::max(0, block_count-requested-writing-finished)},
+                                        {"requested", requested}, {"writing", writing}, {"finished", finished},
+                                        {"duplicate_requests", duplicates}, {"verified", have},
+                                        {"receiving_blocks", 0}, {"receiving_bytes", 0}});
+                                }
+                            }
                             int tracker = 0, dht = 0, pex = 0, incoming = 0;
                             std::int64_t outstanding = 0, queue_ms = 0, queued = 0;
                             for (auto* peer : *tor) {
@@ -1163,6 +1206,13 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
                                 }
                                 bool supplies = false;
                                 if (!peer->is_connecting() && !peer->is_disconnecting()) {
+                                    auto const progress = peer->downloading_piece_progress();
+                                    int const index = int(progress.piece_index);
+                                    if (urgent_index.count(index) && progress.block_index >= 0
+                                        && progress.bytes_downloaded > 0 && progress.full_block_bytes > 0) {
+                                        auto& bytes = receiving[{index, progress.block_index}];
+                                        bytes = std::max(bytes, std::min(progress.bytes_downloaded, progress.full_block_bytes));
+                                    }
                                     for (auto& window : windows) {
                                         int const first = window["first_piece"].get<int>();
                                         auto& available = window["availability"];
@@ -1191,6 +1241,11 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
                                 }
                             }
                             lt::torrent_status status;
+                            for (auto const& entry : receiving) {
+                                auto& row = urgent[urgent_index.at(entry.first.first)];
+                                row["receiving_blocks"] = row["receiving_blocks"].get<int>() + 1;
+                                row["receiving_bytes"] = row["receiving_bytes"].get<int>() + entry.second;
+                            }
                             tor->status(&status, {});
                             auto const timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
                                 std::chrono::system_clock::now().time_since_epoch()).count();
@@ -1200,7 +1255,8 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
                                 {"pending_connections", pending}, {"tracker_peers", tracker}, {"dht_peers", dht},
                                 {"pex_peers", pex}, {"incoming_peers", incoming}, {"outstanding_bytes", outstanding},
                                 {"queued_blocks", queued}, {"max_queue_ms", queue_ms}, {"failed_bytes", status.total_failed_bytes},
-                                {"redundant_bytes", status.total_redundant_bytes}, {"windows", std::move(windows)}};
+                                {"redundant_bytes", status.total_redundant_bytes}, {"windows", std::move(windows)},
+                                {"urgent", std::move(urgent)}, {"urgent_truncated", blocks_truncated}};
                         }
                     } catch (...) { result = {{"known", false}}; }
                     std::lock_guard<std::mutex> done(snapshot->mu);

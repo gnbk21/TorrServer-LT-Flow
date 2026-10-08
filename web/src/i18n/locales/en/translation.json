@@ -591,7 +591,10 @@
       "SUPPLY_DEFICIT": "Useful supply is below estimated demand",
       "PIECE_WAIT": "Recent reads waited for torrent pieces",
       "BUFFER_DRAINING": "The contiguous buffer may run out soon"
-    }
+    },
+    "urgentTitle": "Urgent pieces",
+    "urgentProgress": "Piece {{piece}} · priority {{priority}} · waiting {{unrequested}} · requested {{requested}} · writing {{writing}} · finished {{finished}}/{{blocks}} · receiving {{receiving_bytes}} B · duplicate requests {{duplicate_requests}}",
+    "urgentHint": "Finished blocks may still await verification. Receiving is part of requested work. This bounded snapshot does not measure request age."
   },
   "torrent": {
     "justPlayer": "Play in Just Player",
@@ -748,14 +751,16 @@
       "conservative": "Conservative",
       "balanced": "Balanced",
       "aggressive": "Aggressive",
-      "custom": "Custom"
+      "custom": "Custom",
+      "adaptive": "Adaptive Streaming (experimental)"
     },
     "profileHints": {
       "legacy": "Retains TorrServer-LT connection behavior. Default until measured comparisons justify a change.",
       "conservative": "Lowers connection pressure with longer timeouts. May reduce overhead; it does not guarantee better playback.",
       "balanced": "Moderate connection ramp and timeouts for general use. Compare using your own swarms.",
       "aggressive": "100 connection attempts per second and an 80-peer initial boost, with libtorrent's default timeouts. May improve discovery at the cost of churn and overhead.",
-      "custom": "Applies your six custom controls. Zero leaves the corresponding libtorrent setting unchanged."
+      "custom": "Applies your six custom controls. Zero leaves the corresponding libtorrent setting unchanged.",
+      "adaptive": "Legacy peer settings with bounded VBR demand hints and recent outage reserves. Uses the existing cache and deadline ramp; no automatic profile switching. Not yet proven faster than Legacy."
     },
     "invalidGst": "Enter valid GStreamer values: positive durations and bitrates, nonnegative counts, version 1.22 or newer, and source stream or play.",
     "fields": {

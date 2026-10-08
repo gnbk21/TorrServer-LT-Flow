@@ -61,8 +61,17 @@ func (t *Torrent) sampleSparse(handle *lt.Torrent, metadata bool, pieceLength in
 		t.sparse = snapshot
 		if snapshot.Known && snapshot.SampledAtMs-t.sparseRecordedAt >= 30000 {
 			t.sparseRecordedAt = snapshot.SampledAtMs
-			t.historyEvent(flow.HistoryEvent{Type: "sparse", Sparse: &flow.SparseHistory{
-				SampledPeers: snapshot.SampledPeers, Truncated: snapshot.Truncated, UsefulPeers: snapshot.UsefulPeers, ChokedPeers: snapshot.ChokedPeers, SnubbedPeers: snapshot.SnubbedPeers, OutstandingBytes: snapshot.OutstandingBytes, MaxQueueMs: snapshot.MaxQueueMs, FailedBytes: snapshot.FailedBytes, RedundantBytes: snapshot.RedundantBytes, RequestTimeouts: snapshot.RequestTimeouts, RequestsDropped: snapshot.RequestsDropped}})
+			history := &flow.SparseHistory{SampledPeers: snapshot.SampledPeers, Truncated: snapshot.Truncated, UsefulPeers: snapshot.UsefulPeers, ChokedPeers: snapshot.ChokedPeers, SnubbedPeers: snapshot.SnubbedPeers, OutstandingBytes: snapshot.OutstandingBytes, MaxQueueMs: snapshot.MaxQueueMs, FailedBytes: snapshot.FailedBytes, RedundantBytes: snapshot.RedundantBytes, RequestTimeouts: snapshot.RequestTimeouts, RequestsDropped: snapshot.RequestsDropped, UrgentTruncated: snapshot.UrgentTruncated}
+			for _, urgent := range snapshot.Urgent {
+				if urgent.Verified {
+					continue
+				}
+				history.UrgentKnown, history.UrgentPiece, history.UrgentPriority = true, urgent.Piece, urgent.Priority
+				history.UrgentUnrequested, history.UrgentRequested, history.UrgentWriting, history.UrgentFinished = urgent.Unrequested, urgent.Requested, urgent.Writing, urgent.Finished
+				history.UrgentReceivingBytes, history.UrgentDuplicates = urgent.ReceivingBytes, urgent.DuplicateRequests
+				break
+			}
+			t.historyEvent(flow.HistoryEvent{Type: "sparse", Sparse: history})
 		}
 		t.flowMu.Unlock()
 	}

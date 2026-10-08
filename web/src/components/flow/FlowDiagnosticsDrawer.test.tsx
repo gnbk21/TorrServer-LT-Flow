@@ -15,6 +15,43 @@ vi.mock("react-i18next", () => ({
 }));
 afterEach(cleanup);
 describe("startup explanation", () => {
+  it("shows bounded urgent progress only for fresh snapshots", () => {
+    const urgent = {
+      piece: 1,
+      priority: 7,
+      blocks: 256,
+      unrequested: 100,
+      requested: 120,
+      writing: 6,
+      finished: 30,
+      duplicate_requests: 0,
+      verified: false,
+      receiving_blocks: 1,
+      receiving_bytes: 8192,
+    };
+    const { rerender } = render(
+      <FlowDiagnosticsDrawer
+        isOpen
+        onClose={() => {}}
+        status={{
+          hash: "fixture",
+          sparse: { known: true, sampled_at_ms: Date.now(), urgent: [urgent] },
+        }}
+      />,
+    );
+    expect(screen.getByText("flow.urgentProgress")).toBeInTheDocument();
+    rerender(
+      <FlowDiagnosticsDrawer
+        isOpen
+        onClose={() => {}}
+        status={{
+          hash: "fixture",
+          sparse: { known: true, sampled_at_ms: 1, urgent: [urgent] },
+        }}
+      />,
+    );
+    expect(screen.queryByText("flow.urgentProgress")).not.toBeInTheDocument();
+  });
   it("labels stale availability instead of displaying it as current", () => {
     render(
       <FlowDiagnosticsDrawer

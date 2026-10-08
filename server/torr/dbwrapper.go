@@ -52,9 +52,11 @@ func AddTorrentDB(torr *Torrent) {
 	} else {
 		t.Data = torr.Data
 	}
-	if torr.Poster != "" && utils.CheckImgUrl(torr.Poster) {
-		t.Poster = torr.Poster
+	previousPoster := ""
+	if existing := settings.GetTorrent(torr.Hash().HexString()); existing != nil {
+		previousPoster = existing.Poster
 	}
+	t.Poster = utils.SelectPoster(torr.Poster, previousPoster)
 	t.Size = torr.Size
 	if t.Size == 0 {
 		t.Size = torr.Length()

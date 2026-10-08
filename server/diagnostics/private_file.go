@@ -5,6 +5,15 @@ import (
 	"path/filepath"
 )
 
+// RestrictPrivateFile limits an existing secret to its owner on Unix and to
+// the process account, Administrators and SYSTEM on Windows.
+func RestrictPrivateFile(path string) error {
+	if err := os.Chmod(path, 0600); err != nil {
+		return err
+	}
+	return protectFile(path)
+}
+
 // AtomicPrivateFile restricts the temporary file before any credentials are
 // written, syncs it, then replaces the destination on the same filesystem.
 func AtomicPrivateFile(path string, data []byte) error {

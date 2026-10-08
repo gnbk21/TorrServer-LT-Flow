@@ -21,6 +21,15 @@ func TestFlowSwarmProfilesPreserveCompatibilityAndUserSettings(t *testing.T) {
 	if legacy["connection_speed"] != 250 || legacy["peer_connect_timeout"] != 7 {
 		t.Fatalf("legacy values changed: %v", legacy)
 	}
+	adaptive := base()
+	fAdaptive := settings.DefaultFlowSettings()
+	fAdaptive.SwarmProfile = "adaptive"
+	applyFlowSwarmProfile(adaptive, fAdaptive, false)
+	for key, value := range legacy {
+		if adaptive[key] != value {
+			t.Fatalf("adaptive changed native base: %s", key)
+		}
+	}
 	for _, tc := range []struct {
 		profile string
 		speed   any

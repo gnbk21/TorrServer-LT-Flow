@@ -281,12 +281,14 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	// can't keep the piece time-critical. Used for the head past the racing lead.
 	prioritiseNoDeadline := func(pieces []int) {
 		for _, p := range pieces {
+			// Native deadline removal demotes an incomplete piece to priority 1.
+			// Remove it first, then restore our intended sequential-fill priority.
+			_ = lh.ResetPieceDeadline(p)
 			if !cache.Have(p) && lh.HasPiece(p) {
 				_ = lh.WeDontHave(p, 7) // un-have + top priority, atomically
 			} else {
 				_ = lh.SetPiecePriority(p, 7)
 			}
-			_ = lh.ResetPieceDeadline(p)
 		}
 	}
 

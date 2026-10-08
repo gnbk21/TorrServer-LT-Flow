@@ -131,22 +131,23 @@ func Start() {
 
 	route.GET("/swagger/*any", swaggerHandler())
 
-	// check if https enabled
+	// Explicit HTTPS configuration fails before any listener is opened. Never
+	// replace a user's identity or silently downgrade a forced-HTTPS deployment.
 	if settings.Ssl {
-		// if no cert and key files set in db/settings, generate new self-signed cert and key files
-		if settings.BTsets().SslCert == "" || settings.BTsets().SslKey == "" {
-			settings.BTsets().SslCert, settings.BTsets().SslKey = sslcerts.MakeCertKeyFiles(ips)
-			log.TLogln("Saving path to ssl cert and key in db", settings.BTsets().SslCert, settings.BTsets().SslKey)
-			settings.SetBTSets(settings.BTsets())
-		}
-		// verify if cert and key files are valid
-		err := sslcerts.VerifyCertKeyFiles(settings.BTsets().SslCert, settings.BTsets().SslKey, settings.SslPort)
-		// if not valid, generate new self-signed cert and key files
+		cert, key, changed, err := sslcerts.EnsureCert(settings.BTsets().SslCert, settings.BTsets().SslKey, ips)
 		if err != nil {
-			log.TLogln("Error checking certificate and private key files:", err)
-			settings.BTsets().SslCert, settings.BTsets().SslKey = sslcerts.MakeCertKeyFiles(ips)
-			log.TLogln("Saving path to ssl cert and key in db", settings.BTsets().SslCert, settings.BTsets().SslKey)
-			settings.SetBTSets(settings.BTsets())
+			startupError(err)
+			return
+		}
+		if changed {
+			next := settings.CloneSettings(settings.BTsets())
+			next.SslCert, next.SslKey = cert, key
+			if settings.ReadOnly {
+				settings.StoreBTsets(next)
+			} else if err := settings.SetBTSetsChecked(next); err != nil {
+				startupError(err)
+				return
+			}
 		}
 	}
 	// Bind and serve the local API before constructing the libtorrent session.

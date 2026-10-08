@@ -37,6 +37,25 @@ func TestFlowSwarmSettingsNormalize(t *testing.T) {
 	}
 }
 
+func TestAdaptiveProfileRoundTripPreservesOtherControls(t *testing.T) {
+	var f FlowSettings
+	if err := json.Unmarshal([]byte(`{"SwarmProfile":"adaptive","RateAwareDeadlines":false,"TargetBufferSeconds":60}`), &f); err != nil {
+		t.Fatal(err)
+	}
+	f.Normalize()
+	data, err := json.Marshal(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored FlowSettings
+	if err := json.Unmarshal(data, &restored); err != nil {
+		t.Fatal(err)
+	}
+	if restored.SwarmProfile != "adaptive" || restored.RateAwareDeadlines || restored.TargetBufferSeconds != 60 {
+		t.Fatal("profile or independent controls lost")
+	}
+}
+
 func TestFlowHistoryAndDHTMigration(t *testing.T) {
 	var migrated FlowSettings
 	if err := json.Unmarshal([]byte(`{"Enabled":true}`), &migrated); err != nil {

@@ -131,6 +131,7 @@ Select a profile in **Settings → Flow → Swarm profile**. `connection_speed` 
 | Profile | What it does |
 | --- | --- |
 | **Legacy (default)** | Keeps TorrServer-LT's existing streaming-oriented libtorrent tuning, including 250 connection attempts/second, a 100-peer connect boost, and shorter peer/piece timeouts. Use it as the compatibility baseline. |
+| **Adaptive Streaming (experimental, development builds)** | Uses Legacy's native peer settings and the existing full deadline ramp. With Flow adaptive read-ahead enabled, sustained HTTP progress can add a bounded VBR demand margin above credible media metadata, and recent qualified delivery outages retain additional reserve for up to 30 seconds. Uses the same cache and user limits; does not automatically switch profiles. Not proven better than Legacy. |
 | **Conservative** | Removes those inherited swarm overrides and uses libtorrent defaults for them. Use it to compare with less modified swarm behavior. |
 | **Balanced** | Starts from Conservative, then sets 50 connection attempts/second and a 50-peer connect boost. A moderate connection ramp to evaluate. |
 | **Aggressive streaming** | Starts from Conservative, then sets 100 connection attempts/second and an 80-peer connect boost. It ramps up faster than Balanced, but less than Legacy on these two settings; it is not proven faster overall. |
@@ -144,11 +145,18 @@ sets piece priorities without pausing and disconnecting the swarm. Saving a
 profile restarts the torrent engine and stops active streams. Keep **Legacy**
 unless testing shows another profile works better for your network and torrents.
 
-The proposed **Adaptive Streaming** profile is [research, not an available
-setting](STREAMING_PROFILE_RESEARCH.md). The investigation targets high bitrate
-streaming with a bounded rolling cache; neither full episode preparation nor a
-paid provider is required. Initial native comparisons exposed startup/continuity
-tradeoffs and do not establish an improvement over Legacy.
+The development **Adaptive Streaming** profile implements the reserve-aware
+candidate described in [the investigation](STREAMING_PROFILE_RESEARCH.md).
+Initial comparisons rejected narrower deadline sets and global priority
+restoration as defaults, so the full streaming ramp remains. Neither full episode
+preparation nor a paid provider is required. The new profile is absent from
+published Preview 2 `.5`; real phone and public-swarm comparisons remain pending.
+
+Development builds also restore priorities after removing native deadlines:
+libtorrent otherwise demotes those pieces, which can leave abandoned work
+downloading or reduce preload priorities. Diagnostics show bounded urgent block
+states, receiving progress and effective native priorities; finished blocks can
+still await verification, and snapshot age is not request age.
 
 ## Startup diagnostics in development builds
 

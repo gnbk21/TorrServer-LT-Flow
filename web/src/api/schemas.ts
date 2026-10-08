@@ -91,6 +91,35 @@ export const flowSchema = z
     sparse: z
       .object({
         known: z.boolean(),
+        urgent_truncated: z.boolean().optional(),
+        urgent: z
+          .array(
+            z
+              .object({
+                piece: z.number().int().nonnegative(),
+                priority: z.number().int().min(0).max(7),
+                blocks: z.number().int().min(1).max(8192),
+                unrequested: z.number().int().nonnegative(),
+                requested: z.number().int().nonnegative(),
+                writing: z.number().int().nonnegative(),
+                finished: z.number().int().nonnegative(),
+                duplicate_requests: z.number().int().nonnegative(),
+                verified: z.boolean(),
+                receiving_blocks: z.number().int().nonnegative(),
+                receiving_bytes: z.number().int().nonnegative(),
+              })
+              .refine(
+                (p) =>
+                  p.unrequested + p.requested + p.writing + p.finished ===
+                  p.blocks,
+              ),
+          )
+          .max(64)
+          .refine(
+            (pieces) => pieces.reduce((sum, p) => sum + p.blocks, 0) <= 8192,
+          )
+          .nullable()
+          .optional(),
         request_timeouts: z.number().int().nonnegative().optional(),
         requests_dropped: z.number().int().nonnegative().optional(),
         private: z.boolean().optional(),

@@ -90,6 +90,23 @@ export function FlowDiagnosticsDrawer({
                     })}
                   </p>
                   {status.sparse.private && <p>{t("flow.privatePolicy")}</p>}
+                  {!!status.sparse.urgent?.length && (
+                    <div className="space-y-2">
+                      <h4 className="font-semibold">{t("flow.urgentTitle")}</h4>
+                      {status.sparse.urgent
+                        .filter((piece) => !piece.verified)
+                        .slice(0, 8)
+                        .map((piece) => (
+                          <p key={piece.piece}>
+                            {t("flow.urgentProgress", piece)}
+                          </p>
+                        ))}
+                      <p className="text-slate-400">{t("flow.urgentHint")}</p>
+                    </div>
+                  )}
+                  {status.sparse.urgent_truncated && (
+                    <p>{t("flow.sparseTruncated")}</p>
+                  )}
                   {status.sparse.truncated && (
                     <p>{t("flow.sparseTruncated")}</p>
                   )}

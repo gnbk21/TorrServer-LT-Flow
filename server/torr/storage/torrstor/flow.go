@@ -99,7 +99,7 @@ func (c *Cache) demandRates() map[string]float64 {
 		}
 		if g.estimate.Confidence == "medium" || g.estimate.Confidence == "high" {
 			rates[group] = g.estimate.BytesPerSecond
-		} else if observed, confidence := g.tracker.Rate(); observed > 0 && confidence == "stable" {
+		} else if observed, confidence := g.tracker.RateAt(time.Now()); observed > 0 && confidence == "stable" {
 			rates[group] = observed
 		}
 	}
@@ -301,7 +301,7 @@ func (c *Cache) FlowWindow(group string) FlowWindowStatus {
 			Delivery: flow.DeliveryEvidence{Mode: mode, Confidence: "unknown", AgeMs: -1},
 			Risk:     flow.RiskDecision{Level: "UNKNOWN", Reason: "INSUFFICIENT_EVIDENCE", Confidence: "unknown"}}
 	}
-	rate, confidence := g.tracker.Rate()
+	rate, confidence := g.tracker.RateAt(time.Now())
 	return FlowWindowStatus{ObservedPlaybackRate: rate, ObservedConfidence: confidence,
 		Delivery: g.delivery.Snapshot(time.Now()), Risk: g.risk,
 		RecentDownloadRate: download, DownloadRateSamples: samples,
@@ -363,9 +363,12 @@ func (c *Cache) refreshFlowWindowLocked(now time.Time) {
 			continue
 		}
 		rate := g.estimate.BytesPerSecond
-		observed, confidence := g.tracker.Rate()
+		observed, confidence := g.tracker.RateAt(now)
 		if observed > 0 && confidence == "stable" && rate <= 0 {
 			rate = observed
+		}
+		if f.SwarmProfile == "adaptive" {
+			rate = max(rate, flow.ResilientDemand(g.estimate, observed, confidence))
 		}
 		evidence := g.delivery.Snapshot(now)
 		stats := flow.DeliveryStats{}
@@ -383,6 +386,9 @@ func (c *Cache) refreshFlowWindowLocked(now time.Time) {
 			riskRate = 0
 		}
 		g.risk = flow.BufferRisk(g.buffer, riskRate, waitP95, suppliers, evidence, f.TargetBufferSeconds, f.MaxBufferSeconds)
+		if f.SwarmProfile == "adaptive" {
+			g.risk.TargetSeconds = flow.ResilienceTarget(evidence, g.risk.TargetSeconds, f.MaxBufferSeconds)
+		}
 		g.seconds, g.pieces = flow.DeliveryWindow(rate, waitP95, stats, c.flowWaiting.Load() > 0, g.full,
 			g.risk.TargetSeconds, f.MaxBufferSeconds, f.StartupSafetyFactorPct,
 			c.PieceLength, maxAhead)

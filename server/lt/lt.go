@@ -799,6 +799,8 @@ type SparseWindow struct {
 }
 
 type SparseSnapshot struct {
+	Urgent                 []UrgentPiece  `json:"urgent"`
+	UrgentTruncated        bool           `json:"urgent_truncated"`
 	RequestTimeouts        uint64         `json:"request_timeouts"`
 	RequestsDropped        uint64         `json:"requests_dropped"`
 	Private                bool           `json:"private"`
@@ -821,6 +823,23 @@ type SparseSnapshot struct {
 	FailedBytes            int64          `json:"failed_bytes"`
 	RedundantBytes         int64          `json:"redundant_bytes"`
 	Windows                []SparseWindow `json:"windows"`
+}
+
+// UrgentPiece is a copied native frontier. Finished blocks may still await hash
+// verification; receiving blocks are a subset of requested blocks, not additive.
+// Request age is unavailable here and must not be inferred from sample age.
+type UrgentPiece struct {
+	Piece             int  `json:"piece"`
+	Priority          int  `json:"priority"`
+	Blocks            int  `json:"blocks"`
+	Unrequested       int  `json:"unrequested"`
+	Requested         int  `json:"requested"`
+	Writing           int  `json:"writing"`
+	Finished          int  `json:"finished"`
+	DuplicateRequests int  `json:"duplicate_requests"`
+	Verified          bool `json:"verified"`
+	ReceivingBlocks   int  `json:"receiving_blocks"`
+	ReceivingBytes    int  `json:"receiving_bytes"`
 }
 
 // SampleSparse schedules asynchronous work; it never waits for the native

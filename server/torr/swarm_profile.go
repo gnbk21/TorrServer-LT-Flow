@@ -24,7 +24,7 @@ var legacySwarmKeys = []string{
 }
 
 func applyFlowSwarmProfile(cfg lt.SessionConfig, f *settings.FlowSettings, disableEndGame bool) {
-	if f == nil || !f.Enabled || f.SwarmProfile == "legacy" {
+	if f == nil || !f.Enabled || f.SwarmProfile == "legacy" || f.SwarmProfile == "adaptive" {
 		return
 	}
 	for _, key := range legacySwarmKeys {

@@ -1,9 +1,10 @@
 # Improving high bitrate streaming
 
-Updated 8 October 2026. This evaluates the current streaming implementation and
-defines a candidate profile. **The candidate is not implemented or selectable.**
-Legacy remains the active retry profile; no experimental policy was applied to
-the user's server during this investigation.
+Updated 8 October 2026. This evaluates the streaming implementation and defines
+the candidate profile. **Adaptive Streaming is implemented as an experimental
+development setting; verification is in progress.** Legacy remains the active
+retry profile on the user's existing executable. No new policy was applied to
+that process during development.
 
 ## Objective and decision
 
@@ -13,7 +14,7 @@ paid provider are not prerequisites or the proposed solution. Receiving and
 temporarily caching upcoming pieces is still necessary for streaming; retaining
 the entire episode is not.
 
-The proposed name is **Adaptive Streaming**, initially experimental and opt-in.
+The profile is **Adaptive Streaming**, experimental and opt-in.
 Its objective is better contiguous delivery than Legacy under variable peer
 performance, not a larger connection count or a faster first response at the
 expense of later interruptions. There is currently no evidence supporting a

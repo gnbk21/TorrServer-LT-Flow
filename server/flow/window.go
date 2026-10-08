@@ -185,6 +185,13 @@ func (t *ConsumptionTracker) Rate() (float64, string) {
 	return t.rate, "stable"
 }
 
+func (t *ConsumptionTracker) RateAt(now time.Time) (float64, string) {
+	if age := now.Sub(t.anchorTime); age < 0 || age > 30*time.Second {
+		return 0, "low"
+	}
+	return t.Rate()
+}
+
 // AdaptiveWindow chooses a bounded forward window inside the existing cache.
 // A zero download rate is unknown (for example an already full buffer), not a
 // weak-swarm signal. The caller provides the cache-dependent maximum.

@@ -670,7 +670,10 @@
       "SUPPLY_DEFICIT": "有效供给低于估算需求",
       "PIECE_WAIT": "最近读取曾等待种子分片",
       "BUFFER_DRAINING": "连续缓冲可能即将耗尽"
-    }
+    },
+    "urgentTitle": "紧急分片",
+    "urgentProgress": "分片 {{piece}} · 优先级 {{priority}} · 等待 {{unrequested}} · 已请求 {{requested}} · 写入 {{writing}} · 已完成 {{finished}}/{{blocks}} · 正在接收 {{receiving_bytes}} 字节 · 重复请求 {{duplicate_requests}}",
+    "urgentHint": "已完成的块可能仍需校验。正在接收的块属于已请求的工作。此有界快照不测量请求时长。"
   },
   "search": {
     "source": "来源",
@@ -746,14 +749,16 @@
       "conservative": "保守",
       "balanced": "均衡",
       "aggressive": "激进",
-      "custom": "自定义"
+      "custom": "自定义",
+      "adaptive": "自适应流媒体（实验）"
     },
     "profileHints": {
       "legacy": "保留 TorrServer-LT 的连接行为。在实测对比支持更改前作为默认值。",
       "conservative": "降低连接压力并延长超时。可能减少开销，但不保证更流畅。",
       "balanced": "适合日常使用的适中连接速率和超时，请使用自己的种子群对比。",
       "aggressive": "每秒尝试 100 次连接，初始尝试连接 80 个节点，使用 libtorrent 的默认超时。可能加快节点发现，但会增加连接更替和开销。",
-      "custom": "应用六项自定义参数。零表示不更改对应的 libtorrent 设置。"
+      "custom": "应用六项自定义参数。零表示不更改对应的 libtorrent 设置。",
+      "adaptive": "采用 Legacy 节点设置，加入有界 VBR 需求余量和近期断流缓冲。沿用现有缓存和截止时间队列，不自动切换配置。目前尚未证明优于 Legacy。"
     },
     "storageFields": {
       "settings": "设置存储",

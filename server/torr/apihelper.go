@@ -1,14 +1,17 @@
 package torr
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
 	"time"
 
+	"server/flow"
 	"server/log"
 	"server/lt"
 	sets "server/settings"
@@ -18,6 +21,17 @@ import (
 
 // bts is the package-level engine handle initialised by BTServer.Connect.
 var bts *BTServer
+
+var engineRetryContext, cancelEngineRetries = context.WithCancel(context.Background())
+
+func reconnectEngine() error {
+	ctx, cancel := context.WithTimeout(engineRetryContext, 5*time.Second)
+	defer cancel()
+	return flow.RetryTransient(ctx, bts.Connect, func(err error) bool {
+		var networkError net.Error
+		return errors.Is(err, lt.ErrTimeout) || (errors.As(err, &networkError) && networkError.Timeout())
+	})
+}
 
 // InitApiHelper is called by BTServer.Connect to publish the engine
 // instance to the rest of this package.
@@ -326,11 +340,10 @@ func applySettings(set *sets.BTSets) error {
 	}
 	log.TLogln("torr.SetSettings: dropping all torrents")
 	dropAllTorrent()
-	time.Sleep(time.Second)
 	log.TLogln("torr.SetSettings: disconnect")
 	bts.Disconnect()
 	log.TLogln("torr.SetSettings: reconnect")
-	if err := bts.Connect(); err != nil {
+	if err := reconnectEngine(); err != nil {
 		log.TLogln("torr.SetSettings: connect:", err)
 		// Do not publish a failed engine configuration as effective. Restore
 		// the previous persisted configuration before attempting recovery.
@@ -338,7 +351,7 @@ func applySettings(set *sets.BTSets) error {
 			return errors.Join(err, fmt.Errorf("settings rollback: %w", restoreErr))
 		}
 		utils.InvalidateTrackersCache()
-		if restoreErr := bts.Connect(); restoreErr != nil {
+		if restoreErr := reconnectEngine(); restoreErr != nil {
 			return errors.Join(err, fmt.Errorf("engine rollback: %w", restoreErr))
 		}
 		return fmt.Errorf("configuration rejected; previous settings restored: %w", err)
@@ -371,6 +384,7 @@ func dropAllTorrent() {
 // announces, and a wedged teardown must not leave a half-dead server that
 // still answers HTTP but can never be stopped via the API.
 func Shutdown() {
+	cancelEngineRetries()
 	log.StopConsoleStatus()
 	log.Event("INFO", "Server", "Stopping...")
 	done := make(chan struct{})

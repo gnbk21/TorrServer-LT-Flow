@@ -30,6 +30,36 @@ test("legacy zero cache is readable while Apply requires a positive budget", () 
 });
 
 const input = process.env.FLOW_CONTRACT_INPUT;
+test("urgent frontier bounds and block accounting are validated", () => {
+  const piece = {
+    piece: 1,
+    priority: 7,
+    blocks: 256,
+    unrequested: 100,
+    requested: 120,
+    writing: 6,
+    finished: 30,
+    duplicate_requests: 0,
+    verified: false,
+    receiving_blocks: 1,
+    receiving_bytes: 8192,
+  };
+  const response = (urgent: unknown) => ({
+    hash: "fixture",
+    sparse: { known: true, urgent },
+  });
+  expect(flowSchema.safeParse(response([piece])).success).toBe(true);
+  expect(
+    flowSchema.safeParse(response([{ ...piece, unrequested: 101 }])).success,
+  ).toBe(false);
+  expect(flowSchema.safeParse(response(Array(65).fill(piece))).success).toBe(
+    false,
+  );
+  expect(
+    flowSchema.safeParse(response(Array(64).fill({ ...piece, blocks: 256 })))
+      .success,
+  ).toBe(false);
+});
 test.skipIf(!input)(
   "actual Go DTOs satisfy frontend validators and reject incompatible field types",
   () => {

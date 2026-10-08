@@ -121,6 +121,9 @@ func main() {
 	}
 	settings.HttpAuth = params.HttpAuth
 	log.Init(params.LogPath, params.WebLogPath)
+	if message := configureCARoots(); message != "" {
+		log.TLogln(message)
+	}
 	consoleEnabled := log.ConfigureConsole(params.Console, params.Service == "run")
 
 	if consoleEnabled {

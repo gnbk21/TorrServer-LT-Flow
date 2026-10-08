@@ -39,6 +39,54 @@ func TestDemandRatesRequireExplicitExperimentAndQualifiedFreshMedia(t *testing.T
 	}
 }
 
+// Deadline removal changes the native priority independently of lastPrios.
+// Exercise the actual shim, not just the Go vector comparison.
+func TestDeadlineRemovalRestoresLazyAndReservedNativePriorities(t *testing.T) {
+	for _, reserved := range []bool{false, true} {
+		session, err := lt.NewSession(lt.SessionConfig{"enable_dht": false, "enable_lsd": false, "enable_upnp": false, "enable_natpmp": false, "listen_interfaces": "127.0.0.1:0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		func() {
+			defer session.Close()
+			info := append([]byte("d4:infod6:lengthi100e4:name4:test12:piece lengthi16384e6:pieces20:"), bytes.Repeat([]byte{0}, 20)...)
+			info = append(info, 'e', 'e')
+			handle, err := session.AddTorrent(lt.AddTorrentParams{InfoBytes: info, SavePath: t.TempDir(), Paused: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer handle.Remove(false)
+			want := 0
+			c := &Cache{NumPieces: 1, PieceLength: 16384, deadlined: map[int]bool{0: true}, refetchedAt: map[int]int64{}}
+			if reserved {
+				want = streamPreloadPriority
+				c.preloadProtect = [][2]int{{0, 0}}
+			}
+			c.lastPrios = []int{want}
+			c.handle.Store(handle)
+			if err := handle.SetPieceDeadline(0, 0, false); err != nil {
+				t.Fatal(err)
+			}
+			c.applyStreamPriorities()
+			deadline := time.Now().Add(4 * time.Second)
+			for time.Now().Before(deadline) {
+				snapshot, err := handle.SampleSparse([][2]int{{0, 1}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if snapshot.Known && len(snapshot.Urgent) == 1 {
+					if snapshot.Urgent[0].Priority != want {
+						t.Fatalf("reserved=%v: native priority %d, want %d", reserved, snapshot.Urgent[0].Priority, want)
+					}
+					return
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+			t.Fatal("native priority unavailable")
+		}()
+	}
+}
+
 func TestScarceEvidenceRejectsStaleTruncatedAndUnqualifiedDelivery(t *testing.T) {
 	old := settings.BTsets()
 	f := settings.DefaultFlowSettings()

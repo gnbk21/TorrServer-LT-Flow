@@ -3,7 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import type { BTSettings } from "../types/settings";
 import { useForm, type RegisterOptions } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { useSettings, useRuntime, useVisible, queryClient } from "../hooks/queries";
+import {
+  useSettings,
+  useRuntime,
+  useVisible,
+  queryClient,
+} from "../hooks/queries";
 import { useDirty } from "../hooks/dirty";
 import { settingsApi } from "../api/settings";
 import { torrentsApi } from "../api/torrents";
@@ -437,6 +442,7 @@ export default function Settings() {
                     <select id={field(key)} {...register(key)}>
                       {[
                         "legacy",
+                        "adaptive",
                         "conservative",
                         "balanced",
                         "aggressive",

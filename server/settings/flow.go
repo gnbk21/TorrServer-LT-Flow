@@ -152,7 +152,7 @@ func (f *FlowSettings) Normalize() {
 	}
 	f.SwarmProfile = strings.ToLower(strings.TrimSpace(f.SwarmProfile))
 	switch f.SwarmProfile {
-	case "legacy", "conservative", "balanced", "aggressive", "custom":
+	case "legacy", "adaptive", "conservative", "balanced", "aggressive", "custom":
 	default:
 		f.SwarmProfile = "legacy"
 	}

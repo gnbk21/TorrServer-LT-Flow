@@ -121,9 +121,45 @@ func TestSparseSnapshotIsBoundedAndPrivate(t *testing.T) {
 			if len(snapshot.Windows) != 1 || len(snapshot.Windows[0].Availability) != 1 || snapshot.SampledPeers != 0 {
 				t.Fatalf("bad bounded snapshot: %+v", snapshot)
 			}
+			if snapshot.UrgentTruncated || len(snapshot.Urgent) != 1 || snapshot.Urgent[0].Blocks != 1 || snapshot.Urgent[0].Unrequested != 1 || snapshot.Urgent[0].Verified {
+				t.Fatalf("incorrect empty frontier: %+v", snapshot.Urgent)
+			}
 			return
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatal("asynchronous snapshot was never published")
+}
+
+func TestNativePriorityAfterDeadlineRemovalAndRestoration(t *testing.T) {
+	s := newSession(t)
+	torrent, err := s.AddTorrent(AddTorrentParams{InfoBytes: minimalTorrent(), SavePath: t.TempDir(), Paused: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer torrent.Remove(false)
+	if err := torrent.SetPieceDeadline(0, 0, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := torrent.ResetPieceDeadline(0); err != nil {
+		t.Fatal(err)
+	}
+	if err := torrent.SetPiecePriority(0, 7); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(4 * time.Second)
+	for time.Now().Before(deadline) {
+		snapshot, err := torrent.SampleSparse([][2]int{{0, 1}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if snapshot.Known && len(snapshot.Urgent) == 1 {
+			if snapshot.Urgent[0].Priority != 7 {
+				t.Fatalf("restoration lost: %+v", snapshot.Urgent[0])
+			}
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("native priority snapshot unavailable")
 }

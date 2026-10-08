@@ -664,7 +664,10 @@
       "SUPPLY_DEFICIT": "Descărcarea utilă este sub consumul estimat",
       "PIECE_WAIT": "Citirile recente au așteptat bucăți torrent",
       "BUFFER_DRAINING": "Bufferul continuu se poate epuiza curând"
-    }
+    },
+    "urgentTitle": "Piese urgente",
+    "urgentProgress": "Piesa {{piece}} · prioritate {{priority}} · așteaptă {{unrequested}} · cerute {{requested}} · scriere {{writing}} · terminate {{finished}}/{{blocks}} · recepție {{receiving_bytes}} B · cereri duplicate {{duplicate_requests}}",
+    "urgentHint": "Blocurile terminate pot aștepta încă verificarea. Recepția face parte din cereri. Acest instantaneu limitat nu măsoară vechimea cererilor."
   },
   "search": {
     "source": "Sursă",
@@ -740,14 +743,16 @@
       "conservative": "Conservator",
       "balanced": "Echilibrat",
       "aggressive": "Agresiv",
-      "custom": "Personalizat"
+      "custom": "Personalizat",
+      "adaptive": "Streaming adaptiv (experimental)"
     },
     "profileHints": {
       "legacy": "Păstrează comportamentul conexiunilor TorrServer-LT. Implicit până când comparațiile măsurate justifică schimbarea.",
       "conservative": "Reduce presiunea conexiunilor și mărește timpii de așteptare. Poate reduce încărcarea, fără a garanta o redare mai bună.",
       "balanced": "Ritm moderat al conexiunilor și al timpilor de așteptare pentru uz general. Compară pe propriile roiuri.",
       "aggressive": "100 de încercări de conectare pe secundă și un impuls inițial de 80 de peers, cu timpii de așteptare impliciți ai libtorrent. Poate grăbi descoperirea cu prețul reconectărilor și al încărcării.",
-      "custom": "Aplică cei șase parametri personalizați. Zero lasă neschimbată setarea libtorrent corespunzătoare."
+      "custom": "Aplică cei șase parametri personalizați. Zero lasă neschimbată setarea libtorrent corespunzătoare.",
+      "adaptive": "Setări Legacy pentru parteneri, cu o marjă VBR limitată și rezervă după întreruperi recente. Folosește memoria cache și termenele existente, fără schimbarea automată a profilului. Nu este încă dovedit mai rapid decât Legacy."
     },
     "storageFields": {
       "settings": "Stocarea setărilor",
