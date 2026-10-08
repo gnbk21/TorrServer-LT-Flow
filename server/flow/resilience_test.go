@@ -69,4 +69,26 @@ func TestObservedRateExpiresAfterIdle(t *testing.T) {
 	if rate, _ := tracker.RateAt(start.Add(40 * time.Second)); rate != 0 {
 		t.Fatal("idle retained live demand")
 	}
+	tracker.Observe(33*MiB, start.Add(40*time.Second), float64(4*MiB))
+	if rate, confidence := tracker.RateAt(start.Add(40 * time.Second)); rate != 0 || confidence == "stable" {
+		t.Fatal("first read after idle resurrected stale rate")
+	}
+}
+
+func TestUnknownMediaHighBitrateSequentialProgressQualifies(t *testing.T) {
+	for _, bytesPerSecond := range []int64{11_250_000, 15_000_000, 25_000_000} { // 90, 120, 200 Mbps
+		var tracker ConsumptionTracker
+		start := time.Unix(1000, 0)
+		for i := int64(0); i <= 1000; i++ {
+			tracker.Observe(i*bytesPerSecond/100, start.Add(time.Duration(i)*10*time.Millisecond), 0)
+		}
+		rate, confidence := tracker.RateAt(start.Add(10 * time.Second))
+		if confidence != "stable" || math.Abs(rate-float64(bytesPerSecond)) > float64(bytesPerSecond)*.01 {
+			t.Fatalf("%d B/s sequential reads did not qualify: %f %s", bytesPerSecond, rate, confidence)
+		}
+		tracker.Observe(1<<30, start.Add(11*time.Second), 0)
+		if rate, confidence := tracker.Rate(); rate != 0 || confidence == "stable" {
+			t.Fatal("seek retained pre-seek confidence")
+		}
+	}
 }

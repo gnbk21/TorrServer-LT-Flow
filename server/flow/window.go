@@ -125,6 +125,7 @@ func DeliveryWindow(playbackRate, waitP95Ms float64, delivery DeliveryStats, blo
 // seek or a resume does not masquerade as sustained playback consumption.
 type ConsumptionTracker struct {
 	anchor     int64
+	previous   int64
 	anchorTime time.Time
 	rate       float64
 	samples    int
@@ -132,12 +133,16 @@ type ConsumptionTracker struct {
 
 func (t *ConsumptionTracker) Reset() { *t = ConsumptionTracker{} }
 
+func (t *ConsumptionTracker) resetAt(offset int64, now time.Time) {
+	*t = ConsumptionTracker{anchor: offset, previous: offset, anchorTime: now}
+}
+
 func (t *ConsumptionTracker) Observe(offset int64, now time.Time, baseline float64) {
 	if offset < 0 || now.IsZero() {
 		return
 	}
 	if t.anchorTime.IsZero() {
-		t.anchor, t.anchorTime = offset, now
+		t.resetAt(offset, now)
 		return
 	}
 	dt := now.Sub(t.anchorTime).Seconds()
@@ -147,17 +152,23 @@ func (t *ConsumptionTracker) Observe(offset int64, now time.Time, baseline float
 	if offset < t.anchor {
 		// Parallel older requests can finish behind the current playhead.
 		if t.anchor-offset > 16*MiB {
-			t.anchor, t.anchorTime = offset, now
+			t.resetAt(offset, now)
 		}
 		return
 	}
 	delta := offset - t.anchor
+	step := offset - t.previous
+	t.previous = offset
 	maxAdvance := float64(16 * MiB)
 	if baseline > 0 && 4*baseline*dt > maxAdvance {
 		maxAdvance = 4 * baseline * dt
 	}
-	if dt > 30 || float64(delta) > maxAdvance {
-		t.anchor, t.anchorTime = offset, now
+	// Without media metadata, compare individual read steps. Comparing the
+	// entire >=2s sample against 16 MiB made sustained >64 Mbps traffic reset
+	// forever, even though each native read advanced sequentially by kilobytes.
+	jump := (baseline > 0 && float64(delta) > maxAdvance) || (baseline <= 0 && step > 16*MiB)
+	if dt > 30 || jump {
+		t.resetAt(offset, now)
 		return
 	}
 	if dt < 2 || delta == 0 {

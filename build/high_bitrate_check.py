@@ -183,6 +183,11 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb):
             report['playback_wall_seconds'] = time.monotonic()-playback_start
             report['peak_observed_rss_bytes'] = max((s.get('memory', {}).get('rss_bytes', 0) for s in report['samples']), default=0)
             report['peak_observed_cache_bytes'] = max(s['cache_used'] for s in report['samples'])
+            report['qualified_consumption_observed'] = any(
+                session.get('observed_confidence') == 'stable'
+                for sample in report['samples'] for session in sample['sessions'])
+            if profile == 'adaptive' and not report['qualified_consumption_observed']:
+                raise AssertionError('Adaptive workload never qualified sequential consumption evidence')
             if report['peak_observed_cache_bytes'] > (cache_mb+8)*MIB:
                 raise AssertionError('Observed cache exceeded budget plus two-piece concurrency allowance')
             report['ranges'] = []
