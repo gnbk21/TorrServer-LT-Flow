@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import http.client
 import json
+import os
 from pathlib import Path
 import socket
 import struct
@@ -18,6 +19,26 @@ import time
 
 from controlled_peer import LocalSwarm, PeerPlan
 from playback_harness import MIB, OwnedServer, range_read, upload
+
+
+def cpu_seconds(process):
+    """Owned process CPU only; unavailable platforms report unknown."""
+    try:
+        if os.name == 'nt':
+            import ctypes
+            from ctypes import wintypes
+            values = [wintypes.FILETIME() for _ in range(4)]
+            query = ctypes.WinDLL('kernel32', use_last_error=True).GetProcessTimes
+            query.argtypes = [wintypes.HANDLE]+[ctypes.POINTER(wintypes.FILETIME)]*4
+            query.restype = wintypes.BOOL
+            if query(wintypes.HANDLE(int(process._handle)), *(ctypes.byref(v) for v in values)):
+                return sum((v.dwHighDateTime << 32)+v.dwLowDateTime for v in values[2:])/10_000_000
+        elif os.name == 'posix' and Path(f'/proc/{process.pid}/stat').exists():
+            fields = Path(f'/proc/{process.pid}/stat').read_text().rsplit(')', 1)[1].split()
+            return (int(fields[11])+int(fields[12]))/os.sysconf('SC_CLK_TCK')
+    except (OSError, ValueError, AttributeError):
+        pass
+    return None
 
 
 def calibrate(swarm):
@@ -138,6 +159,8 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb):
             info = upload(server, swarm)
             index = info['file_stats'][0]['id']
             info_hash = swarm.info_hash.hex()
+            cpu_start = cpu_seconds(server.process)
+            playback_start = time.monotonic()
             with ThreadPoolExecutor(max_workers=1) as pool:
                 pending = pool.submit(paced, server, info_hash, index, swarm.data,
                                       rate, seconds, case == 'bursts')
@@ -151,8 +174,14 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb):
                         'sessions': sessions,
                         'urgent': status.get('sparse', {}).get('urgent'),
                         'urgent_truncated': status.get('sparse', {}).get('urgent_truncated')})
+                    if len(report['samples']) % 5 == 1:
+                        report['samples'][-1]['memory'] = server.json('/runtime/status')['memory']
                     time.sleep(1)
                 report['delivery'] = pending.result()
+            cpu_end = cpu_seconds(server.process)
+            report['cpu_seconds'] = cpu_end-cpu_start if cpu_start is not None and cpu_end is not None else None
+            report['playback_wall_seconds'] = time.monotonic()-playback_start
+            report['peak_observed_rss_bytes'] = max((s.get('memory', {}).get('rss_bytes', 0) for s in report['samples']), default=0)
             report['peak_observed_cache_bytes'] = max(s['cache_used'] for s in report['samples'])
             if report['peak_observed_cache_bytes'] > (cache_mb+8)*MIB:
                 raise AssertionError('Observed cache exceeded budget plus two-piece concurrency allowance')

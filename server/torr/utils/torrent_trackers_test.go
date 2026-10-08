@@ -28,6 +28,13 @@ func setupTrackersTestWithURLs(t *testing.T, custom string, mirrors []string, de
 }
 
 func resetTrackersTestState() {
+	// A refreshed fixture must not leave a worker reading the next test's
+	// interval/URL slice, or contacting public mirrors after cleanup.
+	if refreshLoopDone != nil {
+		close(refreshLoopStop)
+		<-refreshLoopDone
+	}
+	refreshLoopStop, refreshLoopDone = make(chan struct{}), nil
 	settings.StoreBTsets(nil)
 	trackersMu.Lock()
 	loadedTrackers = nil
