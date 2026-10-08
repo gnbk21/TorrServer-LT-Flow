@@ -30,6 +30,7 @@ jobs:
           java-version: '21'
       - uses: android-actions/setup-android@v3
         with:
+          cmdline-tools-version: '15859902'
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
       - name: Apply reviewed patch and test device memory policy
@@ -42,7 +43,7 @@ jobs:
       - name: Build separate experimental app
         working-directory: _player
         run: |
-          sdkmanager 'platforms;android-37' 'build-tools;37.0.0' 'ndk;29.0.14206865'
+          sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;29.0.14206865'
           chmod +x gradlew
           ./gradlew --no-daemon assembleLatestUniversalDebug
       - name: Preserve source and license
