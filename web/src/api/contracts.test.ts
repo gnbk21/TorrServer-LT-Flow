@@ -30,6 +30,34 @@ test("legacy zero cache is readable while Apply requires a positive budget", () 
 });
 
 const input = process.env.FLOW_CONTRACT_INPUT;
+test("storage diagnostics reject invalid counters while preserving new fields", () => {
+  const storage = {
+    queued_bytes: 0,
+    peak_queue_bytes: 64,
+    queued_jobs: 0,
+    rejected_jobs: 0,
+    completed_jobs: 1,
+    wait_p95_us: 32,
+    wait_max_us: 20,
+    callback_p95_us: 128,
+    callback_max_us: 100,
+  };
+  expect(
+    flowSchema.safeParse({ hash: "fixture", storage_io: storage }).success,
+  ).toBe(true);
+  expect(
+    flowSchema.safeParse({
+      hash: "fixture",
+      storage_io: { ...storage, queued_jobs: -1 },
+    }).success,
+  ).toBe(false);
+  expect(
+    flowSchema.safeParse({
+      hash: "fixture",
+      storage_io: { ...storage, wait_max_us: "unknown" },
+    }).success,
+  ).toBe(false);
+});
 test("urgent frontier bounds and block accounting are validated", () => {
   const piece = {
     piece: 1,
@@ -43,12 +71,21 @@ test("urgent frontier bounds and block accounting are validated", () => {
     verified: false,
     receiving_blocks: 1,
     receiving_bytes: 8192,
+    oldest_request_age_ms: -1,
   };
   const response = (urgent: unknown) => ({
     hash: "fixture",
     sparse: { known: true, urgent },
   });
   expect(flowSchema.safeParse(response([piece])).success).toBe(true);
+  expect(
+    flowSchema.safeParse(response([{ ...piece, oldest_request_age_ms: 250 }]))
+      .success,
+  ).toBe(true);
+  expect(
+    flowSchema.safeParse(response([{ ...piece, oldest_request_age_ms: -2 }]))
+      .success,
+  ).toBe(false);
   expect(
     flowSchema.safeParse(response([{ ...piece, unrequested: 101 }])).success,
   ).toBe(false);

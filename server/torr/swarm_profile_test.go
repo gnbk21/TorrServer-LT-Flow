@@ -7,6 +7,22 @@ import (
 	"server/settings"
 )
 
+func TestCapacityExperimentExplicitAndIndependentOfProfile(t *testing.T) {
+	for _, profile := range []string{"legacy", "adaptive", "balanced", "conservative", "aggressive", "custom"} {
+		f := settings.DefaultFlowSettings()
+		f.SwarmProfile = profile
+		for _, enabled := range []bool{false, true} {
+			f.CapacityAwareRequests = enabled
+			cfg := lt.SessionConfig{}
+			applyFlowSwarmProfile(cfg, f, false)
+			value, exists := cfg["flow_capacity_aware_requests"]
+			if enabled && value != true || !enabled && exists {
+				t.Fatalf("%s enabled=%v: %v", profile, enabled, cfg)
+			}
+		}
+	}
+}
+
 func TestFlowSwarmProfilesPreserveCompatibilityAndUserSettings(t *testing.T) {
 	base := func() lt.SessionConfig {
 		return lt.SessionConfig{

@@ -6,10 +6,9 @@
 // `peer_request` (piece + offset + length) and the Go-side Piece layout
 // is a 1:1 pass-through.
 //
-// For Etap 4.1 the storage is purely a delegation layer: libtorrent
-// calls us, we ferry bytes between its disk thread pool and the Go
-// Cache. The Go side may keep the bytes in RAM (MemPiece) or on disk
-// (DiskPiece, Etap 4.2) — that decision belongs in Go, not here.
+// Callbacks run on a bounded piece-ordered worker queue; completions return
+// to libtorrent's network executor. Go owns the RAM/disk cache and verification
+// bitmap. The native queue retains only in-flight buffers, never a second cache.
 
 #include "lt_disk_io.h"
 #include "lt_io_queue.hpp"
@@ -46,6 +45,36 @@ namespace lt = libtorrent;
 // global Go-callback registry
 // ============================================================================
 namespace {
+
+// Posted read completions may outlive the disk backend during shutdown. Their
+// allocator therefore has process lifetime and separately bounds retained bytes.
+class completion_allocator final : public lt::buffer_allocator_interface {
+public:
+    char* allocate(std::size_t size) {
+        auto used = bytes_.load();
+        do {
+            if (size > flow_io_queue::limit_bytes-used) return nullptr;
+        } while (!bytes_.compare_exchange_weak(used, used+size));
+        auto* header = static_cast<std::size_t*>(std::malloc(sizeof(std::size_t)+size));
+        if (!header) { bytes_ -= size; return nullptr; }
+        *header = size;
+        return reinterpret_cast<char*>(header+1);
+    }
+    void free_disk_buffer(char* buffer) override {
+        if (!buffer) return;
+        auto* header = reinterpret_cast<std::size_t*>(buffer)-1;
+        bytes_ -= *header;
+        std::free(header);
+    }
+#if LIBTORRENT_VERSION_NUM >= 20100
+    void free_multiple_buffers(lt::span<char*> buffers) override {
+        for (auto* buffer : buffers) free_disk_buffer(buffer);
+    }
+#endif
+private:
+    std::atomic<std::size_t> bytes_{0};
+};
+completion_allocator g_completion_allocator;
 
 std::mutex                g_cb_mu;
 tsl_storage_callbacks     g_cb{};
@@ -141,8 +170,8 @@ namespace {
 inline lt::storage_error make_io_error(char const* op) {
     lt::storage_error se;
     se.ec = lt::error_code(boost::system::errc::io_error, lt::system_category());
-    se.operation = lt::operation_t::partfile_read;
-    (void)op;
+    se.operation = std::strncmp(op, "write", 5) == 0
+        ? lt::operation_t::file_write : lt::operation_t::file_read;
     return se;
 }
 
@@ -271,15 +300,15 @@ public:
         bool throttle = false;
         if (!state || r.length <= 0 || !work_.submit(storage_id_of(s), int(r.piece),
                 std::size_t(r.length), [this, state, r, h] {
-            char* buf = static_cast<char*>(std::malloc(std::size_t(r.length)));
+            char* buf = g_completion_allocator.allocate(std::size_t(r.length));
             lt::storage_error err;
             if (!buf || cb_.read(state->id, int(r.piece), r.start,
                     reinterpret_cast<uint8_t*>(buf), r.length) != r.length)
                 err = make_io_error("read");
 #if LIBTORRENT_VERSION_NUM >= 20100
-            lt::disk_buffer_holder holder(*this, buf);
+            lt::disk_buffer_holder holder(g_completion_allocator, buf);
 #else
-            lt::disk_buffer_holder holder(*this, buf, r.length);
+            lt::disk_buffer_holder holder(g_completion_allocator, buf, r.length);
 #endif
             lt::post(io_, [h, state, holder = std::move(holder), err]() mutable {
                 (*h)(std::move(holder), err);

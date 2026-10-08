@@ -141,6 +141,21 @@ class WireTests(unittest.TestCase):
             self.assertEqual(swarm.status()['peers'][0]['peak_pending_requests'], 2)
             self.assertEqual(swarm.status()['peers'][0]['close_reasons'], {'queue-limit': 1})
 
+    def test_request_latency_is_pipelined_not_serial_per_block(self):
+        with LocalSwarm([self.file], peers=[PeerPlan(rate=100*1024*1024, request_latency_ms=150,
+                request_queue=4, strict_request_queue=True)], high_throughput=True) as swarm:
+            sock = self.connect(swarm)
+            self.initial(sock)
+            started = time.monotonic()
+            for begin in (0, 16384, 32768, 49152):
+                self.send(sock, b'\x06'+struct.pack('!III', 0, begin, 16384))
+            arrivals = []
+            for _ in range(4):
+                self.assertEqual(self.message(sock)[0], 7)
+                arrivals.append(time.monotonic()-started)
+            self.assertGreater(arrivals[0], .10)
+            self.assertLess(arrivals[-1]-arrivals[0], .12)
+
 
 if __name__ == '__main__':
     unittest.main()

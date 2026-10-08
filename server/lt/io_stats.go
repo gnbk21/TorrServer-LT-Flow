@@ -5,8 +5,9 @@ package lt
 */
 import "C"
 
-// StorageIO is process-wide. Latency buckets are upper bounds, not exact
-// percentiles, and include reads, writes, hashing and maintenance fences.
+// StorageIO combines active backend queues and their peaks/rejections with
+// process-lifetime completion/latency counters. Latency buckets are upper bounds,
+// not exact percentiles, and include reads, writes, hashing and maintenance fences.
 type StorageIO struct {
 	QueuedBytes    uint64 `json:"queued_bytes"`
 	PeakQueueBytes uint64 `json:"peak_queue_bytes"`

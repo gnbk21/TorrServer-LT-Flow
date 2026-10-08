@@ -152,11 +152,20 @@ restoration as defaults, so the full streaming ramp remains. Neither full episod
 preparation nor a paid provider is required. The new profile is absent from
 published Preview 2 `.5`; real phone and public-swarm comparisons remain pending.
 
+Development builds add bounded asynchronous storage I/O, verified-contiguous
+buffer and urgent-request-age diagnostics, a phone/LAN transfer check, and three
+independent opt-in experiments: peer-capacity limits, a demand-sized urgent
+horizon and resident MKV/MP4 burst hints. An optional separate Flow Player build
+tests a memory-aware phone buffer. All preserve the original media quality;
+the experiments default off. See the [high bitrate guide](HIGH_BITRATE_GUIDE.md)
+for behavior, limits, testing and rollback.
+
 Development builds also restore priorities after removing native deadlines:
 libtorrent otherwise demotes those pieces, which can leave abandoned work
 downloading or reduce preload priorities. Diagnostics show bounded urgent block
 states, receiving progress and effective native priorities; finished blocks can
-still await verification, and snapshot age is not request age.
+still await verification. Snapshot age and actual outstanding request age are
+separate measurements; unknown request age is shown as unavailable.
 Sequential high bitrate consumption now qualifies without probe metadata:
 the old sample-size guard could understate demand above roughly 64 Mbps. Seek
 and idle transitions reset stale rate confidence. These fixes also apply to

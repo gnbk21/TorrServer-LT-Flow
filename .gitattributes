@@ -3,6 +3,7 @@
 *.sh text eol=lf
 *.py text eol=lf
 build/native-patches/*.patch text eol=lf -whitespace
+build/just-player/*.patch text eol=lf -whitespace
 .github/** text eol=lf
 distribution/** text eol=lf
 web/** text=auto eol=lf

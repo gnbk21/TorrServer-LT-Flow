@@ -5,6 +5,33 @@ import (
 	"testing"
 )
 
+func TestStreamingExperimentsDefaultOffAndRoundTrip(t *testing.T) {
+	for _, data := range []string{`{}`, `{"Enabled":true}`} {
+		var f FlowSettings
+		if err := json.Unmarshal([]byte(data), &f); err != nil {
+			t.Fatal(err)
+		}
+		f.Normalize()
+		if f.CapacityAwareRequests || f.AdaptiveUrgentHorizon || f.ContainerBurstHints {
+			t.Fatal("migration enabled an experiment")
+		}
+	}
+	original := DefaultFlowSettings()
+	original.CapacityAwareRequests, original.AdaptiveUrgentHorizon, original.ContainerBurstHints = true, true, true
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored FlowSettings
+	if err := json.Unmarshal(data, &restored); err != nil {
+		t.Fatal(err)
+	}
+	restored.Normalize()
+	if !restored.CapacityAwareRequests || !restored.AdaptiveUrgentHorizon || !restored.ContainerBurstHints {
+		t.Fatal("explicit experiments lost")
+	}
+}
+
 func TestFlowSettingsMigrateNewFieldsWithoutOverwritingFlags(t *testing.T) {
 	var f FlowSettings
 	if err := json.Unmarshal([]byte(`{"Enabled":true,"AdaptiveStartup":true,"RangeTraceEnabled":false,"TargetBufferSeconds":60}`), &f); err != nil {

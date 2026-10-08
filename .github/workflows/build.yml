@@ -314,6 +314,7 @@ jobs:
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
         run: |
           go test ./flow -run '^$' -fuzz '^FuzzRangeHint$' -fuzztime=10s -parallel=2
+          go test ./flow -run '^$' -fuzz '^FuzzResidentIndex$' -fuzztime=100000x -timeout=180s -parallel=2
           go test ./settings -run '^$' -fuzz '^FuzzBackupImport$' -fuzztime=10s -parallel=2
           go test ./settings -run '^$' -fuzz '^FuzzFlowSettings$' -fuzztime=10s -parallel=2
           # A timed coordinator shutdown intermittently returned "context
@@ -369,6 +370,7 @@ jobs:
           python3 build/peerhint_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/peerhint-check
           python3 build/webseed_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/webseed-check
           python3 build/adaptive_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/adaptive-check
+          python3 build/request_capacity_check.py --executable _out/TorrServer-LT-linux-amd64 --output _out/request-capacity
           python3 build/sparse_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/sparse-check
           python3 build/sparse_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/sparse-rate-check --rate-aware --cases below complementary late-have
       - uses: actions/upload-artifact@v4
@@ -401,6 +403,9 @@ jobs:
               _out/upstream-tls-check/*/server-output.log
             _out/adaptive-check/report.json
             _out/adaptive-check/state/server-output.log
+            _out/request-capacity/**/report.json
+            _out/request-capacity/report.json
+            _out/request-capacity/**/server-output.log
             _out/library-upsert-benchmark.txt
           if-no-files-found: warn
 
@@ -470,6 +475,44 @@ jobs:
         with:
           name: flow-windows-update-candidate
           path: _out/TorrServer-LT-windows-amd64.exe
+          if-no-files-found: error
+
+  high-bitrate-comparison:
+    needs: cross
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {mbps: 90, case: healthy, cache: 512, piece: 1, backend: ram}
+          - {mbps: 120, case: healthy, cache: 2048, piece: 16, backend: disk}
+          - {mbps: 90, case: outages, cache: 512, piece: 4, backend: disk}
+          - {mbps: 120, case: outages, cache: 512, piece: 4, backend: ram}
+          - {mbps: 90, case: mixed-peers, cache: 2048, piece: 4, backend: ram}
+          - {mbps: 120, case: mixed-peers, cache: 512, piece: 4, backend: disk}
+          - {mbps: 90, case: bursts, cache: 512, piece: 4, backend: ram}
+          - {mbps: 120, case: bursts, cache: 2048, piece: 4, backend: disk}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: TorrServer-LT-linux-amd64
+          path: _out
+      - name: Rotated original-quality byte transport comparisons
+        run: |
+          chmod +x _out/TorrServer-LT-linux-amd64
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          python3 build/high_bitrate_matrix.py --executable _out/TorrServer-LT-linux-amd64 --output _out/high-bitrate --mbps '${{ matrix.mbps }}' --cases '${{ matrix.case }}' --cache-mb '${{ matrix.cache }}' --piece-mb '${{ matrix.piece }}' ${{ matrix.backend == 'disk' && '--disk' || '' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: high-bitrate-${{ matrix.mbps }}-${{ matrix.case }}-${{ matrix.backend }}
+          path: |
+            _out/high-bitrate/**/report.json
+            _out/high-bitrate/report.json
+            _out/high-bitrate/**/server-output.log
           if-no-files-found: error
 
   windows-service:

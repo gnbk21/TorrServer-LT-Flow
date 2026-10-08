@@ -68,11 +68,11 @@ func (f *fileReader) Seek(offset int64, whence int) (int64, error) {
 //	@Router			/download/{size} [get]
 func download(c *gin.Context) {
 	szStr := c.Param("size")
-	sz, err := strconv.Atoi(szStr)
-	if err != nil || sz < 1 || sz > 1024 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "size must be 1..1024 MiB"})
+	sz, err := strconv.ParseInt(szStr, 10, 64)
+	if err != nil || sz < 1 || sz > (1<<63-1)>>20 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "size must be a positive representable MiB count"})
 		return
 	}
 
-	http.ServeContent(c.Writer, c.Request, fmt.Sprintln(szStr)+"mb.bin", time.Now(), newFR(int64(sz*1024*1024)))
+	http.ServeContent(c.Writer, c.Request, fmt.Sprintln(szStr)+"mb.bin", time.Now(), newFR(sz<<20))
 }

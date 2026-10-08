@@ -4,6 +4,7 @@ import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Log;
 import androidx.media3.common.PlaybackException;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
@@ -20,8 +21,8 @@ final class FlowPlaybackAnalytics implements AnalyticsListener {
     private long rebufferAt = -1;
     private long rebufferMs;
     private long bandwidth;
-    private int stalls, dropped, errors;
-    private boolean ready, released;
+    private int stalls, dropped, errors, seeks;
+    private boolean ready, released, seeking;
     private final Runnable sample = new Runnable() {
         @Override public void run() {
             if (released) return;
@@ -30,7 +31,7 @@ final class FlowPlaybackAnalytics implements AnalyticsListener {
                     +" buffered_ms="+player.getTotalBufferedDuration()
                     +" state="+player.getPlaybackState()+" playing="+player.isPlaying()
                     +" rebuffer_events="+stalls+" rebuffer_ms="+(rebufferMs+active)
-                    +" dropped_frames="+dropped+" errors="+errors+" bandwidth_bps="+bandwidth);
+                    +" seeks="+seeks+" dropped_frames="+dropped+" errors="+errors+" bandwidth_bps="+bandwidth);
             handler.postDelayed(this, 5000);
         }
     };
@@ -41,12 +42,23 @@ final class FlowPlaybackAnalytics implements AnalyticsListener {
     }
     static void attach(ExoPlayer player) { player.addAnalyticsListener(new FlowPlaybackAnalytics(player)); }
     @Override public void onPlaybackStateChanged(EventTime time, int state) {
-        if (state == Player.STATE_READY) ready = true;
+        if (state == Player.STATE_READY) { ready = true; seeking = false; }
+    }
+    @Override public void onPositionDiscontinuity(EventTime time, Player.PositionInfo oldPosition,
+            Player.PositionInfo newPosition, int reason) {
+        if (reason == Player.DISCONTINUITY_REASON_SEEK) { seeks++; seeking = true; }
+    }
+    @Override public void onMediaItemTransition(EventTime time, MediaItem item, int reason) {
+        ready = false; seeking = false;
+    }
+    // Evaluate after the event batch so seek-induced BUFFERING cannot be
+    // counted as a supply stall regardless of callback ordering.
+    @Override public void onEvents(Player player, AnalyticsListener.Events events) {
+        if (player.getPlaybackState() == Player.STATE_READY) { ready = true; seeking = false; }
         updateBuffering();
     }
-    @Override public void onPlayWhenReadyChanged(EventTime time, boolean play, int reason) { updateBuffering(); }
     private void updateBuffering() {
-        boolean buffering = ready && player.getPlayWhenReady() && player.getPlaybackState() == Player.STATE_BUFFERING;
+        boolean buffering = ready && !seeking && player.getPlayWhenReady() && player.getPlaybackState() == Player.STATE_BUFFERING;
         long now = SystemClock.elapsedRealtime();
         if (buffering && rebufferAt < 0) { stalls++; rebufferAt = now; }
         if (!buffering && rebufferAt >= 0) { rebufferMs += now-rebufferAt; rebufferAt = -1; }

@@ -442,7 +442,7 @@ func (r *indexReader) mp4Track(track mp4box) (BurstIndex, error) {
 		return BurstIndex{}, errIndex
 	}
 	for i := 0; i < ns; i++ {
-		if u32(stsc, i*12+4) == 0 || u32(stsc, i*12+8) == 0 || (i > 0 && u32(stsc, i*12) <= u32(stsc, (i-1)*12)) {
+		if u32(stsc, i*12) > uint64(count) || u32(stsc, i*12+4) == 0 || u32(stsc, i*12+8) == 0 || (i > 0 && u32(stsc, i*12) <= u32(stsc, (i-1)*12)) {
 			return BurstIndex{}, errIndex
 		}
 	}

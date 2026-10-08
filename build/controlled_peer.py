@@ -84,6 +84,7 @@ class PeerPlan:
     rate_events: list = field(default_factory=list)  # (time, bytes/sec), positive delivery variation
     request_queue: int = 0  # optional BEP 10 reqq; actual fixture cap retains headroom
     strict_request_queue: bool = False  # disconnect when the advertised cap is exceeded
+    request_latency_ms: int = 0  # per-request service latency, independently pipelined
 
     def rate_at(self, elapsed):
         rate = self.rate
@@ -132,7 +133,7 @@ class LocalSwarm:
         if not 1 <= peer_ip_start <= 254-len(self.plans):
             raise ValueError("fixture peer IP range exceeded")
         for plan in self.plans:
-            if plan.rate < 0 or plan.delay_ms < 0 or plan.choke_until < 0 or plan.metadata_delay < 0:
+            if plan.rate < 0 or plan.delay_ms < 0 or plan.request_latency_ms < 0 or plan.choke_until < 0 or plan.metadata_delay < 0:
                 raise ValueError("negative peer timing or rate")
             if any(p < 0 or p >= self.piece_count for p in plan.available(self.piece_count, float('inf'))):
                 raise ValueError("piece outside generated torrent")
@@ -211,7 +212,7 @@ class LocalSwarm:
                                     header[b'total_size'] = len(owner.metadata)
                                 send(b'\x14' + bytes([metadata_id]) + bencode(header) + block)
                         now = time.monotonic()
-                        if pending and not choked and now >= (next_send if plan.rate_events else pending[0][0]):
+                        if pending and not choked and now >= (max(next_send, pending[0][0]) if plan.rate_events else pending[0][0]):
                             _, piece, begin, count = pending.pop(0)
                             block = owner.data[piece*owner.piece_length+begin:piece*owner.piece_length+begin+count]
                             send(b'\x07' + struct.pack('!II', piece, begin) + block)
@@ -227,7 +228,7 @@ class LocalSwarm:
                             # Wait only until the next scheduled block. The
                             # historical fixed poll caps one peer at ~12 Mbps,
                             # regardless of a high-bitrate test's requested rate.
-                            due = next_send if plan.rate_events else pending[0][0]
+                            due = max(next_send, pending[0][0]) if plan.rate_events else pending[0][0]
                             poll = min(poll, max(0, due-time.monotonic()))
                         if not select.select([sock], [], [], poll)[0]:
                             continue
@@ -288,7 +289,8 @@ class LocalSwarm:
                                     return
                                 if not plan.rate_events:
                                     next_send = max(next_send, time.monotonic()) + plan.delay_ms/1000 + (count/plan.rate if plan.rate else 0)
-                                pending.append((0 if plan.rate_events else next_send, piece, begin, count))
+                                ready = time.monotonic()+plan.request_latency_ms/1000
+                                pending.append((ready if plan.rate_events else max(ready, next_send), piece, begin, count))
                                 with owner.lock:
                                     stats['peak_pending_requests'] = max(stats['peak_pending_requests'], len(pending))
                 except socket.timeout:

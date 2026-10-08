@@ -1,5 +1,11 @@
 name: optional-flow-player
 on:
+  pull_request:
+    branches: [master, develop]
+    paths:
+      - 'build/just-player/**'
+      - 'build/prepare_just_player.py'
+      - '.github/workflows/just-player.yml'
   workflow_dispatch:
 permissions:
   contents: read

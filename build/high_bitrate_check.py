@@ -6,6 +6,7 @@ The generated MPEG-TS includes transport padding. Measurements concern verified
 byte delivery, not decoded visual quality, Android playback or public swarms.
 """
 import argparse
+import gc
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import http.client
@@ -58,10 +59,12 @@ def calibrate(swarm):
             return bytes(data)
         receive(68)
         size = 16*MIB
-        requests = b''.join(struct.pack('!IBIII', 13, 6, offset//swarm.piece_length,
-                            offset % swarm.piece_length, 16384) for offset in range(0, size, 16384))
+        requests = [struct.pack('!IBIII', 13, 6, offset//swarm.piece_length,
+                            offset % swarm.piece_length, 16384) for offset in range(0, size, 16384)]
         started = time.monotonic()
-        sock.sendall(requests)
+        window = min(len(requests), peer.plan.request_queue or 512)
+        sock.sendall(b''.join(requests[:window]))
+        sent = window
         received = 0
         while received < size:
             length, = struct.unpack('!I', receive(4))
@@ -72,6 +75,9 @@ def calibrate(swarm):
                 if packet[9:] != swarm.data[start:start+len(packet)-9]:
                     raise AssertionError('Calibration bytes changed')
                 received += len(packet)-9
+                if sent < len(requests):
+                    sock.sendall(requests[sent])
+                    sent += 1
         return received*8/(time.monotonic()-started)/1_000_000
 
 
@@ -130,37 +136,45 @@ def paced(server, info_hash, index, source, rate, seconds, bursts):
                 'scheduled_delivery_ms': (due-first_at)*1000,
                 'behind_schedule_ms': max(0, time.monotonic()-due)*1000,
                 'reads_over_250ms': sum(w >= 250 for w in waits),
+                'total_read_wait_ms': sum(waits),
+                'blocked_over_250ms_ms': sum(w for w in waits if w >= 250),
+                'read_wait_p95_ms': ordered[min(len(ordered)-1, int(len(ordered)*.95))],
                 'read_wait_p99_ms': ordered[min(len(ordered)-1, int(len(ordered)*.99))],
                 'read_wait_max_ms': max(waits), 'verified_bytes': True}
     finally:
         connection.close()
 
 
-def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, preload=False):
+def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, preload=False,
+        *, reqq=512, strict=False, latency_ms=0, piece_mb=4, disk=False,
+        capacity_aware=False, urgent_horizon=False, burst_hints=False, startup_mb=32):
     report = {'profile': profile, 'case': case, 'cache_mb': cache_mb,
               'nominal_demand_mbps': rate*8/1_000_000,
-              'piece_bytes': 4*MIB, 'requested_seconds': seconds,
+              'piece_bytes': piece_mb*MIB, 'requested_seconds': seconds,
               'preload': preload, 'http_delivery_only': True, 'samples': []}
     # Native time-critical work can exceed desired_queue_size. Advertise a
     # realistic capacity, with bounded fixture headroom for in-flight cancels.
-    plans = [PeerPlan(rate=int(2*rate), request_queue=512,
-                      outages=[(16, 19), (32, 35)] if case == 'outages' else [])]
+    plans = [PeerPlan(rate=int(2*rate), request_queue=reqq, strict_request_queue=strict, request_latency_ms=latency_ms)]
     if case == 'mixed-peers':
-        plans = [PeerPlan(rate=int(1.7*rate), request_queue=512)] + [PeerPlan(rate=rate//20, request_queue=512) for _ in range(7)]
-    report['peer_advertised_request_queue'] = 512
+        plans = [PeerPlan(rate=int(1.7*rate), request_queue=reqq, strict_request_queue=strict, request_latency_ms=latency_ms)] + [PeerPlan(rate=rate//20, request_queue=reqq, strict_request_queue=strict, request_latency_ms=latency_ms) for _ in range(7)]
+    report.update(peer_advertised_request_queue=reqq, strict_peer_capacity=strict, request_latency_ms=latency_ms,
+                  storage_backend='disk' if disk else 'ram', capacity_aware=capacity_aware,
+                  urgent_horizon=urgent_horizon, burst_hints=burst_hints, startup_reserve_mb=startup_mb)
     server = OwnedServer(executable, root, extra_settings={
         'CacheSize': cache_mb*MIB, 'PreloadCache': 10,
+        'UseDisk': disk, 'TorrentsSavePath': str((root/'cache').resolve()) if disk else '',
         'Flow': {'SwarmProfile': profile, 'BootstrapHeadMB': 4,
-                 'ProbeGraceMs': 300, 'StartupBufferMinMB': 4,
-                 'StartupBufferMaxMB': 32, 'StartupBufferSeconds': 2,
+                 'ProbeGraceMs': 300, 'StartupBufferMinMB': startup_mb,
+                 'StartupBufferMaxMB': startup_mb, 'StartupBufferSeconds': 2,
                  'WarmSessionTimeoutSec': 30, 'GlobalCacheBudgetMB': cache_mb,
-                 'DiagnosticHistory': False}})
+                 'CapacityAwareRequests': capacity_aware, 'AdaptiveUrgentHorizon': urgent_horizon,
+                 'ContainerBurstHints': burst_hints, 'DiagnosticHistory': False}})
     swarm, cpu_start, playback_start = None, None, None
     try:
         report['ready_ms'] = server.ready()
         with server.request('/echo') as response:
             report['version'] = response.read().decode()
-        with LocalSwarm([fixture], peers=plans, piece_length=4*MIB, high_throughput=True) as swarm:
+        with LocalSwarm([fixture], peers=plans, piece_length=piece_mb*MIB, high_throughput=True) as swarm:
             report['fixture_sha256'] = hashlib.sha256(swarm.data).hexdigest()
             info = upload(server, swarm)
             index = info['file_stats'][0]['id']
@@ -177,8 +191,13 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                         raise TimeoutError('Explicit startup buffer did not complete')
                     time.sleep(.1)
                 report['preload_ready_ms'] = (time.monotonic()-started)*1000
+                report['startup'] = server.json('/flow/status/'+info_hash).get('startup')
             cpu_start = cpu_seconds(server.process)
             playback_start = time.monotonic()
+            if case == 'outages':
+                elapsed = playback_start-swarm.started
+                plans[0].outages = [(elapsed+16, elapsed+19), (elapsed+32, elapsed+35)]
+                report['outages_relative_to_playback_s'] = [[16,19],[32,35]]
             with ThreadPoolExecutor(max_workers=1) as pool:
                 pending = pool.submit(paced, server, info_hash, index, swarm.data,
                                       rate, seconds, case == 'bursts')
@@ -190,6 +209,7 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                         'cache_used': max((s['cache_used'] for s in sessions), default=0),
                         'cache_size': max((s['cache_size'] for s in sessions), default=0),
                         'sessions': sessions,
+                        'storage_io': status.get('storage_io'),
                         'urgent': status.get('sparse', {}).get('urgent'),
                         'urgent_truncated': status.get('sparse', {}).get('urgent_truncated')})
                     if len(report['samples']) % 5 == 1:
@@ -209,7 +229,7 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                 for sample in report['samples'] for session in sample['sessions'])
             if profile == 'adaptive' and not report['qualified_consumption_observed']:
                 raise AssertionError('Adaptive workload never qualified sequential consumption evidence')
-            if report['peak_observed_cache_bytes'] > (cache_mb+8)*MIB:
+            if report['peak_observed_cache_bytes'] > (cache_mb+2*piece_mb)*MIB:
                 raise AssertionError('Observed cache exceeded budget plus two-piece concurrency allowance')
             report['ranges'] = []
             for start, cancel in ((len(swarm.data)//2, False), (0, False),
@@ -266,26 +286,44 @@ if __name__ == '__main__':
     parser.add_argument('--seconds', type=int, default=40)
     parser.add_argument('--cache-mb', type=int, default=128)
     parser.add_argument('--preload', action='store_true', help='Exercise the Lampa-style explicit bootstrap/probe path')
+    parser.add_argument('--reqq', type=int, choices=(32,64,250,512,2000), default=512)
+    parser.add_argument('--strict-reqq', action='store_true')
+    parser.add_argument('--latency-ms', type=int, default=0)
+    parser.add_argument('--piece-mb', type=int, choices=(1,4,16), default=4)
+    parser.add_argument('--disk', action='store_true')
+    parser.add_argument('--capacity-aware', action='store_true')
+    parser.add_argument('--urgent-horizon', action='store_true')
+    parser.add_argument('--burst-hints', action='store_true')
+    parser.add_argument('--startup-mb', type=int, default=32)
     args = parser.parse_args()
     if not 10 <= args.seconds <= 120 or not 10 <= args.mbps <= 200 or not 64 <= args.cache_mb <= 2048:
         parser.error('seconds 10..120, Mbps 10..200 and cache 64..2048 MiB required')
     if not args.executable.is_file():
         parser.error('Executable does not exist')
+    if not 0 <= args.latency_ms <= 1000 or not 4 <= args.startup_mb <= args.cache_mb//2:
+        parser.error('latency 0..1000 ms and startup 4..half cache MiB required')
     args.output.mkdir(parents=True, exist_ok=False)
     fixture = args.fixture or args.output/'fixture'/'generated.ts'
     if args.fixture is None:
         generate(fixture, int(args.seconds*args.mbps/120*1.3)+10)
     results = {'executable_sha256': hashlib.sha256(args.executable.read_bytes()).hexdigest(),
                'generated_transport_fixture': True, 'public_discovery_disabled': True, 'cases': []}
-    with LocalSwarm([fixture], peers=[PeerPlan(rate=int(2*args.mbps*1_000_000/8))],
-                    piece_length=4*MIB, high_throughput=True) as swarm:
+    with LocalSwarm([fixture], peers=[PeerPlan(rate=int(2*args.mbps*1_000_000/8), request_queue=args.reqq,
+                    strict_request_queue=args.strict_reqq, request_latency_ms=args.latency_ms)],
+                    piece_length=args.piece_mb*MIB, high_throughput=True) as swarm:
         results['peer_capacity_mbps'] = calibrate(swarm)
+    del swarm
+    gc.collect()
     if results['peer_capacity_mbps'] < 1.3*args.mbps:
         (args.output/'report.json').write_text(json.dumps(results, indent=2)+'\n', encoding='utf-8')
         raise RuntimeError('Local peer capacity is insufficient for a fair high-bitrate comparison')
     for case in args.cases:
         print(f'High bitrate: {args.profile} / {case}', flush=True)
         results['cases'].append(run(args.executable, args.output/case, fixture,
-                                    args.profile, case, int(args.mbps*1_000_000/8), args.seconds, args.cache_mb, args.preload))
+                                    args.profile, case, int(args.mbps*1_000_000/8), args.seconds, args.cache_mb, args.preload,
+                                    reqq=args.reqq, strict=args.strict_reqq, latency_ms=args.latency_ms,
+                                    piece_mb=args.piece_mb, disk=args.disk, capacity_aware=args.capacity_aware,
+                                    urgent_horizon=args.urgent_horizon, burst_hints=args.burst_hints, startup_mb=args.startup_mb))
         (args.output/'report.json').write_text(json.dumps(results, indent=2)+'\n', encoding='utf-8')
+        gc.collect() # local peer handler classes contain owner cycles with fixture bytes
     raise SystemExit(0 if all(case['passed'] for case in results['cases']) else 1)
