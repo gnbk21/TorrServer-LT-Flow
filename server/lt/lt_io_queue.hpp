@@ -24,8 +24,10 @@ public:
     using metric = std::function<void(std::uint64_t, std::uint64_t)>;
 
     explicit flow_io_queue(metric record) : record_(std::move(record)) {
-        for (std::size_t i = 0; i < lanes_.size(); ++i)
-            threads_.emplace_back([this, i] { worker(i); });
+        try {
+            for (std::size_t i = 0; i < lanes_.size(); ++i)
+                threads_.emplace_back([this, i] { worker(i); });
+        } catch (...) { stop(); throw; }
     }
     ~flow_io_queue() { stop(); }
 
@@ -55,7 +57,12 @@ public:
     void fence(std::function<void()> done) {
         auto left = std::make_shared<std::atomic<unsigned>>(lanes_.size());
         std::unique_lock<std::mutex> lock(mu_);
-        if (stopped_) { lock.unlock(); done(); return; }
+        if (stopped_) {
+            // Admission may be closed while a concurrent stop is still joining
+            // workers. A lifecycle completion must not overtake their last job.
+            drained_.wait(lock, [this] { return jobs_ == 0; });
+            lock.unlock(); done(); return;
+        }
         for (auto& lane : lanes_) {
             ++jobs_;
             lane.push_back({[left, done] { if (left->fetch_sub(1) == 1) done(); }, 0, clock::now()});
@@ -71,6 +78,7 @@ public:
     }
 
     void stop() {
+        std::lock_guard<std::mutex> joining(stop_mu_);
         {
             std::lock_guard<std::mutex> lock(mu_);
             if (stopped_) return;
@@ -80,10 +88,10 @@ public:
         for (auto& thread : threads_) if (thread.joinable()) thread.join();
     }
 
-    struct snapshot { std::size_t bytes, peak, jobs, rejected; };
+    struct snapshot { std::size_t bytes, peak, jobs, rejected; bool closed; };
     snapshot status() const {
         std::lock_guard<std::mutex> lock(mu_);
-        return {bytes_, peak_, jobs_, rejected_};
+        return {bytes_, peak_, jobs_, rejected_, stopped_};
     }
 
 private:
@@ -110,6 +118,7 @@ private:
                 std::lock_guard<std::mutex> lock(mu_);
                 bytes_ -= next.bytes;
                 --jobs_;
+                if (jobs_ == 0) drained_.notify_all();
                 if (bytes_ < low_bytes && jobs_ < 2048) observers.swap(observers_);
             }
             for (auto& wake : observers) wake();
@@ -117,7 +126,8 @@ private:
     }
     metric record_;
     mutable std::mutex mu_;
-    std::condition_variable cv_;
+    std::mutex stop_mu_;
+    std::condition_variable cv_, drained_;
     std::array<std::deque<job>, 4> lanes_;
     std::vector<std::thread> threads_;
     std::vector<std::function<void()>> observers_;

@@ -24,11 +24,16 @@ This reserve stays within configured startup, read-ahead and cache limits.
 
 Storage changes apply to all profiles: disk files reuse a bounded 64-handle pool;
 native reads/writes/hashes run on four ordered worker lanes. The queue throttles
-at 16 MiB, resumes below 8 MiB and rejects admission above 64 MiB or 8192 jobs
-with an error. Posted read buffers have a separate process-wide 64 MiB bound.
+at 16 MiB, resumes below 8 MiB and rejects ordinary admission above 64 MiB or
+8192 jobs with an error. Zero-byte lifecycle fences remain admissible so cleanup
+can finish under load. Posted read buffers have a separate process-wide 64 MiB bound.
 These are in-flight buffers, not a second persistent cache. Hashing uses a fixed
 64 KiB worker buffer. Handles close before removal/migration and jobs retain
 their storage until completions settle.
+
+Container inspection checks a 150 ms deadline between bounded reads, with a
+4 MiB inspection budget. This is not a hard timeout for an individual operating
+system read; inspection runs asynchronously outside the streaming open path.
 
 ## Identify the bottleneck
 
@@ -79,6 +84,8 @@ The workflow **optional-flow-player** builds a debug-signed
 APK using the pinned source, recursive dependencies and source patch. Build
 artifacts contain source/license material and checksums; this is not a stable
 store release or an automatic player update.
+Debug signing keys can differ between CI runs; replacing an installed build may
+require uninstalling that separate experimental app first.
 
 For HTTP(S) playback only, a memory policy chooses a byte target using maximum
 heap, used heap and available system memory, capped at 384 MiB and 32 MiB on
