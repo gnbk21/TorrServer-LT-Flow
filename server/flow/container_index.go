@@ -60,8 +60,9 @@ func (r *indexReader) read(off, n int64) ([]byte, error) {
 }
 
 // ReadBurstIndex inspects headers and referenced indexes only. The supplied
-// reader must be resident-only: a cache miss fails immediately. CPU/wall time,
-// bytes, header count, table entries and retained points are all bounded.
+// reader must be resident-only: a cache miss fails immediately. Inspection has
+// a deadline checked between reads and bounds bytes, headers, entries and points.
+// An individual operating system read cannot be interrupted by that deadline.
 func ReadBurstIndex(reader io.ReaderAt, size int64) (BurstIndex, error) {
 	r := &indexReader{r: reader, size: size, remaining: 4 * MiB, until: time.Now().Add(150 * time.Millisecond)}
 	h, err := r.read(0, 8)

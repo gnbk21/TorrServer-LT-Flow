@@ -30,6 +30,9 @@ def check(args):
                 result['capacity_error']='Native urgent/ordinary requests exceeded advertised or local cap'
             result['age_observed']=any(p.get('oldest_request_age_ms',-1)>0
                 for sample in result['samples'] for p in sample.get('urgent') or [])
+            if latency and not result['age_observed']:
+                result['passed']=False
+                result['age_error']='Delayed urgent requests never exposed their actual outstanding age'
             results.append(result)
             (args.output/'report.json').write_text(json.dumps(results,indent=2)+'\n',encoding='utf-8')
             gc.collect()

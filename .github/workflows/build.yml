@@ -53,6 +53,7 @@ jobs:
         working-directory: server
         run: |
           go test -count=1 ./netchange ./flow ./diagnostics
+          go test -count=1 ./torr/storage/torrstor/disk_handles.go ./torr/storage/torrstor/disk_handles_test.go
           go test -count=1 ./web/auth/rejected_body.go ./web/auth/rejected_body_test.go
   sparse-native-layers:
     if: inputs.evaluate_sparse_baseline

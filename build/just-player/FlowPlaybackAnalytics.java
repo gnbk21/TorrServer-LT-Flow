@@ -69,7 +69,7 @@ final class FlowPlaybackAnalytics implements AnalyticsListener {
         errors++; Log.i("FlowPlayback", "player_error_code="+error.errorCode);
     }
     @Override public void onLoadError(EventTime time, LoadEventInfo info, MediaLoadData data, IOException error, boolean canceled) {
-        if (!canceled) { errors++; Log.i("FlowPlayback", "load_error_type="+error.getClass().getSimpleName()); }
+        if (!canceled) { errors++; Log.i("FlowPlayback", "load_error=1"); }
     }
     @Override public void onPlayerReleased(EventTime time) { released = true; handler.removeCallbacks(sample); }
 }

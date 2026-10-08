@@ -32,6 +32,10 @@ func newDiskHandles(limit int) *diskHandles {
 }
 
 func (p *diskHandles) acquire(name string, write bool) (*os.File, func(), error) {
+	return p.acquireMode(name, write, write)
+}
+
+func (p *diskHandles) acquireMode(name string, write, create bool) (*os.File, func(), error) {
 	p.mu.Lock()
 	for {
 		if h := p.files[name]; h != nil {
@@ -65,11 +69,14 @@ func (p *diskHandles) acquire(name string, write bool) (*os.File, func(), error)
 		}
 		flags := os.O_RDONLY
 		if write {
-			if err := os.MkdirAll(filepath.Dir(name), 0o777); err != nil {
-				p.mu.Unlock()
-				return nil, nil, err
+			flags = os.O_RDWR
+			if create {
+				if err := os.MkdirAll(filepath.Dir(name), 0o777); err != nil {
+					p.mu.Unlock()
+					return nil, nil, err
+				}
+				flags |= os.O_CREATE
 			}
-			flags = os.O_RDWR | os.O_CREATE
 		}
 		f, err := os.OpenFile(name, flags, 0o666)
 		if err != nil {

@@ -60,6 +60,39 @@ func TestDiskHandlesReuseBoundAndUpgrade(t *testing.T) {
 	}
 }
 
+func TestDiskHandlesSyncResumedReadOnlyFileWithoutCreatingMissingData(t *testing.T) {
+	p := newDiskHandles(1)
+	name := filepath.Join(t.TempDir(), "resumed")
+	if err := os.WriteFile(name, []byte("verified"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	f, done, err := p.acquire(name, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	done()
+	writable, done, err := p.acquireMode(name, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f == writable {
+		t.Fatal("sync retained a read-only handle")
+	}
+	err = writable.Sync()
+	done()
+	if err != nil {
+		t.Fatal("sync failed after read-only resume", err)
+	}
+	p.closePath(name)
+	missing := name + "-missing"
+	if _, _, err := p.acquireMode(missing, true, false); !os.IsNotExist(err) {
+		t.Fatal("sync opened missing data", err)
+	}
+	if _, err := os.Stat(missing); !os.IsNotExist(err) {
+		t.Fatal("sync created missing data", err)
+	}
+}
+
 func TestDiskHandlesWaitAndCloseBeforeDelete(t *testing.T) {
 	p := newDiskHandles(1)
 	root := t.TempDir()

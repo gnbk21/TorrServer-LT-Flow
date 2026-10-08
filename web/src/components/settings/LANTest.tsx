@@ -14,7 +14,10 @@ export function LANTest() {
   const run = async () => {
     const current = new AbortController();
     controller.current = current;
-    const timeout = window.setTimeout(() => current.abort(), 20000);
+    const timeout = window.setTimeout(
+      () => current.abort(new DOMException("Transfer timed out", "TimeoutError")),
+      20000,
+    );
     setBusy(true);
     setError(undefined);
     setResult(undefined);
@@ -22,6 +25,8 @@ export function LANTest() {
       setResult(await measureLAN(current.signal));
     } catch (e) {
       if (!current.signal.aborted) setError(e);
+      else if (current.signal.reason?.name === "TimeoutError")
+        setError(current.signal.reason);
     } finally {
       window.clearTimeout(timeout);
       setBusy(false);

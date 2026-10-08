@@ -98,7 +98,9 @@ func (dp *DiskPiece) Close() {
 func (dp *DiskPiece) Sync() error {
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
-	f, done, err := dp.piece.cache.diskFiles.acquire(dp.name, false)
+	// Windows FlushFileBuffers requires write access, including resumed pieces
+	// whose pooled handle was first opened by a read. Never create missing data.
+	f, done, err := dp.piece.cache.diskFiles.acquireMode(dp.name, true, false)
 	if err != nil {
 		return err
 	}
