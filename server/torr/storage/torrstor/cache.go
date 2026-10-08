@@ -518,6 +518,13 @@ func (c *Cache) readableAt(piece int, off int64) int64 {
 // cannot expose a stale readable prefix. Native hash callbacks still use the
 // raw readPiece path to inspect an incomplete backend.
 func (c *Cache) readStreamPiece(piece int, off int64, dst []byte) (int, error) {
+	return c.readResidentPiece(piece, off, dst, false)
+}
+
+// Index inspection always requires verification, even for torrents whose HTTP
+// serving permits responsive partial blocks. Check and copy under the same
+// locks so eviction/re-download cannot invalidate an earlier Have check.
+func (c *Cache) readResidentPiece(piece int, off int64, dst []byte, verified bool) (int, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	p := c.pieces[piece]
@@ -526,7 +533,7 @@ func (c *Cache) readStreamPiece(piece int, off int64, dst []byte) (int, error) {
 	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	if c.verifiedReads.Load() && !p.complete {
+	if (verified || c.verifiedReads.Load()) && !p.complete {
 		return 0, io.EOF
 	}
 	n := p.availableFromLocked(off)

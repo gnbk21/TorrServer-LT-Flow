@@ -72,7 +72,9 @@ For longer controlled LAN checks, an optional [iperf3](https://software.es.net/i
 server on the PC and `iperf3 -c <PC-LAN-IP> -R -t 60` on a compatible phone client
 measure the server-to-phone direction. Bind the server to the LAN address and
 allow access only from the LAN; stop it after testing. Flow does not install it
-or change firewall rules. Avoid simultaneous transfer tests during playback.
+or change firewall rules. Start with an idle measurement. An optional comparison
+during playback adds competing traffic and can itself cause stalls; record that
+condition and do not treat test-induced stalls as the playback baseline.
 
 ## Optional Flow Player
 

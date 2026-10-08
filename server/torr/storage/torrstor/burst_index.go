@@ -28,11 +28,8 @@ func (r residentIndexReader) ReadAt(dst []byte, off int64) (int, error) {
 	for n < len(dst) {
 		abs := r.file.Offset + off + int64(n)
 		piece, at := int(abs/r.cache.PieceLength), abs%r.cache.PieceLength
-		if !r.cache.Have(piece) {
-			return n, io.EOF
-		}
 		count := min(len(dst)-n, int(r.cache.PieceLength-at))
-		got, err := r.cache.readStreamPiece(piece, at, dst[n:n+count])
+		got, err := r.cache.readResidentPiece(piece, at, dst[n:n+count], true)
 		n += got
 		if err != nil || got != count {
 			return n, io.EOF
