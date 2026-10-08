@@ -15,27 +15,30 @@ def check(args):
         block=bytes(range(256))*4096
         for _ in range(64): output.write(block)
     results=[]
-    for reqq in (32,64,250,512,2000):
-        for latency in (0,250):
-            print(f'Strict reqq={reqq}, pipelined latency={latency} ms', flush=True)
-            result=run(args.executable,args.output/f'cap-{reqq}-{latency}',fixture,
-                       'legacy','healthy',(MIB if latency else 4*MIB),10,64,True,
-                       reqq=reqq,strict=True,latency_ms=latency,piece_mb=1,
-                       capacity_aware=True,startup_mb=4)
-            peers=result.get('swarm',{}).get('peers',[])
-            violations=[p for p in peers if p['peak_pending_requests']>min(reqq,1500)
-                        or p['close_reasons'].get('queue-limit',0)]
-            if not peers or violations:
-                result['passed']=False
-                result['capacity_error']='Native urgent/ordinary requests exceeded advertised or local cap'
-            result['age_observed']=any(p.get('oldest_request_age_ms',-1)>0
-                for sample in result['samples'] for p in sample.get('urgent') or [])
-            if latency and not result['age_observed']:
-                result['passed']=False
-                result['age_error']='Delayed urgent requests never exposed their actual outstanding age'
-            results.append(result)
-            (args.output/'report.json').write_text(json.dumps(results,indent=2)+'\n',encoding='utf-8')
-            gc.collect()
+    cases=[(reqq,latency,1) for reqq in (32,64,250,512,2000) for latency in (0,250)]
+    # Large pieces pressure the local 1500-block ceiling even when the peer
+    # advertises more capacity. Small pieces alone may never reach that limit.
+    cases += [(2000,latency,16) for latency in (0,250)]
+    for reqq,latency,piece in cases:
+        print(f'Strict reqq={reqq}, latency={latency} ms, piece={piece} MiB', flush=True)
+        result=run(args.executable,args.output/f'cap-{reqq}-{latency}-{piece}',fixture,
+                   'legacy','healthy',(MIB if latency else 4*MIB),10,64,True,
+                   reqq=reqq,strict=True,latency_ms=latency,piece_mb=piece,
+                   capacity_aware=True,startup_mb=4)
+        peers=result.get('swarm',{}).get('peers',[])
+        violations=[p for p in peers if p['peak_pending_requests']>min(reqq,1500)
+                    or p['close_reasons'].get('queue-limit',0)]
+        if not peers or violations:
+            result['passed']=False
+            result['capacity_error']='Native urgent/ordinary requests exceeded advertised or local cap'
+        result['age_observed']=any(p.get('oldest_request_age_ms',-1)>0
+            for sample in result['samples'] for p in sample.get('urgent') or [])
+        if latency and not result['age_observed']:
+            result['passed']=False
+            result['age_error']='Delayed urgent requests never exposed their actual outstanding age'
+        results.append(result)
+        (args.output/'report.json').write_text(json.dumps(results,indent=2)+'\n',encoding='utf-8')
+        gc.collect()
     return all(r['passed'] for r in results)
 
 
