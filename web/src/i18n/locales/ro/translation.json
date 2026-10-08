@@ -610,7 +610,11 @@
       "incoming_tcp": "Conexiuni TCP primite",
       "incoming_utp": "Conexiuni uTP primite",
       "incoming_ipv6": "Conexiuni IPv6 primite",
-      "mapping_checked_at": "Ultimul eveniment de mapare"
+      "mapping_checked_at": "Ultimul eveniment de mapare",
+      "readable_contiguous_bytes": "Octeți lizibili consecutivi",
+      "verified_contiguous_bytes": "Octeți verificați consecutivi",
+      "frontier_growth_rate": "Avans verificat (octeți/s)",
+      "burst_hint_source": "Sursa indiciului din container"
     },
     "sparseTitle": "Disponibilitatea pieselor",
     "sparseUnknown": "Disponibilitate necunoscută sau eșantion învechit.",
@@ -667,7 +671,22 @@
     },
     "urgentTitle": "Piese urgente",
     "urgentProgress": "Piesa {{piece}} · prioritate {{priority}} · așteaptă {{unrequested}} · cerute {{requested}} · scriere {{writing}} · terminate {{finished}}/{{blocks}} · recepție {{receiving_bytes}} B · cereri duplicate {{duplicate_requests}}",
-    "urgentHint": "Blocurile terminate pot aștepta încă verificarea. Recepția face parte din cereri. Acest instantaneu limitat nu măsoară vechimea cererilor."
+    "urgentHint": "Blocurile terminate pot aștepta încă verificarea. Recepția face parte din cereri. Acest instantaneu limitat nu măsoară vechimea cererilor.",
+    "ioTitle": "I/O nativ de stocare",
+    "ioHint": "Totaluri ale procesului. Latențele sunt limite superioare cumulative în microsecunde; octeții din coadă sunt buffere temporare, nu un al doilea cache.",
+    "io": {
+      "queued_bytes": "Octeți în coadă",
+      "peak_queue_bytes": "Vârf octeți în coadă",
+      "queued_jobs": "Operații în coadă",
+      "rejected_jobs": "Operații respinse",
+      "completed_jobs": "Operații finalizate",
+      "wait_p95_us": "Așteptare p95 (µs)",
+      "wait_max_us": "Așteptare maximă (µs)",
+      "callback_p95_us": "Apel p95 (µs)",
+      "callback_max_us": "Apel maxim (µs)"
+    },
+    "urgentAge": "Cea mai veche cerere în așteptare: {{ms}} ms",
+    "reserveHint": "Livrarea HTTP și estimările octeți/timp nu reprezintă ceasul decodorului telefonului. Piesele verificate după un gol sunt excluse din rezerva continuă."
   },
   "search": {
     "source": "Sursă",
@@ -808,7 +827,10 @@
         "RequirePlaybackToken": "Solicită linkuri temporare (necesită autentificare HTTP)",
         "PlaybackTokenTTL": "Valabilitate link de redare (secunde)",
         "TorrentInterface": "Nume adaptor torrent (gol = rutare de sistem)",
-        "RequireTorrentInterface": "Solicită un adaptor torrent selectat explicit"
+        "RequireTorrentInterface": "Solicită un adaptor torrent selectat explicit",
+        "CapacityAwareRequests": "Respectă limita cererilor peerului (experiment)",
+        "AdaptiveUrgentHorizon": "Orizont urgent adaptiv (experiment)",
+        "ContainerBurstHints": "Indicii de vârf din indexul rezident (experiment)"
       }
     },
     "maintenance": {
@@ -845,7 +867,12 @@
     "applyIdle": "Aplică după redare",
     "compatible": "Compatibil",
     "restricted": "Restricționat",
-    "applying": "Se aplică setările…"
+    "applying": "Se aplică setările…",
+    "highBitrateExperimentHelp": "Dezactivat implicit. Comparați câte un comutator. Limita cache și calitatea originală se păstrează; redarea mai rapidă nu este garantată.",
+    "lanTitle": "Test de transfer telefon / LAN",
+    "lanHint": "Deschideți pagina pe telefon la adresa serverului PC. Transferă 16 MiB, se oprește după 20 de secunde și nu folosește un torrent. Repetați fără trafic și în timpul redării. Pauzele de citire includ programarea browserului, nu pierderile de pachete sau blocajele decodorului.",
+    "lanRun": "Testează conexiunea",
+    "lanResult": "{{rate}} Mbps · primul octet {{ttfb}} ms · pauză p95 {{p95}} ms · maxim {{max}} ms"
   },
   "preparation": {
     "title": "Pregătește episodul",

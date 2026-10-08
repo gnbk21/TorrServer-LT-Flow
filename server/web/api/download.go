@@ -24,19 +24,33 @@ func newFR(size int64) *fileReader {
 }
 
 func (f *fileReader) Read(p []byte) (n int, err error) {
-	f.pos = f.pos + int64(len(p))
-	return len(p), nil
+	if f.pos >= f.size {
+		return 0, io.EOF
+	}
+	n = int(min(int64(len(p)), f.size-f.pos))
+	// Always initialize the supplied buffer, including reused HTTP copy buffers.
+	for i := 0; i < n; i++ {
+		p[i] = byte((f.pos + int64(i)) * 31)
+	}
+	f.pos += int64(n)
+	return n, nil
 }
 
 func (f *fileReader) Seek(offset int64, whence int) (int64, error) {
+	pos := offset
 	switch whence {
 	case 0:
-		f.pos = offset
 	case 1:
-		f.pos += offset
+		pos += f.pos
 	case 2:
-		f.pos = f.size + offset
+		pos += f.size
+	default:
+		return f.pos, fmt.Errorf("invalid seek origin")
 	}
+	if pos < 0 {
+		return f.pos, fmt.Errorf("negative seek")
+	}
+	f.pos = pos
 	return f.pos, nil
 }
 
@@ -55,8 +69,8 @@ func (f *fileReader) Seek(offset int64, whence int) (int64, error) {
 func download(c *gin.Context) {
 	szStr := c.Param("size")
 	sz, err := strconv.Atoi(szStr)
-	if err != nil {
-		c.Error(err)
+	if err != nil || sz < 1 || sz > 1024 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "size must be 1..1024 MiB"})
 		return
 	}
 

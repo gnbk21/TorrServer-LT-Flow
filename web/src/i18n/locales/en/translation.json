@@ -537,7 +537,11 @@
       "incoming_tcp": "Incoming TCP connections",
       "incoming_utp": "Incoming uTP connections",
       "incoming_ipv6": "Incoming IPv6 connections",
-      "mapping_checked_at": "Last mapping event"
+      "mapping_checked_at": "Last mapping event",
+      "readable_contiguous_bytes": "Readable contiguous bytes",
+      "verified_contiguous_bytes": "Verified contiguous bytes",
+      "frontier_growth_rate": "Verified frontier growth (bytes/s)",
+      "burst_hint_source": "Container hint source"
     },
     "sparseTitle": "Piece availability",
     "sparseUnknown": "Availability is unknown or the sample is stale.",
@@ -594,7 +598,22 @@
     },
     "urgentTitle": "Urgent pieces",
     "urgentProgress": "Piece {{piece}} · priority {{priority}} · waiting {{unrequested}} · requested {{requested}} · writing {{writing}} · finished {{finished}}/{{blocks}} · receiving {{receiving_bytes}} B · duplicate requests {{duplicate_requests}}",
-    "urgentHint": "Finished blocks may still await verification. Receiving is part of requested work. This bounded snapshot does not measure request age."
+    "urgentHint": "Finished blocks may still await verification. Receiving is part of requested work. This bounded snapshot does not measure request age.",
+    "ioTitle": "Native storage I/O",
+    "ioHint": "Process totals. Latencies are cumulative upper-bound bucket estimates in microseconds; queue bytes are transient buffers, not a second cache.",
+    "io": {
+      "queued_bytes": "Queued bytes",
+      "peak_queue_bytes": "Peak queue bytes",
+      "queued_jobs": "Queued jobs",
+      "rejected_jobs": "Rejected jobs",
+      "completed_jobs": "Completed jobs",
+      "wait_p95_us": "Queue wait p95 (µs)",
+      "wait_max_us": "Queue wait maximum (µs)",
+      "callback_p95_us": "Callback p95 (µs)",
+      "callback_max_us": "Callback maximum (µs)"
+    },
+    "urgentAge": "Oldest outstanding request: {{ms}} ms",
+    "reserveHint": "HTTP delivery and indexed byte/time slopes are estimates, not the phone decoder clock. Verified pieces beyond a hole are excluded from contiguous reserve."
   },
   "torrent": {
     "justPlayer": "Play in Just Player",
@@ -808,7 +827,10 @@
         "RequirePlaybackToken": "Require expiring playback links (HTTP auth required)",
         "PlaybackTokenTTL": "Playback link lifetime (seconds)",
         "TorrentInterface": "Torrent adapter name (empty = system routing)",
-        "RequireTorrentInterface": "Require an explicitly selected torrent adapter"
+        "RequireTorrentInterface": "Require an explicitly selected torrent adapter",
+        "CapacityAwareRequests": "Respect peer request capacity (experiment)",
+        "AdaptiveUrgentHorizon": "Adaptive urgent horizon (experiment)",
+        "ContainerBurstHints": "Resident container burst hints (experiment)"
       }
     },
     "maintenance": {
@@ -845,7 +867,12 @@
     "applyIdle": "Apply when idle",
     "compatible": "Compatible",
     "restricted": "Restricted",
-    "applying": "Applying settings…"
+    "applying": "Applying settings…",
+    "highBitrateExperimentHelp": "Off by default. Compare one switch at a time. These controls preserve cache limits and original quality; they do not guarantee faster playback.",
+    "lanTitle": "Phone / LAN transfer test",
+    "lanHint": "Run this page on the phone, using the PC server address. Transfers 16 MiB, stops after 20 seconds, and does not use a torrent. Repeat while idle and while streaming. Browser read gaps include browser scheduling; they do not measure packet loss or decoder stalls.",
+    "lanRun": "Test connection",
+    "lanResult": "{{rate}} Mbps · first byte {{ttfb}} ms · read-gap p95 {{p95}} ms · maximum {{max}} ms"
   },
   "runtime": {
     "torrents": "Torrents",

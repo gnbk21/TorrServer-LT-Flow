@@ -83,6 +83,7 @@ class PeerPlan:
     disconnect_after: int = 0
     rate_events: list = field(default_factory=list)  # (time, bytes/sec), positive delivery variation
     request_queue: int = 0  # optional BEP 10 reqq; actual fixture cap retains headroom
+    strict_request_queue: bool = False  # disconnect when the advertised cap is exceeded
 
     def rate_at(self, elapsed):
         rate = self.rate
@@ -124,6 +125,8 @@ class LocalSwarm:
         self.plans = peers if peers is not None else [PeerPlan(rate=rate, delay_ms=delay_ms, disconnect_after=disconnect_after)]
         if any(not 0 <= plan.request_queue <= 2048 for plan in self.plans):
             raise ValueError('fixture request_queue must be 0..2048')
+        if any(plan.strict_request_queue and plan.request_queue < 1 for plan in self.plans):
+            raise ValueError('strict request capacity requires a positive advertised reqq')
         if not 1 <= len(self.plans) <= 32:
             raise ValueError("fixture requires 1..32 peers")
         if not 1 <= peer_ip_start <= 254-len(self.plans):
@@ -263,7 +266,7 @@ class LocalSwarm:
                                 if choked or piece not in available:
                                     continue
                                 expected = min(owner.piece_length, len(owner.data)-piece*owner.piece_length)
-                                if len(pending) >= 2048:
+                                if len(pending) >= (plan.request_queue if plan.strict_request_queue else 2048):
                                     close_reason = 'queue-limit'
                                     return
                                 if count == 0 or count > 32768 or begin+count > expected:

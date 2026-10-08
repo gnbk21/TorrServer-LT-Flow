@@ -506,8 +506,24 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	}
 	tick := time.NewTicker(200 * time.Millisecond)
 	defer tick.Stop()
+	var startupSupply flow.DeliveryMeter
+	startupSeen := make(map[int]bool)
 	for {
 		snap := cache.PiecesSnapshot()
+		var newHeadBytes int64
+		if flowEnabled && flowSettings.SwarmProfile == "adaptive" {
+			for p := headFirst; p <= headLast; p++ {
+				if st, ok := snap[p]; ok && st.Completed && !startupSeen[p] {
+					startupSeen[p] = true
+					if probed {
+						newHeadBytes += max(int64(0), min(int64(p+1)*plen, f.Offset+f.Length)-max(int64(p)*plen, f.Offset))
+					}
+				}
+			}
+			if !probed {
+				startupSupply.Observe(time.Now(), "PROBE")
+			}
+		}
 		var got int64
 		done := 0
 		for _, p := range gatePieces {
@@ -632,6 +648,16 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 				estimate := flow.MediaEstimate(f.Length, duration, bitrate)
 				target := flow.StartupTarget(estimate, flowSettings.StartupBufferSeconds,
 					flowSettings.StartupBufferMinMB, flowSettings.StartupBufferMaxMB, flowSettings.StartupSafetyFactorPct)
+				if flowSettings.SwarmProfile == "adaptive" {
+					now := time.Now()
+					mode := "PREBUFFER"
+					if (estimate.Confidence == "medium" || estimate.Confidence == "high") && done < gateCount {
+						mode = "DEMAND"
+					}
+					startupSupply.ObserveDemand(now, mode, estimate.BytesPerSecond)
+					startupSupply.AddVerified(newHeadBytes, now)
+					target = flow.DeficitStartupTarget(target, int64(flowSettings.StartupBufferMaxMB)<<20, startupSupply.Snapshot(now))
+				}
 				newLast := clamp(int((f.Offset + min(target, f.Length) - 1) / plen))
 				if newLast > maxHeadLast {
 					newLast = maxHeadLast

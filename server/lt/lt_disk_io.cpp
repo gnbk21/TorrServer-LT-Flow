@@ -12,6 +12,8 @@
 // (DiskPiece, Etap 4.2) — that decision belongs in Go, not here.
 
 #include "lt_disk_io.h"
+#include "lt_io_queue.hpp"
+#include <libtorrent/disk_observer.hpp>
 #include "lt_shim.h"
 
 #include <libtorrent/disk_buffer_holder.hpp>
@@ -48,12 +50,60 @@ namespace {
 std::mutex                g_cb_mu;
 tsl_storage_callbacks     g_cb{};
 bool                      g_cb_set = false;
+std::mutex g_io_mu;
+std::vector<flow_io_queue*> g_io_queues;
+std::array<std::atomic<uint64_t>, 32> g_wait_hist{}, g_callback_hist{};
+std::atomic<uint64_t> g_completed{0}, g_wait_max{0}, g_callback_max{0};
+
+void record_latency(uint64_t value, std::array<std::atomic<uint64_t>, 32>& hist,
+                    std::atomic<uint64_t>& maximum) {
+    auto old = maximum.load();
+    while (value > old && !maximum.compare_exchange_weak(old, value)) {}
+    unsigned bucket = 0;
+    auto remaining = value;
+    while (remaining > 1 && bucket < 31) { remaining = (remaining+1)/2; ++bucket; }
+    ++hist[bucket];
+}
+void record_io_latency(uint64_t wait, uint64_t execution) {
+    record_latency(wait, g_wait_hist, g_wait_max);
+    record_latency(execution, g_callback_hist, g_callback_max);
+    ++g_completed;
+}
+uint64_t percentile(std::array<std::atomic<uint64_t>, 32> const& hist) {
+    uint64_t total = 0, seen = 0;
+    for (auto const& bucket : hist) total += bucket.load();
+    if (!total) return 0;
+    auto const target = total-total/20;
+    for (unsigned i = 0; i < hist.size(); ++i) {
+        seen += hist[i].load();
+        if (seen >= target) return uint64_t(1) << i;
+    }
+    return uint64_t(1) << 31;
+}
 
 bool callbacks_complete(tsl_storage_callbacks const& c) {
     return c.open && c.close && c.deleted && c.read && c.write && c.have;
 }
 
 } // namespace
+
+extern "C" void lt_storage_io_stats(tsl_io_stats* out) {
+    if (!out) return;
+    *out = {};
+    std::lock_guard<std::mutex> lock(g_io_mu);
+    for (auto* queue : g_io_queues) {
+        auto const s = queue->status();
+        out->queued_bytes += s.bytes;
+        out->peak_queue_bytes += s.peak;
+        out->queued_jobs += s.jobs;
+        out->rejected_jobs += s.rejected;
+    }
+    out->completed_jobs = g_completed.load();
+    out->wait_p95_us = percentile(g_wait_hist);
+    out->wait_max_us = g_wait_max.load();
+    out->callback_p95_us = percentile(g_callback_hist);
+    out->callback_max_us = g_callback_max.load();
+}
 
 extern "C" int lt_install_storage_callbacks_full(tsl_storage_callbacks const* cb) {
     std::lock_guard<std::mutex> lk(g_cb_mu);
@@ -140,13 +190,9 @@ struct storage_state {
     int          num_pieces   = 0;
     int          piece_length = 0;
     lt::sha1_hash info_hash;
-};
-
-// One queued piece-hash request handed to the hashing thread pool.
-struct hash_job {
-    lt::storage_index_t s;
-    lt::piece_index_t   piece;
-    std::function<void(lt::piece_index_t, lt::sha1_hash const&, lt::storage_error const&)> handler;
+    int64_t id = 0;
+    tsl_storage_callbacks callbacks{};
+    ~storage_state() { if (callbacks.close) callbacks.close(id); }
 };
 
 class tsl_disk_io final
@@ -160,23 +206,15 @@ public:
                 tsl_storage_callbacks const& cb)
         : io_(io), sets_(sets), cnt_(cnt), cb_(cb)
     {
-        // Hashing thread pool: SHA-1 every completed piece OFF the session's
-        // network thread, so it never blocks peer I/O / the picker (and runs in
-        // parallel across cores). Sized to the core count, leaving one core for
-        // the network thread, capped at 4 (SHA-1 saturates memory bandwidth past
-        // a few threads). NB: libtorrent's hashing_threads/aio_threads settings
-        // do NOT apply here — those configure its BUILT-IN disk_io, which this
-        // custom disk_interface replaces, so the pool is sized ourselves.
-        unsigned hw = std::thread::hardware_concurrency();
-        if (hw == 0) hw = 2; // unknown — assume dual-core
-        int n = static_cast<int>(hw) - 1;
-        if (n < 1) n = 1;
-        if (n > 4) n = 4;
-        for (int i = 0; i < n; ++i)
-            hash_threads_.emplace_back([this]{ hash_worker(); });
+        std::lock_guard<std::mutex> lock(g_io_mu);
+        g_io_queues.push_back(&work_);
     }
 
-    ~tsl_disk_io() override { stop_hash_pool(); }
+    ~tsl_disk_io() override {
+        work_.stop();
+        std::lock_guard<std::mutex> lock(g_io_mu);
+        g_io_queues.erase(std::remove(g_io_queues.begin(), g_io_queues.end(), &work_), g_io_queues.end());
+    }
 
     // ----- storage lifecycle -----
 
@@ -185,20 +223,22 @@ public:
     {
         int64_t idx = next_id_++;
 
-        storage_state ss;
-        ss.files = std::make_shared<lt::file_storage>(p.files);
-        ss.num_pieces = ss.files->num_pieces();
-        ss.piece_length = ss.files->piece_length();
-        ss.info_hash = p.info_hash;
+        auto ss = std::make_shared<storage_state>();
+        ss->id = idx;
+        ss->callbacks = cb_;
+        ss->files = std::make_shared<lt::file_storage>(p.files);
+        ss->num_pieces = ss->files->num_pieces();
+        ss->piece_length = ss->files->piece_length();
+        ss->info_hash = p.info_hash;
 
         {
             std::unique_lock<std::shared_mutex> lk(map_mu_);
-            storages_.emplace(idx, std::move(ss));
+            storages_.emplace(idx, ss);
         }
 
         auto raw = sha1_raw_from(p.info_hash);
         cb_.open(idx, reinterpret_cast<uint8_t const*>(raw.data()),
-                 ss.num_pieces, ss.piece_length);
+                 ss->num_pieces, ss->piece_length);
         if (cb_.size) cb_.size(idx, p.files.total_size());
 
         auto storage_idx = lt::storage_index_t(static_cast<int>(idx));
@@ -211,10 +251,10 @@ public:
             std::unique_lock<std::shared_mutex> lk(map_mu_);
             storages_.erase(idx);
         }
-        cb_.close(idx);
+        // Queued jobs retain the storage until their callbacks have settled.
     }
 
-    void abort(bool /*wait*/) override { stop_hash_pool(); }
+    void abort(bool /*wait*/) override { work_.stop(); }
 
     // ----- I/O -----
 
@@ -223,75 +263,97 @@ public:
                     std::function<void(lt::disk_buffer_holder, lt::storage_error const&)> handler,
                     lt::disk_job_flags_t /*flags*/ = {}) override
     {
-        char* buf = static_cast<char*>(std::malloc(static_cast<size_t>(r.length)));
-        if (!buf) {
-            auto err = make_io_error("read");
-            lt::post(io_, [h = std::move(handler), err]() mutable {
-                h(lt::disk_buffer_holder{}, err);
-            });
-            return;
-        }
-        int got = cb_.read(storage_id_of(s), static_cast<int>(r.piece),
-                           r.start, reinterpret_cast<uint8_t*>(buf), r.length);
-        // Upload requests can race cache eviction. Reject missing data rather
-        // than fabricating a corrupt block. libtorrent 2.1's upload completion
-        // sends dont-have/reject on a read error; it does not pause the torrent.
-        lt::storage_error err;
-        if (got != r.length) err = make_io_error("read");
-        // Do the I/O inline (like posix_disk_io) but deliver the completion
-        // handler via the session's io_context. libtorrent requires disk
-        // handlers to be posted, not invoked re-entrantly — calling them
-        // synchronously breaks its piece-completion bookkeeping (it never
-        // schedules async_hash, so pieces never finish).
+        auto state = storage(s);
+        auto h = std::make_shared<decltype(handler)>(std::move(handler));
+        auto fail = [this, h] {
+            lt::post(io_, [h] { (*h)(lt::disk_buffer_holder{}, make_io_error("read")); });
+        };
+        bool throttle = false;
+        if (!state || r.length <= 0 || !work_.submit(storage_id_of(s), int(r.piece),
+                std::size_t(r.length), [this, state, r, h] {
+            char* buf = static_cast<char*>(std::malloc(std::size_t(r.length)));
+            lt::storage_error err;
+            if (!buf || cb_.read(state->id, int(r.piece), r.start,
+                    reinterpret_cast<uint8_t*>(buf), r.length) != r.length)
+                err = make_io_error("read");
 #if LIBTORRENT_VERSION_NUM >= 20100
-        lt::disk_buffer_holder holder(*this, buf); // 2.1 dropped the size arg
+            lt::disk_buffer_holder holder(*this, buf);
 #else
-        lt::disk_buffer_holder holder(*this, buf, r.length);
+            lt::disk_buffer_holder holder(*this, buf, r.length);
 #endif
-        lt::post(io_, [h = std::move(handler), holder = std::move(holder), err]() mutable {
-            h(std::move(holder), err);
-        });
+            lt::post(io_, [h, state, holder = std::move(holder), err]() mutable {
+                (*h)(std::move(holder), err);
+            });
+        }, throttle)) fail();
     }
 
     bool async_write(lt::storage_index_t s,
-                     lt::peer_request const& r,
-                     char const* buf,
-                     std::shared_ptr<lt::disk_observer> /*o*/,
+                     lt::peer_request const& r, char const* buf,
+                     std::shared_ptr<lt::disk_observer> observer,
                      std::function<void(lt::storage_error const&)> handler,
                      lt::disk_job_flags_t /*flags*/ = {}) override
     {
-        // cb_.write copies the block into the cache synchronously, so `buf`
-        // need not outlive this call; only the completion handler is deferred.
-        int const written = cb_.write(storage_id_of(s), static_cast<int>(r.piece),
-                        r.start, reinterpret_cast<uint8_t const*>(buf), r.length);
-        // Cache eviction is serialized with native ownership. A remaining short
-        // write is an actual storage failure; never acknowledge bytes we lost
-        // and then blame the supplying peer for the resulting hash mismatch.
-        lt::storage_error err;
-        if (written != r.length) err = make_io_error("write");
-        lt::post(io_, [h = std::move(handler), err]() mutable { h(err); });
-        return false;
+        auto state = storage(s);
+        auto h = std::make_shared<decltype(handler)>(std::move(handler));
+        bool throttle = false;
+        // libtorrent owns buf only until this call returns. The queue budget
+        // includes this copy; there is no second piece cache or write staging.
+        if (!state || r.length <= 0 || std::size_t(r.length) > flow_io_queue::limit_bytes) {
+            lt::post(io_, [h] { (*h)(make_io_error("write")); });
+            return false;
+        }
+        std::shared_ptr<std::vector<char>> data;
+        try { data = std::make_shared<std::vector<char>>(buf, buf+r.length); }
+        catch (...) {
+            lt::post(io_, [h] { (*h)(make_io_error("write:allocate")); });
+            return false;
+        }
+        auto wake = [this, observer] {
+            if (observer) lt::post(io_, [observer] { observer->on_disk(); });
+        };
+        if (!work_.submit(state->id, int(r.piece), data->size(), [this, state, r, data, h] {
+            lt::storage_error err;
+            if (cb_.write(state->id, int(r.piece), r.start,
+                    reinterpret_cast<uint8_t const*>(data->data()), r.length) != r.length)
+                err = make_io_error("write");
+            lt::post(io_, [h, state, err] { (*h)(err); });
+        }, throttle, std::move(wake))) {
+            lt::post(io_, [h] { (*h)(make_io_error("write:queue-full")); });
+            return false;
+        }
+        return throttle;
     }
 
-    void async_hash(lt::storage_index_t s,
-                    lt::piece_index_t piece,
-                    lt::span<lt::sha256_hash> /*v2*/,
-                    lt::disk_job_flags_t /*flags*/,
+    void async_hash(lt::storage_index_t s, lt::piece_index_t piece,
+                    lt::span<lt::sha256_hash> /*v2*/, lt::disk_job_flags_t /*flags*/,
                     std::function<void(lt::piece_index_t, lt::sha1_hash const&, lt::storage_error const&)> handler) override
     {
-        // Hand the read + SHA-1 to a worker so it runs off the network thread.
-        // If the pool is already stopped (shutdown), hash inline so the
-        // completion handler always fires and libtorrent never wedges.
-        hash_job job{s, piece, std::move(handler)};
-        {
-            std::lock_guard<std::mutex> lk(hash_mu_);
-            if (!hash_stop_ && !hash_threads_.empty()) {
-                hash_queue_.push_back(std::move(job));
-                hash_cv_.notify_one();
-                return;
-            }
-        }
-        run_hash(std::move(job));
+        auto state = storage(s);
+        auto h = std::make_shared<decltype(handler)>(std::move(handler));
+        bool throttle = false;
+        // Stream SHA-1 through a fixed buffer instead of allocating an entire
+        // potentially very large piece on each of four workers.
+        if (!state || !work_.submit(storage_id_of(s), int(piece), 64*1024,
+                [this, state, piece, h] {
+            lt::storage_error err;
+            lt::sha1_hash digest;
+            try {
+                int const length = int(state->files->piece_size(piece));
+                std::array<char, 64*1024> data;
+                lt::hasher hash;
+                for (int offset = 0; offset < length; ) {
+                    int const count = std::min(int(data.size()), length-offset);
+                    if (cb_.read(state->id, int(piece), offset,
+                            reinterpret_cast<uint8_t*>(data.data()), count) != count) {
+                        err = make_io_error("hash:short-read"); break;
+                    }
+                    hash.update(lt::span<char const>(data.data(), count));
+                    offset += count;
+                }
+                if (!err.ec) digest = hash.final();
+            } catch (...) { err = make_io_error("hash"); }
+            lt::post(io_, [h, state, piece, digest, err] { (*h)(piece, digest, err); });
+        }, throttle)) lt::post(io_, [h, piece] { (*h)(piece, lt::sha1_hash{}, make_io_error("hash:queue-full")); });
     }
 
     void async_hash2(lt::storage_index_t,
@@ -320,15 +382,18 @@ public:
     }
 
     void async_release_files(lt::storage_index_t, std::function<void()> handler) override {
-        lt::post(io_, std::move(handler));
+        work_.fence([this, h = std::move(handler)]() mutable { lt::post(io_, std::move(h)); });
     }
 
     void async_delete_files(lt::storage_index_t s,
                             lt::remove_flags_t,
                             std::function<void(lt::storage_error const&)> handler) override
     {
-        cb_.deleted(storage_id_of(s));
-        lt::post(io_, [h = std::move(handler)]() mutable { h(lt::storage_error{}); });
+        auto state = storage(s);
+        work_.fence([this, state, h = std::move(handler)]() mutable {
+            if (state && cb_.deleted) cb_.deleted(state->id);
+            lt::post(io_, [state, h = std::move(h)]() mutable { h(lt::storage_error{}); });
+        });
     }
 
     void async_check_files(lt::storage_index_t /*s*/,
@@ -354,7 +419,7 @@ public:
     }
 
     void async_stop_torrent(lt::storage_index_t, std::function<void()> handler) override {
-        lt::post(io_, std::move(handler));
+        work_.fence([this, h = std::move(handler)]() mutable { lt::post(io_, std::move(h)); });
     }
 
     void async_set_file_priority(lt::storage_index_t,
@@ -370,10 +435,17 @@ public:
                            lt::piece_index_t idx,
                            std::function<void(lt::piece_index_t)> handler) override
     {
-        // The picker is locked until this callback completes: old hash/write
-        // work has settled, and retries cannot race the readable-state reset.
-        if (cb_.clear_piece) cb_.clear_piece(storage_id_of(s), static_cast<int>(idx));
-        lt::post(io_, [h = std::move(handler), idx]() mutable { h(idx); });
+        auto state = storage(s);
+        auto h = std::make_shared<decltype(handler)>(std::move(handler));
+        bool throttle = false;
+        auto clear = [this, state, idx, h] {
+            if (state && cb_.clear_piece) cb_.clear_piece(state->id, int(idx));
+            lt::post(io_, [state, idx, h] { (*h)(idx); });
+        };
+        // A full byte queue still accepts bounded maintenance. If its job cap
+        // is reached, a global fence provides the same ordering guarantee.
+        if (!work_.submit(storage_id_of(s), int(idx), 0, clear, throttle))
+            work_.fence(std::move(clear));
     }
 
     // ----- accounting / control -----
@@ -395,73 +467,10 @@ public:
 #endif
 
 private:
-    // ----- hashing thread pool -----
-
-    // run_hash does the actual work: read the piece out of the Go cache and
-    // SHA-1 it, posting the result (or an error) back through io_. Runs on a
-    // worker thread (or inline if the pool is gone). Same logic the old inline
-    // async_hash had — cb_.read is RLock-guarded on the Go side and lt::post is
-    // thread-safe, so several workers can hash different pieces concurrently.
-    void run_hash(hash_job job) {
-        int piece_actual = 0;
-        {
-            std::shared_lock<std::shared_mutex> lk(map_mu_);
-            auto it = storages_.find(storage_id_of(job.s));
-            if (it == storages_.end()) {
-                lk.unlock();
-                auto err = make_io_error("hash:no-storage");
-                lt::post(io_, [h = std::move(job.handler), piece = job.piece, err]() mutable {
-                    h(piece, lt::sha1_hash{}, err);
-                });
-                return;
-            }
-            piece_actual = static_cast<int>(it->second.files->piece_size(job.piece));
-        }
-        std::vector<char> data(static_cast<size_t>(piece_actual));
-        int got = cb_.read(storage_id_of(job.s), static_cast<int>(job.piece),
-                           0, reinterpret_cast<uint8_t*>(data.data()), piece_actual);
-        // Never manufacture a corrupt digest from missing cache bytes. The
-        // native ownership checks keep normal eviction out of this interval;
-        // any remaining read failure must be reported as storage, not peer data.
-        if (got != piece_actual) {
-            auto err = make_io_error("hash:short-read");
-            lt::post(io_, [h = std::move(job.handler), piece = job.piece, err]() mutable {
-                h(piece, lt::sha1_hash{}, err);
-            });
-            return;
-        }
-        lt::hasher h;
-        h.update(lt::span<char const>(data.data(), piece_actual));
-        auto digest = h.final();
-        lt::post(io_, [hd = std::move(job.handler), piece = job.piece, digest]() mutable {
-            hd(piece, digest, lt::storage_error{});
-        });
-    }
-
-    void hash_worker() {
-        for (;;) {
-            std::unique_lock<std::mutex> lk(hash_mu_);
-            hash_cv_.wait(lk, [this]{ return hash_stop_ || !hash_queue_.empty(); });
-            if (hash_queue_.empty()) return; // stop requested and queue drained
-            hash_job job = std::move(hash_queue_.front());
-            hash_queue_.pop_front();
-            lk.unlock();
-            run_hash(std::move(job));
-        }
-    }
-
-    // Drain + join. Workers finish whatever is queued (so every completion still
-    // fires), then exit. Idempotent: called from both abort() and the destructor.
-    void stop_hash_pool() {
-        {
-            std::lock_guard<std::mutex> lk(hash_mu_);
-            if (hash_stop_) return;
-            hash_stop_ = true;
-        }
-        hash_cv_.notify_all();
-        for (auto& t : hash_threads_)
-            if (t.joinable()) t.join();
-        hash_threads_.clear();
+    std::shared_ptr<storage_state> storage(lt::storage_index_t s) {
+        std::shared_lock<std::shared_mutex> lock(map_mu_);
+        auto it = storages_.find(storage_id_of(s));
+        return it == storages_.end() ? nullptr : it->second;
     }
 
     lt::io_context&               io_;
@@ -470,15 +479,10 @@ private:
     tsl_storage_callbacks         cb_;
 
     std::shared_mutex                              map_mu_;
-    std::unordered_map<int64_t, storage_state>     storages_;
+    std::unordered_map<int64_t, std::shared_ptr<storage_state>>     storages_;
     std::atomic<int64_t>                           next_id_{1};
 
-    // hashing thread pool (see the constructor for sizing)
-    std::vector<std::thread> hash_threads_;
-    std::mutex               hash_mu_;
-    std::condition_variable  hash_cv_;
-    std::deque<hash_job>     hash_queue_;
-    bool                     hash_stop_ = false;
+    flow_io_queue work_{record_io_latency};
 };
 
 // Factory used by session_params.disk_io_constructor. Captures the

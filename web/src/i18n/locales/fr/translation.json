@@ -616,7 +616,11 @@
       "incoming_tcp": "Connexions TCP entrantes",
       "incoming_utp": "Connexions uTP entrantes",
       "incoming_ipv6": "Connexions IPv6 entrantes",
-      "mapping_checked_at": "Dernier événement de mappage"
+      "mapping_checked_at": "Dernier événement de mappage",
+      "readable_contiguous_bytes": "Octets lisibles contigus",
+      "verified_contiguous_bytes": "Octets vérifiés contigus",
+      "frontier_growth_rate": "Avancée vérifiée (octets/s)",
+      "burst_hint_source": "Source de l’indication du conteneur"
     },
     "sparseTitle": "Disponibilité des pièces",
     "sparseUnknown": "Disponibilité inconnue ou échantillon périmé.",
@@ -673,7 +677,22 @@
     },
     "urgentTitle": "Pièces urgentes",
     "urgentProgress": "Pièce {{piece}} · priorité {{priority}} · en attente {{unrequested}} · demandés {{requested}} · écriture {{writing}} · terminés {{finished}}/{{blocks}} · réception {{receiving_bytes}} o · demandes en double {{duplicate_requests}}",
-    "urgentHint": "Les blocs terminés peuvent encore attendre la vérification. La réception fait partie des demandes. Cet instantané limité ne mesure pas l’âge des demandes."
+    "urgentHint": "Les blocs terminés peuvent encore attendre la vérification. La réception fait partie des demandes. Cet instantané limité ne mesure pas l’âge des demandes.",
+    "ioTitle": "E/S natives de stockage",
+    "ioHint": "Totaux du processus. Les latences sont des bornes supérieures cumulées en microsecondes ; les octets en attente sont des tampons temporaires, pas un second cache.",
+    "io": {
+      "queued_bytes": "Octets en attente",
+      "peak_queue_bytes": "Pic d’octets en attente",
+      "queued_jobs": "Tâches en attente",
+      "rejected_jobs": "Tâches refusées",
+      "completed_jobs": "Tâches terminées",
+      "wait_p95_us": "Attente p95 (µs)",
+      "wait_max_us": "Attente maximale (µs)",
+      "callback_p95_us": "Appel p95 (µs)",
+      "callback_max_us": "Appel maximal (µs)"
+    },
+    "urgentAge": "Requête en attente la plus ancienne : {{ms}} ms",
+    "reserveHint": "Le débit HTTP et les estimations octets/temps ne sont pas l’horloge du décodeur du téléphone. Les pièces vérifiées après un trou sont exclues de la réserve contiguë."
   },
   "search": {
     "source": "Source",
@@ -814,7 +833,10 @@
         "RequirePlaybackToken": "Exiger des liens temporaires (authentification HTTP requise)",
         "PlaybackTokenTTL": "Durée du lien de lecture (secondes)",
         "TorrentInterface": "Nom de l’adaptateur torrent (vide = routage système)",
-        "RequireTorrentInterface": "Exiger un adaptateur torrent explicitement choisi"
+        "RequireTorrentInterface": "Exiger un adaptateur torrent explicitement choisi",
+        "CapacityAwareRequests": "Respecter la capacité de requêtes du pair (expérience)",
+        "AdaptiveUrgentHorizon": "Horizon urgent adaptatif (expérience)",
+        "ContainerBurstHints": "Indications de pics par index résident (expérience)"
       }
     },
     "maintenance": {
@@ -851,7 +873,12 @@
     "applyIdle": "Appliquer après la lecture",
     "compatible": "Compatible",
     "restricted": "Restreint",
-    "applying": "Application des paramètres…"
+    "applying": "Application des paramètres…",
+    "highBitrateExperimentHelp": "Désactivé par défaut. Comparez un réglage à la fois. La limite du cache et la qualité originale sont conservées ; une lecture plus rapide n’est pas garantie.",
+    "lanTitle": "Test de transfert téléphone / LAN",
+    "lanHint": "Ouvrez cette page sur le téléphone via l’adresse du serveur PC. Transfère 16 Mio, s’arrête après 20 secondes et n’utilise aucun torrent. Répétez au repos et pendant la lecture. Les pauses de lecture incluent l’ordonnancement du navigateur, pas les pertes de paquets ni les blocages du décodeur.",
+    "lanRun": "Tester la connexion",
+    "lanResult": "{{rate}} Mbit/s · premier octet {{ttfb}} ms · pause p95 {{p95}} ms · maximum {{max}} ms"
   },
   "preparation": {
     "title": "Préparer cet épisode",

@@ -24,6 +24,9 @@ var legacySwarmKeys = []string{
 }
 
 func applyFlowSwarmProfile(cfg lt.SessionConfig, f *settings.FlowSettings, disableEndGame bool) {
+	if f != nil && f.Enabled && f.CapacityAwareRequests {
+		cfg["flow_capacity_aware_requests"] = true
+	}
 	if f == nil || !f.Enabled || f.SwarmProfile == "legacy" || f.SwarmProfile == "adaptive" {
 		return
 	}

@@ -34,6 +34,10 @@ export interface FlowStartup {
 }
 
 export interface FlowSession {
+  readable_contiguous_bytes?: number;
+  verified_contiguous_bytes?: number;
+  frontier_growth_rate?: number;
+  burst_hint_source?: string;
   supply_qualified?: boolean;
   delivery?: {
     mode: string;
@@ -45,6 +49,9 @@ export interface FlowSession {
     confidence: string;
     variation: number;
     outage_seconds: number;
+    recent_outage_seconds?: number;
+    deficit_bytes?: number;
+    deficit_samples?: number;
   };
   risk?: {
     level: string;
@@ -148,6 +155,7 @@ export interface FlowTrackerSummary {
   last_at: string;
 }
 export interface FlowStatusResponse {
+  storage_io?: StorageIO;
   sparse?: SparseSnapshot;
   hash: string;
   startup?: FlowStartup;
@@ -156,7 +164,20 @@ export interface FlowStatusResponse {
   network?: FlowNetworkStatus;
 }
 
+export interface StorageIO {
+  queued_bytes: number;
+  peak_queue_bytes: number;
+  queued_jobs: number;
+  rejected_jobs: number;
+  completed_jobs: number;
+  wait_p95_us: number;
+  wait_max_us: number;
+  callback_p95_us: number;
+  callback_max_us: number;
+}
+
 export interface SparseSnapshot {
+  request_age_truncated?: boolean;
   urgent_truncated?: boolean;
   urgent?: {
     piece: number;
@@ -170,6 +191,7 @@ export interface SparseSnapshot {
     verified: boolean;
     receiving_blocks: number;
     receiving_bytes: number;
+    oldest_request_age_ms?: number;
   }[];
   request_timeouts?: number;
   requests_dropped?: number;

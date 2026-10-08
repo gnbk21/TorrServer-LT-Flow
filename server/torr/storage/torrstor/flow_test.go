@@ -228,6 +228,9 @@ func TestContiguousAvailableStopsAtPartialPieceHole(t *testing.T) {
 	if got := c.ContiguousAvailable(0, 3*pieceBlockSize); got != pieceBlockSize {
 		t.Fatalf("first block: got %d", got)
 	}
+	if got := c.VerifiedContiguousAvailable(0, 3*pieceBlockSize); got != 0 {
+		t.Fatal("unverified blocks counted as verified reserve", got)
+	}
 	if _, err := s.callbackWrite(1, 0, 2*pieceBlockSize, block); err != nil {
 		t.Fatal(err)
 	}

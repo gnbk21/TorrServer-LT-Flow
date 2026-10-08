@@ -38,6 +38,20 @@ export function FlowDiagnosticsDrawer({
         <p>{t("flow.noMetrics")}</p>
       ) : (
         <div className="space-y-5">
+          {status.storage_io && (
+            <section className="panel">
+              <h3 className="font-semibold">{t("flow.ioTitle")}</h3>
+              <p className="text-sm text-slate-400">{t("flow.ioHint")}</p>
+              <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+                {Object.entries(status.storage_io).map(([key, value]) => (
+                  <div key={key}>
+                    <dt>{t(`flow.io.${key}`)}</dt>
+                    <dd className="font-mono">{value.toLocaleString()}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
           {status.sparse && (
             <section className="panel" aria-live="polite">
               <h3 className="font-semibold">{t("flow.sparseTitle")}</h3>
@@ -99,12 +113,25 @@ export function FlowDiagnosticsDrawer({
                         .map((piece) => (
                           <p key={piece.piece}>
                             {t("flow.urgentProgress", piece)}
+                            {piece.oldest_request_age_ms !== undefined &&
+                              piece.oldest_request_age_ms >= 0 && (
+                                <>
+                                  {" "}
+                                  ·{" "}
+                                  {t("flow.urgentAge", {
+                                    ms: piece.oldest_request_age_ms,
+                                  })}
+                                </>
+                              )}
                           </p>
                         ))}
                       <p className="text-slate-400">{t("flow.urgentHint")}</p>
                     </div>
                   )}
                   {status.sparse.urgent_truncated && (
+                    <p>{t("flow.sparseTruncated")}</p>
+                  )}
+                  {status.sparse.request_age_truncated && (
                     <p>{t("flow.sparseTruncated")}</p>
                   )}
                   {status.sparse.truncated && (
@@ -158,7 +185,9 @@ export function FlowDiagnosticsDrawer({
                             })
                           : typeof value === "object" && value !== null
                             ? redactDiagnostic(JSON.stringify(value))
-                            : redactDiagnostic(value)}
+                            : typeof value === "object" && value !== null
+                              ? redactDiagnostic(JSON.stringify(value))
+                              : redactDiagnostic(value)}
                     </dd>
                   </div>
                 ))}
@@ -171,6 +200,9 @@ export function FlowDiagnosticsDrawer({
                 {t("flow.session")} · {s.group} ·{" "}
                 {t("flow.fileIndex", { index: s.file_index })}
               </h3>
+              <p className="mt-2 text-sm text-slate-400">
+                {t("flow.reserveHint")}
+              </p>
               <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
                 {Object.entries(s)
                   .filter(

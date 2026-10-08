@@ -1186,11 +1186,13 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
                                         {"blocks", block_count}, {"unrequested", std::max(0, block_count-requested-writing-finished)},
                                         {"requested", requested}, {"writing", writing}, {"finished", finished},
                                         {"duplicate_requests", duplicates}, {"verified", have},
-                                        {"receiving_blocks", 0}, {"receiving_bytes", 0}});
+                                        {"receiving_blocks", 0}, {"receiving_bytes", 0}, {"oldest_request_age_ms", -1}});
                                 }
                             }
                             int tracker = 0, dht = 0, pex = 0, incoming = 0;
                             std::int64_t outstanding = 0, queue_ms = 0, queued = 0;
+                            unsigned request_age_budget = 65536;
+                            bool request_age_truncated = false;
                             for (auto* peer : *tor) {
                                 if (sampled == 512) break;
                                 ++sampled;
@@ -1227,6 +1229,16 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
                                     outstanding += peer->outstanding_bytes();
                                     queued += peer->request_queue().size()+peer->download_queue().size();
                                     queue_ms = std::max(queue_ms, lt::total_milliseconds(peer->download_queue_time()));
+                                    for (auto const& block : peer->download_queue()) {
+                                        if (request_age_budget == 0) { request_age_truncated = true; break; }
+                                        --request_age_budget;
+                                        auto const found = urgent_index.find(int(block.block.piece_index));
+                                        if (found == urgent_index.end() || block.not_wanted || block.timed_out
+                                            || block.flow_requested_at == lt::time_point{}) continue;
+                                        auto& row = urgent[found->second];
+                                        auto const age = std::max<std::int64_t>(0, lt::total_milliseconds(lt::clock_type::now()-block.flow_requested_at));
+                                        row["oldest_request_age_ms"] = std::max(row.value("oldest_request_age_ms", int64_t(-1)), age);
+                                    }
                                 }
                                 useful += supplies;
                                 downloading += supplies && peer->statistics().download_payload_rate() > 0;
@@ -1256,7 +1268,8 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
                                 {"pex_peers", pex}, {"incoming_peers", incoming}, {"outstanding_bytes", outstanding},
                                 {"queued_blocks", queued}, {"max_queue_ms", queue_ms}, {"failed_bytes", status.total_failed_bytes},
                                 {"redundant_bytes", status.total_redundant_bytes}, {"windows", std::move(windows)},
-                                {"urgent", std::move(urgent)}, {"urgent_truncated", blocks_truncated}};
+                                {"urgent", std::move(urgent)}, {"urgent_truncated", blocks_truncated},
+                                {"request_age_truncated", request_age_truncated}};
                         }
                     } catch (...) { result = {{"known", false}}; }
                     std::lock_guard<std::mutex> done(snapshot->mu);

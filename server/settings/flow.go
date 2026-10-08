@@ -36,6 +36,9 @@ type FlowSettings struct {
 	PeerResumeHints         bool // opt-in local peer identities, outside history
 	ScarcePieceHints        bool // bounded scheduling experiment, off by default
 	RateAwareDeadlines      bool // measured scheduling experiment, off by default
+	CapacityAwareRequests   bool // honor remote and local urgent queue caps, opt-in
+	AdaptiveUrgentHorizon   bool // demand-sized urgent subset, opt-in
+	ContainerBurstHints     bool // resident index estimates only, opt-in
 	GlobalCacheBudgetMB     int  // aggregate RAM eviction budget; zero chooses bounded auto policy
 	WarmCacheBudgetMB       int
 	PreparationConcurrency  int

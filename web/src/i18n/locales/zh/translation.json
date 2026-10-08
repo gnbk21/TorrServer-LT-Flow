@@ -616,7 +616,11 @@
       "incoming_tcp": "传入 TCP 连接",
       "incoming_utp": "传入 uTP 连接",
       "incoming_ipv6": "传入 IPv6 连接",
-      "mapping_checked_at": "最近映射事件"
+      "mapping_checked_at": "最近映射事件",
+      "readable_contiguous_bytes": "连续可读字节",
+      "verified_contiguous_bytes": "连续已验证字节",
+      "frontier_growth_rate": "已验证边界增长（字节/秒）",
+      "burst_hint_source": "容器提示来源"
     },
     "sparseTitle": "分片可用性",
     "sparseUnknown": "可用性未知或采样已过期。",
@@ -673,7 +677,22 @@
     },
     "urgentTitle": "紧急分片",
     "urgentProgress": "分片 {{piece}} · 优先级 {{priority}} · 等待 {{unrequested}} · 已请求 {{requested}} · 写入 {{writing}} · 已完成 {{finished}}/{{blocks}} · 正在接收 {{receiving_bytes}} 字节 · 重复请求 {{duplicate_requests}}",
-    "urgentHint": "已完成的块可能仍需校验。正在接收的块属于已请求的工作。此有界快照不测量请求时长。"
+    "urgentHint": "已完成的块可能仍需校验。正在接收的块属于已请求的工作。此有界快照不测量请求时长。",
+    "ioTitle": "原生存储 I/O",
+    "ioHint": "进程累计值。延迟为微秒单位的累计分桶上界；排队字节属于临时缓冲，并非第二个缓存。",
+    "io": {
+      "queued_bytes": "排队字节",
+      "peak_queue_bytes": "排队字节峰值",
+      "queued_jobs": "排队任务",
+      "rejected_jobs": "拒绝任务",
+      "completed_jobs": "完成任务",
+      "wait_p95_us": "排队等待 p95（微秒）",
+      "wait_max_us": "最大排队等待（微秒）",
+      "callback_p95_us": "回调 p95（微秒）",
+      "callback_max_us": "最大回调（微秒）"
+    },
+    "urgentAge": "最早未完成请求：{{ms}} 毫秒",
+    "reserveHint": "HTTP 传输与索引字节/时间斜率只是估计，并非手机解码器时钟。空洞之后的已验证分片不计入连续储备。"
   },
   "search": {
     "source": "来源",
@@ -814,7 +833,10 @@
         "RequirePlaybackToken": "要求限时播放链接（需 HTTP 身份验证）",
         "PlaybackTokenTTL": "播放链接有效期（秒）",
         "TorrentInterface": "种子网卡名称（留空使用系统路由）",
-        "RequireTorrentInterface": "要求明确选择种子网卡"
+        "RequireTorrentInterface": "要求明确选择种子网卡",
+        "CapacityAwareRequests": "遵守对端请求容量（实验）",
+        "AdaptiveUrgentHorizon": "自适应紧急分片范围（实验）",
+        "ContainerBurstHints": "已缓存容器索引的峰值提示（实验）"
       }
     },
     "maintenance": {
@@ -851,7 +873,12 @@
     "applyIdle": "空闲时应用",
     "compatible": "兼容",
     "restricted": "受限",
-    "applying": "正在应用设置…"
+    "applying": "正在应用设置…",
+    "highBitrateExperimentHelp": "默认关闭。每次只比较一个开关。保留缓存限制和原始画质；不保证播放加速。",
+    "lanTitle": "手机 / 局域网传输测试",
+    "lanHint": "在手机上使用电脑服务器地址打开此页面。传输 16 MiB，20 秒后停止，不使用种子。分别在空闲和播放时重复测试。读取间隔包含浏览器调度延迟，不代表丢包或解码器卡顿。",
+    "lanRun": "测试连接",
+    "lanResult": "{{rate}} Mbps · 首字节 {{ttfb}} 毫秒 · 读取间隔 p95 {{p95}} 毫秒 · 最大 {{max}} 毫秒"
   },
   "preparation": {
     "title": "准备剧集",

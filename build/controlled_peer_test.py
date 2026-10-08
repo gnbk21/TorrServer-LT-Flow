@@ -131,6 +131,16 @@ class WireTests(unittest.TestCase):
                 self.message(sock)
             self.assertEqual(swarm.status()['peers'][0]['close_reasons'], {'invalid-request': 1})
 
+    def test_strict_capacity_rejects_overflow(self):
+        with LocalSwarm([self.file], peers=[PeerPlan(request_queue=2, strict_request_queue=True, delay_ms=500)]) as swarm:
+            sock = self.connect(swarm)
+            self.initial(sock)
+            for begin in (0, 16384, 32768):
+                self.send(sock, b'\x06'+struct.pack('!III', 0, begin, 16384))
+            with self.assertRaises(EOFError): self.message(sock)
+            self.assertEqual(swarm.status()['peers'][0]['peak_pending_requests'], 2)
+            self.assertEqual(swarm.status()['peers'][0]['close_reasons'], {'queue-limit': 1})
+
 
 if __name__ == '__main__':
     unittest.main()

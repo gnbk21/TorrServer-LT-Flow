@@ -12,6 +12,7 @@ type DeliveryMeter struct {
 	slots [60]struct {
 		second  int64
 		bytes   int64
+		rate    float64
 		demand  bool
 		tainted bool
 	}
@@ -30,6 +31,8 @@ type DeliveryEvidence struct {
 	Variation           float64 `json:"variation"`
 	OutageSeconds       int     `json:"outage_seconds"`
 	RecentOutageSeconds int     `json:"recent_outage_seconds"`
+	DeficitBytes        int64   `json:"deficit_bytes"`
+	DeficitSamples      int     `json:"deficit_samples"`
 }
 
 func (m *DeliveryMeter) Reset() { *m = DeliveryMeter{} }
@@ -42,6 +45,7 @@ func (m *DeliveryMeter) Observe(now time.Time, mode string) {
 	s := &m.slots[now.Unix()%60]
 	if s.second != now.Unix() {
 		s.second, s.bytes, s.demand, s.tainted = now.Unix(), 0, false, false
+		s.rate = 0
 	}
 	// An interval that included non-demand time is not a clean supply sample.
 	if mode == "DEMAND" {
@@ -53,6 +57,20 @@ func (m *DeliveryMeter) Observe(now time.Time, mode string) {
 	}
 }
 
+// ObserveDemand records the demand applicable to this interval, rather than
+// retroactively applying today's rate to yesterday's deliveries. Missing or
+// unqualified rates cannot manufacture a reserve estimate.
+func (m *DeliveryMeter) ObserveDemand(now time.Time, mode string, rate float64) {
+	m.Observe(now, mode)
+	if now.Unix() <= 0 || mode != "DEMAND" || rate <= 0 || math.IsNaN(rate) || math.IsInf(rate, 0) {
+		return
+	}
+	s := &m.slots[now.Unix()%60]
+	if s.demand && !s.tainted {
+		s.rate = max(s.rate, rate)
+	}
+}
+
 func (m *DeliveryMeter) AddVerified(bytes int64, now time.Time) {
 	if bytes <= 0 || m.mode != "DEMAND" || now.Sub(m.observed) < 0 || now.Sub(m.observed) > 2*time.Second {
 		return
@@ -60,6 +78,7 @@ func (m *DeliveryMeter) AddVerified(bytes int64, now time.Time) {
 	s := &m.slots[now.Unix()%60]
 	if s.second != now.Unix() {
 		s.second, s.bytes, s.demand, s.tainted = now.Unix(), 0, true, false
+		s.rate = 0
 	}
 	if s.demand && bytes <= math.MaxInt64-s.bytes {
 		s.bytes += bytes
@@ -136,6 +155,31 @@ func (m *DeliveryMeter) Snapshot(now time.Time) DeliveryEvidence {
 		if out.ShortSamples == 5 && out.Samples >= 10 {
 			out.Confidence = "high"
 		}
+	}
+	// Maximum cumulative drawdown in the recent thirty-second horizon. Surplus
+	// replenishes reserve; gaps/non-demand intervals split runs instead of
+	// bridging an idle, probe, seek or unobserved interval with fictitious demand.
+	var deficit, peak float64
+	for age := int64(30); age >= 1; age-- {
+		second := now.Unix() - age
+		if second <= 0 {
+			deficit = 0
+			continue
+		}
+		s := m.slots[second%60]
+		if s.second != second || !s.demand || s.tainted || s.rate <= 0 {
+			deficit = 0
+			continue
+		}
+		out.DeficitSamples++
+		deficit = max(0, deficit+s.rate-float64(s.bytes))
+		peak = max(peak, deficit)
+	}
+	// float64(MaxInt64) rounds upward, so clamp before converting.
+	if peak >= float64(math.MaxInt64) {
+		out.DeficitBytes = math.MaxInt64
+	} else {
+		out.DeficitBytes = int64(math.Ceil(peak))
 	}
 	return out
 }

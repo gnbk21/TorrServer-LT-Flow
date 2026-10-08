@@ -25,6 +25,7 @@ import { Modal } from "../components/common/Modal";
 import { Loading, RequestError } from "../components/common/RequestState";
 import IntegrationSettings from "../components/settings/IntegrationSettings";
 import { MaintenancePanel } from "../components/settings/MaintenancePanel";
+import { LANTest } from "../components/settings/LANTest";
 const groups: Record<string, string[]> = {
   general: [
     "CacheSize",
@@ -357,6 +358,7 @@ export default function Settings() {
         {tab === "flow" && (
           <p className="panel text-sm">{t("settings.flowHint")}</p>
         )}
+        {tab === "network" && <LANTest />}
         {tab === "general" && (
           <div className="actions">
             {[256, 512, 1024, 2048, 4096].map((mib) => (
@@ -413,6 +415,15 @@ export default function Settings() {
                 {key === "Flow.RateAwareDeadlines" && (
                   <span className="text-xs text-slate-400">
                     {t("settings.rateDeadlinesHelp")}
+                  </span>
+                )}
+                {[
+                  "Flow.CapacityAwareRequests",
+                  "Flow.AdaptiveUrgentHorizon",
+                  "Flow.ContainerBurstHints",
+                ].includes(key) && (
+                  <span className="text-xs text-slate-400">
+                    {t("settings.highBitrateExperimentHelp")}
                   </span>
                 )}
                 {key === "PreloadCache" && <span>%</span>}

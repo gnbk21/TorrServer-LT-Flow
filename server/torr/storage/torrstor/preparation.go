@@ -69,6 +69,7 @@ func (c *Cache) configurePreparation(plan PreparationStorage) error {
 			dp := newDiskPiece(p, plan.Root)
 			if p.size > 0 {
 				if n, err := dp.WriteAt(p.mem.buf[:p.size], 0); err != nil || int64(n) != p.size {
+					dp.Close()
 					p.mu.Unlock()
 					return errors.New("cannot persist preparation piece")
 				}
@@ -85,6 +86,7 @@ func (c *Cache) configurePreparation(plan PreparationStorage) error {
 			oldInfo, oldErr := os.Stat(p.disk.name)
 			newInfo, newErr := os.Stat(dp.name)
 			if oldErr == nil && newErr == nil && os.SameFile(oldInfo, newInfo) {
+				p.disk.Close()
 				p.disk = dp
 				p.mu.Unlock()
 				continue
@@ -96,10 +98,12 @@ func (c *Cache) configurePreparation(plan PreparationStorage) error {
 			for off := int64(0); off < p.size; {
 				n, err := p.disk.ReadAt(buffer[:min(int64(len(buffer)), p.size-off)], off)
 				if err != nil || n == 0 {
+					dp.Close()
 					p.mu.Unlock()
 					return errors.New("cannot read preparation migration piece")
 				}
 				if written, err := dp.WriteAt(buffer[:n], off); err != nil || written != n {
+					dp.Close()
 					p.mu.Unlock()
 					return errors.New("cannot persist preparation migration piece")
 				}
@@ -107,6 +111,7 @@ func (c *Cache) configurePreparation(plan PreparationStorage) error {
 			}
 			if p.size > 0 {
 				if err := dp.Sync(); err != nil {
+					dp.Close()
 					p.mu.Unlock()
 					return errors.New("cannot sync preparation migration piece")
 				}

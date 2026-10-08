@@ -46,6 +46,9 @@ export interface FlowSettings {
   PeerResumeHints?: boolean;
   ScarcePieceHints?: boolean;
   RateAwareDeadlines?: boolean;
+  CapacityAwareRequests?: boolean;
+  AdaptiveUrgentHorizon?: boolean;
+  ContainerBurstHints?: boolean;
 }
 
 export interface TMDBSettings {

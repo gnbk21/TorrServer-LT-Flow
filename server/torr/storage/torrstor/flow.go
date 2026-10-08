@@ -10,29 +10,38 @@ import (
 )
 
 type flowGroup struct {
-	fileIndex int
-	estimate  flow.Estimate
-	tracker   flow.ConsumptionTracker
-	smoother  flow.WindowSmoother
-	seen      time.Time
-	seconds   int
-	pieces    int
-	delivery  flow.DeliveryMeter
-	risk      flow.RiskDecision
-	buffer    int64
-	anchor    int
-	full      bool
+	fileIndex      int
+	estimate       flow.Estimate
+	tracker        flow.ConsumptionTracker
+	smoother       flow.WindowSmoother
+	seen           time.Time
+	seconds        int
+	pieces         int
+	delivery       flow.DeliveryMeter
+	risk           flow.RiskDecision
+	buffer         int64
+	anchor         int
+	full           bool
+	urgentSmoother flow.WindowSmoother
+	frontier       flow.FrontierGrowth
+	verifiedBuffer int64
+	frontierRate   *float64
+	burstSource    string
 }
 
 type FlowWindowStatus struct {
-	Delivery             flow.DeliveryEvidence `json:"delivery"`
-	Risk                 flow.RiskDecision     `json:"risk"`
-	RecentDownloadRate   float64               `json:"recent_download_rate"`
-	DownloadRateSamples  int                   `json:"download_rate_samples"`
-	ObservedPlaybackRate float64               `json:"observed_playback_rate"`
-	ObservedConfidence   string                `json:"observed_confidence"`
-	TargetBufferSeconds  int                   `json:"target_buffer_seconds"`
-	ForwardWindowPieces  int                   `json:"forward_window_pieces"`
+	Delivery                flow.DeliveryEvidence `json:"delivery"`
+	Risk                    flow.RiskDecision     `json:"risk"`
+	RecentDownloadRate      float64               `json:"recent_download_rate"`
+	DownloadRateSamples     int                   `json:"download_rate_samples"`
+	ObservedPlaybackRate    float64               `json:"observed_playback_rate"`
+	ObservedConfidence      string                `json:"observed_confidence"`
+	TargetBufferSeconds     int                   `json:"target_buffer_seconds"`
+	ForwardWindowPieces     int                   `json:"forward_window_pieces"`
+	ReadableContiguousBytes int64                 `json:"readable_contiguous_bytes"`
+	VerifiedContiguousBytes int64                 `json:"verified_contiguous_bytes"`
+	FrontierGrowthRate      *float64              `json:"frontier_growth_rate,omitempty"`
+	BurstHintSource         string                `json:"burst_hint_source"`
 }
 
 func (c *Cache) SetScarceEvidence(snapshot lt.SparseSnapshot) {
@@ -61,6 +70,7 @@ func (c *Cache) SetScarceEvidence(snapshot lt.SparseSnapshot) {
 		}
 	}
 	c.flowScarceAt = time.UnixMilli(snapshot.SampledAtMs)
+	c.flowQueueMs = max(0, snapshot.MaxQueueMs)
 }
 
 func (c *Cache) scarceDemand() (map[int]bool, bool) {
@@ -88,7 +98,7 @@ func (c *Cache) scarceDemand() (map[int]bool, bool) {
 func (c *Cache) demandRates() map[string]float64 {
 	rates := make(map[string]float64)
 	f := settings.CurrentFlow()
-	if !f.Enabled || !f.AdaptiveReadAhead || (!f.RateAwareDeadlines && !f.ScarcePieceHints) {
+	if !f.Enabled || !f.AdaptiveReadAhead || (!f.RateAwareDeadlines && !f.ScarcePieceHints && !f.AdaptiveUrgentHorizon) {
 		return rates
 	}
 	c.flowMu.Lock()
@@ -104,6 +114,27 @@ func (c *Cache) demandRates() map[string]float64 {
 		}
 	}
 	return rates
+}
+
+func (c *Cache) urgentHorizons(rates map[string]float64, forward int) map[string]int {
+	out := make(map[string]int)
+	if !settings.CurrentFlow().AdaptiveUrgentHorizon {
+		return out
+	}
+	c.flowMu.Lock()
+	defer c.flowMu.Unlock()
+	now := time.Now()
+	age := now.Sub(c.flowScarceAt)
+	if c.flowScarceAt.IsZero() || age < 0 || age > 5*time.Second {
+		return out
+	}
+	for group, rate := range rates {
+		if g := c.flowGroups[group]; g != nil {
+			want := flow.UrgentHorizon(rate, c.PieceLength, forward, c.flowQueueMs)
+			out[group] = g.urgentSmoother.Apply(want, forward, now)
+		}
+	}
+	return out
 }
 
 func (c *Cache) SetFlowMediaEstimate(group string, fileIndex int, estimate flow.Estimate) {
@@ -182,10 +213,12 @@ func (c *Cache) SetFlowDownloadRate(rate float64, paused bool) {
 	preparing := len(c.preparationDemand()) > 0
 	probing := len(snaps[ProbeReaderGroup]) > 0
 	type sample struct {
-		mode   string
-		buffer int64
-		anchor int
-		full   bool
+		mode     string
+		buffer   int64
+		anchor   int
+		full     bool
+		verified int64
+		start    int64
 	}
 	samples := make(map[string]sample)
 	_, ahead := c.readerWindowPieces()
@@ -205,7 +238,8 @@ func (c *Cache) SetFlowDownloadRate(rate float64, paused bool) {
 			if full {
 				mode = "FULL"
 			}
-			samples[group] = sample{mode, buffer, first, full}
+			samples[group] = sample{mode: mode, buffer: buffer, anchor: first, full: full,
+				verified: c.VerifiedContiguousAvailable(start, end), start: start}
 			break
 		}
 	}
@@ -214,6 +248,9 @@ func (c *Cache) SetFlowDownloadRate(rate float64, paused bool) {
 	if paused != c.flowPaused {
 		for _, g := range c.flowGroups {
 			g.delivery.Reset()
+			g.urgentSmoother.Reset()
+			g.frontier.Reset()
+			g.frontierRate = nil
 			g.smoother.Reset()
 		}
 		c.flowPaused = paused
@@ -229,6 +266,7 @@ func (c *Cache) SetFlowDownloadRate(rate float64, paused bool) {
 		if s, ok := samples[group]; ok {
 			mode = s.mode
 			g.buffer, g.anchor, g.full = s.buffer, s.anchor, s.full
+			g.verifiedBuffer = s.verified
 		}
 		if group == ProbeReaderGroup {
 			mode = "PROBE"
@@ -239,7 +277,15 @@ func (c *Cache) SetFlowDownloadRate(rate float64, paused bool) {
 		if c.flowReconnect.Load() {
 			mode = "RECONNECT"
 		}
-		g.delivery.Observe(now, mode)
+		g.delivery.ObserveDemand(now, mode, qualifiedDemand(g, now))
+		if s, ok := samples[group]; ok {
+			g.frontierRate = g.frontier.Observe(s.start, s.start+s.verified, mode == "DEMAND", now)
+		} else {
+			g.frontier.Reset()
+			g.frontierRate = nil
+			g.buffer = 0
+			g.verifiedBuffer = 0
+		}
 	}
 	for group := range anchors {
 		if g := c.flowGroups[group]; g != nil {
@@ -305,7 +351,9 @@ func (c *Cache) FlowWindow(group string) FlowWindowStatus {
 	return FlowWindowStatus{ObservedPlaybackRate: rate, ObservedConfidence: confidence,
 		Delivery: g.delivery.Snapshot(time.Now()), Risk: g.risk,
 		RecentDownloadRate: download, DownloadRateSamples: samples,
-		TargetBufferSeconds: g.seconds, ForwardWindowPieces: g.pieces}
+		TargetBufferSeconds: g.seconds, ForwardWindowPieces: g.pieces,
+		ReadableContiguousBytes: g.buffer, VerifiedContiguousBytes: g.verifiedBuffer,
+		FrontierGrowthRate: g.frontierRate, BurstHintSource: g.burstSource}
 }
 
 func (s *Storage) SetNetworkRecovering(recovering bool) {
@@ -319,6 +367,9 @@ func (s *Storage) SetNetworkRecovering(recovering bool) {
 		c.flowMu.Lock()
 		for _, g := range c.flowGroups {
 			g.delivery.Reset()
+			g.urgentSmoother.Reset()
+			g.frontier.Reset()
+			g.frontierRate = nil
 			g.smoother.Reset()
 		}
 		c.flowMu.Unlock()
@@ -334,6 +385,9 @@ func (s *Storage) InvalidateNetworkEvidence() {
 		c.flowMu.Lock()
 		for _, g := range c.flowGroups {
 			g.delivery.Reset()
+			g.urgentSmoother.Reset()
+			g.frontier.Reset()
+			g.frontierRate = nil
 			g.smoother.Reset()
 		}
 		c.flowMu.Unlock()
@@ -370,6 +424,14 @@ func (c *Cache) refreshFlowWindowLocked(now time.Time) {
 		if f.SwarmProfile == "adaptive" {
 			rate = max(rate, flow.ResilientDemand(g.estimate, observed, confidence))
 		}
+		g.burstSource = "unknown"
+		if f.ContainerBurstHints && (g.estimate.Confidence == "medium" || g.estimate.Confidence == "high") {
+			hint, source := c.burstDemand(g.fileIndex, g.anchor, g.estimate.BytesPerSecond)
+			g.burstSource = source
+			if f.SwarmProfile == "adaptive" {
+				rate = max(rate, hint)
+			}
+		}
 		evidence := g.delivery.Snapshot(now)
 		stats := flow.DeliveryStats{}
 		if evidence.Confidence != "unknown" {
@@ -387,7 +449,9 @@ func (c *Cache) refreshFlowWindowLocked(now time.Time) {
 		}
 		g.risk = flow.BufferRisk(g.buffer, riskRate, waitP95, suppliers, evidence, f.TargetBufferSeconds, f.MaxBufferSeconds)
 		if f.SwarmProfile == "adaptive" {
-			g.risk.TargetSeconds = flow.ResilienceTarget(evidence, g.risk.TargetSeconds, f.MaxBufferSeconds)
+			base := g.risk.TargetSeconds
+			g.risk.TargetSeconds = max(flow.ResilienceTarget(evidence, base, f.MaxBufferSeconds),
+				flow.DeficitTarget(evidence, riskRate, base, f.MaxBufferSeconds))
 		}
 		g.seconds, g.pieces = flow.DeliveryWindow(rate, waitP95, stats, c.flowWaiting.Load() > 0, g.full,
 			g.risk.TargetSeconds, f.MaxBufferSeconds, f.StartupSafetyFactorPct,
@@ -398,6 +462,16 @@ func (c *Cache) refreshFlowWindowLocked(now time.Time) {
 		}
 	}
 	c.flowAhead.Store(int64(maxPieces))
+}
+
+func qualifiedDemand(g *flowGroup, now time.Time) float64 {
+	if g.estimate.Confidence == "medium" || g.estimate.Confidence == "high" {
+		return g.estimate.BytesPerSecond
+	}
+	if rate, confidence := g.tracker.RateAt(now); confidence == "stable" {
+		return rate
+	}
+	return 0
 }
 
 // ResetFlowWindow is called for a classified seek, never for ServeContent's
@@ -411,6 +485,9 @@ func (c *Cache) ResetFlowWindow(group string, fileIndex int) {
 		g.smoother.Reset()
 		g.tracker.Reset()
 		g.delivery.Reset()
+		g.urgentSmoother.Reset()
+		g.frontier.Reset()
+		g.frontierRate = nil
 		c.refreshFlowWindowLocked(time.Now())
 	}
 	c.flowMu.Unlock()

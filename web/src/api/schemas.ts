@@ -31,6 +31,9 @@ export const settingsSchema = z
         Enabled: z.boolean(),
         SwarmProfile: z.string(),
         RateAwareDeadlines: z.boolean().optional(),
+        CapacityAwareRequests: z.boolean().optional(),
+        AdaptiveUrgentHorizon: z.boolean().optional(),
+        ContainerBurstHints: z.boolean().optional(),
         SwarmCustom: z.record(z.string(), z.unknown()),
       })
       .passthrough()
@@ -41,6 +44,10 @@ export const settingsSchema = z
 export const flowSessionSchema = z
   .object({
     supply_qualified: z.boolean().optional(),
+    readable_contiguous_bytes: z.number().int().nonnegative().optional(),
+    verified_contiguous_bytes: z.number().int().nonnegative().optional(),
+    frontier_growth_rate: z.number().nonnegative().optional(),
+    burst_hint_source: z.string().optional(),
     delivery: z
       .object({
         mode: z.string(),
@@ -52,7 +59,11 @@ export const flowSessionSchema = z
         confidence: z.string(),
         variation: z.number().nonnegative(),
         outage_seconds: z.number().int().nonnegative(),
+        recent_outage_seconds: z.number().int().nonnegative().optional(),
+        deficit_bytes: z.number().int().nonnegative().optional(),
+        deficit_samples: z.number().int().nonnegative().optional(),
       })
+      .passthrough()
       .optional(),
     risk: z
       .object({
@@ -88,10 +99,25 @@ export const flowSessionSchema = z
   .passthrough();
 export const flowSchema = z
   .object({
+    storage_io: z
+      .object({
+        queued_bytes: z.number().int().nonnegative(),
+        peak_queue_bytes: z.number().int().nonnegative(),
+        queued_jobs: z.number().int().nonnegative(),
+        rejected_jobs: z.number().int().nonnegative(),
+        completed_jobs: z.number().int().nonnegative(),
+        wait_p95_us: z.number().int().nonnegative(),
+        wait_max_us: z.number().int().nonnegative(),
+        callback_p95_us: z.number().int().nonnegative(),
+        callback_max_us: z.number().int().nonnegative(),
+      })
+      .passthrough()
+      .optional(),
     sparse: z
       .object({
         known: z.boolean(),
         urgent_truncated: z.boolean().optional(),
+        request_age_truncated: z.boolean().optional(),
         urgent: z
           .array(
             z
@@ -107,6 +133,7 @@ export const flowSchema = z
                 verified: z.boolean(),
                 receiving_blocks: z.number().int().nonnegative(),
                 receiving_bytes: z.number().int().nonnegative(),
+                oldest_request_age_ms: z.number().int().min(-1).optional(),
               })
               .refine(
                 (p) =>

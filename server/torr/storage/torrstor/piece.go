@@ -242,6 +242,9 @@ func (p *Piece) markVerifiedComplete() bool {
 func (p *Piece) release() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.disk != nil {
+		p.disk.Close()
+	}
 	if p.mem != nil {
 		p.mem.Release()
 	}

@@ -1,0 +1,51 @@
+name: optional-flow-player
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: moneytoo/Player
+          ref: aa85148f6ccbfdf931fe207bb75ec77c478d8eb0
+          path: _player
+          submodules: recursive
+          lfs: true
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Apply reviewed patch and test device memory policy
+        run: |
+          python3 build/prepare_just_player.py _player
+          python3 build/prepare_just_player.py _player
+          mkdir -p _out/player-policy
+          javac -d _out/player-policy build/just-player/FlowBufferBudget.java build/just-player/FlowBufferBudgetTest.java
+          java -cp _out/player-policy com.brouken.player.FlowBufferBudgetTest
+      - name: Build separate experimental app
+        working-directory: _player
+        run: |
+          sdkmanager 'platforms;android-37' 'build-tools;37.0.0' 'ndk;29.0.14206865'
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleLatestUniversalDebug
+      - name: Preserve source and license
+        run: |
+          mkdir -p _out/player-source
+          git -C _player archive --format=tar HEAD > _out/player-source/upstream.tar
+          cp -r build/just-player _out/player-source/flow-patch
+          cp build/prepare_just_player.py _out/player-source/
+          sha256sum _player/app/build/outputs/apk/latestUniversal/debug/*.apk > _out/player-source/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Flow-Player-experimental
+          path: |
+            _player/app/build/outputs/apk/latestUniversal/debug/*.apk
+            _out/player-source/**
+          if-no-files-found: error

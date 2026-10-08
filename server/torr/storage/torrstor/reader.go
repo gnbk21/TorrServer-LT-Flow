@@ -251,6 +251,9 @@ func NewReader(cache *Cache, handle *lt.Torrent, file FileInfo, group ...string)
 	if !cache.registerReader(r) {
 		return nil
 	}
+	if !r.internal {
+		cache.requestBurstIndex(file)
+	}
 	// Capacity grows automatically to fit this reader's working set now that it
 	// is registered (capacity() sums every reader live), so eviction won't drop
 	// pieces we're about to play (forward window) or just played (behind margin,
@@ -708,6 +711,7 @@ func (r *Reader) scheduleWindow() {
 	if r.internal {
 		return
 	}
+	r.cache.requestBurstIndex(r.file)
 	plen := r.cache.PieceLength
 	if plen <= 0 {
 		return

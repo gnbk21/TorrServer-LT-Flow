@@ -75,6 +75,7 @@ type Cache struct {
 	verifiedReads     atomic.Bool
 	flowScarce        map[int]bool // at most 256 bounded diagnostic entries
 	flowScarceAt      time.Time
+	flowQueueMs       int64
 	flowSuppliers     map[int]int
 	flowGroups        map[string]*flowGroup
 	flowPaused        bool // guarded by flowMu; intentional suspension is not supply loss
@@ -84,7 +85,12 @@ type Cache struct {
 	flowAhead         atomic.Int64 // zero retains the upstream window
 	flowWaiting       atomic.Int64 // actual external reads blocked on missing bytes
 	flowReconnect     atomic.Bool
-	flowBufferFull    atomic.Bool  // sampled from contiguous active windows
+	flowBufferFull    atomic.Bool // sampled from contiguous active windows
+	indexMu           sync.Mutex
+	indexes           map[int]cachedBurstIndex
+	indexBusy         bool
+	indexClosed       bool
+	indexWorkers      sync.WaitGroup
 	resourceBudget    atomic.Int64 // zero means not yet coordinated
 	backgroundLimited atomic.Bool
 
@@ -99,6 +105,7 @@ type Cache struct {
 	resume      []byte                      // consumed during Open before publishing the cache
 	preparation map[string]PreparationRange // guarded by mu; retained disk ranges
 	diskRoot    string                      // guarded by mu, selected once before migration
+	diskFiles   *diskHandles
 
 	// per-piece progress channels: closed (= broadcast) by SignalPieceComplete
 	// when libtorrent's piece_finished_alert arrives AND by writePiece on every
@@ -251,7 +258,12 @@ type waitFocusEntry struct {
 const waitFocusLingerMs = 5000
 
 func newCache(s *Storage, sid int64, hash [20]byte, numPieces int, pieceLength int64) *Cache {
+	files := newDiskHandles(64)
+	if s != nil && s.diskFiles != nil {
+		files = s.diskFiles
+	}
 	c := &Cache{
+		diskFiles:   files,
 		storage:     s,
 		StorageID:   sid,
 		InfoHash:    hash,
@@ -555,6 +567,35 @@ func (c *Cache) ContiguousAvailable(start, end int64) int64 {
 		}
 	}
 	return available
+}
+
+// VerifiedContiguousAvailable excludes all incomplete pieces, even when their
+// first blocks are responsive. A completed piece beyond a hole adds no reserve.
+func (c *Cache) VerifiedContiguousAvailable(start, end int64) int64 {
+	if c == nil || c.PieceLength <= 0 || start < 0 || end <= start {
+		return 0
+	}
+	pos := start
+	for pos < end {
+		index := int(pos / c.PieceLength)
+		c.mu.RLock()
+		p := c.pieces[index]
+		c.mu.RUnlock()
+		if p == nil {
+			break
+		}
+		p.mu.RLock()
+		n := int64(0)
+		if p.complete {
+			n = p.availableFromLocked(pos % c.PieceLength)
+		}
+		p.mu.RUnlock()
+		if n <= 0 {
+			break
+		}
+		pos += min(n, end-pos)
+	}
+	return pos - start
 }
 
 // registerReader / unregisterReader track active streaming clients so
@@ -1053,6 +1094,7 @@ func (c *Cache) applyStreamPriorities() {
 	scarce, variable := c.scarceDemand()
 	seekCancel := c.takeSnapCancels()
 	behindP, aheadP := c.readerWindowPieces()
+	urgentHorizons := c.urgentHorizons(demandRates, aheadP+1)
 
 	c.readersMu.Lock()
 	rs := make([]*Reader, 0, len(c.readers))
@@ -1174,8 +1216,10 @@ func (c *Cache) applyStreamPriorities() {
 			// Keep forward work queued while urgent work uses the native scheduler.
 			// Completion order and duplicate requests depend on supplier queues;
 			// deadlines are demand hints, reconciled with each independent reader.
-			if cur, ok := desired[i]; !ok || dlMs < cur {
-				desired[i] = dlMs
+			if count, bounded := urgentHorizons[r.group]; !bounded || i-ph < count {
+				if cur, ok := desired[i]; !ok || dlMs < cur {
+					desired[i] = dlMs
+				}
 			}
 			// Re-fetch hole: this forward-window piece was downloaded and hash-verified
 			// (libtorrent owns it) but our memory cache evicted the DATA (UseDisk=false →
@@ -1575,6 +1619,7 @@ const maxTailPinPieces = 6
 // close drops the in-memory state for every piece but leaves on-disk
 // files in place — they're the source of truth for the next resume.
 func (c *Cache) close() {
+	c.stopBurstIndexes()
 	// Drop any leftover preload reservation (e.g. a preview that never streamed)
 	// so a dropped torrent doesn't carry a stale reserve into its next resume.
 	c.preloadMu.Lock()
@@ -1592,6 +1637,7 @@ func (c *Cache) close() {
 // on-disk file (if any). Triggered when libtorrent asks us to delete
 // the storage (e.g. RemTorrent with delete=true).
 func (c *Cache) wipe() {
+	c.stopBurstIndexes()
 	c.mu.Lock()
 	for _, p := range c.pieces {
 		p.wipe()

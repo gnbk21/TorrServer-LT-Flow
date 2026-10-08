@@ -101,8 +101,12 @@ func (t *Torrent) startupStage(stage string) {
 }
 
 type FlowSessionStatus struct {
-	WaitReason             string `json:"wait_reason"`
-	RequiredPieceSuppliers *int   `json:"required_piece_suppliers,omitempty"`
+	BurstHintSource         string   `json:"burst_hint_source"`
+	ReadableContiguousBytes int64    `json:"readable_contiguous_bytes"`
+	VerifiedContiguousBytes int64    `json:"verified_contiguous_bytes"`
+	FrontierGrowthRate      *float64 `json:"frontier_growth_rate,omitempty"`
+	WaitReason              string   `json:"wait_reason"`
+	RequiredPieceSuppliers  *int     `json:"required_piece_suppliers,omitempty"`
 	flow.CounterSnapshot
 	Group                     string                `json:"group"`
 	FileIndex                 int                   `json:"file_index"`
@@ -425,6 +429,9 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 			s.ObservedPlaybackRate, s.ObservedConfidence = w.ObservedPlaybackRate, w.ObservedConfidence
 			s.TargetBufferSeconds, s.ForwardWindowPieces = w.TargetBufferSeconds, w.ForwardWindowPieces
 			s.Delivery = w.Delivery
+			s.ReadableContiguousBytes, s.VerifiedContiguousBytes = w.ReadableContiguousBytes, w.VerifiedContiguousBytes
+			s.FrontierGrowthRate = w.FrontierGrowthRate
+			s.BurstHintSource = w.BurstHintSource
 			s.SupplyQualified = w.Delivery.Confidence == "medium" || w.Delivery.Confidence == "high"
 		}
 		s.PlaybackConsumptionRate = e.BytesPerSecond

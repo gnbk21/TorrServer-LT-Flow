@@ -44,6 +44,14 @@ int lt_install_storage_callbacks_full(const struct tsl_storage_callbacks* cb);
 int lt_storage_prune_partial(int64_t storage_id, int piece);
 int lt_storage_evict_complete(int64_t storage_id, int piece);
 
+// Process aggregates, never paths, hashes or peer addresses. Latency percentiles
+// are conservative upper bounds from logarithmic microsecond buckets.
+struct tsl_io_stats {
+    uint64_t queued_bytes, peak_queue_bytes, queued_jobs, rejected_jobs;
+    uint64_t completed_jobs, wait_p95_us, wait_max_us, callback_p95_us, callback_max_us;
+};
+void lt_storage_io_stats(struct tsl_io_stats* out);
+
 #ifdef __cplusplus
 }
 #endif

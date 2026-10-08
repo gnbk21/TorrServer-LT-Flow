@@ -22,6 +22,7 @@ import (
 // into libtorrent via Install(); calls from libtorrent's disk threads
 // land on its Read/Write/Open/Close/Deleted/Have methods.
 type Storage struct {
+	diskFiles         *diskHandles
 	mu                sync.RWMutex
 	caches            map[int64]*Cache    // by libtorrent storage_id
 	byHash            map[[20]byte]*Cache // by info hash for Reader lookup from torr
@@ -69,6 +70,7 @@ func (s *Storage) RequireVerifiedReads(hash [20]byte) {
 // NewStorage constructs an empty registry.
 func NewStorage() *Storage {
 	return &Storage{
+		diskFiles:    newDiskHandles(64),
 		caches:       map[int64]*Cache{},
 		byHash:       map[[20]byte]*Cache{},
 		resumes:      map[[20]byte]verifiedResume{},
