@@ -15,13 +15,18 @@ type FrontierGrowth struct {
 func (f *FrontierGrowth) Reset() { *f = FrontierGrowth{} }
 func (f *FrontierGrowth) Observe(start, end int64, demand bool, now time.Time) *float64 {
 	previous, at := f.end, f.at
-	f.end, f.at = end, now
-	if !demand || at.IsZero() || start > previous || end < previous || now.Sub(at) < 500*time.Millisecond || now.Sub(at) > 5*time.Second {
+	if !demand || at.IsZero() || start > previous || end < previous || now.Before(at) || now.Sub(at) > 5*time.Second {
+		f.end, f.at = end, now
 		if !demand {
 			f.Reset()
 		}
 		return nil
 	}
+	// Frequent status samples must not keep resetting the measurement baseline.
+	if now.Sub(at) < 500*time.Millisecond {
+		return nil
+	}
+	f.end, f.at = end, now
 	rate := float64(end-previous) / now.Sub(at).Seconds()
 	return &rate
 }

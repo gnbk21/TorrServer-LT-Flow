@@ -16,10 +16,10 @@ def check(args):
         for _ in range(64): output.write(block)
     results=[]
     for reqq in (32,64,250,512,2000):
-        for latency in (0,80):
+        for latency in (0,250):
             print(f'Strict reqq={reqq}, pipelined latency={latency} ms', flush=True)
             result=run(args.executable,args.output/f'cap-{reqq}-{latency}',fixture,
-                       'legacy','healthy',4*MIB,10,64,True,
+                       'legacy','healthy',(MIB if latency else 4*MIB),10,64,True,
                        reqq=reqq,strict=True,latency_ms=latency,piece_mb=1,
                        capacity_aware=True,startup_mb=4)
             peers=result.get('swarm',{}).get('peers',[])

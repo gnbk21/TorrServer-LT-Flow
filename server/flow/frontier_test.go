@@ -49,3 +49,18 @@ func TestUrgentHorizonScalesAndFallsBack(t *testing.T) {
 		t.Fatal("exceeded tiny cache")
 	}
 }
+
+func TestFrontierFrequentSamplesAccumulate(t *testing.T) {
+	var f FrontierGrowth
+	now := time.Unix(100, 0)
+	f.Observe(0, 100, true, now)
+	for i := 1; i < 5; i++ {
+		if f.Observe(0, int64(100+i*10), true, now.Add(time.Duration(i)*100*time.Millisecond)) != nil {
+			t.Fatal("sample too short")
+		}
+	}
+	rate := f.Observe(0, 150, true, now.Add(500*time.Millisecond))
+	if rate == nil || *rate != 100 {
+		t.Fatal("frequent samples erased growth", rate)
+	}
+}

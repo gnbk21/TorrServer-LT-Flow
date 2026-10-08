@@ -673,7 +673,7 @@
     "urgentProgress": "Piesa {{piece}} · prioritate {{priority}} · așteaptă {{unrequested}} · cerute {{requested}} · scriere {{writing}} · terminate {{finished}}/{{blocks}} · recepție {{receiving_bytes}} B · cereri duplicate {{duplicate_requests}}",
     "urgentHint": "Blocurile terminate pot aștepta încă verificarea. Recepția face parte din cereri. Acest instantaneu limitat nu măsoară vechimea cererilor.",
     "ioTitle": "I/O nativ de stocare",
-    "ioHint": "Totaluri ale procesului. Latențele sunt limite superioare cumulative în microsecunde; octeții din coadă sunt buffere temporare, nu un al doilea cache.",
+    "ioHint": "Cozi, vârfuri și respingeri ale motoarelor active; finalizări și latențe pe durata procesului. Intervalele de latență sunt limite superioare în microsecunde. Octeții din coadă sunt buffere temporare, nu un al doilea cache.",
     "io": {
       "queued_bytes": "Octeți în coadă",
       "peak_queue_bytes": "Vârf octeți în coadă",

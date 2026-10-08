@@ -83,6 +83,9 @@ std::mutex g_io_mu;
 std::vector<flow_io_queue*> g_io_queues;
 std::array<std::atomic<uint64_t>, 32> g_wait_hist{}, g_callback_hist{};
 std::atomic<uint64_t> g_completed{0}, g_wait_max{0}, g_callback_max{0};
+// A retiring session may still own posted completions when its replacement
+// opens storage. IDs must not collide in the process-wide Go cache registry.
+std::atomic<int64_t> g_next_storage_id{1};
 
 void record_latency(uint64_t value, std::array<std::atomic<uint64_t>, 32>& hist,
                     std::atomic<uint64_t>& maximum) {
@@ -250,7 +253,7 @@ public:
     lt::storage_holder new_torrent(lt::storage_params const& p,
                                    std::shared_ptr<void> const&) override
     {
-        int64_t idx = next_id_++;
+        int64_t idx = g_next_storage_id.fetch_add(1);
 
         auto ss = std::make_shared<storage_state>();
         ss->id = idx;
@@ -509,7 +512,6 @@ private:
 
     std::shared_mutex                              map_mu_;
     std::unordered_map<int64_t, std::shared_ptr<storage_state>>     storages_;
-    std::atomic<int64_t>                           next_id_{1};
 
     flow_io_queue work_{record_io_latency};
 };

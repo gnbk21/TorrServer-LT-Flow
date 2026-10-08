@@ -84,3 +84,18 @@ func TestDeficitAccountsForSurplusAndChangingDemand(t *testing.T) {
 		t.Fatal("stale reserve enlarged target")
 	}
 }
+
+func TestDeficitRequiresConsecutiveQualifiedIntervals(t *testing.T) {
+	var m DeliveryMeter
+	for i := 0; i < 9; i++ {
+		mode := "DEMAND"
+		if i%3 == 2 {
+			mode = "PROBE"
+		}
+		m.ObserveDemand(time.Unix(1000+int64(i), 0), mode, 1000)
+	}
+	evidence := m.Snapshot(time.Unix(1009, 0))
+	if evidence.DeficitSamples != 2 || evidence.DeficitBytes != 0 {
+		t.Fatal("scattered intervals qualified a deficit", evidence)
+	}
+}

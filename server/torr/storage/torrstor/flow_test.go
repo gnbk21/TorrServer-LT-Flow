@@ -39,6 +39,35 @@ func TestDemandRatesRequireExplicitExperimentAndQualifiedFreshMedia(t *testing.T
 	}
 }
 
+func TestUrgentHorizonsPreserveIndependentReadersAndRejectStaleQueue(t *testing.T) {
+	old := settings.BTsets()
+	f := settings.DefaultFlowSettings()
+	f.AdaptiveUrgentHorizon = true
+	settings.StoreBTsets(&settings.BTSets{Flow: f})
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	c := &Cache{PieceLength: 4 * flow.MiB, flowGroups: map[string]*flowGroup{
+		"slow": {seen: time.Now(), estimate: flow.Estimate{BytesPerSecond: float64(flow.MiB), Confidence: "high"}},
+		"fast": {seen: time.Now(), estimate: flow.Estimate{BytesPerSecond: 15e6, Confidence: "high"}},
+	}}
+	sample := lt.SparseSnapshot{Known: true, SampledAtMs: time.Now().UnixMilli(), MaxQueueMs: 1000}
+	c.SetScarceEvidence(sample)
+	horizons := c.urgentHorizons(c.demandRates(), 100)
+	if horizons["slow"] != 3 || horizons["fast"] != 10 {
+		t.Fatal("independent demand collapsed", horizons)
+	}
+	sample.Truncated = true
+	c.SetScarceEvidence(sample)
+	if len(c.urgentHorizons(c.demandRates(), 100)) != 0 {
+		t.Fatal("truncated evidence changed deadline policy")
+	}
+	sample.Truncated = false
+	sample.SampledAtMs = time.Now().Add(-6 * time.Second).UnixMilli()
+	c.SetScarceEvidence(sample)
+	if len(c.urgentHorizons(c.demandRates(), 100)) != 0 {
+		t.Fatal("stale queue changed deadline policy")
+	}
+}
+
 // Deadline removal changes the native priority independently of lastPrios.
 // Exercise the actual shim, not just the Go vector comparison.
 func TestDeadlineRemovalRestoresLazyAndReservedNativePriorities(t *testing.T) {

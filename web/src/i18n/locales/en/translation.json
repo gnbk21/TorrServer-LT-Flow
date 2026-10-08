@@ -600,7 +600,7 @@
     "urgentProgress": "Piece {{piece}} · priority {{priority}} · waiting {{unrequested}} · requested {{requested}} · writing {{writing}} · finished {{finished}}/{{blocks}} · receiving {{receiving_bytes}} B · duplicate requests {{duplicate_requests}}",
     "urgentHint": "Finished blocks may still await verification. Receiving is part of requested work. This bounded snapshot does not measure request age.",
     "ioTitle": "Native storage I/O",
-    "ioHint": "Process totals. Latencies are cumulative upper-bound bucket estimates in microseconds; queue bytes are transient buffers, not a second cache.",
+    "ioHint": "Active backend queues, peaks and rejections; process-lifetime completion and latency counters. Latency buckets are upper bounds in microseconds. Queue bytes are transient buffers, not a second cache.",
     "io": {
       "queued_bytes": "Queued bytes",
       "peak_queue_bytes": "Peak queue bytes",

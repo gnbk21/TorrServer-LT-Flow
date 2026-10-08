@@ -28,6 +28,7 @@ describe("startup explanation", () => {
       verified: false,
       receiving_blocks: 1,
       receiving_bytes: 8192,
+      oldest_request_age_ms: 123,
     };
     const { rerender } = render(
       <FlowDiagnosticsDrawer
@@ -39,7 +40,8 @@ describe("startup explanation", () => {
         }}
       />,
     );
-    expect(screen.getByText("flow.urgentProgress")).toBeInTheDocument();
+    expect(screen.getByText(/flow.urgentProgress/)).toBeInTheDocument();
+    expect(screen.getByText(/flow.urgentAge/)).toBeInTheDocument();
     rerender(
       <FlowDiagnosticsDrawer
         isOpen
@@ -50,7 +52,8 @@ describe("startup explanation", () => {
         }}
       />,
     );
-    expect(screen.queryByText("flow.urgentProgress")).not.toBeInTheDocument();
+    expect(screen.queryByText(/flow.urgentProgress/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/flow.urgentAge/)).not.toBeInTheDocument();
   });
   it("labels stale availability instead of displaying it as current", () => {
     render(

@@ -5,6 +5,7 @@ on:
     paths:
       - 'build/just-player/**'
       - 'build/prepare_just_player.py'
+      - 'build/player_patch_check.py'
       - '.github/workflows/just-player.yml'
   workflow_dispatch:
 permissions:
@@ -28,10 +29,13 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - name: Apply reviewed patch and test device memory policy
         run: |
           python3 build/prepare_just_player.py _player
-          python3 build/prepare_just_player.py _player
+          python3 build/player_patch_check.py _player
           mkdir -p _out/player-policy
           javac -d _out/player-policy build/just-player/FlowBufferBudget.java build/just-player/FlowBufferBudgetTest.java
           java -cp _out/player-policy com.brouken.player.FlowBufferBudgetTest
@@ -47,6 +51,7 @@ jobs:
           git -C _player archive --format=tar HEAD > _out/player-source/upstream.tar
           cp -r build/just-player _out/player-source/flow-patch
           cp build/prepare_just_player.py _out/player-source/
+          cp build/player_patch_check.py _out/player-source/
           sha256sum _player/app/build/outputs/apk/latestUniversal/debug/*.apk > _out/player-source/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:

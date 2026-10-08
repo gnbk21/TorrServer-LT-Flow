@@ -143,5 +143,20 @@ int main() {
     io.restart(); io.poll();
     if (!wrote || !hashed || !cleared || events != std::vector<std::string>{"write", "read", "clear", "delete", "close"})
         throw std::runtime_error("piece/lifecycle ordering or deferred storage close failed");
+    bool late_read = false;
+    {
+        tsl_disk_io replacement(io, settings, counters, callbacks);
+        auto next = replacement.new_torrent(params, {});
+        if (storage_id_of(next) <= 1) throw std::runtime_error("replacement session reused a retiring storage ID");
+        replacement.async_read(next, {lt::piece_index_t{0},0,100},
+            [&](lt::disk_buffer_holder buffer, lt::storage_error const& error) {
+                if (error.ec || uint8_t(buffer.data()[0]) != 0x3c) throw std::runtime_error("late read lost its storage");
+                late_read = true;
+            });
+        next.reset();
+        replacement.abort(true);
+    }
+    // The queued completion frees its read buffer after replacement destruction.
+    run(late_read);
     std::cout << "Short I/O, owned buffers, write/hash/clear/delete/remove/abort ordering passed\n";
 }

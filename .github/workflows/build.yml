@@ -216,8 +216,8 @@ jobs:
           PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
         run: |
-          g++ -std=c++17 -O2 build/test_disk_upload.cpp -o _out/test-disk-upload -L"$PWD/_deps/linux-amd64/lib" $(pkg-config --cflags --libs libtorrent-rasterbar) -pthread
-          g++ -std=c++17 -O2 build/test_io_queue.cpp -o _out/test-io-queue -pthread
+          g++ -std=c++17 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer build/test_disk_upload.cpp -o _out/test-disk-upload -L"$PWD/_deps/linux-amd64/lib" $(pkg-config --cflags --libs libtorrent-rasterbar) -pthread
+          g++ -std=c++17 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer build/test_io_queue.cpp -o _out/test-io-queue -pthread
           _out/test-io-queue
           _out/test-disk-upload
 

@@ -159,22 +159,31 @@ func (m *DeliveryMeter) Snapshot(now time.Time) DeliveryEvidence {
 	// Maximum cumulative drawdown in the recent thirty-second horizon. Surplus
 	// replenishes reserve; gaps/non-demand intervals split runs instead of
 	// bridging an idle, probe, seek or unobserved interval with fictitious demand.
-	var deficit, peak float64
+	var deficit, peak, runPeak float64
+	consecutive := 0
+	finishRun := func() {
+		out.DeficitSamples = max(out.DeficitSamples, consecutive)
+		if consecutive >= 3 {
+			peak = max(peak, runPeak)
+		}
+		deficit, runPeak, consecutive = 0, 0, 0
+	}
 	for age := int64(30); age >= 1; age-- {
 		second := now.Unix() - age
 		if second <= 0 {
-			deficit = 0
+			finishRun()
 			continue
 		}
 		s := m.slots[second%60]
 		if s.second != second || !s.demand || s.tainted || s.rate <= 0 {
-			deficit = 0
+			finishRun()
 			continue
 		}
-		out.DeficitSamples++
+		consecutive++
 		deficit = max(0, deficit+s.rate-float64(s.bytes))
-		peak = max(peak, deficit)
+		runPeak = max(runPeak, deficit)
 	}
+	finishRun()
 	// float64(MaxInt64) rounds upward, so clamp before converting.
 	if peak >= float64(math.MaxInt64) {
 		out.DeficitBytes = math.MaxInt64

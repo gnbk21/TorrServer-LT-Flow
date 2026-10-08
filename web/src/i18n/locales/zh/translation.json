@@ -679,7 +679,7 @@
     "urgentProgress": "分片 {{piece}} · 优先级 {{priority}} · 等待 {{unrequested}} · 已请求 {{requested}} · 写入 {{writing}} · 已完成 {{finished}}/{{blocks}} · 正在接收 {{receiving_bytes}} 字节 · 重复请求 {{duplicate_requests}}",
     "urgentHint": "已完成的块可能仍需校验。正在接收的块属于已请求的工作。此有界快照不测量请求时长。",
     "ioTitle": "原生存储 I/O",
-    "ioHint": "进程累计值。延迟为微秒单位的累计分桶上界；排队字节属于临时缓冲，并非第二个缓存。",
+    "ioHint": "活动引擎的队列、峰值和拒绝次数；完成次数和延迟统计覆盖进程运行期间。延迟为微秒区间上界。队列字节是临时缓冲区，并非第二份缓存。",
     "io": {
       "queued_bytes": "排队字节",
       "peak_queue_bytes": "排队字节峰值",
