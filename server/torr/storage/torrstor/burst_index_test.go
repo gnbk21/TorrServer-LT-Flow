@@ -2,11 +2,63 @@ package torrstor
 
 import (
 	"bytes"
+	"encoding/binary"
 	"io"
 	"testing"
+	"time"
 
+	"server/flow"
 	"server/settings"
 )
+
+func TestResidentMatroskaIndexReachesAdaptiveControllerWithoutFetching(t *testing.T) {
+	old := settings.BTsets()
+	f := settings.DefaultFlowSettings()
+	f.SwarmProfile, f.ContainerBurstHints = "adaptive", true
+	settings.StoreBTsets(&settings.BTSets{CacheSize: 64 * flow.MiB, ReaderReadAHead: 95, Flow: f})
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	s := NewStorage()
+	s.callbackOpen(302, mkHash(0x32), 4096, pieceBlockSize)
+	s.callbackSize(302, 64*flow.MiB)
+	c := s.lookup(302)
+	defer s.callbackClose(302)
+	// Unknown-length Segment, 1 ms tick scale, three resident CuePoints. Their
+	// cluster positions refer to future media; inspection must not fetch it.
+	header := []byte{0x1a, 0x45, 0xdf, 0xa3, 0x80, 0x18, 0x53, 0x80, 0x67, 0xff,
+		0x15, 0x49, 0xa9, 0x66, 0x87, 0x2a, 0xd7, 0xb1, 0x83, 0x0f, 0x42, 0x40,
+		0x1c, 0x53, 0xbb, 0x6b, 0xaa}
+	for i, position := range []uint32{100, uint32(flow.MiB), uint32(3 * flow.MiB)} {
+		cue := []byte{0xbb, 0x8c, 0xb3, 0x82, 0, 0, 0xb7, 0x86, 0xf1, 0x84, 0, 0, 0, 0}
+		binary.BigEndian.PutUint16(cue[4:6], uint16(i*1000))
+		binary.BigEndian.PutUint32(cue[10:14], position)
+		header = append(header, cue...)
+	}
+	payload := make([]byte, pieceBlockSize)
+	copy(payload, header)
+	if _, err := s.callbackWrite(302, 0, 0, payload); err != nil {
+		t.Fatal(err)
+	}
+	c.MarkComplete(0)
+	c.SetFlowMediaEstimate("phone", 1, flow.Estimate{BytesPerSecond: float64(flow.MiB) / 4, Confidence: "high"})
+	c.flowMu.Lock()
+	g := c.flowGroups["phone"]
+	g.anchor = 128
+	before := g.pieces
+	g.smoother.Reset()
+	c.flowMu.Unlock()
+	c.requestBurstIndex(FileInfo{Index: 1, Path: "owned.mkv", Length: 64 * flow.MiB})
+	c.indexWorkers.Wait()
+	c.flowMu.Lock()
+	c.refreshFlowWindowLocked(time.Now())
+	after, source := g.pieces, g.burstSource
+	c.flowMu.Unlock()
+	if source != "matroska-cues-coarse" || after <= before {
+		t.Fatal("resident index did not reach adaptive demand", source, before, after)
+	}
+	if len(c.pieces) != 1 || c.ActiveReaders() != 0 {
+		t.Fatal("successful inspection fetched media or created readers")
+	}
+}
 
 func TestResidentIndexReaderNeverFetchesMissingOrUnverifiedBytes(t *testing.T) {
 	old := settings.BTsets()
