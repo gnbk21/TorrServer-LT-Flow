@@ -476,9 +476,9 @@ public:
             if (state && cb_.clear_piece) cb_.clear_piece(state->id, int(idx));
             lt::post(io_, [state, idx, h] { (*h)(idx); });
         };
-        // A full byte queue still accepts bounded maintenance. If its job cap
-        // is reached, a global fence provides the same ordering guarantee.
-        if (!work_.submit(storage_id_of(s), int(idx), 0, clear, throttle))
+        // Keep clears in the piece's FIFO lane even at the ordinary job cap.
+        // Once admission is closed, fence waits for every remaining worker.
+        if (!work_.submit(storage_id_of(s), int(idx), 0, clear, throttle, {}, true))
             work_.fence(std::move(clear));
     }
 

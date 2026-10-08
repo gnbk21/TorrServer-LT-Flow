@@ -35,9 +35,13 @@ public:
     // and clears. Different pieces may run concurrently. A rejected operation
     // must complete with a storage error; callers must never acknowledge it.
     bool submit(std::int64_t storage, int piece, std::size_t bytes,
-        std::function<void()> work, bool& throttle, std::function<void()> wake = {}) {
+        std::function<void()> work, bool& throttle, std::function<void()> wake = {},
+        bool maintenance = false) {
         std::lock_guard<std::mutex> lock(mu_);
-        if (stopped_ || bytes > limit_bytes - bytes_ || jobs_ >= 8192) {
+        // Zero-byte piece maintenance must keep its FIFO position even under
+        // load. A global fence does not order it against later piece writes.
+        if (stopped_ || bytes > limit_bytes - bytes_
+            || (jobs_ >= 8192 && !(maintenance && bytes == 0))) {
             ++rejected_;
             return false;
         }

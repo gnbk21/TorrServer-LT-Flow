@@ -50,4 +50,22 @@ int main() {
     finish.set_value();
     stop.get(); fence.get();
     require(stopping.status().jobs == 0);
+
+    flow_io_queue saturated({});
+    std::promise<void> blocked, unblock, cleared;
+    auto unblock_ready = unblock.get_future().share();
+    require(saturated.submit(0, 1, 0, [&] { blocked.set_value(); unblock_ready.wait(); }, throttle));
+    blocked.get_future().wait();
+    for (int i = 1; i < 8192; ++i)
+        require(saturated.submit(0, 1, 0, [] {}, throttle));
+    require(!saturated.submit(0, 0, 0, [] {}, throttle));
+    require(!saturated.submit(0, 0, 1, [] {}, throttle, {}, true));
+    // A clear in another lane must not wait for this unrelated blocked piece.
+    // Its reserved admission is only for zero-byte maintenance, not payloads.
+    require(saturated.submit(0, 0, 0, [&] { cleared.set_value(); }, throttle, {}, true));
+    auto clear_ready = cleared.get_future();
+    bool const timely = clear_ready.wait_for(std::chrono::seconds(5)) == std::future_status::ready;
+    unblock.set_value();
+    saturated.stop();
+    require(timely && saturated.status().jobs == 0 && saturated.status().bytes == 0);
 }

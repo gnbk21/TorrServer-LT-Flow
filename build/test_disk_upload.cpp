@@ -118,7 +118,7 @@ int main() {
     io.restart();
     lifecycle = true;
     char payload[100]; std::memset(payload, 0x3c, sizeof(payload));
-    bool wrote = false, hashed = false, cleared = false, deleted = false;
+    bool wrote = false, hashed = false, cleared = false, rewrote = false, deleted = false;
     disk.async_write(storage, {lt::piece_index_t{0}, 0, 100}, payload, {},
         [&](lt::storage_error const& error) {
             if (error.ec) throw std::runtime_error("owned write failed");
@@ -141,6 +141,11 @@ int main() {
             hashed = true;
         });
     disk.async_clear_piece(storage, lt::piece_index_t{0}, [&](lt::piece_index_t) { cleared = true; });
+    disk.async_write(storage, {lt::piece_index_t{0}, 0, 100}, expected.data(), {},
+        [&](lt::storage_error const& error) {
+            if (error.ec) throw std::runtime_error("write after clear failed");
+            rewrote = true;
+        });
     disk.async_delete_files(storage, {}, [&](lt::storage_error const& error) {
         if (error.ec) throw std::runtime_error("delete failed");
         deleted = true;
@@ -155,7 +160,8 @@ int main() {
     disk.abort(true); // joins disk work while network completions still retain storage
     run(deleted);
     io.restart(); io.poll();
-    if (!wrote || !hashed || !cleared || events != std::vector<std::string>{"write", "read", "clear", "delete", "close"})
+    if (!wrote || !hashed || !cleared || !rewrote
+        || events != std::vector<std::string>{"write", "read", "clear", "write", "delete", "close"})
         throw std::runtime_error("piece/lifecycle ordering or deferred storage close failed");
     bool late_read = false;
     {
