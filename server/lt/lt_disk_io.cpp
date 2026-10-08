@@ -172,7 +172,9 @@ namespace {
 
 inline lt::storage_error make_io_error(char const* op) {
     lt::storage_error se;
-    se.ec = lt::error_code(boost::system::errc::io_error, lt::system_category());
+    // errc values belong to the portable generic category. Windows system
+    // code 5 means access denied, not the generic I/O error with value 5.
+    se.ec = boost::system::errc::make_error_code(boost::system::errc::io_error);
     se.operation = std::strncmp(op, "write", 5) == 0
         ? lt::operation_t::file_write : lt::operation_t::file_read;
     return se;
@@ -395,7 +397,7 @@ public:
                      std::function<void(lt::piece_index_t, lt::sha256_hash const&, lt::storage_error const&)> handler) override
     {
         lt::storage_error se;
-        se.ec = lt::error_code(boost::system::errc::function_not_supported, lt::system_category());
+        se.ec = boost::system::errc::make_error_code(boost::system::errc::function_not_supported);
         lt::post(io_, [h = std::move(handler), piece, se]() mutable {
             h(piece, lt::sha256_hash{}, se);
         });

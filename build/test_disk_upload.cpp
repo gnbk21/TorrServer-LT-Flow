@@ -79,6 +79,8 @@ int main() {
                 completed = true;
                 if (bool(error.ec) != (count != 100))
                     throw std::runtime_error("missing or partial upload block was accepted");
+                if (error.ec && error.ec != boost::system::errc::make_error_code(boost::system::errc::io_error))
+                    throw std::runtime_error("read failure used a platform system error number");
                 if (!error.ec) {
                     for (int i = 0; i < 100; ++i)
                         if (uint8_t(buffer.data()[i]) != 0x5a)
@@ -96,12 +98,24 @@ int main() {
                 completed = true;
                 if (bool(error.ec) != (count != 100))
                     throw std::runtime_error("missing or partial cache write was acknowledged");
+                if (error.ec && error.ec != boost::system::errc::make_error_code(boost::system::errc::io_error))
+                    throw std::runtime_error("write failure used a platform system error number");
             });
         if (completed) throw std::runtime_error("reentrant write completion");
         run(completed);
         if (!completed) throw std::runtime_error("write completion missing");
         io.restart();
     }
+    bool unsupported = false;
+    disk.async_hash2(storage, lt::piece_index_t{0}, 0, {},
+        [&](lt::piece_index_t, lt::sha256_hash const&, lt::storage_error const& error) {
+            if (error.ec != boost::system::errc::make_error_code(boost::system::errc::function_not_supported))
+                throw std::runtime_error("unsupported hash used a platform system error number");
+            unsupported = true;
+        });
+    if (unsupported) throw std::runtime_error("reentrant unsupported-hash completion");
+    run(unsupported);
+    io.restart();
     lifecycle = true;
     char payload[100]; std::memset(payload, 0x3c, sizeof(payload));
     bool wrote = false, hashed = false, cleared = false, deleted = false;
