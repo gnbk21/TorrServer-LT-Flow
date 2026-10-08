@@ -17,11 +17,14 @@ def unused_port():
         return sock.getsockname()[1]
 
 
-def run(executable, output):
+CASES = ('invalid-user', 'partial-pair', 'lone-default-key', 'generated', 'generated-read-only')
+
+
+def run(executable, output, cases=CASES):
     output.mkdir(parents=True, exist_ok=False)
     results = {'executable_sha256': hashlib.sha256(executable.read_bytes()).hexdigest(), 'cases': []}
     invalid = b'original invalid user fixture; must remain unchanged\n'
-    for case in ('invalid-user', 'partial-pair', 'lone-default-key', 'generated', 'generated-read-only'):
+    for case in cases:
         port = unused_port()
         arguments = ['--ssl', '--sslport', str(port)]
         seed = {}
@@ -36,6 +39,9 @@ def run(executable, output):
         elif case == 'lone-default-key':
             seed = {'server.key': invalid}
         elif case == 'generated-read-only':
+            # Read-only startup requires an existing, valid bbolt database.
+            # Reuse the closed generated case's own database, never user state.
+            seed = {'config.db': (output/'generated'/'config.db').read_bytes()}
             arguments += ['--rdb']
         server = OwnedServer(executable, state, seed_files=seed, extra_arguments=arguments)
         try:
@@ -73,5 +79,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--executable', required=True, type=Path)
     parser.add_argument('--output', required=True, type=Path)
+    parser.add_argument('--cases', nargs='+', choices=CASES, default=list(CASES))
     args = parser.parse_args()
-    print(json.dumps(run(args.executable, args.output), indent=2))
+    if 'generated-read-only' in args.cases and ('generated' not in args.cases or args.cases.index('generated') > args.cases.index('generated-read-only')):
+        parser.error('generated must precede generated-read-only to provide its owned database')
+    print(json.dumps(run(args.executable, args.output, args.cases), indent=2))
