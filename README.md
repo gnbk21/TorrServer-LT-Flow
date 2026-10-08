@@ -157,6 +157,18 @@ libtorrent otherwise demotes those pieces, which can leave abandoned work
 downloading or reduce preload priorities. Diagnostics show bounded urgent block
 states, receiving progress and effective native priorities; finished blocks can
 still await verification, and snapshot age is not request age.
+Sequential high bitrate consumption now qualifies without probe metadata:
+the old sample-size guard could understate demand above roughly 64 Mbps. Seek
+and idle transitions reset stale rate confidence. These fixes also apply to
+Legacy; they do not require selecting the experimental profile.
+
+The LT 1.1.10 maintenance fixes are adapted in the development branch: managed
+HTTPS keys receive restricted permissions, user certificates are preserved,
+invalid or partial HTTPS configuration fails before listeners open, poster
+checks preserve existing artwork on temporary failures, and Linux can discover
+Entware CA roots. Optional browser HLS re-encodes unsupported AAC profiles.
+Flow retains its newer Go and libtorrent versions. See
+[verification and streaming comparisons](UPSTREAM_STREAMING_VERIFICATION.md).
 
 ## Startup diagnostics in development builds
 

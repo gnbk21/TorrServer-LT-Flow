@@ -16,6 +16,7 @@ import socket
 import struct
 import subprocess
 import time
+from urllib.parse import urlencode
 
 from controlled_peer import LocalSwarm, PeerPlan
 from playback_harness import MIB, OwnedServer, range_read, upload
@@ -109,7 +110,7 @@ def paced(server, info_hash, index, source, rate, seconds, bursts):
         digest = hashlib.sha256(first)
         while received < size:
             if time.monotonic()-started > seconds+90:
-                raise TimeoutError('Paced playback exceeded its bounded budget')
+                raise TimeoutError(f'Paced playback exceeded its bounded budget after {received}/{size} verified bytes')
             time.sleep(max(0, due-time.monotonic()))
             before = time.monotonic()
             chunk = response.read(min(65536, size-received))
@@ -135,14 +136,18 @@ def paced(server, info_hash, index, source, rate, seconds, bursts):
         connection.close()
 
 
-def run(executable, root, fixture, profile, case, rate, seconds, cache_mb):
+def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, preload=False):
     report = {'profile': profile, 'case': case, 'cache_mb': cache_mb,
               'nominal_demand_mbps': rate*8/1_000_000,
-              'piece_bytes': 4*MIB, 'http_delivery_only': True, 'samples': []}
-    plans = [PeerPlan(rate=int(2*rate),
+              'piece_bytes': 4*MIB, 'requested_seconds': seconds,
+              'preload': preload, 'http_delivery_only': True, 'samples': []}
+    # Native time-critical work can exceed desired_queue_size. Advertise a
+    # realistic capacity, with bounded fixture headroom for in-flight cancels.
+    plans = [PeerPlan(rate=int(2*rate), request_queue=512,
                       outages=[(16, 19), (32, 35)] if case == 'outages' else [])]
     if case == 'mixed-peers':
-        plans = [PeerPlan(rate=int(1.7*rate))] + [PeerPlan(rate=rate//20) for _ in range(7)]
+        plans = [PeerPlan(rate=int(1.7*rate), request_queue=512)] + [PeerPlan(rate=rate//20, request_queue=512) for _ in range(7)]
+    report['peer_advertised_request_queue'] = 512
     server = OwnedServer(executable, root, extra_settings={
         'CacheSize': cache_mb*MIB, 'PreloadCache': 10,
         'Flow': {'SwarmProfile': profile, 'BootstrapHeadMB': 4,
@@ -150,6 +155,7 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb):
                  'StartupBufferMaxMB': 32, 'StartupBufferSeconds': 2,
                  'WarmSessionTimeoutSec': 30, 'GlobalCacheBudgetMB': cache_mb,
                  'DiagnosticHistory': False}})
+    swarm, cpu_start, playback_start = None, None, None
     try:
         report['ready_ms'] = server.ready()
         with server.request('/echo') as response:
@@ -159,6 +165,18 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb):
             info = upload(server, swarm)
             index = info['file_stats'][0]['id']
             info_hash = swarm.info_hash.hex()
+            if preload:
+                started = time.monotonic()
+                server.json('/stream/generated?'+urlencode({'link': info_hash, 'index': index, 'preload': '', 'stat': ''}), timeout=90)
+                deadline = started+90
+                while True:
+                    status = server.json('/torrents', {'action': 'get', 'hash': info_hash})
+                    if status.get('preloaded_bytes', 0) >= status.get('preload_size', 1) > 0:
+                        break
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError('Explicit startup buffer did not complete')
+                    time.sleep(.1)
+                report['preload_ready_ms'] = (time.monotonic()-started)*1000
             cpu_start = cpu_seconds(server.process)
             playback_start = time.monotonic()
             with ThreadPoolExecutor(max_workers=1) as pool:
@@ -186,6 +204,9 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb):
             report['qualified_consumption_observed'] = any(
                 session.get('observed_confidence') == 'stable'
                 for sample in report['samples'] for session in sample['sessions'])
+            report['credible_media_observed'] = any(
+                session.get('bitrate_estimate_confidence') in ('medium', 'high')
+                for sample in report['samples'] for session in sample['sessions'])
             if profile == 'adaptive' and not report['qualified_consumption_observed']:
                 raise AssertionError('Adaptive workload never qualified sequential consumption evidence')
             if report['peak_observed_cache_bytes'] > (cache_mb+8)*MIB:
@@ -211,6 +232,23 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb):
     except Exception as error:
         report['passed'], report['error'] = False, str(error)
     finally:
+        # Keep failure evidence too: neither a source disconnect nor a timeout
+        # should hide resource peaks and whether qualified demand was observed.
+        if swarm is not None:
+            report['swarm'] = swarm.status()
+        if playback_start is not None:
+            cpu_end = cpu_seconds(server.process)
+            report.setdefault('cpu_seconds', cpu_end-cpu_start if cpu_start is not None and cpu_end is not None else None)
+            report.setdefault('playback_wall_seconds', time.monotonic()-playback_start)
+        if report['samples']:
+            report['peak_observed_rss_bytes'] = max((s.get('memory', {}).get('rss_bytes', 0) for s in report['samples']), default=0)
+            report['peak_observed_cache_bytes'] = max(s['cache_used'] for s in report['samples'])
+            report['qualified_consumption_observed'] = any(
+                session.get('observed_confidence') == 'stable'
+                for sample in report['samples'] for session in sample['sessions'])
+            report['credible_media_observed'] = any(
+                session.get('bitrate_estimate_confidence') in ('medium', 'high')
+                for sample in report['samples'] for session in sample['sessions'])
         server.close()
         (root/'report.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
     return report
@@ -227,6 +265,7 @@ if __name__ == '__main__':
     parser.add_argument('--mbps', type=float, default=90)
     parser.add_argument('--seconds', type=int, default=40)
     parser.add_argument('--cache-mb', type=int, default=128)
+    parser.add_argument('--preload', action='store_true', help='Exercise the Lampa-style explicit bootstrap/probe path')
     args = parser.parse_args()
     if not 10 <= args.seconds <= 120 or not 10 <= args.mbps <= 200 or not 64 <= args.cache_mb <= 2048:
         parser.error('seconds 10..120, Mbps 10..200 and cache 64..2048 MiB required')
@@ -247,6 +286,6 @@ if __name__ == '__main__':
     for case in args.cases:
         print(f'High bitrate: {args.profile} / {case}', flush=True)
         results['cases'].append(run(args.executable, args.output/case, fixture,
-                                    args.profile, case, int(args.mbps*1_000_000/8), args.seconds, args.cache_mb))
+                                    args.profile, case, int(args.mbps*1_000_000/8), args.seconds, args.cache_mb, args.preload))
         (args.output/'report.json').write_text(json.dumps(results, indent=2)+'\n', encoding='utf-8')
     raise SystemExit(0 if all(case['passed'] for case in results['cases']) else 1)

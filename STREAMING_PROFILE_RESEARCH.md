@@ -2,9 +2,9 @@
 
 Updated 8 October 2026. This evaluates the streaming implementation and defines
 the candidate profile. **Adaptive Streaming is implemented as an experimental
-development setting; verification is in progress.** Legacy remains the active
-retry profile on the user's existing executable. No new policy was applied to
-that process during development.
+development setting; native/platform verification passed.** Legacy was selected
+for the user's last retry. The existing executable/state was preserved, and no
+new policy was applied to the user's server during development.
 
 ## Objective and decision
 
@@ -220,7 +220,38 @@ choice, not a mandatory downgrade. A matching episode/title is insufficient for
 cross-torrent piece reuse. Do not merge incompatible encodes or silently switch
 the player's stream mid-episode.
 
-## Implementation and acceptance order
+## Initial implementation decisions (8 October 2026)
+
+The development candidate keeps Legacy's native settings and the full ascending
+deadline ramp. It adds a bounded demand margin above credible media metadata and
+a reserve based on recent qualified delivery gaps, inside the existing cache.
+Observed HTTP rates expire after idle periods; they are never labelled decoder
+measurements. Legacy remains the default, and both scheduling experiments stay
+independently disabled.
+
+Deadline removal now precedes restoring the application's priority vector,
+including when that vector has not changed. This fixes abandoned work remaining
+eligible at native priority 1 and reserved preload work losing its intended
+priority. It does **not** restore graded priorities after assigning every active
+deadline, which was the rejected screen policy. A seek with multiple independent
+anchors retains all of their deadline pipelines.
+
+The dynamic bounded urgent horizon remains an unaccepted research direction.
+The earlier fixed-horizon results do not justify enabling it. The new diagnostics
+and calibrated real-Flow harness support further evaluation without silently
+replacing the current production scheduler. See the
+[implementation verification record](UPSTREAM_STREAMING_VERIFICATION.md).
+
+The final actual Windows build also qualified sequential progress without media
+metadata at 120 Mbps with bursts up to 180 Mbps. The former estimator reset above
+roughly 64 Mbps because it mistook an entire two-second sample for a seek. Its
+jump guard now checks individual reads when metadata is absent; idle and seek
+transitions reset confidence. This correctness fix also benefits Legacy.
+Controlled comparisons retain individual waits and failures in
+[HIGH_BITRATE_EVIDENCE.json](HIGH_BITRATE_EVIDENCE.json). A peer-fixture queue
+advertisement correction is distinguished from production improvements.
+
+## Comparative acceptance before profile promotion
 
 1. Add bounded urgent-block diagnostics to the existing native snapshot and
    server/frontend contracts; test stale, empty, truncated and deleted-handle

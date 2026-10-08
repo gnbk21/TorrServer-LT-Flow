@@ -149,3 +149,33 @@ that policy separately. The default harness retains the graded ramp and includes
 a blocked seek whose required piece arrives later. It checks the actual missing
 piece diagnostic before checking the eventual Range bytes. The historical
 comparison candidate had rate-aware deadlines automatically enabled.
+
+## High transport-bitrate and certificate checks
+
+`high_bitrate_check.py` owns a real server, loopback tracker and generated MPEG-TS
+fixture. The transport includes padding; it tests byte delivery at a stated
+rate, not visual complexity or decoded frames. Public discovery is disabled.
+The peer fixture's opt-in high-throughput polling follows scheduled block times
+and allows bounded socket backpressure. A direct, byte-checked peer calibration
+must exceed 1.3 times nominal demand before a comparison runs.
+High bitrate cases advertise a BEP 10 request capacity of 512 before unchoking,
+and retain the fixture's bounded 2,048-request ceiling for cancellation headroom.
+Reports retain queue peaks and closure reasons. Earlier cases without this
+advertisement are diagnostic evidence, not clean source-capacity comparisons.
+
+```text
+python build/high_bitrate_check.py --executable <binary> --output <new-directory> --profile adaptive --mbps 90 --seconds 120 --cache-mb 512
+python build/high_bitrate_check.py --executable <other-binary> --output <another-new-directory> --fixture <first-directory>/fixture/generated.ts --profile legacy --mbps 90 --seconds 120 --cache-mb 512
+python build/upstream_tls_check.py --executable <binary> --output <new-directory>
+```
+
+Use sequential, rotated runs on the same machine and fixture. Reports include
+exact Range bytes, waits, seeks, cancellation, observed cache/RSS and process CPU
+where available. Add `--preload` to exercise the Lampa-style explicit bootstrap
+and metadata probe before the same paced Range workload. Without it, direct
+Range requests also exercise missing-metadata fallback. Keep startup mode equal
+within each comparison and record startup time separately from playback waits.
+Existing output/state is never overwritten. TLS checks cover
+invalid custom files, partial CLI pairs, a lone default key, generated HTTPS
+and read-only DB startup. They verify no fallback listener and no replacement of
+user files. Windows ACLs also have a native platform regression test.

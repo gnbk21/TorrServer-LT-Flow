@@ -1,0 +1,2075 @@
+{
+  "schema_version": 1,
+  "updated": "2026-10-08",
+  "method": "Owned real Windows executable, fresh state, loopback tracker/peers, original padded MPEG-TS, byte-checked HTTP Range, one workload at a time.",
+  "interpretation": "A case pass means byte/bound/cleanup assertions passed, not smooth decoded playback. Waits and failed cases remain explicit. These runs do not establish a profile ranking.",
+  "sources": {
+    "baseline": {
+      "commit": "99888e6f",
+      "pr_merge_commit": "d42fb139e528a112305b49775c96f5159513a5b0",
+      "sha256": "4714c46adaa32472932ed22cd1ab9d110c5830287820ab15fd8ec162a8edd570"
+    },
+    "intermediate": {
+      "commit": "79bcd543",
+      "sha256": "2b7afb66280264acc6627b288b3664c15243a3b4c59be58a414cdd08d3458dcf"
+    },
+    "candidate": {
+      "commit": "7c46fd4d693d163b3bb6412d59176f3efb457f5d",
+      "pr_merge_commit": "8a7d740f95310ccb0c69c2dc8f6c79424dbce6c8",
+      "sha256": "d710ded95c65967c75581b94bfa4cb7aefd0a78c3b925564ff06eb499fd54eff"
+    }
+  },
+  "limits": [
+    "Synthetic byte demand is not decoded high-quality video or Android acceptance.",
+    "Direct calibration measures peer capacity; it does not prove uninterrupted source service throughout a run.",
+    "Different calibration results and single repetitions prevent a causal speed claim.",
+    "Intermediate runs predate the high-rate estimator fix; direct missing-metadata cases did not necessarily activate Adaptive.",
+    "Resource samples are observed peaks, not a hard bound on every transient allocation.",
+    "CPU is the paced phase only on success; failed cases retain CPU until failure cleanup.",
+    "Raw development reports are local; this record contains scalar results and executable/fixture hashes."
+  ],
+  "runs": [
+    {
+      "id": "baseline-calibrated-3",
+      "phase": "baseline",
+      "executable_sha256": "4714c46adaa32472932ed22cd1ab9d110c5830287820ab15fd8ec162a8edd570",
+      "peer_capacity_mbps": 179.61366216402126,
+      "cases": [
+        {
+          "profile": "legacy",
+          "case": "healthy",
+          "cache_mb": 128,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "version": "MatriX.145.Flow-dev-d42fb139e528a112305b49775c96f5159513a5b0",
+          "fixture_sha256": "a1b45e3bbbe2ae2fe10b6a7b55b8abeafc935b791f87da45d5a1e14acda9c9e0",
+          "ready_ms": 540.2490000001308,
+          "passed": true,
+          "delivery": {
+            "bytes": 450000000,
+            "sha256": "37dbc078caa74164d27c1508ea4ede6929e3d049f5afa7286d05da298f94bd80",
+            "ttfb_ms": 4458.780200000092,
+            "delivery_elapsed_ms": 62613.06550000017,
+            "scheduled_delivery_ms": 39999.99991087361,
+            "behind_schedule_ms": 22613.066189126585,
+            "reads_over_250ms": 16,
+            "read_wait_p99_ms": 15.35409999996773,
+            "read_wait_max_ms": 12693.619000000126,
+            "verified_bytes": true
+          },
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 367302274,
+              "bytes": 65536,
+              "ttfb_ms": 16.5620000002491,
+              "duration_ms": 16.698800000085612,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 13.75899999993635,
+              "duration_ms": 13.783200000034412,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 734539012,
+              "bytes": 65536,
+              "ttfb_ms": 16.001699999833363,
+              "duration_ms": 16.04079999970054,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 244868182,
+              "cancelled": true,
+              "ttfb_ms": 91.38230000007752
+            }
+          ],
+          "preload": false,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": false,
+          "first_qualified_elapsed_s": 29.998615699999846,
+          "median_observed_consumption_bytes_per_second_after_30s": 2200427.0791964284,
+          "peer_fixture": {
+            "sent_bytes": 494497028,
+            "connections": 5,
+            "requests": 35465,
+            "disconnects": 0,
+            "tracker_announces": 4,
+            "peers": [
+              {
+                "requests": 35465,
+                "sent_bytes": 494497028,
+                "connections": 5,
+                "disconnects": 0
+              }
+            ]
+          }
+        },
+        {
+          "profile": "legacy",
+          "case": "outages",
+          "cache_mb": 128,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "version": "MatriX.145.Flow-dev-d42fb139e528a112305b49775c96f5159513a5b0",
+          "fixture_sha256": "a1b45e3bbbe2ae2fe10b6a7b55b8abeafc935b791f87da45d5a1e14acda9c9e0",
+          "ready_ms": 522.1596999999747,
+          "passed": true,
+          "delivery": {
+            "bytes": 450000000,
+            "sha256": "37dbc078caa74164d27c1508ea4ede6929e3d049f5afa7286d05da298f94bd80",
+            "ttfb_ms": 6694.948100000147,
+            "delivery_elapsed_ms": 82287.05159999982,
+            "scheduled_delivery_ms": 39999.99991087361,
+            "behind_schedule_ms": 42287.05268912654,
+            "reads_over_250ms": 15,
+            "read_wait_p99_ms": 15.339800000219839,
+            "read_wait_max_ms": 21711.311600000045,
+            "verified_bytes": true
+          },
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 367302274,
+              "bytes": 65536,
+              "ttfb_ms": 397.96130000013363,
+              "duration_ms": 398.09180000020206,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 86.55749999979889,
+              "duration_ms": 91.55909999981304,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 734539012,
+              "bytes": 65536,
+              "ttfb_ms": 590.1681000000281,
+              "duration_ms": 590.2668000003359,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 244868182,
+              "cancelled": true,
+              "ttfb_ms": 265.45100000021193
+            }
+          ],
+          "preload": false,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": false,
+          "first_qualified_elapsed_s": 58.398540799999864,
+          "median_observed_consumption_bytes_per_second_after_30s": 169115.6420910136,
+          "peer_fixture": {
+            "sent_bytes": 528931336,
+            "connections": 7,
+            "requests": 38558,
+            "disconnects": 1,
+            "tracker_announces": 5,
+            "peers": [
+              {
+                "requests": 38558,
+                "sent_bytes": 528931336,
+                "connections": 7,
+                "disconnects": 1
+              }
+            ]
+          }
+        },
+        {
+          "profile": "legacy",
+          "case": "mixed-peers",
+          "cache_mb": 128,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "version": "MatriX.145.Flow-dev-d42fb139e528a112305b49775c96f5159513a5b0",
+          "fixture_sha256": "a1b45e3bbbe2ae2fe10b6a7b55b8abeafc935b791f87da45d5a1e14acda9c9e0",
+          "ready_ms": 523.0012000001807,
+          "passed": true,
+          "delivery": {
+            "bytes": 450000000,
+            "sha256": "37dbc078caa74164d27c1508ea4ede6929e3d049f5afa7286d05da298f94bd80",
+            "ttfb_ms": 5280.943899999784,
+            "delivery_elapsed_ms": 39998.69160000025,
+            "scheduled_delivery_ms": 39999.99991087361,
+            "behind_schedule_ms": 0,
+            "reads_over_250ms": 4,
+            "read_wait_p99_ms": 31.45089999998163,
+            "read_wait_max_ms": 3442.898199999945,
+            "verified_bytes": true
+          },
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 367302274,
+              "bytes": 65536,
+              "ttfb_ms": 146.25230000001466,
+              "duration_ms": 161.61130000000412,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 480.99450000017896,
+              "duration_ms": 481.0398999998142,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 734539012,
+              "bytes": 65536,
+              "ttfb_ms": 322.4867000003542,
+              "duration_ms": 414.3120000003364,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 244868182,
+              "cancelled": true,
+              "ttfb_ms": 112.91799999980867
+            }
+          ],
+          "preload": false,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": false,
+          "first_qualified_elapsed_s": 18.702849000000242,
+          "median_observed_consumption_bytes_per_second_after_30s": 3660999.4048452345,
+          "peer_fixture": {
+            "sent_bytes": 562158088,
+            "connections": 9,
+            "requests": 36952,
+            "disconnects": 0,
+            "tracker_announces": 3,
+            "peers": [
+              {
+                "requests": 26796,
+                "sent_bytes": 417038336,
+                "connections": 2,
+                "disconnects": 0
+              },
+              {
+                "requests": 1353,
+                "sent_bytes": 22085632,
+                "connections": 1,
+                "disconnects": 0
+              },
+              {
+                "requests": 1219,
+                "sent_bytes": 19574020,
+                "connections": 1,
+                "disconnects": 0
+              },
+              {
+                "requests": 1450,
+                "sent_bytes": 20676608,
+                "connections": 1,
+                "disconnects": 0
+              },
+              {
+                "requests": 1666,
+                "sent_bytes": 20021248,
+                "connections": 1,
+                "disconnects": 0
+              },
+              {
+                "requests": 1353,
+                "sent_bytes": 22085632,
+                "connections": 1,
+                "disconnects": 0
+              },
+              {
+                "requests": 1449,
+                "sent_bytes": 20660224,
+                "connections": 1,
+                "disconnects": 0
+              },
+              {
+                "requests": 1666,
+                "sent_bytes": 20016388,
+                "connections": 1,
+                "disconnects": 0
+              }
+            ]
+          }
+        },
+        {
+          "profile": "legacy",
+          "case": "bursts",
+          "cache_mb": 128,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "version": "MatriX.145.Flow-dev-d42fb139e528a112305b49775c96f5159513a5b0",
+          "fixture_sha256": "a1b45e3bbbe2ae2fe10b6a7b55b8abeafc935b791f87da45d5a1e14acda9c9e0",
+          "ready_ms": 516.7068000000654,
+          "passed": true,
+          "delivery": {
+            "bytes": 540000000,
+            "sha256": "b00e59d395294704877e1e6037d80a9a39749ae70937427e8de64c89c984e11e",
+            "ttfb_ms": 7091.540500000065,
+            "delivery_elapsed_ms": 56777.584899999965,
+            "scheduled_delivery_ms": 39999.75339173034,
+            "behind_schedule_ms": 16777.83190826949,
+            "reads_over_250ms": 14,
+            "read_wait_p99_ms": 15.25469999978668,
+            "read_wait_max_ms": 10389.610900000207,
+            "verified_bytes": true
+          },
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 367302274,
+              "bytes": 65536,
+              "ttfb_ms": 691.4660000002186,
+              "duration_ms": 691.5591000001768,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 449.47540000021036,
+              "duration_ms": 449.51209999999264,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 734539012,
+              "bytes": 65536,
+              "ttfb_ms": 211.8748000002597,
+              "duration_ms": 211.92169999994803,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 244868182,
+              "cancelled": true,
+              "ttfb_ms": 1412.9679000002398
+            }
+          ],
+          "preload": false,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": false,
+          "first_qualified_elapsed_s": 46.32133990000011,
+          "median_observed_consumption_bytes_per_second_after_30s": 2394536.4756535324,
+          "peer_fixture": {
+            "sent_bytes": 632183304,
+            "connections": 4,
+            "requests": 40868,
+            "disconnects": 0,
+            "tracker_announces": 4,
+            "peers": [
+              {
+                "requests": 40868,
+                "sent_bytes": 632183304,
+                "connections": 4,
+                "disconnects": 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "baseline-round1-run",
+      "phase": "excluded_harness",
+      "executable_sha256": "4714c46adaa32472932ed22cd1ab9d110c5830287820ab15fd8ec162a8edd570",
+      "peer_capacity_mbps": null,
+      "cases": [
+        {
+          "profile": "legacy",
+          "case": "healthy",
+          "cache_mb": 128,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "version": "MatriX.145.Flow-dev-d42fb139e528a112305b49775c96f5159513a5b0",
+          "fixture_sha256": "a1b45e3bbbe2ae2fe10b6a7b55b8abeafc935b791f87da45d5a1e14acda9c9e0",
+          "ready_ms": 561.746200000016,
+          "passed": false,
+          "error": "Paced playback exceeded its bounded budget",
+          "preload": false,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": false,
+          "first_qualified_elapsed_s": 16.663030100000014,
+          "median_observed_consumption_bytes_per_second_after_30s": 2235711.885494635
+        }
+      ],
+      "excluded_reason": "Uncalibrated/insufficient fixture capacity or superseded harness timing/backpressure; not used for performance comparisons."
+    },
+    {
+      "id": "long-adaptive-90-512",
+      "phase": "intermediate",
+      "executable_sha256": "2b7afb66280264acc6627b288b3664c15243a3b4c59be58a414cdd08d3458dcf",
+      "peer_capacity_mbps": 140.16085667701785,
+      "cases": [
+        {
+          "profile": "adaptive",
+          "case": "healthy",
+          "cache_mb": 512,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "version": "MatriX.145.Flow-dev-5f79fe6b4facf46e468f29777a42b32d95c82d69",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 538.1520999999339,
+          "passed": true,
+          "delivery": {
+            "bytes": 1350000000,
+            "sha256": "7ad69d595b893b879236766caf616cb835e6c4a02709f5c560f1806a1565f4b4",
+            "ttfb_ms": 7102.17509999984,
+            "delivery_elapsed_ms": 120000.42729999995,
+            "scheduled_delivery_ms": 119999.9999103984,
+            "behind_schedule_ms": 0.4279896015759732,
+            "reads_over_250ms": 7,
+            "read_wait_p99_ms": 9.459500000048138,
+            "read_wait_max_ms": 9820.14369999979,
+            "verified_bytes": true
+          },
+          "peak_observed_cache_bytes": 536807908,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 18.201899999894522,
+              "duration_ms": 18.24029999988852,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 471.1147000002711,
+              "duration_ms": 471.1491000002752,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 324.42600000013044,
+              "duration_ms": 339.50629999981174,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 124.2643999999018
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 0.8248999997704232,
+              "duration_ms": 0.8523999999852094,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "preload": false,
+          "qualified_consumption_observed": false,
+          "credible_media_observed": false,
+          "peer_fixture": {
+            "sent_bytes": 1716999112,
+            "connections": 2,
+            "requests": 108151,
+            "disconnects": 0,
+            "tracker_announces": 6,
+            "peers": [
+              {
+                "requests": 108151,
+                "sent_bytes": 1716999112,
+                "connections": 2,
+                "disconnects": 0
+              }
+            ]
+          }
+        },
+        {
+          "profile": "adaptive",
+          "case": "outages",
+          "cache_mb": 512,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "version": "MatriX.145.Flow-dev-5f79fe6b4facf46e468f29777a42b32d95c82d69",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 505.4160999998203,
+          "passed": true,
+          "delivery": {
+            "bytes": 1350000000,
+            "sha256": "7ad69d595b893b879236766caf616cb835e6c4a02709f5c560f1806a1565f4b4",
+            "ttfb_ms": 5369.87790000012,
+            "delivery_elapsed_ms": 120001.31160000002,
+            "scheduled_delivery_ms": 119999.9999103984,
+            "behind_schedule_ms": 1.3126896014910017,
+            "reads_over_250ms": 12,
+            "read_wait_p99_ms": 14.715700000124343,
+            "read_wait_max_ms": 13867.264100000284,
+            "verified_bytes": true
+          },
+          "peak_observed_cache_bytes": 536627684,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 2.4231000002146175,
+              "duration_ms": 2.4825000000419095,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 2.132599999640661,
+              "duration_ms": 2.178899999762507,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 0.7442999999511812,
+              "duration_ms": 0.798199999735516,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 580.8775000000423
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 0.9967999999389576,
+              "duration_ms": 1.0350000002290471,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "preload": false,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": false,
+          "first_qualified_elapsed_s": 42.73481679999986,
+          "median_observed_consumption_bytes_per_second_after_30s": 1603208.5425840523,
+          "peer_fixture": {
+            "sent_bytes": 1435437540,
+            "connections": 3,
+            "requests": 91572,
+            "disconnects": 1,
+            "tracker_announces": 6,
+            "peers": [
+              {
+                "requests": 91572,
+                "sent_bytes": 1435437540,
+                "connections": 3,
+                "disconnects": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "long-baseline-120-2048",
+      "phase": "baseline",
+      "executable_sha256": "4714c46adaa32472932ed22cd1ab9d110c5830287820ab15fd8ec162a8edd570",
+      "peer_capacity_mbps": 220.78443461471963,
+      "cases": [
+        {
+          "profile": "legacy",
+          "case": "bursts",
+          "cache_mb": 2048,
+          "nominal_demand_mbps": 120.0,
+          "piece_bytes": 4194304,
+          "version": "MatriX.145.Flow-dev-d42fb139e528a112305b49775c96f5159513a5b0",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 527.1105000001626,
+          "passed": false,
+          "error": "timed out",
+          "preload": false,
+          "peak_observed_cache_bytes": 701024740,
+          "qualified_consumption_observed": false,
+          "credible_media_observed": false
+        }
+      ]
+    },
+    {
+      "id": "long-baseline-90-512-2",
+      "phase": "baseline",
+      "executable_sha256": "4714c46adaa32472932ed22cd1ab9d110c5830287820ab15fd8ec162a8edd570",
+      "peer_capacity_mbps": 133.75129710162278,
+      "cases": [
+        {
+          "profile": "legacy",
+          "case": "healthy",
+          "cache_mb": 512,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "version": "MatriX.145.Flow-dev-d42fb139e528a112305b49775c96f5159513a5b0",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 538.558500000363,
+          "passed": true,
+          "delivery": {
+            "bytes": 1350000000,
+            "sha256": "7ad69d595b893b879236766caf616cb835e6c4a02709f5c560f1806a1565f4b4",
+            "ttfb_ms": 7119.904299999689,
+            "delivery_elapsed_ms": 120002.29970000009,
+            "scheduled_delivery_ms": 119999.9999103984,
+            "behind_schedule_ms": 2.300989601735637,
+            "reads_over_250ms": 9,
+            "read_wait_p99_ms": 14.040799999747833,
+            "read_wait_max_ms": 16460.00640000011,
+            "verified_bytes": true
+          },
+          "peak_observed_cache_bytes": 536857060,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 19.969700000274315,
+              "duration_ms": 20.017600000301172,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 16.54660000031072,
+              "duration_ms": 16.579600000113714,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 0.8348999999725493,
+              "duration_ms": 0.8622000000286789,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 12.279699999908189
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 0.7307000000764674,
+              "duration_ms": 0.7660999999643536,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "preload": false,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": false,
+          "first_qualified_elapsed_s": 49.93830109999999,
+          "median_observed_consumption_bytes_per_second_after_30s": 927344.1742502098,
+          "peer_fixture": {
+            "sent_bytes": 1401965028,
+            "connections": 3,
+            "requests": 91191,
+            "disconnects": 0,
+            "tracker_announces": 6,
+            "peers": [
+              {
+                "requests": 91191,
+                "sent_bytes": 1401965028,
+                "connections": 3,
+                "disconnects": 0
+              }
+            ]
+          }
+        },
+        {
+          "profile": "legacy",
+          "case": "outages",
+          "cache_mb": 512,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "version": "MatriX.145.Flow-dev-d42fb139e528a112305b49775c96f5159513a5b0",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 510.94379999995,
+          "passed": true,
+          "delivery": {
+            "bytes": 1350000000,
+            "sha256": "7ad69d595b893b879236766caf616cb835e6c4a02709f5c560f1806a1565f4b4",
+            "ttfb_ms": 7097.318499999801,
+            "delivery_elapsed_ms": 132956.19410000017,
+            "scheduled_delivery_ms": 119999.9999103984,
+            "behind_schedule_ms": 12956.1949896015,
+            "reads_over_250ms": 37,
+            "read_wait_p99_ms": 15.086500000052183,
+            "read_wait_max_ms": 13371.646999999939,
+            "verified_bytes": true
+          },
+          "peak_observed_cache_bytes": 536857060,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 1.1382000002413406,
+              "duration_ms": 1.1622000001807464,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 1396.6786000000866,
+              "duration_ms": 1396.7047000001003,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 699.4474999996783,
+              "duration_ms": 699.9829999999747,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 247.10350000032122
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 17.582499999662105,
+              "duration_ms": 17.628399999921385,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "preload": false,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": false,
+          "first_qualified_elapsed_s": 41.82262320000018,
+          "median_observed_consumption_bytes_per_second_after_30s": 1645184.8193445494,
+          "peer_fixture": {
+            "sent_bytes": 1546097608,
+            "connections": 8,
+            "requests": 110050,
+            "disconnects": 0,
+            "tracker_announces": 6,
+            "peers": [
+              {
+                "requests": 110050,
+                "sent_bytes": 1546097608,
+                "connections": 8,
+                "disconnects": 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "long-newlegacy-120-2048",
+      "phase": "intermediate",
+      "executable_sha256": "2b7afb66280264acc6627b288b3664c15243a3b4c59be58a414cdd08d3458dcf",
+      "peer_capacity_mbps": 236.5697058744969,
+      "cases": [
+        {
+          "profile": "legacy",
+          "case": "bursts",
+          "cache_mb": 2048,
+          "nominal_demand_mbps": 120.0,
+          "piece_bytes": 4194304,
+          "version": "MatriX.145.Flow-dev-5f79fe6b4facf46e468f29777a42b32d95c82d69",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 527.8292999996665,
+          "passed": false,
+          "error": "Paced playback exceeded its bounded budget",
+          "preload": false,
+          "peak_observed_cache_bytes": 2147371492,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": false,
+          "first_qualified_elapsed_s": 24.933917100000144,
+          "median_observed_consumption_bytes_per_second_after_30s": 1825902.0331025473
+        }
+      ]
+    },
+    {
+      "id": "long-newlegacy-90-512",
+      "phase": "intermediate",
+      "executable_sha256": "2b7afb66280264acc6627b288b3664c15243a3b4c59be58a414cdd08d3458dcf",
+      "peer_capacity_mbps": 170.88319537378788,
+      "cases": [
+        {
+          "profile": "legacy",
+          "case": "healthy",
+          "cache_mb": 512,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "version": "MatriX.145.Flow-dev-5f79fe6b4facf46e468f29777a42b32d95c82d69",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 523.1149999999616,
+          "passed": true,
+          "delivery": {
+            "bytes": 1350000000,
+            "sha256": "7ad69d595b893b879236766caf616cb835e6c4a02709f5c560f1806a1565f4b4",
+            "ttfb_ms": 6879.799700000149,
+            "delivery_elapsed_ms": 120000.56679999988,
+            "scheduled_delivery_ms": 119999.9999103984,
+            "behind_schedule_ms": 0.5677896015185979,
+            "reads_over_250ms": 10,
+            "read_wait_p99_ms": 14.45289999992383,
+            "read_wait_max_ms": 12179.562700000133,
+            "verified_bytes": true
+          },
+          "cpu_seconds": 14.921875,
+          "playback_wall_seconds": 127.07788709999977,
+          "peak_observed_rss_bytes": 1204985856,
+          "peak_observed_cache_bytes": 536594916,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 12.922100000196224,
+              "duration_ms": 12.94899999993504,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 14.956399999846326,
+              "duration_ms": 15.007100000275386,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 16.652300000259856,
+              "duration_ms": 16.770100000030652,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 265.6084999998711
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 0.8304000002681278,
+              "duration_ms": 0.8609999999862339,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "preload": false,
+          "qualified_consumption_observed": false,
+          "credible_media_observed": false,
+          "peer_fixture": {
+            "sent_bytes": 1710623204,
+            "connections": 2,
+            "requests": 107159,
+            "disconnects": 0,
+            "tracker_announces": 6,
+            "peers": [
+              {
+                "requests": 107159,
+                "sent_bytes": 1710623204,
+                "connections": 2,
+                "disconnects": 0
+              }
+            ]
+          }
+        },
+        {
+          "profile": "legacy",
+          "case": "outages",
+          "cache_mb": 512,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "version": "MatriX.145.Flow-dev-5f79fe6b4facf46e468f29777a42b32d95c82d69",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 502.1839999999429,
+          "passed": true,
+          "delivery": {
+            "bytes": 1350000000,
+            "sha256": "7ad69d595b893b879236766caf616cb835e6c4a02709f5c560f1806a1565f4b4",
+            "ttfb_ms": 7280.934999999772,
+            "delivery_elapsed_ms": 120799.67400000032,
+            "scheduled_delivery_ms": 119999.9999103984,
+            "behind_schedule_ms": 799.674789601795,
+            "reads_over_250ms": 23,
+            "read_wait_p99_ms": 15.016600000308244,
+            "read_wait_max_ms": 15030.042900000353,
+            "verified_bytes": true
+          },
+          "cpu_seconds": 14.5625,
+          "playback_wall_seconds": 128.8244063000002,
+          "peak_observed_rss_bytes": 1189974016,
+          "peak_observed_cache_bytes": 536873444,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 25.804400000197347,
+              "duration_ms": 25.843800000075134,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 878.7136999999348,
+              "duration_ms": 878.7411999996948,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 932.8715999999986,
+              "duration_ms": 932.9429999997956,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 122.03169999975216
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 15.736699999706616,
+              "duration_ms": 15.762699999868346,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "preload": false,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": false,
+          "first_qualified_elapsed_s": 48.35543840000037,
+          "median_observed_consumption_bytes_per_second_after_30s": 1894497.9126564104,
+          "peer_fixture": {
+            "sent_bytes": 1455035336,
+            "connections": 7,
+            "requests": 101294,
+            "disconnects": 1,
+            "tracker_announces": 6,
+            "peers": [
+              {
+                "requests": 101294,
+                "sent_bytes": 1455035336,
+                "connections": 7,
+                "disconnects": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "preload-baseline-90-512",
+      "phase": "baseline",
+      "executable_sha256": "4714c46adaa32472932ed22cd1ab9d110c5830287820ab15fd8ec162a8edd570",
+      "peer_capacity_mbps": 177.2800432812806,
+      "cases": [
+        {
+          "profile": "legacy",
+          "case": "healthy",
+          "cache_mb": 512,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "preload": true,
+          "version": "MatriX.145.Flow-dev-d42fb139e528a112305b49775c96f5159513a5b0",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 528.2555000003413,
+          "preload_ready_ms": 5420.379500000308,
+          "passed": true,
+          "delivery": {
+            "bytes": 1350000000,
+            "sha256": "7ad69d595b893b879236766caf616cb835e6c4a02709f5c560f1806a1565f4b4",
+            "ttfb_ms": 1.8384000004516565,
+            "delivery_elapsed_ms": 133267.3162000001,
+            "scheduled_delivery_ms": 119999.9999103984,
+            "behind_schedule_ms": 13267.316989601568,
+            "reads_over_250ms": 30,
+            "read_wait_p99_ms": 15.187500000138243,
+            "read_wait_max_ms": 14932.718999999452,
+            "verified_bytes": true
+          },
+          "cpu_seconds": 15.34375,
+          "playback_wall_seconds": 134.33625959999972,
+          "peak_observed_rss_bytes": 1213886464,
+          "peak_observed_cache_bytes": 536758756,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": true,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 20.340199999736797,
+              "duration_ms": 20.44949999981327,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 13.730100000429957,
+              "duration_ms": 13.783200000034412,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 0.934400000005553,
+              "duration_ms": 0.9717999992062687,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 1019.5807999998578
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 14.350999999805936,
+              "duration_ms": 14.385899999979301,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "first_qualified_elapsed_s": 14.818117900000289,
+          "median_observed_consumption_bytes_per_second_after_30s": 10572779.426803963,
+          "peer_fixture": {
+            "sent_bytes": 1522076132,
+            "connections": 8,
+            "requests": 108378,
+            "disconnects": 0,
+            "tracker_announces": 7,
+            "peers": [
+              {
+                "requests": 108378,
+                "sent_bytes": 1522076132,
+                "connections": 8,
+                "disconnects": 0
+              }
+            ]
+          }
+        },
+        {
+          "profile": "legacy",
+          "case": "outages",
+          "cache_mb": 512,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "preload": true,
+          "version": "MatriX.145.Flow-dev-d42fb139e528a112305b49775c96f5159513a5b0",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 505.24419999965176,
+          "preload_ready_ms": 5421.829200000502,
+          "passed": true,
+          "delivery": {
+            "bytes": 1350000000,
+            "sha256": "7ad69d595b893b879236766caf616cb835e6c4a02709f5c560f1806a1565f4b4",
+            "ttfb_ms": 15.736500000457454,
+            "delivery_elapsed_ms": 136358.24760000015,
+            "scheduled_delivery_ms": 119999.9999103984,
+            "behind_schedule_ms": 16358.248389601613,
+            "reads_over_250ms": 36,
+            "read_wait_p99_ms": 15.067999999700987,
+            "read_wait_max_ms": 15201.192900000024,
+            "verified_bytes": true
+          },
+          "cpu_seconds": 13.140625,
+          "playback_wall_seconds": 136.81701440000052,
+          "peak_observed_rss_bytes": 1201414144,
+          "peak_observed_cache_bytes": 536725988,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": true,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 20.601199999873643,
+              "duration_ms": 20.663299999796436,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 0.6776000000172644,
+              "duration_ms": 0.7182999997894512,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 0.6054000004951376,
+              "duration_ms": 0.6278000000747852,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 900.533699999869
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 0.7449000004271511,
+              "duration_ms": 0.7718000006207149,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "first_qualified_elapsed_s": 13.81219450000026,
+          "median_observed_consumption_bytes_per_second_after_30s": 10236638.863479119,
+          "peer_fixture": {
+            "sent_bytes": 1535789540,
+            "connections": 8,
+            "requests": 107181,
+            "disconnects": 1,
+            "tracker_announces": 9,
+            "peers": [
+              {
+                "requests": 107181,
+                "sent_bytes": 1535789540,
+                "connections": 8,
+                "disconnects": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "preload-final-adaptive-90-512",
+      "phase": "candidate",
+      "executable_sha256": "d710ded95c65967c75581b94bfa4cb7aefd0a78c3b925564ff06eb499fd54eff",
+      "peer_capacity_mbps": 132.12407666868845,
+      "cases": [
+        {
+          "profile": "adaptive",
+          "case": "healthy",
+          "cache_mb": 512,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "preload": true,
+          "version": "MatriX.145.Flow-dev-8a7d740f95310ccb0c69c2dc8f6c79424dbce6c8",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 526.5964000000167,
+          "preload_ready_ms": 5404.2285000004995,
+          "passed": true,
+          "delivery": {
+            "bytes": 1350000000,
+            "sha256": "7ad69d595b893b879236766caf616cb835e6c4a02709f5c560f1806a1565f4b4",
+            "ttfb_ms": 1.847000000452681,
+            "delivery_elapsed_ms": 136704.11369999964,
+            "scheduled_delivery_ms": 119999.9999103984,
+            "behind_schedule_ms": 16704.11428960142,
+            "reads_over_250ms": 37,
+            "read_wait_p99_ms": 15.202200000203447,
+            "read_wait_max_ms": 15025.112299999819,
+            "verified_bytes": true
+          },
+          "cpu_seconds": 13.375,
+          "playback_wall_seconds": 137.48642740000014,
+          "peak_observed_rss_bytes": 1215946752,
+          "peak_observed_cache_bytes": 536824292,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": true,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 12.308200000006764,
+              "duration_ms": 12.384399999973539,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 0.8667000001878478,
+              "duration_ms": 0.9330000002591987,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 0.8245999997598119,
+              "duration_ms": 0.8700999997017789,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 10617.137599999296
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 0.7298999998965883,
+              "duration_ms": 0.7797999996910221,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "first_qualified_elapsed_s": 13.79063589999987,
+          "median_observed_consumption_bytes_per_second_after_30s": 9203768.493471794,
+          "peer_fixture": {
+            "sent_bytes": 1536100836,
+            "connections": 9,
+            "requests": 111641,
+            "disconnects": 0,
+            "tracker_announces": 7,
+            "peers": [
+              {
+                "requests": 111641,
+                "sent_bytes": 1536100836,
+                "connections": 9,
+                "disconnects": 0
+              }
+            ]
+          }
+        },
+        {
+          "profile": "adaptive",
+          "case": "outages",
+          "cache_mb": 512,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "preload": true,
+          "version": "MatriX.145.Flow-dev-8a7d740f95310ccb0c69c2dc8f6c79424dbce6c8",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 514.6789999998873,
+          "preload_ready_ms": 5425.038500000483,
+          "passed": true,
+          "delivery": {
+            "bytes": 1350000000,
+            "sha256": "7ad69d595b893b879236766caf616cb835e6c4a02709f5c560f1806a1565f4b4",
+            "ttfb_ms": 1.7751000004864181,
+            "delivery_elapsed_ms": 134749.29369999972,
+            "scheduled_delivery_ms": 119999.9999103984,
+            "behind_schedule_ms": 14749.294389601346,
+            "reads_over_250ms": 33,
+            "read_wait_p99_ms": 15.123400000447873,
+            "read_wait_max_ms": 14251.638599999751,
+            "verified_bytes": true
+          },
+          "cpu_seconds": 14.484375,
+          "playback_wall_seconds": 135.58885999999984,
+          "peak_observed_rss_bytes": 1214259200,
+          "peak_observed_cache_bytes": 536775140,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": true,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 1.451900000574824,
+              "duration_ms": 1.4809000003879191,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 24.04720000049565,
+              "duration_ms": 24.086800000077346,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 0.7403999998132349,
+              "duration_ms": 0.7732000003670692,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 11837.573200000406
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 14.989399999649322,
+              "duration_ms": 15.042499999253778,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "first_qualified_elapsed_s": 12.842484900000272,
+          "median_observed_consumption_bytes_per_second_after_30s": 15277877.534900611,
+          "peer_fixture": {
+            "sent_bytes": 1535166948,
+            "connections": 9,
+            "requests": 111338,
+            "disconnects": 0,
+            "tracker_announces": 7,
+            "peers": [
+              {
+                "requests": 111338,
+                "sent_bytes": 1535166948,
+                "connections": 9,
+                "disconnects": 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "preload-final-legacy-90-512",
+      "phase": "candidate",
+      "executable_sha256": "d710ded95c65967c75581b94bfa4cb7aefd0a78c3b925564ff06eb499fd54eff",
+      "peer_capacity_mbps": 142.1673268489182,
+      "cases": [
+        {
+          "profile": "legacy",
+          "case": "healthy",
+          "cache_mb": 512,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "preload": true,
+          "version": "MatriX.145.Flow-dev-8a7d740f95310ccb0c69c2dc8f6c79424dbce6c8",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 528.8048000002163,
+          "preload_ready_ms": 5423.7560000001395,
+          "passed": true,
+          "delivery": {
+            "bytes": 1350000000,
+            "sha256": "7ad69d595b893b879236766caf616cb835e6c4a02709f5c560f1806a1565f4b4",
+            "ttfb_ms": 1.9006000002264045,
+            "delivery_elapsed_ms": 145102.96319999997,
+            "scheduled_delivery_ms": 119999.9999103984,
+            "behind_schedule_ms": 25102.963889601597,
+            "reads_over_250ms": 32,
+            "read_wait_p99_ms": 15.129499999602558,
+            "read_wait_max_ms": 14324.798100000407,
+            "verified_bytes": true
+          },
+          "cpu_seconds": 11.765625,
+          "playback_wall_seconds": 146.0438162999999,
+          "peak_observed_rss_bytes": 1212563456,
+          "peak_observed_cache_bytes": 536840676,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": true,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 15.079599999808124,
+              "duration_ms": 15.121800000088115,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 15.28740000048856,
+              "duration_ms": 15.352000000348198,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 0.786599999628379,
+              "duration_ms": 0.8249000002251705,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 1169.8153999996066
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 15.26670000021113,
+              "duration_ms": 15.470499999537424,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "first_qualified_elapsed_s": 12.808276200000364,
+          "median_observed_consumption_bytes_per_second_after_30s": 11833444.975240687,
+          "peer_fixture": {
+            "sent_bytes": 1538755044,
+            "connections": 9,
+            "requests": 111803,
+            "disconnects": 0,
+            "tracker_announces": 7,
+            "peers": [
+              {
+                "requests": 111803,
+                "sent_bytes": 1538755044,
+                "connections": 9,
+                "disconnects": 0,
+                "peak_pending_requests": 2048,
+                "close_reasons": {
+                  "queue-limit": 8
+                }
+              }
+            ]
+          }
+        },
+        {
+          "profile": "legacy",
+          "case": "outages",
+          "cache_mb": 512,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "preload": true,
+          "version": "MatriX.145.Flow-dev-8a7d740f95310ccb0c69c2dc8f6c79424dbce6c8",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 515.6014999993204,
+          "preload_ready_ms": 5417.487600000641,
+          "passed": true,
+          "delivery": {
+            "bytes": 1350000000,
+            "sha256": "7ad69d595b893b879236766caf616cb835e6c4a02709f5c560f1806a1565f4b4",
+            "ttfb_ms": 15.54500000020198,
+            "delivery_elapsed_ms": 135066.1425999997,
+            "scheduled_delivery_ms": 119999.9999103984,
+            "behind_schedule_ms": 15066.143389601166,
+            "reads_over_250ms": 30,
+            "read_wait_p99_ms": 14.746300000297197,
+            "read_wait_max_ms": 13347.436600000037,
+            "verified_bytes": true
+          },
+          "cpu_seconds": 16.96875,
+          "playback_wall_seconds": 135.40475200000037,
+          "peak_observed_rss_bytes": 1197264896,
+          "peak_observed_cache_bytes": 536857060,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": true,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 20.754500000293774,
+              "duration_ms": 20.85010000064358,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 13.595299999906274,
+              "duration_ms": 13.731499999266816,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 14.385400000719528,
+              "duration_ms": 14.409500000510889,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 889.0589000002365
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 1.3705999999729102,
+              "duration_ms": 1.468699999350065,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "first_qualified_elapsed_s": 12.818189700000403,
+          "median_observed_consumption_bytes_per_second_after_30s": 13678617.466210037,
+          "peer_fixture": {
+            "sent_bytes": 1484458468,
+            "connections": 8,
+            "requests": 105993,
+            "disconnects": 0,
+            "tracker_announces": 7,
+            "peers": [
+              {
+                "requests": 105993,
+                "sent_bytes": 1484458468,
+                "connections": 8,
+                "disconnects": 0,
+                "peak_pending_requests": 2048,
+                "close_reasons": {
+                  "queue-limit": 7
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "reqq-baseline-120-2048",
+      "phase": "baseline",
+      "executable_sha256": "4714c46adaa32472932ed22cd1ab9d110c5830287820ab15fd8ec162a8edd570",
+      "peer_capacity_mbps": 236.374764779441,
+      "cases": [
+        {
+          "profile": "legacy",
+          "case": "bursts",
+          "cache_mb": 2048,
+          "nominal_demand_mbps": 120.0,
+          "piece_bytes": 4194304,
+          "peer_advertised_request_queue": 512,
+          "requested_seconds": 120,
+          "preload": false,
+          "version": "MatriX.145.Flow-dev-d42fb139e528a112305b49775c96f5159513a5b0",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 523.9203000000998,
+          "passed": true,
+          "delivery": {
+            "bytes": 2160000000,
+            "sha256": "f753dfaac9e40c4cba0e53230d8aaa26b5761ad3cf6e29c11446975ed1572721",
+            "ttfb_ms": 5843.3876999997665,
+            "delivery_elapsed_ms": 120000.35130000015,
+            "scheduled_delivery_ms": 120000.71674011451,
+            "behind_schedule_ms": 0,
+            "reads_over_250ms": 37,
+            "read_wait_p99_ms": 14.245399999708752,
+            "read_wait_max_ms": 1384.9847999999838,
+            "verified_bytes": true
+          },
+          "cpu_seconds": 25.71875,
+          "playback_wall_seconds": 126.12867499999993,
+          "peak_observed_rss_bytes": 2973798400,
+          "peak_observed_cache_bytes": 2147469796,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": false,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 12.690800000200397,
+              "duration_ms": 12.725099999443046,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 205.8471999998801,
+              "duration_ms": 216.26000000014756,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 0.7988999996086932,
+              "duration_ms": 0.8286000002044602,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 0.6929999999556458
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 14.40459999957966,
+              "duration_ms": 14.435000000048603,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "first_qualified_elapsed_s": 22.674053400000048,
+          "median_observed_consumption_bytes_per_second_after_30s": 7180245.269089776,
+          "peer_fixture": {
+            "sent_bytes": 2561886692,
+            "connections": 1,
+            "requests": 156990,
+            "disconnects": 0,
+            "tracker_announces": 6,
+            "peers": [
+              {
+                "requests": 156990,
+                "sent_bytes": 2561886692,
+                "connections": 1,
+                "disconnects": 0,
+                "peak_pending_requests": 1006,
+                "close_reasons": {
+                  "client-closed": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "reqq-final-adaptive-120-2048",
+      "phase": "candidate",
+      "executable_sha256": "d710ded95c65967c75581b94bfa4cb7aefd0a78c3b925564ff06eb499fd54eff",
+      "peer_capacity_mbps": 186.6720778654764,
+      "cases": [
+        {
+          "profile": "adaptive",
+          "case": "bursts",
+          "cache_mb": 2048,
+          "nominal_demand_mbps": 120.0,
+          "piece_bytes": 4194304,
+          "peer_advertised_request_queue": 512,
+          "requested_seconds": 120,
+          "preload": false,
+          "version": "MatriX.145.Flow-dev-8a7d740f95310ccb0c69c2dc8f6c79424dbce6c8",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 523.7293999998656,
+          "passed": true,
+          "delivery": {
+            "bytes": 2160000000,
+            "sha256": "f753dfaac9e40c4cba0e53230d8aaa26b5761ad3cf6e29c11446975ed1572721",
+            "ttfb_ms": 6289.23290000057,
+            "delivery_elapsed_ms": 120004.43329999963,
+            "scheduled_delivery_ms": 120000.71674011451,
+            "behind_schedule_ms": 3.717259884979285,
+            "reads_over_250ms": 62,
+            "read_wait_p99_ms": 13.874299999770301,
+            "read_wait_max_ms": 1175.536299999294,
+            "verified_bytes": true
+          },
+          "cpu_seconds": 31.109375,
+          "playback_wall_seconds": 127.14394739999989,
+          "peak_observed_rss_bytes": 3226746880,
+          "peak_observed_cache_bytes": 2147404260,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": false,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 1083.789600000273,
+              "duration_ms": 1083.8933000004545,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 967.7596999999878,
+              "duration_ms": 967.8084999995917,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 287.9824000001463,
+              "duration_ms": 288.08140000001004,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 233.19880000053672
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 16.131400000631402,
+              "duration_ms": 16.347000000678236,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "first_qualified_elapsed_s": 14.672546799999509,
+          "median_observed_consumption_bytes_per_second_after_30s": 18667900.04393903,
+          "peer_fixture": {
+            "sent_bytes": 2683851720,
+            "connections": 1,
+            "requests": 164186,
+            "disconnects": 0,
+            "tracker_announces": 7,
+            "peers": [
+              {
+                "requests": 164186,
+                "sent_bytes": 2683851720,
+                "connections": 1,
+                "disconnects": 0,
+                "peak_pending_requests": 1019,
+                "close_reasons": {
+                  "client-closed": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "reqq-final-legacy-120-2048",
+      "phase": "candidate",
+      "executable_sha256": "d710ded95c65967c75581b94bfa4cb7aefd0a78c3b925564ff06eb499fd54eff",
+      "peer_capacity_mbps": 236.06840084263607,
+      "cases": [
+        {
+          "profile": "legacy",
+          "case": "bursts",
+          "cache_mb": 2048,
+          "nominal_demand_mbps": 120.0,
+          "piece_bytes": 4194304,
+          "peer_advertised_request_queue": 512,
+          "requested_seconds": 120,
+          "preload": false,
+          "version": "MatriX.145.Flow-dev-8a7d740f95310ccb0c69c2dc8f6c79424dbce6c8",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 527.672000000166,
+          "passed": true,
+          "delivery": {
+            "bytes": 2160000000,
+            "sha256": "f753dfaac9e40c4cba0e53230d8aaa26b5761ad3cf6e29c11446975ed1572721",
+            "ttfb_ms": 6320.534699999371,
+            "delivery_elapsed_ms": 120001.3813000005,
+            "scheduled_delivery_ms": 120000.71674011451,
+            "behind_schedule_ms": 0.6656598861809471,
+            "reads_over_250ms": 62,
+            "read_wait_p99_ms": 14.659400000709866,
+            "read_wait_max_ms": 1121.177500000158,
+            "verified_bytes": true
+          },
+          "cpu_seconds": 27.421875,
+          "playback_wall_seconds": 126.70771250000053,
+          "peak_observed_rss_bytes": 2895990784,
+          "peak_observed_cache_bytes": 2147240420,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": false,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 2.2891999997227686,
+              "duration_ms": 2.342599999792583,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 0.7678000001760665,
+              "duration_ms": 0.7955999999467167,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 0.7209999994302052,
+              "duration_ms": 0.7488000001103501,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 25.44190000025992
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 15.320399999836809,
+              "duration_ms": 15.35520000015822,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "first_qualified_elapsed_s": 14.50497329999962,
+          "median_observed_consumption_bytes_per_second_after_30s": 18216933.520095736,
+          "peer_fixture": {
+            "sent_bytes": 2629945828,
+            "connections": 1,
+            "requests": 160520,
+            "disconnects": 0,
+            "tracker_announces": 6,
+            "peers": [
+              {
+                "requests": 160520,
+                "sent_bytes": 2629945828,
+                "connections": 1,
+                "disconnects": 0,
+                "peak_pending_requests": 1008,
+                "close_reasons": {
+                  "client-closed": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "reqq-preload-baseline-90-512",
+      "phase": "baseline",
+      "executable_sha256": "4714c46adaa32472932ed22cd1ab9d110c5830287820ab15fd8ec162a8edd570",
+      "peer_capacity_mbps": 178.40289883689448,
+      "cases": [
+        {
+          "profile": "legacy",
+          "case": "outages",
+          "cache_mb": 512,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "peer_advertised_request_queue": 512,
+          "requested_seconds": 120,
+          "preload": true,
+          "version": "MatriX.145.Flow-dev-d42fb139e528a112305b49775c96f5159513a5b0",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 524.7804999999062,
+          "preload_ready_ms": 4604.919299999892,
+          "passed": true,
+          "delivery": {
+            "bytes": 1350000000,
+            "sha256": "7ad69d595b893b879236766caf616cb835e6c4a02709f5c560f1806a1565f4b4",
+            "ttfb_ms": 1.0848999991139863,
+            "delivery_elapsed_ms": 120001.2968000001,
+            "scheduled_delivery_ms": 119999.9999103984,
+            "behind_schedule_ms": 1.2979896018805448,
+            "reads_over_250ms": 12,
+            "read_wait_p99_ms": 13.334900000700145,
+            "read_wait_max_ms": 9571.539200000188,
+            "verified_bytes": true
+          },
+          "cpu_seconds": 16.328125,
+          "playback_wall_seconds": 120.56620860000021,
+          "peak_observed_rss_bytes": 1189122048,
+          "peak_observed_cache_bytes": 536873444,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": true,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 1.2783000001945766,
+              "duration_ms": 1.3941000006525428,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 26.325400000132504,
+              "duration_ms": 26.359100000263425,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 14.264499999626423,
+              "duration_ms": 14.303599999948347,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 452.16849999997066
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 14.994300000580552,
+              "duration_ms": 15.101200000572135,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "first_qualified_elapsed_s": 14.151177499999903,
+          "median_observed_consumption_bytes_per_second_after_30s": 11257971.799999073,
+          "peer_fixture": {
+            "sent_bytes": 1707624932,
+            "connections": 3,
+            "requests": 106197,
+            "disconnects": 2,
+            "tracker_announces": 7,
+            "peers": [
+              {
+                "requests": 106197,
+                "sent_bytes": 1707624932,
+                "connections": 3,
+                "disconnects": 2,
+                "peak_pending_requests": 1017,
+                "close_reasons": {
+                  "planned-outage": 2,
+                  "client-closed": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "reqq-preload-final-adaptive-90-512",
+      "phase": "candidate",
+      "executable_sha256": "d710ded95c65967c75581b94bfa4cb7aefd0a78c3b925564ff06eb499fd54eff",
+      "peer_capacity_mbps": 177.75402621934845,
+      "cases": [
+        {
+          "profile": "adaptive",
+          "case": "outages",
+          "cache_mb": 512,
+          "nominal_demand_mbps": 90.0,
+          "piece_bytes": 4194304,
+          "peer_advertised_request_queue": 512,
+          "requested_seconds": 120,
+          "preload": true,
+          "version": "MatriX.145.Flow-dev-8a7d740f95310ccb0c69c2dc8f6c79424dbce6c8",
+          "fixture_sha256": "c53ef5821cc3cf8e5c78a3bc7d582a9af1d4b2dfbff8b7ee0ce72fb3af6f190b",
+          "ready_ms": 525.7741000004899,
+          "preload_ready_ms": 5034.305799999856,
+          "passed": true,
+          "delivery": {
+            "bytes": 1350000000,
+            "sha256": "7ad69d595b893b879236766caf616cb835e6c4a02709f5c560f1806a1565f4b4",
+            "ttfb_ms": 0.9995000000344589,
+            "delivery_elapsed_ms": 120000.42450000001,
+            "scheduled_delivery_ms": 119999.9999103984,
+            "behind_schedule_ms": 0.42598960226314375,
+            "reads_over_250ms": 9,
+            "read_wait_p99_ms": 0.4816999999093241,
+            "read_wait_max_ms": 15874.812299999576,
+            "verified_bytes": true
+          },
+          "cpu_seconds": 13.109375,
+          "playback_wall_seconds": 120.52516139999989,
+          "peak_observed_rss_bytes": 1187282944,
+          "peak_observed_cache_bytes": 536873444,
+          "qualified_consumption_observed": true,
+          "credible_media_observed": true,
+          "active_readers_after_cancellation": 0,
+          "ranges": [
+            {
+              "file_index": 1,
+              "start": 1312302322,
+              "bytes": 65536,
+              "ttfb_ms": 1.3758000004600035,
+              "duration_ms": 1.47220000053494,
+              "sha256": "5e456e026d8fff1f9cb9ec2a7b6c9259c66c12a33a655ce080e6bdd14764edde"
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 1.546299999972689,
+              "duration_ms": 1.5780999992784928,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            },
+            {
+              "file_index": 1,
+              "start": 2624539108,
+              "bytes": 65536,
+              "ttfb_ms": 12.22920000054728,
+              "duration_ms": 12.264699999832374,
+              "sha256": "969fdebc9e3abe33653086957d00bd749bc4af80bbf991f07a83b18d177633f9"
+            },
+            {
+              "file_index": 1,
+              "start": 874868214,
+              "cancelled": true,
+              "ttfb_ms": 470.7024999997884
+            },
+            {
+              "file_index": 1,
+              "start": 0,
+              "bytes": 65536,
+              "ttfb_ms": 15.402799999719718,
+              "duration_ms": 15.433300000040617,
+              "sha256": "9f8b530827a8ebddefbf2c5793d8dcf3f9775282c41a3ffb66e26c932be222b6"
+            }
+          ],
+          "first_qualified_elapsed_s": 12.461528800000451,
+          "median_observed_consumption_bytes_per_second_after_30s": 11264749.314713426,
+          "peer_fixture": {
+            "sent_bytes": 1698662884,
+            "connections": 3,
+            "requests": 106162,
+            "disconnects": 2,
+            "tracker_announces": 7,
+            "peers": [
+              {
+                "requests": 106162,
+                "sent_bytes": 1698662884,
+                "connections": 3,
+                "disconnects": 2,
+                "peak_pending_requests": 1010,
+                "close_reasons": {
+                  "planned-outage": 2,
+                  "client-closed": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

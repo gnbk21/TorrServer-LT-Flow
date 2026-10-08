@@ -82,6 +82,7 @@ class PeerPlan:
     metadata_delay: float = 0
     disconnect_after: int = 0
     rate_events: list = field(default_factory=list)  # (time, bytes/sec), positive delivery variation
+    request_queue: int = 0  # optional BEP 10 reqq; actual fixture cap retains headroom
 
     def rate_at(self, elapsed):
         rate = self.rate
@@ -121,6 +122,8 @@ class LocalSwarm:
         self.rate, self.delay = rate, delay_ms / 1000
         self.disconnect_after = disconnect_after
         self.plans = peers if peers is not None else [PeerPlan(rate=rate, delay_ms=delay_ms, disconnect_after=disconnect_after)]
+        if any(not 0 <= plan.request_queue <= 2048 for plan in self.plans):
+            raise ValueError('fixture request_queue must be 0..2048')
         if not 1 <= len(self.plans) <= 32:
             raise ValueError("fixture requires 1..32 peers")
         if not 1 <= peer_ip_start <= 254-len(self.plans):
@@ -135,7 +138,7 @@ class LocalSwarm:
             if any(when < 0 or value < 1 for when, value in plan.rate_events):
                 raise ValueError("invalid variable delivery rate")
         self.started = None
-        self.peer_stats = [dict(requests=0, sent_bytes=0, connections=0, disconnects=0, requested_pieces=[], first_request_seconds={}, first_sent_seconds=None) for _ in self.plans]
+        self.peer_stats = [dict(requests=0, sent_bytes=0, connections=0, disconnects=0, requested_pieces=[], first_request_seconds={}, first_sent_seconds=None, peak_pending_requests=0, close_reasons={}) for _ in self.plans]
         self.stop = threading.Event()
         self.lock = threading.Lock()
         self.sent_bytes = self.connections = self.requests = self.disconnects = self.announces = 0
@@ -155,6 +158,7 @@ class LocalSwarm:
                 with owner.lock:
                     owner.connections += 1
                     stats['connections'] += 1
+                close_reason = 'client-closed'
                 try:
                     handshake = receive(sock, 68, owner.stop)
                     if handshake[:20] != b"\x13BitTorrent protocol" or handshake[28:48] != owner.info_hash:
@@ -169,13 +173,21 @@ class LocalSwarm:
                     for piece in available:
                         bits[piece // 8] |= 0x80 >> (piece % 8)
                     send(b"\x05" + bits)
+                    extensions = {b'm': {b'ut_metadata': 1}, b'metadata_size': len(owner.metadata)}
+                    if plan.request_queue:
+                        extensions[b'reqq'] = plan.request_queue
+                    # Publish queue capacity before unchoke can trigger requests.
                     choked = elapsed() < plan.choke_until
+                    if plan.request_queue:
+                        send(b"\x14\x00" + bencode(extensions))
                     send(b"\x00" if choked else b"\x01")
-                    send(b"\x14\x00" + bencode({b'm': {b'ut_metadata': 1}, b'metadata_size': len(owner.metadata)}))
+                    if not plan.request_queue:
+                        send(b"\x14\x00" + bencode(extensions))
                     incoming, pending, metadata_requests = bytearray(), [], []
                     metadata_id, next_send = 0, time.monotonic()
                     while not owner.stop.is_set():
                         if not plan.online(elapsed()):
+                            close_reason = 'planned-outage'
                             with owner.lock:
                                 owner.disconnects += 1
                                 stats['disconnects'] += 1
@@ -251,7 +263,11 @@ class LocalSwarm:
                                 if choked or piece not in available:
                                     continue
                                 expected = min(owner.piece_length, len(owner.data)-piece*owner.piece_length)
-                                if count == 0 or count > 32768 or begin+count > expected or len(pending) >= 2048:
+                                if len(pending) >= 2048:
+                                    close_reason = 'queue-limit'
+                                    return
+                                if count == 0 or count > 32768 or begin+count > expected:
+                                    close_reason = 'invalid-request'
                                     return
                                 with owner.lock:
                                     owner.requests += 1
@@ -265,12 +281,21 @@ class LocalSwarm:
                                         owner.disconnects += 1
                                         stats['disconnects'] += 1
                                 if disconnect:
+                                    close_reason = 'planned-disconnect'
                                     return
                                 if not plan.rate_events:
                                     next_send = max(next_send, time.monotonic()) + plan.delay_ms/1000 + (count/plan.rate if plan.rate else 0)
                                 pending.append((0 if plan.rate_events else next_send, piece, begin, count))
-                except (OSError, EOFError, ValueError, KeyError, IndexError, TypeError):
-                    pass
+                                with owner.lock:
+                                    stats['peak_pending_requests'] = max(stats['peak_pending_requests'], len(pending))
+                except socket.timeout:
+                    close_reason = 'socket-timeout'
+                except (OSError, EOFError, ValueError, KeyError, IndexError, TypeError) as error:
+                    close_reason = type(error).__name__
+                finally:
+                    with owner.lock:
+                        reasons = stats['close_reasons']
+                        reasons[close_reason] = reasons.get(close_reason, 0)+1
 
         class Tracker(BaseHTTPRequestHandler):
             def do_GET(self):
@@ -331,5 +356,5 @@ class LocalSwarm:
         with self.lock:
             return {"sent_bytes": self.sent_bytes, "connections": self.connections, "requests": self.requests,
                     "disconnects": self.disconnects, "tracker_announces": self.announces,
-                    "peers": [dict(s, requested_pieces=list(s['requested_pieces']), first_request_seconds=dict(s['first_request_seconds'])) for s in self.peer_stats],
+                    "peers": [dict(s, requested_pieces=list(s['requested_pieces']), first_request_seconds=dict(s['first_request_seconds']), close_reasons=dict(s['close_reasons'])) for s in self.peer_stats],
                     "rate_limit_bytes_per_second": self.rate, "block_delay_ms": self.delay * 1000}

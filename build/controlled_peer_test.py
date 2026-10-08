@@ -118,6 +118,19 @@ class WireTests(unittest.TestCase):
             self.assertLess(fast,slow/2)
             self.assertIsNotNone(swarm.status()['peers'][0]['first_sent_seconds'])
 
+    def test_request_capacity_precedes_unchoke_and_close_is_recorded(self):
+        with LocalSwarm([self.file], peers=[PeerPlan(request_queue=512)]) as swarm:
+            sock = self.connect(swarm)
+            initial = self.initial(sock)
+            self.assertEqual(initial[1][:2], b'\x14\x00')
+            self.assertEqual(bdecode(initial[1][2:])[0][b'reqq'], 512)
+            self.assertEqual(initial[2], b'\x01')
+            # Invalid bounds close this owned peer, with an explicit reason.
+            self.send(sock, b'\x06'+struct.pack('!III', 0, 65536, 16384))
+            with self.assertRaises(EOFError):
+                self.message(sock)
+            self.assertEqual(swarm.status()['peers'][0]['close_reasons'], {'invalid-request': 1})
+
 
 if __name__ == '__main__':
     unittest.main()
