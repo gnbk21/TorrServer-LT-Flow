@@ -101,7 +101,8 @@ class PeerPlan:
 
 class LocalSwarm:
     def __init__(self, paths, rate=0, delay_ms=0, disconnect_after=0,
-                 peers=None, piece_length=256*1024, private=False, peer_ip_start=1):
+                 peers=None, piece_length=256*1024, private=False, peer_ip_start=1,
+                 high_throughput=False):
         self.paths = paths
         self.advertise_peers = True
         self.data = b"".join(p.read_bytes() for p in paths)
@@ -204,7 +205,14 @@ class LocalSwarm:
                                     stats['first_sent_seconds'] = elapsed()
                             if plan.rate_events:
                                 next_send = time.monotonic()+plan.delay_ms/1000+count/plan.rate_at(elapsed())
-                        if not select.select([sock], [], [], .01)[0]:
+                        poll = .01
+                        if high_throughput and pending and not choked:
+                            # Wait only until the next scheduled block. The
+                            # historical fixed poll caps one peer at ~12 Mbps,
+                            # regardless of a high-bitrate test's requested rate.
+                            due = next_send if plan.rate_events else pending[0][0]
+                            poll = min(poll, max(0, due-time.monotonic()))
+                        if not select.select([sock], [], [], poll)[0]:
                             continue
                         data = sock.recv(65536)
                         if not data:

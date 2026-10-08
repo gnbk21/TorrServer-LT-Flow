@@ -177,7 +177,7 @@ if __name__=='__main__':
     parser.add_argument('--output',required=True,type=Path)
     parser.add_argument('--fixtures',type=Path)
     parser.add_argument('--cases',nargs='+',choices=CASES,default=list(CASES))
-    parser.add_argument('--profile',choices=('legacy','conservative','balanced','custom'),default='custom')
+    parser.add_argument('--profile',choices=('legacy','adaptive','conservative','balanced','custom'),default='custom')
     parser.add_argument('--piece-length',type=int,default=256*1024)
     parser.add_argument('--scarce',action='store_true')
     parser.add_argument('--rate-aware',action='store_true')

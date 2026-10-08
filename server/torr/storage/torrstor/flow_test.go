@@ -282,6 +282,47 @@ func TestAdaptiveWindowUsesExistingCacheBudget(t *testing.T) {
 	}
 }
 
+func TestAdaptiveProfileUsesBoundedBurstHintAndImmediateBudgetReduction(t *testing.T) {
+	old := settings.BTsets()
+	f := settings.DefaultFlowSettings()
+	settings.StoreBTsets(&settings.BTSets{CacheSize: 512 * flow.MiB, ReaderReadAHead: 95, Flow: f})
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	s := NewStorage()
+	s.callbackOpen(22, mkHash(0xE3), 2048, flow.MiB)
+	c := s.lookup(22)
+	c.SetFlowMediaEstimate("phone", 0, flow.Estimate{BytesPerSecond: float64(flow.MiB), Confidence: "high"})
+	now := time.Now()
+	c.flowMu.Lock()
+	g := c.flowGroups["phone"]
+	for i := 0; i < 6; i++ {
+		g.tracker.Observe(int64(i)*4*flow.MiB, now.Add(time.Duration(i-5)*2*time.Second), float64(flow.MiB))
+	}
+	c.refreshFlowWindowLocked(now)
+	legacy := g.pieces
+	g.smoother.Reset()
+	c.flowMu.Unlock()
+	adaptive := *f
+	adaptive.SwarmProfile = "adaptive"
+	settings.StoreBTsets(&settings.BTSets{CacheSize: 512 * flow.MiB, ReaderReadAHead: 95, Flow: &adaptive})
+	c.flowMu.Lock()
+	c.refreshFlowWindowLocked(now)
+	burst := g.pieces
+	c.flowMu.Unlock()
+	_, maximum := c.baseReaderWindowPieces()
+	if burst <= legacy || burst > maximum {
+		t.Fatalf("adaptive=%d legacy=%d budget=%d", burst, legacy, maximum)
+	}
+	settings.StoreBTsets(&settings.BTSets{CacheSize: 64 * flow.MiB, ReaderReadAHead: 95, Flow: &adaptive})
+	c.flowMu.Lock()
+	c.refreshFlowWindowLocked(now.Add(time.Second))
+	limited := g.pieces
+	c.flowMu.Unlock()
+	_, maximum = c.baseReaderWindowPieces()
+	if limited > maximum || limited >= burst {
+		t.Fatalf("reduced budget ignored: pieces=%d maximum=%d before=%d", limited, maximum, burst)
+	}
+}
+
 func TestFullDeliveryWindowRequiresContiguousReadableBytes(t *testing.T) {
 	old := settings.BTsets()
 	f := settings.DefaultFlowSettings()

@@ -1182,7 +1182,7 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
                                         }
                                     }
                                     urgent_index[i] = urgent.size();
-                                    urgent.push_back({{"piece", i}, {"priority", int(tor->piece_priority(piece))},
+                                    urgent.push_back({{"piece", i}, {"priority", int(static_cast<std::uint8_t>(tor->piece_priority(piece)))},
                                         {"blocks", block_count}, {"unrequested", std::max(0, block_count-requested-writing-finished)},
                                         {"requested", requested}, {"writing", writing}, {"finished", finished},
                                         {"duplicate_requests", duplicates}, {"verified", have},

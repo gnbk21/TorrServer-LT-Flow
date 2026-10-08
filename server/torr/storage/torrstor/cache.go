@@ -1262,6 +1262,7 @@ func (c *Cache) applyStreamPriorities() {
 	clearedDeadlines := false
 	if rebuildDeadlines {
 		if err := h.ClearPieceDeadlines(); err != nil {
+			c.lastPrios = nil
 			return
 		}
 		clear(c.deadlined)
@@ -1270,6 +1271,9 @@ func (c *Cache) applyStreamPriorities() {
 		for piece := range c.deadlined {
 			if _, wanted := desired[piece]; !wanted {
 				if err := h.ResetPieceDeadline(piece); err != nil {
+					// Earlier resets may already have demoted their pieces. Force
+					// restoration on the next apply even if its vector is unchanged.
+					c.lastPrios = nil
 					return
 				}
 				delete(c.deadlined, piece)
@@ -1341,13 +1345,15 @@ func (c *Cache) applyStreamPriorities() {
 			ordered = ordered[:2]
 		}
 		for _, d := range ordered {
-			_ = h.SetPieceDeadline(d.piece, d.dlMs, false)
-			c.deadlined[d.piece] = true
+			if err := h.SetPieceDeadline(d.piece, d.dlMs, false); err == nil {
+				c.deadlined[d.piece] = true
+			}
 		}
 	} else {
 		for piece, dl := range desired {
-			_ = h.SetPieceDeadline(piece, dl, false)
-			c.deadlined[piece] = true
+			if err := h.SetPieceDeadline(piece, dl, false); err == nil {
+				c.deadlined[piece] = true
+			}
 		}
 	}
 	// Un-have the forward-window holes so libtorrent re-downloads them into the cache.
