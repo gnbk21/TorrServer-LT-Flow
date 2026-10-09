@@ -6,6 +6,13 @@ development setting; native/platform verification passed.** Legacy was selected
 for the user's last retry. The existing executable/state was preserved, and no
 new policy was applied to the user's server during development.
 
+Follow-up, 9 October: the implementation now exposes three independently disabled
+experiments, including the dynamic urgent horizon described below. Final native,
+platform and repeated executable gates passed; mixed results retain Legacy as
+default. This research records the earlier rationale and screening results.
+See [the current implementation and comparisons](HIGH_BITRATE_IMPLEMENTATION.md)
+for final behavior and remaining device acceptance.
+
 ## Objective and decision
 
 Preserve original video quality and stream through Lampa and Just Player with a

@@ -44,8 +44,10 @@ preparation, router alteration or automatic profile switch is required.
 
 Evidence and deliberate decisions are recorded in
 [UPSTREAM_STREAMING_VERIFICATION.md](UPSTREAM_STREAMING_VERIFICATION.md).
-The dynamic urgent horizon remains research because earlier controlled screens
-did not justify changing the full ramp. Invalid explicit HTTPS fails clearly
+The dynamic urgent horizon is now available as a disabled-by-default experiment
+in the [high bitrate implementation](HIGH_BITRATE_IMPLEMENTATION.md). It remains
+unpromoted because controlled screens did not justify changing the default full
+ramp. Invalid explicit HTTPS fails clearly
 instead of upstream's silent HTTP fallback. Physical macOS service updates and
 browser HLS playback require their target environments; no runtime acceptance
 is claimed from shell syntax or pipeline units alone.

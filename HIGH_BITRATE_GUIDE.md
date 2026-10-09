@@ -25,8 +25,9 @@ This reserve stays within configured startup, read-ahead and cache limits.
 Storage changes apply to all profiles: disk files reuse a bounded 64-handle pool;
 native reads/writes/hashes run on four ordered worker lanes. The queue throttles
 at 16 MiB, resumes below 8 MiB and rejects ordinary admission above 64 MiB or
-8192 jobs with an error. Zero-byte lifecycle fences remain admissible so cleanup
-can finish under load. Posted read buffers have a separate process-wide 64 MiB bound.
+8192 jobs with an error. Zero-byte piece clears and lifecycle fences remain
+admissible so cleanup can finish under load. Posted read buffers have a separate
+process-wide 64 MiB bound.
 These are in-flight buffers, not a second persistent cache. Hashing uses a fixed
 64 KiB worker buffer. Handles close before removal/migration and jobs retain
 their storage until completions settle.
