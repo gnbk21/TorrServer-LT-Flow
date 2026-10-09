@@ -19,7 +19,7 @@ Keep Flow and another TorrServer instance on **different ports and data director
 
 The artifact also contains a `-gst` executable for optional GStreamer HLS transcoding. Direct playback uses the standard executable and does not require GStreamer. The `-gst` variant needs GStreamer installed separately at runtime.
 
-## Console display (development builds after Preview 2 `.5`)
+## Console display
 
 The standard executable prints a grouped startup summary with web/LAN connection
 addresses, state directory, cache budget, Flow/swarm settings and startup timing.
@@ -70,11 +70,11 @@ retains local credentials. The library renders 50 cards per page while searching
 all entries. See [distribution guidance](DISTRIBUTION.md) and
 [measurements](MEASUREMENTS.md) for usage and verification limits.
 
-Flow settings are in the web interface's **Flow** tab and under `BitTorr.Flow` in `settings.json`. Flow is enabled by default. Published Preview 2 `.5` restarts the engine when settings are saved. Current development builds apply safe runtime changes immediately and offer **Apply when idle** for changes requiring an engine restart. `GET /flow/status/<torrent-hash>` exposes per-torrent diagnostics; `/flow/network` reports network readiness. Both follow the server's HTTP authentication setting. See [FLOW.md](FLOW.md) for defaults, endpoint behavior, and the comparison procedure.
+Flow settings are in the web interface's **Flow** tab and under `BitTorr.Flow` in `settings.json`. Flow is enabled by default. Preview 2 `.7` applies safe runtime changes immediately and offers **Apply when idle** for changes requiring an engine restart. `GET /flow/status/<torrent-hash>` exposes per-torrent diagnostics; `/flow/network` reports network readiness. Both follow the server's HTTP authentication setting. See [FLOW.md](FLOW.md) for defaults, endpoint behavior, and the comparison procedure.
 
-## Adaptive reliability (current development branch)
+## Adaptive reliability
 
-Current development builds add verified useful-delivery rates, confidence and
+Preview 2 `.7` includes verified useful-delivery rates, confidence and
 buffer risk; shared active/warm RAM budgets; preparation scheduling; Windows
 network notifications and recovery; configuration revisions, idle application
 and last-known-good recovery. Settings shows unsaved, saved and effective values.
@@ -83,11 +83,11 @@ are available without changing compatibility defaults. Interface binding is not
 a verified VPN kill switch; OS DNS and physical disconnect tests remain separate.
 See [the reliability guide](ADAPTIVE_RELIABILITY.md) for settings, behavior,
 compatibility limits and test commands, and [the checklist](ADAPTIVE_RELIABILITY_CHECKLIST.md)
-for verification and remaining device gates. These features are not in `.5`.
+for verification and remaining device gates.
 
-## Weak swarms and episode preparation (current development branch)
+## Weak swarms and episode preparation
 
-These additions are in PR #3 development builds, not published Preview 2 `.5`:
+Preview 2 `.7` includes:
 
 - **Availability diagnostics** distinguish metadata, discovery, connection,
   choke, missing connected-peer pieces, throughput and local cache waits.
@@ -131,28 +131,29 @@ Select a profile in **Settings → Flow → Swarm profile**. `connection_speed` 
 | Profile | What it does |
 | --- | --- |
 | **Legacy (default)** | Keeps TorrServer-LT's existing streaming-oriented libtorrent tuning, including 250 connection attempts/second, a 100-peer connect boost, and shorter peer/piece timeouts. Use it as the compatibility baseline. |
-| **Adaptive Streaming (experimental, development builds)** | Uses Legacy's native peer settings and the existing full deadline ramp. With Flow adaptive read-ahead enabled, sustained HTTP progress can add a bounded VBR demand margin above credible media metadata, and recent qualified delivery shortfalls retain additional bounded reserve for up to 30 seconds. Partial slowdowns count as well as complete outages. Uses the same cache and user limits; does not automatically switch profiles. Not proven better than Legacy. |
+| **Adaptive Streaming (experimental)** | Uses Legacy's native peer settings and the existing full deadline ramp. With Flow adaptive read-ahead enabled, sustained HTTP progress can add a bounded VBR demand margin above credible media metadata, and recent qualified delivery shortfalls retain additional bounded reserve for up to 30 seconds. Partial slowdowns count as well as complete outages. Uses the same cache and user limits; does not automatically switch profiles. Not proven better than Legacy. |
 | **Conservative** | Removes those inherited swarm overrides and uses libtorrent defaults for them. Use it to compare with less modified swarm behavior. |
 | **Balanced** | Starts from Conservative, then sets 50 connection attempts/second and a 50-peer connect boost. A moderate connection ramp to evaluate. |
 | **Aggressive streaming** | Starts from Conservative, then sets 100 connection attempts/second and an 80-peer connect boost. It ramps up faster than Balanced, but less than Legacy on these two settings; it is not proven faster overall. |
 | **Custom** | Starts from Conservative and applies only positive values entered for connection speed, connect boost, peer connect timeout, piece timeout, request queue time, and minimum reconnect time. `0` leaves that field at libtorrent's default. Use it for controlled experiments. |
 
 All profiles retain your cache, proxy, upload, and active-torrent settings.
-Development builds after Preview 2 `.5` also preserve healthy peers while a
+Preview 2 `.7` also preserves healthy peers while a
 lazy/warm torrent has no requested pieces; Conservative uses libtorrent defaults
 for swarm tuning with these shared streaming lifecycle controls. Startup preload
-sets piece priorities without pausing and disconnecting the swarm. Saving a
-profile restarts the torrent engine and stops active streams. Keep **Legacy**
+sets piece priorities without pausing and disconnecting the swarm. Applying a
+profile requires an engine restart and interrupts active streams; **Apply when
+idle** defers that restart. Keep **Legacy**
 unless testing shows another profile works better for your network and torrents.
 
-The development **Adaptive Streaming** profile implements the reserve-aware
+The experimental **Adaptive Streaming** profile implements the reserve-aware
 candidate described in [the investigation](STREAMING_PROFILE_RESEARCH.md).
 Initial comparisons rejected narrower deadline sets and global priority
 restoration as defaults, so the full streaming ramp remains. Neither full episode
 preparation nor a paid provider is required. Preview 2 `.7` includes this profile;
 broader real-phone and public-swarm comparisons remain pending.
 
-Development builds add bounded asynchronous storage I/O, verified-contiguous
+Preview 2 `.7` includes bounded asynchronous storage I/O, verified-contiguous
 buffer and urgent-request-age diagnostics, a phone/LAN transfer check, and three
 independent opt-in experiments: peer-capacity limits, a demand-sized urgent
 horizon and resident MKV/MP4 burst hints. An optional separate Flow Player build
@@ -160,7 +161,7 @@ tests a memory-aware phone buffer. All preserve the original media quality;
 the experiments default off. See the [high bitrate guide](HIGH_BITRATE_GUIDE.md)
 for behavior, limits, testing and rollback.
 
-Development builds also restore priorities after removing native deadlines:
+The server also restores priorities after removing native deadlines:
 libtorrent otherwise demotes those pieces, which can leave abandoned work
 downloading or reduce preload priorities. Diagnostics show bounded urgent block
 states, receiving progress and effective native priorities; finished blocks can
@@ -171,7 +172,7 @@ the old sample-size guard could understate demand above roughly 64 Mbps. Seek
 and idle transitions reset stale rate confidence. These fixes also apply to
 Legacy; they do not require selecting the experimental profile.
 
-The LT 1.1.10 maintenance fixes are adapted in the development branch: managed
+The LT 1.1.10 maintenance fixes are included: managed
 HTTPS keys receive restricted permissions, user certificates are preserved,
 invalid or partial HTTPS configuration fails before listeners open, poster
 checks preserve existing artwork on temporary failures, and Linux can discover
@@ -179,13 +180,13 @@ Entware CA roots. Optional browser HLS re-encodes unsupported AAC profiles.
 Flow retains its newer Go and libtorrent versions. See
 [verification and streaming comparisons](UPSTREAM_STREAMING_VERIFICATION.md).
 
-## Startup diagnostics in development builds
+## Startup diagnostics
 
-Current development builds return explicit preload requests when the buffer
+Preview 2 `.7` returns explicit preload requests when the buffer
 is ready; an owned worker keeps the existing eight-second warm handoff in the
 background. Same-file requests share that worker, and an episode switch or
 removal cancels and joins the old owner. Reader windows continue to own playback
-priorities. These changes are not yet in published Preview 2 `.5`.
+priorities.
 
 **Settings → Flow → Retain diagnostic history** is opt-in and takes effect when
 settings are applied (which restarts the engine). It saves `flow-history.jsonl`
@@ -223,7 +224,7 @@ Public-swarm and phone performance comparisons remain acceptance work.
 
 The modern interface was merged through [PR #2](https://github.com/gnbk21/TorrServer-LT-Flow/pull/2)
 into **`develop`**, the default branch. The current preview packages the modern
-build plus Preview 2 improvements. PR #3 tracks those changes into `develop`;
+build plus Preview 2 improvements. [PR #3](https://github.com/gnbk21/TorrServer-LT-Flow/pull/3) merged the streaming and recovery changes into `develop`;
 branch artifacts identify their exact development commit.
 Legacy sources remain in `web-legacy/` until real device acceptance.
 
@@ -264,7 +265,8 @@ generates its own channel-aware release manifest, checksums, original dependency
 notices and GitHub build attestations. The managed scripts verify SHA-256 and
 the exact executable version; `-RequireAttestation` also requires GitHub CLI
 provenance verification. Executables remain unsigned by Authenticode. See
-[distribution and recovery](DISTRIBUTION.md) and [Preview 2 notes](PREVIEW_2_NOTES.md).
+[distribution and recovery](DISTRIBUTION.md), [current release notes](PREVIEW_2_7_NOTES.md)
+and [release verification](PREVIEW_2_7_VERIFICATION.md).
 The [draft stable integration PR](https://github.com/gnbk21/TorrServer-LT-Flow/pull/1)
 tracks promotion from `develop` to `master` after the remaining acceptance.
 

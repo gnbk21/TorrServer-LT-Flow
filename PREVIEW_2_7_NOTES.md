@@ -31,8 +31,8 @@ remain off unless selected. Controlled performance results are mixed, so this
 release makes no claim that Adaptive consistently beats Legacy.
 
 The pre-release code passed all eight platform builds, native/race/fuzz/browser
-checks, Windows service recovery, 72 two-minute high-bitrate trials, final Windows
-recovery/LAN checks and 16 earlier matched Windows trials. Tagged binaries and
+checks, Windows service recovery, 72 high-bitrate trials with 120-second requested
+workloads, final Windows recovery/LAN checks and 16 earlier matched Windows trials. Tagged binaries and
 packages are independently checked by the release workflow before publication.
 The user also reported one complete episode without stutters using the verified
 development build with Adaptive, all three experiments and 2048 MiB RAM cache.
@@ -57,6 +57,10 @@ GitHub build provenance is separate from Windows Authenticode publisher signing.
 
 ## Limits
 
+- A subsequent LT 1.2.1 source comparison identified a remaining race risk in
+  Flow's global engine-pointer publication during reconnect. It is not a
+  demonstrated ordinary-playback failure; a targeted fix and regression are
+  needed before stable acceptance. See the [evaluation](https://github.com/gnbk21/TorrServer-LT-Flow/blob/develop/UPSTREAM_LT_1_2_1_EVALUATION.md).
 - Stable Flow / Modern Web 1.0 acceptance remains incomplete: broader real-phone
   playback, multi-hour resource convergence and physical boot/sleep/network
   recovery still need acceptance evidence.
@@ -76,6 +80,9 @@ GitHub build provenance is separate from Windows Authenticode publisher signing.
 See the [high bitrate guide](https://github.com/gnbk21/TorrServer-LT-Flow/blob/MatriX.145.Flow-v0.2.0-preview.7/HIGH_BITRATE_GUIDE.md),
 [verification evidence](https://github.com/gnbk21/TorrServer-LT-Flow/blob/MatriX.145.Flow-v0.2.0-preview.7/HIGH_BITRATE_IMPLEMENTATION.md)
 and [installation/rollback guide](https://github.com/gnbk21/TorrServer-LT-Flow/blob/MatriX.145.Flow-v0.2.0-preview.7/DISTRIBUTION.md).
+
+Publication, downloaded-package, live updater, browser and container checks are
+recorded in the [release verification](https://github.com/gnbk21/TorrServer-LT-Flow/blob/develop/PREVIEW_2_7_VERIFICATION.md).
 
 The earlier `preview.6` tag failed the fresh reachable-vulnerability scan and
 was not published. Its tag is retained as failure history; this corrected
