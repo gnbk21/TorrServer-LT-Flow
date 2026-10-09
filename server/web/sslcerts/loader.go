@@ -29,6 +29,8 @@ type Loader struct {
 // so path changes made in settings apply without a restart.
 func NewLoader(paths func() (certFile, keyFile string)) (*Loader, error) {
 	certFile, keyFile := paths()
+	certFilesMu.Lock()
+	defer certFilesMu.Unlock()
 	cert, err := loadPair(certFile, keyFile)
 	if err != nil {
 		return nil, err
@@ -57,6 +59,8 @@ func (l *Loader) GetCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) 
 
 func (l *Loader) reloadLocked() {
 	certFile, keyFile := l.paths()
+	certFilesMu.Lock()
+	defer certFilesMu.Unlock()
 	if certFile == "" || keyFile == "" {
 		return
 	}

@@ -145,7 +145,7 @@ func validateCertificateChange(next *settings.BTSets) error {
 // ApplyCertificateConfiguration serializes file selection/generation with every
 // settings mutation. Queued settings are retained; resolve them before changing
 // certificate identity, rather than silently discarding another tab's draft.
-func ApplyCertificateConfiguration(revision string, change func() (string, string, error), retire func(string, string)) error {
+func ApplyCertificateConfiguration(revision string, change func(commit func(string, string) error) error, retire func(string, string)) error {
 	configControl.operation.Lock()
 	defer configControl.operation.Unlock()
 	configControl.Lock()
@@ -162,26 +162,24 @@ func ApplyCertificateConfiguration(revision string, change func() (string, strin
 	if settings.Args != nil && (settings.Args.SslCert != "" || settings.Args.SslKey != "") {
 		return errors.New("certificate paths are controlled by startup flags")
 	}
-	cert, key, err := change()
-	if err != nil {
-		return err
-	}
-	next := settings.CloneSettings(settings.BTsets())
-	if next == nil {
-		return errors.New("settings are unavailable")
-	}
-	oldCert, oldKey := next.SslCert, next.SslKey
-	next.SslCert, next.SslKey = cert, key
-	if err := validateCertificateChange(next); err != nil {
-		return err
-	}
-	if err := settings.SetBTSetsChecked(next); err != nil {
-		return err
-	}
-	if retire != nil && (oldCert != cert || oldKey != key) {
-		retire(oldCert, oldKey)
-	}
-	return nil
+	return change(func(cert, key string) error {
+		next := settings.CloneSettings(settings.BTsets())
+		if next == nil {
+			return errors.New("settings are unavailable")
+		}
+		oldCert, oldKey := next.SslCert, next.SslKey
+		next.SslCert, next.SslKey = cert, key
+		if err := validateCertificateChange(next); err != nil {
+			return err
+		}
+		if err := settings.SetBTSetsChecked(next); err != nil {
+			return err
+		}
+		if retire != nil && (oldCert != cert || oldKey != key) {
+			retire(oldCert, oldKey)
+		}
+		return nil
+	})
 }
 func CancelPendingConfiguration(revision string) error {
 	configControl.operation.Lock()

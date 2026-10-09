@@ -1,5 +1,10 @@
 package settings
 
+const (
+	DefaultPort    = "8090"
+	DefaultSslPort = "8091"
+)
+
 type ExecArgs struct {
 	Port        string
 	IPs         []string

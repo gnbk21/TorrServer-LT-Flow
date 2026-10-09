@@ -310,6 +310,35 @@ func MakeCertKeyFiles(ips []string) (string, string, error) {
 
 var certFilesMu sync.Mutex
 
+// RegenerateWithCommit keeps a failed settings save from changing the identity.
+// The TLS loader and renewal worker cannot observe the uncommitted pair.
+func RegenerateWithCommit(ips []string, commit func(string, string) error) error {
+	certFilesMu.Lock()
+	defer certFilesMu.Unlock()
+	c, k := generatedPaths()
+	if !IsGenerated(c, k) {
+		return errors.New("not using the self-signed certificate")
+	}
+	cert, err := os.ReadFile(c)
+	if err != nil {
+		return err
+	}
+	key, err := os.ReadFile(k)
+	if err != nil {
+		return err
+	}
+	newCert, newKey, err := makeCertKeyFiles(ips)
+	if err == nil {
+		err = commit(newCert, newKey)
+	}
+	if err == nil {
+		return nil
+	}
+	// Restore both files even when one restoration fails, retaining the loader's
+	// last valid pair and reporting any filesystem failure to the caller.
+	return errors.Join(err, writeFileAtomic(c, cert, 0o644), diagnostics.AtomicPrivateFile(k, key))
+}
+
 func makeCertKeyFiles(ips []string) (string, string, error) {
 	certPEM, privPEM, err := generateSelfSignedCert(ips)
 	if err != nil {

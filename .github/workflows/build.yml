@@ -300,10 +300,11 @@ jobs:
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
         run: |
-          go test -race -count=1 -timeout 180s ./console/ ./log/ ./flow/ ./netpolicy/ ./netchange/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/sslcerts/ ./torr/utils/
+          go test -race -count=1 -timeout 180s ./console/ ./log/ ./flow/ ./netpolicy/ ./netchange/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/sslcerts/ ./torr/utils/ ./mcp/ ./tgbot/
           go test -race -tags gst -count=1 -timeout 180s ./gstreamer/
           go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
           govulncheck ./...
+          govulncheck -tags gst ./...
 
       - name: Probe --version
         if: matrix.target == 'linux-amd64'

@@ -311,11 +311,11 @@ func sslRegenerate(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "not using the self-signed certificate"})
 		return
 	}
-	err := applySSLCertificate(c, func() (string, string, error) {
+	err := applySSLCertificateTransaction(c, func(commit func(string, string) error) error {
 		if !sslcerts.IsGenerated(sslCertPaths()) {
-			return "", "", errors.New("not using the self-signed certificate")
+			return errors.New("not using the self-signed certificate")
 		}
-		return sslcerts.MakeCertKeyFiles(certIPs())
+		return sslcerts.RegenerateWithCommit(certIPs(), commit)
 	})
 	if err != nil {
 		certError(c, err)
@@ -361,7 +361,17 @@ func certError(c *gin.Context, err error) {
 }
 
 func applySSLCertificate(c *gin.Context, prepare func() (string, string, error)) error {
-	return torr.ApplyCertificateConfiguration(c.GetHeader("If-Match"), prepare, func(oldCert, oldKey string) {
+	return applySSLCertificateTransaction(c, func(commit func(string, string) error) error {
+		cert, key, err := prepare()
+		if err != nil {
+			return err
+		}
+		return commit(cert, key)
+	})
+}
+
+func applySSLCertificateTransaction(c *gin.Context, change func(func(string, string) error) error) error {
+	return torr.ApplyCertificateConfiguration(c.GetHeader("If-Match"), change, func(oldCert, oldKey string) {
 		if err := sslcerts.RemoveUploadedPair(oldCert, oldKey); err != nil {
 			log.TLogln("Could not retire previous uploaded certificate:", err)
 		}
