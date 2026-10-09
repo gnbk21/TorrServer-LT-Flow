@@ -103,8 +103,8 @@ type gstAPI struct {
 	gstAppSinkTryPullSample func(sink uintptr, timeout uint64) uintptr
 	gstAppSinkIsEOS         func(sink uintptr) int32
 
-	gErrorFree func(err uintptr)
-	gFree      func(ptr uintptr)
+	gErrorFree func(err unsafe.Pointer)
+	gFree      func(ptr unsafe.Pointer)
 
 	version gstVersionInfo
 }
@@ -150,7 +150,7 @@ func (g *gstAPI) bind(gstHandle uintptr, gstAppHandle uintptr, glibHandle uintpt
 }
 
 func (g *gstAPI) init() error {
-	var errPtr uintptr
+	var errPtr unsafe.Pointer
 	if g.gstInitCheck(nil, nil, unsafe.Pointer(&errPtr)) == 0 {
 		msg := g.takeGError(errPtr)
 		if msg == "" {
@@ -177,10 +177,10 @@ func (g *gstAPI) init() error {
 }
 
 func (g *gstAPI) parseLaunch(description string) (uintptr, error) {
-	var errPtr uintptr
+	var errPtr unsafe.Pointer
 	pipeline := g.gstParseLaunch(description, unsafe.Pointer(&errPtr))
 
-	if errPtr != 0 {
+	if errPtr != nil {
 		msg := g.takeGError(errPtr)
 		if pipeline != 0 {
 			g.objectUnref(pipeline)
@@ -322,14 +322,14 @@ func (g *gstAPI) withSampleBytes(sample uintptr, consume func([]byte) error) err
 	defer g.gstBufferUnmap(buffer, unsafe.Pointer(&mapInfo[0]))
 
 	dataPtr, size := gstMapInfoData(&mapInfo)
-	if dataPtr == 0 || size == 0 {
+	if dataPtr == nil || size == 0 {
 		return nil
 	}
 	if err := validateGStreamerSampleSize(bufferSize, size); err != nil {
 		return err
 	}
 
-	data := unsafe.Slice((*byte)(unsafe.Pointer(dataPtr)), size)
+	data := unsafe.Slice((*byte)(dataPtr), size)
 	return consume(data)
 }
 
@@ -426,8 +426,8 @@ func (g *gstAPI) popBusMessage(bus uintptr, timeout time.Duration, messageTypes 
 }
 
 func (g *gstAPI) parseMessageError(msg uintptr) string {
-	var errPtr uintptr
-	var debugPtr uintptr
+	var errPtr unsafe.Pointer
+	var debugPtr unsafe.Pointer
 	g.gstMessageParseError(msg, unsafe.Pointer(&errPtr), unsafe.Pointer(&debugPtr))
 
 	message := g.takeGError(errPtr)
@@ -438,29 +438,29 @@ func (g *gstAPI) parseMessageError(msg uintptr) string {
 			message = debug
 		}
 	}
-	if debugPtr != 0 {
+	if debugPtr != nil {
 		g.gFree(debugPtr)
 	}
 	return message
 }
 
-func (g *gstAPI) takeGError(errPtr uintptr) string {
-	if errPtr == 0 {
+func (g *gstAPI) takeGError(errPtr unsafe.Pointer) string {
+	if errPtr == nil {
 		return ""
 	}
-	messagePtr := *(*uintptr)(unsafe.Pointer(errPtr + 8))
+	messagePtr := *(*unsafe.Pointer)(unsafe.Add(errPtr, 8))
 	message := cString(messagePtr)
 	g.gErrorFree(errPtr)
 	return message
 }
 
-func gstMapInfoData(mapInfo *[128]byte) (uintptr, int) {
+func gstMapInfoData(mapInfo *[128]byte) (unsafe.Pointer, int) {
 	ptrSize := unsafe.Sizeof(uintptr(0))
 	dataOffset := alignTo(uintptr(ptrSize)+4, uintptr(ptrSize))
 	sizeOffset := dataOffset + uintptr(ptrSize)
 
-	dataPtr := *(*uintptr)(unsafe.Pointer(uintptr(unsafe.Pointer(&mapInfo[0])) + dataOffset))
-	size := *(*uintptr)(unsafe.Pointer(uintptr(unsafe.Pointer(&mapInfo[0])) + sizeOffset))
+	dataPtr := *(*unsafe.Pointer)(unsafe.Add(unsafe.Pointer(&mapInfo[0]), dataOffset))
+	size := *(*uintptr)(unsafe.Add(unsafe.Pointer(&mapInfo[0]), sizeOffset))
 	return dataPtr, int(size)
 }
 
@@ -475,14 +475,14 @@ func alignTo(value uintptr, alignment uintptr) uintptr {
 	return value + alignment - remainder
 }
 
-func cString(ptr uintptr) string {
-	if ptr == 0 {
+func cString(ptr unsafe.Pointer) string {
+	if ptr == nil {
 		return ""
 	}
 
 	var out []byte
 	for offset := uintptr(0); ; offset++ {
-		b := *(*byte)(unsafe.Pointer(ptr + offset))
+		b := *(*byte)(unsafe.Add(ptr, offset))
 		if b == 0 {
 			break
 		}
