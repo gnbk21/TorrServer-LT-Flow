@@ -64,7 +64,7 @@ func (s *Service) probe(c *gin.Context) {
 		return
 	}
 
-	probe, err := s.Probe(hash, fileID)
+	probe, err := s.ProbeContext(c.Request.Context(), hash, fileID)
 	if err != nil {
 		gstSourceFailure(hash, fileID, 0, "probe request", err)
 		abortWithSourceError(c, err)

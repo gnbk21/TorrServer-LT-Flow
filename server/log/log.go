@@ -1,13 +1,14 @@
 package log
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
+	"server/console"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,6 +19,65 @@ var (
 )
 
 var webLog *log.Logger
+
+var consoleWriter *console.Writer
+var restoreConsole func()
+
+var consoleStopMu sync.Mutex
+var consoleStop *consoleStopper
+var closeMu sync.Mutex
+
+type consoleStopper struct {
+	once sync.Once
+	stop func()
+}
+
+// SetConsoleStop lets the console owner join its reporter before any process
+// exit path closes logs or restores the terminal, including API shutdown.
+func SetConsoleStop(stop func()) {
+	consoleStopMu.Lock()
+	consoleStop = &consoleStopper{stop: stop}
+	consoleStopMu.Unlock()
+}
+
+func StopConsoleStatus() {
+	consoleStopMu.Lock()
+	stop := consoleStop
+	consoleStopMu.Unlock()
+	if stop != nil && stop.stop != nil {
+		// Concurrent exit paths must also wait for the first join to finish.
+		stop.once.Do(stop.stop)
+	}
+}
+
+// ConfigureConsole is called once after Init. File logs and services retain
+// their UTC log format; only interactive/redirected console output is styled.
+func ConfigureConsole(mode string, service bool) bool {
+	if mode == "off" || logFile != nil || service {
+		return false
+	}
+	color, restore := console.ConfigureColor(os.Stdout, mode)
+	restoreConsole = restore
+	consoleWriter = console.New(os.Stdout, color)
+	log.SetFlags(0)
+	log.SetPrefix("")
+	log.SetOutput(consoleWriter)
+	return true
+}
+
+func ConsolePanel(title string, sections []console.Section) {
+	closeMu.Lock()
+	defer closeMu.Unlock()
+	if consoleWriter != nil {
+		if err := consoleWriter.Panel(title, sections); err != nil {
+			fmt.Fprintln(os.Stderr, "Flow console output:", err)
+		}
+	}
+}
+
+func Event(level, component, message string) {
+	log.Printf("[%s] [%s] %s", level, component, message)
+}
 
 var (
 	logFile    *os.File
@@ -88,7 +148,35 @@ func applyServerLog(ff *os.File) {
 	log.SetOutput(ff)
 }
 
+// CloseConsole restores console output without closing file loggers. The API
+// shutdown shortcut exits directly while other HTTP handlers can still finish;
+// their file loggers must remain valid until the OS closes process handles.
+func CloseConsole() {
+	StopConsoleStatus()
+	closeMu.Lock()
+	defer closeMu.Unlock()
+	closeConsoleOutput()
+}
+
+// Called with closeMu held. SetOutput joins an in-flight standard log write
+// before restoring console mode, so its final ANSI reset is still interpreted.
+func closeConsoleOutput() {
+	if consoleWriter != nil {
+		log.SetOutput(os.Stderr)
+		log.SetFlags(log.LstdFlags)
+		consoleWriter = nil
+	}
+	if restoreConsole != nil {
+		restoreConsole()
+		restoreConsole = nil
+	}
+}
+
 func Close() {
+	StopConsoleStatus()
+	closeMu.Lock()
+	defer closeMu.Unlock()
+	closeConsoleOutput()
 	if logFile != nil {
 		logFile.Close()
 		if webLogFile == logFile {
@@ -105,7 +193,13 @@ func Close() {
 }
 
 func TLogln(v ...interface{}) {
-	log.Println(v...)
+	log.Print(RedactInternalMediaKey(fmt.Sprintln(v...)))
+}
+
+var internalMediaKey = regexp.MustCompile(`probe_key=[A-Za-z0-9%_-]+`)
+
+func RedactInternalMediaKey(s string) string {
+	return internalMediaKey.ReplaceAllString(s, "probe_key=[redacted]")
 }
 
 func WebLogln(v ...interface{}) {
@@ -120,32 +214,23 @@ func WebLogger() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		body := ""
-		// save body if not form or file
-		if !strings.HasPrefix(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
-			bodyBytes, _ := io.ReadAll(c.Request.Body)
-			c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-			body = string(bodyBytes)
-		} else {
-			body = "body hidden, too large"
-		}
+		// Request bodies and query strings may contain passwords, tracker
+		// passkeys and playback capabilities. Never buffer or log them.
 		c.Next()
 
 		statusCode := c.Writer.Status()
 		clientIP := c.ClientIP()
 		method := c.Request.Method
 		path := c.Request.URL.Path
-		raw := c.Request.URL.RawQuery
-		if raw != "" {
-			path = path + "?" + raw
+		if strings.HasPrefix(path, "/flow/play/") {
+			path = "/flow/play/[redacted]"
 		}
 
-		logStr := fmt.Sprintf("%3d | %12s | %-7s %#v %v",
+		logStr := fmt.Sprintf("%3d | %12s | %-7s %#v",
 			statusCode,
 			clientIP,
 			method,
 			path,
-			body,
 		)
 		WebLogln(logStr)
 	}

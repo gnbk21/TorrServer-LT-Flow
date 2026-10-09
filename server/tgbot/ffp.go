@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"server/ffprobe"
+	"server/log"
 	"server/settings"
 	"server/torr"
 
@@ -14,8 +15,6 @@ import (
 	tele "gopkg.in/telebot.v4"
 	ffp "gopkg.in/vansante/go-ffprobe.v2"
 )
-
-// TODO: Use internal API for ffp
 
 func cmdFfp(c tele.Context) error {
 	uid := c.Sender().ID
@@ -45,17 +44,15 @@ func cmdFfp(c tele.Context) error {
 		return c.Send(tr(uid, "torrent_not_found"))
 	}
 
-	proto := "http"
-	port := settings.Port
-	if settings.Ssl {
-		proto = "https"
-		port = settings.SslPort
-	}
-	link := fmt.Sprintf("%s://127.0.0.1:%s/play/%s/%d", proto, port, hash, id)
+	path := fmt.Sprintf("/play/%s/%d", hash, id)
+	link := torr.InternalMediaURL(settings.LoopbackBaseURL()+path, true)
 
 	data, err := ffprobe.ProbeUrl(link)
 	if err != nil {
-		return c.Send(fmt.Sprintf(tr(uid, "ffp_error"), err.Error()))
+		return c.Send(fmt.Sprintf(tr(uid, "ffp_error"), log.RedactInternalMediaKey(err.Error())))
+	}
+	if data.Format != nil {
+		data.Format.Filename = path
 	}
 
 	var msg string

@@ -93,6 +93,19 @@ func CheckAuth() gin.HandlerFunc {
 	}
 }
 
+// PreserveRejectedBody also covers temporary readiness and maintenance errors,
+// origin/rate rejection and WAF responses, before those handlers return early.
+func PreserveRejectedBody() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		defer func() {
+			if c.Writer.Status() >= http.StatusBadRequest {
+				discardRejectedBody(c.Writer, c.Request)
+			}
+		}()
+		c.Next()
+	}
+}
+
 // shouldSendBasicChallenge is false for typical SPA/API clients (JSON Accept,
 // X-Requested-With, or Sec-Fetch-Mode: cors) so the web app can handle the 401
 // itself instead of the browser popping up its native Basic-auth prompt.

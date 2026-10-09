@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/bits"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -482,7 +483,7 @@ func (r *gstRunner) createPipelineArgs() string {
 		sb.WriteString("d.audio_")
 		sb.WriteString(strconv.Itoa(audioTrack.Index))
 		sb.WriteString(" ! mq.sink_1 mq.src_1 ! ")
-		if audioTrack.IsAACAudio() {
+		if audioTrack.IsBrowserAAC() {
 			sb.WriteString("aacparse ! audio/mpeg,mpegversion=4,stream-format=raw ! mux.audio_0 ")
 		} else {
 			aacChannels := effectiveAACChannels(conf, audioTrack)
@@ -682,6 +683,44 @@ func (r *gstRunner) transcodeToH264(sb *strings.Builder) {
 		sb.WriteString(encoderPipeline)
 	}
 	sb.WriteString("h264parse config-interval=0 ! h264timestamper name=video_timestamper ! video/x-h264,profile=main,stream-format=avc,alignment=au ! mux.video_0 ")
+}
+
+// cueBoundaryToleranceNS is how far a muxed sync frame may sit from the cue
+// boundary it is matched against. The cue table stores Matroska block times,
+// while the boundary is checked against the presentation time the muxer writes,
+// and the two disagree by up to a frame: the muxer cannot emit a negative
+// decode time, so it shortens the composition offset of the first sample
+// instead, which moves the measured distance to the next sync frame. A
+// container-scale tolerance (1 ms) rejected such a segment and answered 502 for
+// the whole file, so allow one frame plus the container scale.
+func cueBoundaryToleranceNS(task *Task) uint64 {
+	tolerance := uint64(1)
+	if task != nil && task.Cue != nil {
+		tolerance = max(task.Cue.TimestampScaleNS, 1)
+	}
+	if task == nil {
+		return tolerance
+	}
+	video := task.Probe.Video()
+	if video == nil || video.FrameRateNum <= 0 || video.FrameRateDen <= 0 {
+		return tolerance
+	}
+	// Reject implausible rates and arithmetic overflow from untrusted metadata.
+	if video.FrameRateDen > video.FrameRateNum {
+		return tolerance
+	}
+	hi, lo := bits.Mul64(uint64(video.FrameRateDen), 1_000_000_000)
+	if hi >= uint64(video.FrameRateNum) {
+		return tolerance
+	}
+	frameNS, rem := bits.Div64(hi, lo, uint64(video.FrameRateNum))
+	if rem != 0 {
+		frameNS++
+	} // include the full fractional frame
+	if frameNS > ^uint64(0)-tolerance {
+		return tolerance
+	}
+	return tolerance + frameNS
 }
 
 func videoIsTranscoded(conf Config, probe ProbeInfo) bool {
@@ -1035,7 +1074,7 @@ func (r *gstRunner) GetSegment(ctx context.Context, index int, audio int) (Segme
 
 	r.discardReadySegment()
 	if cue, ok := r.task.Cue.Segment(index); ok {
-		if err := r.reader.SetTargetSegment(cue.StartNS, cue.EndNS, max(r.task.Cue.TimestampScaleNS, 1)); err != nil {
+		if err := r.reader.SetTargetSegment(cue.StartNS, cue.EndNS, cueBoundaryToleranceNS(r.task)); err != nil {
 			r.freezeAtSegment(index)
 			return Segment{}, err
 		}

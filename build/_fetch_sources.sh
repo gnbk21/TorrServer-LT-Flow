@@ -66,6 +66,8 @@ else
     fi
 fi
 # Always make sure submodules are checked out (a bare clone won't have them).
+[[ "$(git -C "$LT_DIR" rev-parse HEAD)" == "$LIBTORRENT_REV" ]] \
+    || die "libtorrent revision does not match the reviewed pin $LIBTORRENT_REV"
 # Check both try_signal and libdatachannel's NESTED submodules — a tree cloned
 # before the 2.1 bump (or with non-recursive init) has the former but not the
 # latter, and the webtorrent build needs usrsctp/libjuice/plog present.

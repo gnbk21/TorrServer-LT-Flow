@@ -2,13 +2,18 @@ package settings
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"time"
 
+	"os"
+	"server/diagnostics"
 	"server/log"
 )
 
@@ -26,6 +31,8 @@ type TMDBConfig struct {
 }
 
 type BTSets struct {
+	// Flow is optional so older settings files and older web clients remain valid.
+	Flow *FlowSettings
 	// Cache
 	CacheSize       int64 // in byte, def 64 MB
 	ReaderReadAHead int   // in percent, 5%-100%, [...S__X__E...] [S-E] not clean
@@ -169,9 +176,31 @@ func BTsets() *BTSets { return btSets.Load() }
 func StoreBTsets(s *BTSets) { btSets.Store(s) }
 
 func SetBTSets(sets *BTSets) {
-	if ReadOnly {
-		return
+	if err := SetBTSetsChecked(sets); err != nil {
+		log.TLogln("Cannot save settings:", err)
 	}
+}
+
+func SetBTSetsChecked(sets *BTSets) error {
+	if ReadOnly {
+		return errors.New("database is read-only")
+	}
+	if sets == nil {
+		return errors.New("settings are required")
+	}
+	if err := ValidateSettings(sets); err != nil {
+		return err
+	}
+	if sets.Flow == nil {
+		if old := BTsets(); old != nil && old.Flow != nil {
+			copy := *old.Flow
+			sets.Flow = &copy
+		} else {
+			sets.Flow = DefaultFlowSettings()
+		}
+	}
+	sets.Flow.Normalize()
+	sets.Flow.SchemaVersion = 1
 	// failsafe checks (use defaults)
 	if sets.CacheSize == 0 {
 		sets.CacheSize = 64 * 1024 * 1024
@@ -203,9 +232,11 @@ func SetBTSets(sets *BTSets) {
 	if sets.TorrentsSavePath == "" {
 		sets.UseDisk = false
 	} else if sets.UseDisk {
-		StoreBTsets(sets)
-
-		go filepath.WalkDir(sets.TorrentsSavePath, func(path string, d fs.DirEntry, err error) error {
+		deadline := time.Now().Add(3 * time.Second)
+		filepath.WalkDir(sets.TorrentsSavePath, func(path string, d fs.DirEntry, err error) error {
+			if time.Now().After(deadline) {
+				return filepath.SkipAll
+			}
 			if err != nil {
 				return err
 			}
@@ -221,23 +252,56 @@ func SetBTSets(sets *BTSets) {
 		})
 	}
 
-	StoreBTsets(sets)
 	buf, err := json.Marshal(sets)
 	if err != nil {
-		log.TLogln("Error marshal btsets", err)
-		return
+		return err
 	}
-	tdb.Set("Settings", "BitTorr", buf)
+	if old := BTsets(); old != nil {
+		if err := saveKnownGood(old); err != nil {
+			return errors.New("cannot save last-known-good settings")
+		}
+	}
+	if status := SettingsRecovery(); status.Issue == "SETTINGS_UNREADABLE" {
+		if rejected := tdb.Get("Settings", "BitTorr"); len(rejected) > 0 {
+			name := filepath.Join(Path, fmt.Sprintf("flow-rejected-settings-%d.json", time.Now().UnixNano()))
+			if err := diagnostics.WritePrivateFile(name, rejected); err != nil {
+				return errors.New("cannot retain rejected settings before repair")
+			}
+		}
+	}
+	if err := putChecked(tdb, "Settings", "BitTorr", buf); err != nil {
+		return err
+	}
+	StoreBTsets(sets)
+	recordRecovery("settings", "")
+	if err := saveKnownGood(sets); err != nil {
+		log.TLogln("Last-known-good snapshot unavailable")
+		recordRecovery("settings", "RECOVERY_SNAPSHOT_WRITE_FAILED")
+	}
+	return nil
 }
 
 func SetDefaultConfig() {
+	sets := defaultConfig()
+	if ReadOnly {
+		StoreBTsets(sets)
+	} else {
+		SetBTSets(sets)
+	}
+}
+
+func NewDefaultConfig() *BTSets { return defaultConfig() }
+
+func defaultConfig() *BTSets {
 	sets := new(BTSets)
+	sets.Flow = DefaultFlowSettings()
 	sets.CacheSize = 64 * 1024 * 1024 // 64 MB
 	sets.PreloadCache = 50
 	// Per-torrent peer cap (see torr.buildSessionConfig). 50 matches
 	// Transmission's default; 25 (the anacrolix-era default) measurably
 	// caps single-torrent speed on fast links.
 	sets.ConnectionsLimit = 50
+	sets.PeersListenPort = 51413 // stable new-install default; explicit zero remains automatic
 	sets.DHTConnectionsLimit = 500
 	sets.RetrackersMode = 1
 	sets.TrackersListURL = ""
@@ -255,15 +319,7 @@ func SetDefaultConfig() {
 		ImageURL:   "https://image.tmdb.org",
 		ImageURLRu: "https://imagetmdb.com",
 	}
-	StoreBTsets(sets)
-	if !ReadOnly {
-		buf, err := json.Marshal(sets)
-		if err != nil {
-			log.TLogln("Error marshal btsets", err)
-			return
-		}
-		tdb.Set("Settings", "BitTorr", buf)
-	}
+	return sets
 }
 
 func loadBTSets() {
@@ -272,6 +328,14 @@ func loadBTSets() {
 		sets := new(BTSets)
 		err := json.Unmarshal(buf, sets)
 		if err == nil {
+			err = ValidateSettings(sets)
+		}
+		if err == nil {
+			if sets.Flow == nil {
+				sets.Flow = DefaultFlowSettings()
+			} else {
+				sets.Flow.Normalize()
+			}
 			if sets.ReaderReadAHead < 5 {
 				sets.ReaderReadAHead = 5
 			}
@@ -298,10 +362,28 @@ func loadBTSets() {
 				}
 			}
 			StoreBTsets(sets)
+			recordRecovery("settings", "")
+			if err := saveKnownGood(sets); err != nil {
+				log.TLogln("Last-known-good snapshot unavailable")
+				recordRecovery("settings", "RECOVERY_SNAPSHOT_WRITE_FAILED")
+			}
 			return
 		}
 		log.TLogln("Error unmarshal btsets", err)
 	}
+	if saved, err := readKnownGood(); err == nil {
+		StoreBTsets(saved)
+		recordRecovery("last_known_good", "SETTINGS_UNREADABLE")
+		log.TLogln("Recovered settings in memory from last-known-good snapshot; original database preserved")
+		return
+	}
 	// initialize defaults on error
-	SetDefaultConfig()
+	StoreBTsets(defaultConfig())
+	issue := ""
+	if len(buf) > 0 {
+		issue = "SETTINGS_UNREADABLE"
+	} else if raw, err := os.ReadFile(filepath.Join(Path, "settings.json")); err == nil && !json.Valid(raw) {
+		issue = "SETTINGS_UNREADABLE"
+	}
+	recordRecovery("defaults", issue)
 }

@@ -79,9 +79,15 @@ func (v *TDB) Get(xpath, name string) []byte {
 }
 
 func (v *TDB) Set(xpath, name string, value []byte) {
+	if err := v.PutChecked(xpath, name, value); err != nil {
+		log.TLogln("Error put sets", xpath+"/"+name, err)
+	}
+}
+
+func (v *TDB) PutChecked(xpath, name string, value []byte) error {
 	spath := strings.Split(xpath, "/")
 	if len(spath) == 0 {
-		return
+		return nil
 	}
 	err := v.db.Update(func(tx *bolt.Tx) error {
 		buckt, err := tx.CreateBucketIfNotExists([]byte(spath[0]))
@@ -101,10 +107,7 @@ func (v *TDB) Set(xpath, name string, value []byte) {
 
 		return buckt.Put([]byte(name), value)
 	})
-	if err != nil {
-		log.TLogln("Error put sets", xpath+"/"+name, ", error:", err)
-		log.TLogln("value:", value)
-	}
+	return err
 }
 
 func (v *TDB) List(xpath string) []string {

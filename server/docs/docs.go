@@ -673,6 +673,30 @@ const docTemplate = `{
                 }
             }
         },
+        "/mediabase": {
+            "get": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API"
+                ],
+                "summary": "Get the external-player media origin",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.mediaBaseResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/play/{hash}/{id}": {
             "get": {
                 "description": "Play given torrent referenced by infohash and file id.",
@@ -868,6 +892,338 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK"
+                    }
+                }
+            }
+        },
+        "/ssl/cert": {
+            "get": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
+                "description": "The configured certificate (chain) in PEM, e.g. to trust the self-signed one on a device. The private key is never served.",
+                "produces": [
+                    "application/x-x509-ca-cert"
+                ],
+                "tags": [
+                    "API"
+                ],
+                "summary": "Download the HTTPS certificate",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ssl/paths": {
+            "post": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
+                "description": "Uses a certificate (chain) and key already on the server, e.g. kept up to date by acme.sh or certbot. The pair must load, match and be currently valid. Renewals of these files are picked up without a restart.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API"
+                ],
+                "summary": "Use HTTPS certificate files by path",
+                "parameters": [
+                    {
+                        "description": "Absolute paths of the certificate and key files",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/web.sslPathsReq"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Current settings revision from /ssl/status",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/web.sslStatus"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ssl/regenerate": {
+            "post": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
+                "description": "Creates a new self-signed certificate and key for the current local IPs and hostname. Only when the self-signed certificate is in use.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API"
+                ],
+                "summary": "Regenerate the self-signed HTTPS certificate",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Current settings revision from /ssl/status",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/web.sslStatus"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ssl/selfsigned": {
+            "post": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
+                "description": "Switches to TorrServer's self-signed certificate (reused, or generated if missing) and deletes an uploaded one. Certificate files given by path are left on disk.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API"
+                ],
+                "summary": "Use the self-signed HTTPS certificate",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Current settings revision from /ssl/status",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/web.sslStatus"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ssl/status": {
+            "get": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
+                "description": "HTTPS mode, ports and the configured certificate (subject, SANs, issuer, validity, source). Never returns key material.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API"
+                ],
+                "summary": "HTTPS status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/web.sslStatus"
+                        }
+                    }
+                }
+            }
+        },
+        "/ssl/upload": {
+            "post": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
+                "description": "Stores a PEM certificate (chain) and its unencrypted private key in \u003cconfig\u003e/ssl/ and uses them. The pair must match and be currently valid. Served without a restart when HTTPS is running.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API"
+                ],
+                "summary": "Upload an HTTPS certificate",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Certificate (chain), PEM",
+                        "name": "cert",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Private key, PEM",
+                        "name": "key",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Current settings revision from /ssl/status",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/web.sslStatus"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             }
@@ -1478,8 +1834,14 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "cache_allocation": {
+                    "$ref": "#/definitions/torrstor.AllocationStatus"
+                },
                 "dlna_enabled": {
                     "type": "boolean"
+                },
+                "exposure": {
+                    "$ref": "#/definitions/gin.H"
                 },
                 "friendly_name": {
                     "type": "string"
@@ -1489,6 +1851,15 @@ const docTemplate = `{
                 },
                 "fuse_path": {
                     "type": "string"
+                },
+                "memory": {
+                    "$ref": "#/definitions/diagnostics.MemoryStatus"
+                },
+                "resources": {
+                    "$ref": "#/definitions/torrstor.ResourceStatus"
+                },
+                "startup": {
+                    "$ref": "#/definitions/diagnostics.StartupStatus"
                 },
                 "webdav_enabled": {
                     "type": "boolean"
@@ -1631,14 +2002,28 @@ const docTemplate = `{
                 }
             }
         },
+        "api.mediaBaseResponse": {
+            "type": "object",
+            "properties": {
+                "base": {
+                    "type": "string"
+                }
+            }
+        },
         "api.setsReqJS": {
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string"
                 },
+                "revision": {
+                    "type": "string"
+                },
                 "sets": {
                     "$ref": "#/definitions/settings.BTSets"
+                },
+                "when": {
+                    "type": "string"
                 }
             }
         },
@@ -1788,6 +2173,71 @@ const docTemplate = `{
                 }
             }
         },
+        "diagnostics.MemoryStatus": {
+            "type": "object",
+            "properties": {
+                "go_heap_bytes": {
+                    "type": "integer"
+                },
+                "go_system_bytes": {
+                    "type": "integer"
+                },
+                "goroutines": {
+                    "type": "integer"
+                },
+                "handles": {
+                    "type": "integer"
+                },
+                "handles_available": {
+                    "type": "boolean"
+                },
+                "pressure": {
+                    "type": "boolean"
+                },
+                "rss_available": {
+                    "type": "boolean"
+                },
+                "rss_bytes": {
+                    "type": "integer"
+                },
+                "sampled_at": {
+                    "type": "string"
+                },
+                "system_available": {
+                    "type": "boolean"
+                },
+                "system_available_bytes": {
+                    "type": "integer"
+                },
+                "system_total_bytes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "diagnostics.StartupStatus": {
+            "type": "object",
+            "properties": {
+                "engine_ready": {
+                    "type": "boolean"
+                },
+                "engine_ready_ms": {
+                    "type": "integer"
+                },
+                "listener_ready_ms": {
+                    "type": "integer"
+                },
+                "listeners_ready": {
+                    "type": "boolean"
+                },
+                "started_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "gin.H": {
+            "type": "object",
+            "additionalProperties": {}
+        },
         "models.TorrentDetails": {
             "type": "object",
             "properties": {
@@ -1921,6 +2371,14 @@ const docTemplate = `{
                     "description": "Torznab",
                     "type": "boolean"
                 },
+                "flow": {
+                    "description": "Flow is optional so older settings files and older web clients remain valid.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/settings.FlowSettings"
+                        }
+                    ]
+                },
                 "forceEncrypt": {
                     "description": "Torrent",
                     "type": "boolean"
@@ -2027,6 +2485,168 @@ const docTemplate = `{
                 }
             }
         },
+        "settings.FlowSettings": {
+            "type": "object",
+            "properties": {
+                "adaptiveReadAhead": {
+                    "type": "boolean"
+                },
+                "adaptiveStartup": {
+                    "type": "boolean"
+                },
+                "adaptiveUrgentHorizon": {
+                    "description": "demand-sized urgent subset, opt-in",
+                    "type": "boolean"
+                },
+                "bootstrapHeadMB": {
+                    "type": "integer"
+                },
+                "bootstrapTailMode": {
+                    "type": "string"
+                },
+                "capacityAwareRequests": {
+                    "description": "honor remote and local urgent queue caps, opt-in",
+                    "type": "boolean"
+                },
+                "containerBurstHints": {
+                    "description": "resident index estimates only, opt-in",
+                    "type": "boolean"
+                },
+                "debugFlow": {
+                    "type": "boolean"
+                },
+                "dhtstatePersistence": {
+                    "type": "boolean"
+                },
+                "diagnosticHistory": {
+                    "type": "boolean"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "globalCacheBudgetMB": {
+                    "description": "aggregate RAM eviction budget; zero chooses bounded auto policy",
+                    "type": "integer"
+                },
+                "managementOrigins": {
+                    "description": "comma-separated browser origins, local dashboard always allowed",
+                    "type": "string"
+                },
+                "managementRateLimit": {
+                    "description": "requests/minute/client; zero disables compatibility limit",
+                    "type": "integer"
+                },
+                "maxBufferSeconds": {
+                    "type": "integer"
+                },
+                "metricsEnabled": {
+                    "type": "boolean"
+                },
+                "networkRetryMaxSec": {
+                    "type": "integer"
+                },
+                "networkRetryMinSec": {
+                    "type": "integer"
+                },
+                "peerResumeHints": {
+                    "description": "opt-in local peer identities, outside history",
+                    "type": "boolean"
+                },
+                "playbackTokenTTL": {
+                    "type": "integer"
+                },
+                "preparationConcurrency": {
+                    "type": "integer"
+                },
+                "preparationQuotaMB": {
+                    "type": "integer"
+                },
+                "probeGraceMs": {
+                    "type": "integer"
+                },
+                "rangeClassification": {
+                    "type": "boolean"
+                },
+                "rangeTraceEnabled": {
+                    "type": "boolean"
+                },
+                "rateAwareDeadlines": {
+                    "description": "measured scheduling experiment, off by default",
+                    "type": "boolean"
+                },
+                "requirePlaybackToken": {
+                    "type": "boolean"
+                },
+                "requireTorrentInterface": {
+                    "type": "boolean"
+                },
+                "scarcePieceHints": {
+                    "description": "bounded scheduling experiment, off by default",
+                    "type": "boolean"
+                },
+                "schemaVersion": {
+                    "type": "integer"
+                },
+                "securityProfile": {
+                    "description": "compatible or restricted",
+                    "type": "string"
+                },
+                "startupBufferMaxMB": {
+                    "type": "integer"
+                },
+                "startupBufferMinMB": {
+                    "type": "integer"
+                },
+                "startupBufferSeconds": {
+                    "type": "integer"
+                },
+                "startupSafetyFactorPct": {
+                    "type": "integer"
+                },
+                "swarmCustom": {
+                    "$ref": "#/definitions/settings.FlowSwarmCustom"
+                },
+                "swarmProfile": {
+                    "type": "string"
+                },
+                "targetBufferSeconds": {
+                    "type": "integer"
+                },
+                "torrentInterface": {
+                    "description": "adapter name; empty retains OS routing",
+                    "type": "string"
+                },
+                "warmCacheBudgetMB": {
+                    "type": "integer"
+                },
+                "warmSessionTimeoutSec": {
+                    "type": "integer"
+                }
+            }
+        },
+        "settings.FlowSwarmCustom": {
+            "type": "object",
+            "properties": {
+                "connectionSpeed": {
+                    "type": "integer"
+                },
+                "minReconnectTime": {
+                    "type": "integer"
+                },
+                "peerConnectTimeout": {
+                    "type": "integer"
+                },
+                "pieceTimeout": {
+                    "type": "integer"
+                },
+                "requestQueueTime": {
+                    "type": "integer"
+                },
+                "torrentConnectBoost": {
+                    "type": "integer"
+                }
+            }
+        },
         "settings.TMDBConfig": {
             "type": "object",
             "properties": {
@@ -2076,6 +2696,51 @@ const docTemplate = `{
                 }
             }
         },
+        "sslcerts.Info": {
+            "type": "object",
+            "properties": {
+                "cert_file": {
+                    "type": "string"
+                },
+                "dns_names": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "error": {
+                    "type": "string"
+                },
+                "ips": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "issuer": {
+                    "type": "string"
+                },
+                "key_file": {
+                    "type": "string"
+                },
+                "not_after": {
+                    "type": "string"
+                },
+                "not_before": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "subject": {
+                    "type": "string"
+                },
+                "trusted": {
+                    "description": "Trusted reports whether the chain verifies against this system's root CAs.",
+                    "type": "boolean"
+                }
+            }
+        },
         "state.CacheState": {
             "type": "object",
             "properties": {
@@ -2111,6 +2776,23 @@ const docTemplate = `{
                 },
                 "torrent": {
                     "$ref": "#/definitions/state.TorrentStatus"
+                }
+            }
+        },
+        "state.FlowPlaybackSummary": {
+            "type": "object",
+            "properties": {
+                "buffer_seconds": {
+                    "type": "number"
+                },
+                "buffer_warning": {
+                    "type": "boolean"
+                },
+                "file_index": {
+                    "type": "integer"
+                },
+                "sustainability": {
+                    "type": "number"
                 }
             }
         },
@@ -2189,6 +2871,9 @@ const docTemplate = `{
                 "active_peers": {
                     "type": "integer"
                 },
+                "active_readers": {
+                    "type": "integer"
+                },
                 "bit_rate": {
                     "type": "string"
                 },
@@ -2238,6 +2923,12 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/state.TorrentFileStat"
+                    }
+                },
+                "flow_playback": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/state.FlowPlaybackSummary"
                     }
                 },
                 "half_open_peers": {
@@ -2293,6 +2984,9 @@ const docTemplate = `{
                 },
                 "upload_speed": {
                     "type": "number"
+                },
+                "warm_idle": {
+                    "type": "boolean"
                 }
             }
         },
@@ -2341,8 +3035,17 @@ const docTemplate = `{
                 "total_size": {
                     "type": "integer"
                 },
+                "upload_cap_busy": {
+                    "type": "boolean"
+                },
+                "upload_cap_utilization": {
+                    "type": "number"
+                },
                 "upload_speed": {
                     "type": "number"
+                },
+                "wan_queue_delay_known": {
+                    "type": "boolean"
                 }
             }
         },
@@ -2393,6 +3096,73 @@ const docTemplate = `{
                 }
             }
         },
+        "torrstor.AllocationStatus": {
+            "type": "object",
+            "properties": {
+                "active_caches": {
+                    "type": "integer"
+                },
+                "active_readers": {
+                    "type": "integer"
+                },
+                "active_resident_bytes": {
+                    "type": "integer"
+                },
+                "caches": {
+                    "type": "integer"
+                },
+                "effective_capacity_bytes": {
+                    "type": "integer"
+                },
+                "idle_caches": {
+                    "type": "integer"
+                },
+                "idle_resident_bytes": {
+                    "type": "integer"
+                },
+                "protected_bytes": {
+                    "type": "integer"
+                },
+                "resident_bytes": {
+                    "type": "integer"
+                },
+                "warm_caches": {
+                    "type": "integer"
+                },
+                "warm_resident_bytes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "torrstor.ResourceStatus": {
+            "type": "object",
+            "properties": {
+                "background_limited": {
+                    "type": "boolean"
+                },
+                "budget_bytes": {
+                    "type": "integer"
+                },
+                "disk_cache_bytes": {
+                    "type": "integer"
+                },
+                "memory_pressure": {
+                    "type": "boolean"
+                },
+                "protected_overcommit": {
+                    "type": "boolean"
+                },
+                "ram_resident_bytes": {
+                    "type": "integer"
+                },
+                "sampled_at": {
+                    "type": "string"
+                },
+                "warm_budget_bytes": {
+                    "type": "integer"
+                }
+            }
+        },
         "waf.Warning": {
             "type": "object",
             "properties": {
@@ -2403,6 +3173,58 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "list": {
+                    "type": "string"
+                }
+            }
+        },
+        "web.sslPathsReq": {
+            "type": "object",
+            "required": [
+                "cert",
+                "key"
+            ],
+            "properties": {
+                "cert": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                }
+            }
+        },
+        "web.sslStatus": {
+            "type": "object",
+            "properties": {
+                "cert": {
+                    "$ref": "#/definitions/sslcerts.Info"
+                },
+                "cert_from_flags": {
+                    "type": "boolean"
+                },
+                "enabled": {
+                    "description": "Enabled is true when TorrServer was started with --ssl. HTTP/HTTPS modes and ports\nare startup flags; the certificate can only be managed here while HTTPS runs.",
+                    "type": "boolean"
+                },
+                "force_https": {
+                    "type": "boolean"
+                },
+                "http_enabled": {
+                    "type": "boolean"
+                },
+                "http_media": {
+                    "type": "boolean"
+                },
+                "http_port": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "string"
+                },
+                "read_only": {
+                    "type": "boolean"
+                },
+                "revision": {
+                    "description": "CertFromFlags is true when --sslcert/--sslkey set the paths: they are applied again\non every start, so the certificate can't be changed here.",
                     "type": "string"
                 }
             }

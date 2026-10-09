@@ -28,6 +28,12 @@
 . "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
 fetch_sources() { bash "$(dirname "${BASH_SOURCE[0]}")/_fetch_sources.sh"; }
 
+# Match complete linker tokens. A directory named "sparse-native-layers" in
+# a -L path is not a request to link a library named "ayers".
+private_link_libraries() {
+    awk '/^Libs\.private:/ { for (i=2; i<=NF; i++) if ($i ~ /^-l[A-Za-z0-9_-]+$/) printf "%s ", $i; }' "$1"
+}
+
 BOOST_UND=$(echo "$BOOST_VERSION" | tr . _)
 BOOST_DIR="$SRC_DIR/boost_${BOOST_UND}"
 LT_DIR="$SRC_DIR/libtorrent"
@@ -177,7 +183,7 @@ build_webrtc_deps() {
 # --- libtorrent (+ boost_system) via b2 ------------------------------
 build_libtorrent() {
     local deps="$1"
-    if [[ -f "$deps/lib/pkgconfig/libtorrent-rasterbar.pc" ]]; then
+    if [[ -f "$deps/lib/pkgconfig/libtorrent-rasterbar.pc" && -f "$deps/.flow-cache-extension-v3" ]]; then
         log "libtorrent already installed for $TARGET"
         return
     fi
@@ -203,6 +209,11 @@ build_libtorrent() {
     else
         cp -al "$LT_DIR" "$ltwork"
     fi
+    # Apply the same non-virtual declarations to the native build and CGo's
+    # installed headers. Do not mix an old library with a different class
+    # definition; cached trees without the marker must rebuild libtorrent.
+    python3 "$ROOT/build/patch_libtorrent_header.py" "$ltwork"
+    python3 "$ROOT/build/apply_native_patches.py" "$ltwork"
 
     # Rewrite libdatachannel's usrsctp/libjuice build actions to copy the
     # archives cross-built by build_webrtc_deps() instead of running its own
@@ -254,7 +265,7 @@ PYEOF
     local pc="$deps/lib/pkgconfig/libtorrent-rasterbar.pc"
     sed -i.bak -E 's/-llib([A-Za-z0-9_-]+)\.a/-l\1/g' "$pc"
     local privlibs
-    privlibs=$(grep -E '^Libs\.private:' "$pc" | grep -oE -- '-l[A-Za-z0-9_-]+' | tr '\n' ' ')
+    privlibs=$(private_link_libraries "$pc")
     if [[ -n "$privlibs" ]]; then
         sed -i.bak -E "s#^(Libs:.*)#\1 ${privlibs}#" "$pc"
     fi
@@ -285,6 +296,7 @@ PYEOF
              next;
          }
          { print }' "$pc" > "$pc.tsl" && mv "$pc.tsl" "$pc"
+    touch "$deps/.flow-cache-extension-v3"
 }
 
 # --- Go binary -------------------------------------------------------
@@ -313,9 +325,18 @@ go_build() {
     # .pc into CGO_CFLAGS as a harmless unused -D define: the stamp changes with
     # the .pc, busting the cache exactly when needed (and a cache hit otherwise).
     local pc_stamp
-    pc_stamp=$( { cat "$deps/lib/pkgconfig/libtorrent-rasterbar.pc"; echo "${EXTRA_CGO_LDFLAGS:-}"; } | sha1sum | cut -c1-12 )
+    # A same-version native backport can leave the .pc file unchanged. Include
+    # the reviewed revision and patch recipe so Go cannot return an executable
+    # linked to a previous native archive after the dependency tree rebuilds.
+    pc_stamp=$( { cat "$deps/lib/pkgconfig/libtorrent-rasterbar.pc" "$ROOT/build/patch_libtorrent_header.py"; python3 "$ROOT/build/apply_native_patches.py" --recipe; echo "$LIBTORRENT_REV ${EXTRA_CGO_LDFLAGS:-}"; } | sha1sum | cut -c1-12 )
 
     log "go build ($TARGET)"
+    # Opt-in only: native libtorrent work is not optimized by Go PGO.
+    local pgo_args=(-pgo=off)
+    if [[ -n "${TS_PGO_PROFILE:-}" ]]; then
+        [[ -f "$TS_PGO_PROFILE" ]] || { log "TS_PGO_PROFILE is not a readable CPU profile"; exit 1; }
+        pgo_args=("-pgo=$TS_PGO_PROFILE")
+    fi
     cd "$ROOT/server"
     # one_build <output> [extra go build args...] — both variants share the
     # exact same cgo env, so the second build reuses the Go build cache for
@@ -333,6 +354,7 @@ go_build() {
             CGO_CXXFLAGS="-DTS_PC_STAMP=$pc_stamp -DTSL_HAVE_LT_INTERNALS" \
             CGO_LDFLAGS="-L$deps/lib ${EXTRA_CGO_LDFLAGS:-}" \
             go build \
+            "${pgo_args[@]}" \
             "$@" \
             -ldflags "-s -w ${EXTRA_GO_LDFLAGS:-} -X server/version.Version=${TS_VERSION}" \
             -o "$target_out" \
@@ -362,7 +384,9 @@ cross_build() {
     # (2.0.13, no OpenSSL) would silently survive a version bump. Stamp the
     # tree with the exact recipe and nuke it on mismatch.
     local stamp="$deps/.stamp"
-    local want="lt=$LIBTORRENT_TAG openssl=$OPENSSL_VERSION webtorrent=on"
+    local patch_recipe
+    patch_recipe=$(python3 "$ROOT/build/apply_native_patches.py" --recipe)
+    local want="lt=$LIBTORRENT_REV patches=$patch_recipe openssl=$OPENSSL_VERSION webtorrent=on pc-fold=2"
     if [[ -e "$deps" && "$(cat "$stamp" 2>/dev/null || true)" != "$want" ]]; then
         log "deps tree for $TARGET is stale (want: $want) — rebuilding"
         rm -rf "$deps"

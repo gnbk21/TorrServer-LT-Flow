@@ -7,8 +7,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"server/diagnostics"
 	"strings"
 	"sync"
+	"time"
 
 	"server/log"
 )
@@ -47,21 +49,41 @@ func (v *JsonDB) CloseDB() {
 }
 
 func (v *JsonDB) Set(xPath, name string, value []byte) {
-	var err error = nil
-	jsonObj := map[string]interface{}{}
-	if err := json.Unmarshal(value, &jsonObj); err == nil {
-		if filename, err := v.xPathToFilename(xPath); err == nil {
-			v.lock(filename)
-			defer v.unlock(filename)
-			if root, err := v.readJsonFileAsMap(filename); err == nil {
-				root[name] = jsonObj
-				if err = v.writeMapAsJsonFile(filename, root); err == nil {
-					return
-				}
-			}
-		}
+	if err := v.PutChecked(xPath, name, value); err != nil {
+		v.log("Set: error writing entry", err)
 	}
-	v.log(fmt.Sprintf("Set: error writing entry %s->%s", xPath, name), err)
+}
+
+func (v *JsonDB) PutChecked(xPath, name string, value []byte) error {
+	var object map[string]interface{}
+	if err := json.Unmarshal(value, &object); err != nil {
+		return err
+	}
+	filename, err := v.xPathToFilename(xPath)
+	if err != nil {
+		return err
+	}
+	v.lock(filename)
+	defer v.unlock(filename)
+	root, err := v.readJsonFileAsMap(filename)
+	if err != nil {
+		// Explicit Apply may repair a corrupt settings document after loading a
+		// known-good/default configuration. Preserve the original privately first.
+		if xPath != "Settings" || SettingsRecovery().Issue != "SETTINGS_UNREADABLE" {
+			return err
+		}
+		original, readErr := os.ReadFile(filepath.Join(v.Path, filename))
+		if readErr != nil {
+			return err
+		}
+		backup := filepath.Join(v.Path, fmt.Sprintf("flow-corrupt-settings-%d.json", time.Now().UnixNano()))
+		if backupErr := diagnostics.WritePrivateFile(backup, original); backupErr != nil {
+			return backupErr
+		}
+		root = map[string]interface{}{}
+	}
+	root[name] = object
+	return v.writeMapAsJsonFile(filename, root)
 }
 
 func (v *JsonDB) Get(xPath, name string) []byte {
@@ -129,10 +151,7 @@ func (v *JsonDB) Clear(xPath string) {
 	v.lock(filename)
 	defer v.unlock(filename)
 
-	path := filepath.Join(v.Path, filename)
-	emptyData := []byte("{}")
-
-	if err := os.WriteFile(path, emptyData, v.fileMode); err != nil {
+	if err := v.writeMapAsJsonFile(filename, map[string]interface{}{}); err != nil {
 		v.log(fmt.Sprintf("Clear: error writing empty file for xPath %s: %v", xPath, err))
 	}
 }
@@ -164,26 +183,49 @@ func (v *JsonDB) xPathToFilename(xPath string) (string, error) {
 }
 
 func (v *JsonDB) readJsonFileAsMap(filename string) (map[string]interface{}, error) {
-	var err error = nil
 	jsonData := map[string]interface{}{}
 	path := filepath.Join(v.Path, filename)
-	if fileData, err := os.ReadFile(path); err == nil {
-		if err = json.Unmarshal(fileData, &jsonData); err != nil {
-			v.log(fmt.Sprintf("readJsonFileAsMap(%s) fileData: %s error", filename, fileData), err)
-		}
+	fileData, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return jsonData, nil
 	}
-	return jsonData, err
+	if err != nil {
+		return nil, err
+	}
+	if err = json.Unmarshal(fileData, &jsonData); err != nil {
+		return nil, fmt.Errorf("invalid JSON database: %w", err)
+	}
+	if jsonData == nil {
+		return nil, errors.New("JSON database must contain an object")
+	}
+	return jsonData, nil
 }
 
 func (v *JsonDB) writeMapAsJsonFile(filename string, o map[string]interface{}) error {
-	var err error = nil
-	path := filepath.Join(v.Path, filename)
-	if fileData, err := json.MarshalIndent(o, "", "  "); err == nil {
-		if err = os.WriteFile(path, fileData, v.fileMode); err != nil {
-			v.log(fmt.Sprintf("writeMapAsJsonFile path: %s, fileMode: %s, fileData: %s error", path, v.fileMode, fileData), err)
-		}
+	data, err := json.MarshalIndent(o, "", "  ")
+	if err != nil {
+		return err
 	}
-	return err
+	temporary, err := os.CreateTemp(v.Path, ".flow-json-*")
+	if err != nil {
+		return err
+	}
+	name := temporary.Name()
+	defer os.Remove(name)
+	if err = temporary.Chmod(v.fileMode); err == nil {
+		_, err = temporary.Write(data)
+	}
+	if err == nil {
+		err = temporary.Sync()
+	}
+	closeErr := temporary.Close()
+	if err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return err
+	}
+	return os.Rename(name, filepath.Join(v.Path, filename))
 }
 
 func (v *JsonDB) log(s string, params ...interface{}) {

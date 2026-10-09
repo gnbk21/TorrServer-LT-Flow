@@ -1,19 +1,22 @@
 package torr
 
 import (
+	"encoding/hex"
 	"errors"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"server/flow"
 	"server/log"
 	"server/lt"
 	"server/settings"
 	"server/torr/state"
 	storageState "server/torr/storage/state"
 	"server/torr/storage/torrstor"
-	"server/torr/utils"
 	"server/torrshash"
 	utils2 "server/utils"
 )
@@ -33,9 +36,10 @@ type Torrent struct {
 	Size      int64
 
 	bt *BTServer
-	lh *lt.Torrent // libtorrent handle; nil while torrent is in DB only
+	lh atomic.Pointer[lt.Torrent] // nil for DB-only or closed torrents
 
-	mu sync.Mutex
+	mu       sync.Mutex
+	sourceMu sync.Mutex
 
 	// runtime metrics, updated by watch()
 	lastTimeSpeed       time.Time
@@ -72,10 +76,30 @@ type Torrent struct {
 	playStarted    bool
 	playStartIndex int
 
-	DurationSeconds float64
-	BitRate         string
+	DurationSeconds        float64
+	BitRate                string
+	ProbeFileID            int
+	flowProbeFinishedIndex int
+	flowStartupStarted     time.Time
+	flowAddedAt            time.Time
+	diagnosticID           uint64
+	preloadWorkMu          sync.Mutex
+	preloadWork            *preloadOperation
+	flowStartup            FlowStartupStatus
 
-	expiredTime time.Time
+	flowMu           sync.Mutex
+	flowSessions     map[string]*flowSession
+	sparse           lt.SparseSnapshot // immutable cached aggregate, guarded by flowMu
+	sparseRecordedAt int64
+	peerHintsSavedAt time.Time
+	requestTimeouts  atomic.Uint64
+	requestsDropped  atomic.Uint64
+	trackerMu        sync.Mutex
+	trackers         map[string]FlowTrackerDiagnostic
+
+	expiredTime     time.Time
+	preparationHold atomic.Bool
+	warmIdleSince   time.Time
 
 	gotInfoCh   chan struct{}
 	gotInfoOnce sync.Once
@@ -89,27 +113,40 @@ type Torrent struct {
 
 // NewTorrent installs a new torrent in the session.
 func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
-	if bt == nil || bt.session == nil {
+	if bt == nil || bt.Session() == nil {
 		return nil, errors.New("torr.NewTorrent: BT client not connected")
 	}
 	if spec == nil {
 		return nil, errors.New("torr.NewTorrent: nil spec")
 	}
-
-	// Trackers: applied via session-level retrackers settings in addition
-	// to per-torrent. Mirror legacy RetrackersMode semantics.
-	defTrackers := utils.GetDefTrackers()
-	fileTrackers := utils.GetTrackerFromFile()
-	switch settings.BTsets().RetrackersMode {
-	case 1:
-		spec.Trackers = append(spec.Trackers, defTrackers)
-	case 2:
-		spec.Trackers = nil
-	case 3:
-		spec.Trackers = [][]string{defTrackers}
+	// A live handle needs no disk rehash or metadata parse. Recheck again under
+	// the registration lock below when a new handle is actually needed.
+	if existing := bt.GetTorrent(spec.InfoHash); existing != nil {
+		existing.mu.Lock()
+		closed := existing.Stat == state.TorrentClosed
+		existing.mu.Unlock()
+		if !closed {
+			return existing, nil
+		}
 	}
-	if len(fileTrackers) > 0 {
-		spec.Trackers = append(spec.Trackers, fileTrackers)
+
+	// Never mutate the stored specification with public discovery additions.
+	// Unknown magnets use only their supplied trackers until metadata identifies
+	// the torrent as public. Private metadata retains its authorized tiers.
+	trackerTiers := spec.Trackers
+	var metadata *lt.ParsedTorrent
+	if len(spec.InfoBytes) > 0 {
+		pt, parseErr := lt.ParseTorrentBytes(spec.InfoBytes)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		metadata = pt
+		if pt.Private && len(pt.TrackerTiers) > 0 {
+			trackerTiers = pt.TrackerTiers
+		}
+		if !pt.Private {
+			trackerTiers = publicTrackerTiers(spec.Trackers)
+		}
 	}
 
 	// If metadata is known at add time (InfoBytes present), scan the
@@ -120,10 +157,18 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 		havePieces []byte
 		pieceCount int
 	)
-	if len(spec.InfoBytes) > 0 {
-		if pt, err := lt.ParseTorrentBytes(spec.InfoBytes); err == nil && pt.HasMetadata && pt.NumPieces > 0 {
-			pieceCount = pt.NumPieces
-			havePieces = torrstor.ScanHavePieces(spec.InfoHash, pt.NumPieces, pt.PieceLength)
+	if metadata != nil && metadata.HasMetadata && metadata.NumPieces > 0 {
+		pieceCount = metadata.NumPieces
+		if raw, err := hex.DecodeString(metadata.PieceHashes); err == nil && len(raw)/20 == pieceCount && len(raw)%20 == 0 {
+			hashes := make([][20]byte, pieceCount)
+			for i := range hashes {
+				copy(hashes[i][:], raw[i*20:(i+1)*20])
+			}
+			if plan, ok := torrstor.Global().PreparationPlan(spec.InfoHash); ok {
+				havePieces = flow.VerifyPieceFiles(filepath.Join(plan.Root, spec.InfoHash.HexString()), metadata.PieceLength, metadata.TotalSize, hashes)
+			} else {
+				havePieces = torrstor.ScanHavePieces(spec.InfoHash, pieceCount, metadata.PieceLength, metadata.TotalSize, hashes)
+			}
 		}
 	}
 
@@ -136,8 +181,15 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 	// instance only — so its GotInfo timed out 90s later and Close()d the
 	// shared lt torrent out from under an active stream.
 	bt.mu.Lock()
+	if bt.session == nil {
+		bt.mu.Unlock()
+		return nil, errors.New("torr.NewTorrent: BT client not connected")
+	}
 	if existing := bt.torrents[spec.InfoHash]; existing != nil {
-		if existing.Stat != state.TorrentClosed {
+		existing.mu.Lock()
+		closed := existing.Stat == state.TorrentClosed
+		existing.mu.Unlock()
+		if !closed {
 			bt.mu.Unlock()
 			return existing, nil
 		}
@@ -149,16 +201,29 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 		delete(bt.torrents, spec.InfoHash)
 	}
 
+	if metadata != nil {
+		torrstor.Global().SetVerifiedResume(spec.InfoHash, havePieces, metadata.TotalSize)
+		if len(metadata.WebSeeds) > 0 {
+			torrstor.Global().RequireVerifiedReads(spec.InfoHash)
+		}
+	}
+	for _, seed := range spec.WebSeeds {
+		if !seed.Disabled {
+			torrstor.Global().RequireVerifiedReads(spec.InfoHash)
+			break
+		}
+	}
 	lh, err := bt.session.AddTorrent(lt.AddTorrentParams{
-		Link:       magnetFromSpec(spec),
-		InfoBytes:  spec.InfoBytes,
-		Trackers:   spec.FlatTrackers(),
-		SavePath:   legacySavePath(spec.InfoHash),
-		Paused:     false,
-		HavePieces: havePieces,
-		PieceCount: pieceCount,
+		Link:         magnetFromSpec(spec),
+		InfoBytes:    spec.InfoBytes,
+		TrackerTiers: trackerTiers,
+		SavePath:     legacySavePath(spec.InfoHash),
+		Paused:       flowPaused.Load(),
+		HavePieces:   havePieces,
+		PieceCount:   pieceCount,
 	})
 	if err != nil {
+		torrstor.Global().ClearVerifiedResume(spec.InfoHash)
 		bt.mu.Unlock()
 		return nil, err
 	}
@@ -167,13 +232,15 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 	t := &Torrent{
 		TorrentSpec:   spec,
 		bt:            bt,
-		lh:            lh,
 		Stat:          state.TorrentAdded,
 		Timestamp:     time.Now().Unix(),
 		lastTimeSpeed: time.Now(),
-		gotInfoCh:     make(chan struct{}),
-		closeCh:       make(chan struct{}),
+		flowAddedAt:   time.Now(), diagnosticID: diagnosticSequence.Add(1),
+		flowStartup: FlowStartupStatus{State: "METADATA", WaitReason: "METADATA", MetadataReadyMs: -1, FirstDHTPeerMs: -1, FirstPeerMs: -1, FirstUsefulBlockMs: -1},
+		gotInfoCh:   make(chan struct{}),
+		closeCh:     make(chan struct{}),
 	}
+	t.lh.Store(lh)
 	bt.torrents[spec.InfoHash] = t
 	bt.mu.Unlock()
 
@@ -196,6 +263,11 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 	// playlist appears in a couple of seconds and one that times out.
 	if len(spec.InfoBytes) > 0 {
 		t.signalGotInfo()
+		for _, seed := range spec.WebSeeds {
+			if _, err := flow.ValidateWebSeed(seed.URL, seed.AllowLocal); err == nil {
+				_ = lh.SetURLSeed(seed.URL, seed.Disabled, seed.AllowLocal)
+			}
+		}
 	} else if lh != nil {
 		go func() {
 			_ = lh.ForceReannounce()
@@ -206,6 +278,9 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 	}
 
 	go t.watch()
+	if metadata != nil && !metadata.Private && settings.CurrentFlow().PeerResumeHints {
+		go t.restorePeerHints(lh)
+	}
 	return t, nil
 }
 
@@ -217,6 +292,9 @@ func magnetFromSpec(spec *TorrentSpec) string {
 }
 
 func torrentExpireTimeout() time.Duration {
+	if f := settings.CurrentFlow(); f.Enabled {
+		return time.Duration(f.WarmSessionTimeoutSec) * time.Second
+	}
 	t := time.Second * time.Duration(settings.BTsets().TorrentDisconnectTimeout)
 	if t > time.Minute {
 		t = time.Minute
@@ -242,13 +320,13 @@ func (t *Torrent) signalGotInfo() {
 	// the bounded cache. So bail until metadata is ready and wait for a later
 	// alert (metadata_received / torrent_finished) or WaitInfo's fast path.
 	//
-	// Snapshot the handle ONCE: Close() nils t.lh with no synchronization, and
+	// Snapshot the handle once: Close() atomically detaches it, and
 	// an instance that loses a concurrent add race (remove → immediate re-add,
 	// e.g. /gst/remove followed by the next playlist request) is Closed while
 	// its NewTorrent goroutine is still in here — the re-read of t.lh between
 	// the nil check and the call segfaulted on the nil receiver. A call on a
 	// CLOSED handle is harmless (the C slot lookup returns an error).
-	lh := t.lh
+	lh := t.LTHandle()
 	if lh == nil {
 		return
 	}
@@ -256,9 +334,18 @@ func (t *Torrent) signalGotInfo() {
 		return
 	}
 	t.gotInfoOnce.Do(func() {
+		t.mu.Lock()
+		t.flowStartup.MetadataReadyMs = time.Since(t.flowAddedAt).Milliseconds()
+		t.flowStartup.WaitReason = ""
+		t.flowStartup.State = "IDLE"
+		t.mu.Unlock()
+		t.historyEvent(flow.HistoryEvent{Type: "metadata", ElapsedMs: time.Since(t.flowAddedAt).Milliseconds()})
 		// Switch to lazy/streaming mode: download nothing until a Reader's
 		// window or Preload bumps the specific pieces it needs.
 		_ = lh.SetAllPiecesPriority(0)
+		if st, err := lh.Status(); err == nil && !st.Private && len(t.InfoBytes) == 0 {
+			_ = lh.ReplaceTrackers(publicTrackerTiers(t.Trackers))
+		}
 		// Backfill the spec with the just-received info-dict: a magnet-added
 		// torrent's spec has no InfoBytes, so without this every DB save stores
 		// the bare magnet and every server restart re-fetches metadata from the
@@ -282,8 +369,8 @@ func (t *Torrent) WaitInfo() bool {
 	if t == nil {
 		return false
 	}
-	// Same handle snapshot as signalGotInfo: Close() nils t.lh concurrently.
-	lh := t.lh
+	// The captured native identity stays safe after concurrent removal.
+	lh := t.LTHandle()
 	if lh == nil {
 		return false
 	}
@@ -349,18 +436,25 @@ func (t *Torrent) AddExpiredTime(d time.Duration) {
 // status polls and preload all push expiredTime forward, so an in-use torrent
 // is never seen as expired. Used by BTServer.expireWatch.
 func (t *Torrent) expired(now time.Time) bool {
+	if t.preparationHold.Load() {
+		return false
+	}
 	t.mu.Lock()
 	stat := t.Stat
 	deadline := t.expiredTime
+	warmIdleSince := t.warmIdleSince
 	t.mu.Unlock()
 	switch stat {
 	case state.TorrentClosed, state.TorrentGettingInfo, state.TorrentPreload, state.TorrentInDB:
 		return false
 	}
-	if deadline.IsZero() || now.Before(deadline) {
+	if c := torrstor.Global().CacheByHash([20]byte(t.Hash())); c != nil && c.ActiveReaders() > 0 {
 		return false
 	}
-	if c := torrstor.Global().CacheByHash([20]byte(t.Hash())); c != nil && c.ActiveReaders() > 0 {
+	if settings.CurrentFlow().Enabled && !warmIdleSince.IsZero() {
+		return !now.Before(warmIdleSince.Add(torrentExpireTimeout()))
+	}
+	if deadline.IsZero() || now.Before(deadline) {
 		return false
 	}
 	return true
@@ -382,15 +476,15 @@ func (t *Torrent) watch() {
 }
 
 func (t *Torrent) progressTick() {
-	if t.lh == nil {
+	handle := t.LTHandle()
+	if handle == nil {
 		return
 	}
-	st, err := t.lh.Status()
+	st, err := handle.Status()
 	if err != nil {
 		return
 	}
 	t.mu.Lock()
-	defer t.mu.Unlock()
 	now := time.Now()
 	dt := now.Sub(t.lastTimeSpeed).Seconds()
 	if dt > 0 {
@@ -402,33 +496,48 @@ func (t *Torrent) progressTick() {
 	t.BytesReadUsefulData = st.TotalPayloadDownload
 	t.BytesWrittenData = st.TotalPayloadUpload
 	t.lastTimeSpeed = now
+	rate := t.DownloadSpeed
+	t.mu.Unlock()
+	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+		cache.SetFlowDownloadRate(rate, FlowIsPaused())
+	}
+	count := 0
+	if st.PieceLength > 0 && st.TotalSize > 0 {
+		count = int((st.TotalSize-1)/st.PieceLength + 1)
+	}
+	t.sampleSparse(handle, st.HasMetadata, st.PieceLength, count)
 }
 
 // ----- shutdown -----
 
-// Close pauses the underlying libtorrent torrent and marks it closed.
-// Actual removal from the session is performed by BTServer.RemoveTorrent.
+// Close detaches the published handle, marks the torrent closed and removes
+// its native handle if this instance still owns the registry entry.
 func (t *Torrent) Close() bool {
 	if t == nil {
 		return false
 	}
+	t.mu.Lock()
 	if t.Stat == state.TorrentClosed {
+		t.mu.Unlock()
+		t.markClosed()
 		return true
 	}
 	t.Stat = state.TorrentClosed
+	t.mu.Unlock()
 	t.markClosed()
-	if t.lh != nil && t.bt != nil && t.bt.session != nil {
+	hash := t.Hash()
+	handle := t.lh.Swap(nil)
+	if handle != nil && t.bt != nil {
 		// Only remove the libtorrent torrent if no OTHER live instance owns
 		// it. A duplicate Torrent that lost an add race (or any stale copy)
 		// shares the same underlying lt torrent with the registered one;
 		// removing it here would kill an active stream. The registry entry
 		// is either us or already deleted (RemoveTorrent deletes before
 		// closing) — both mean we own the removal.
-		if cur := t.bt.GetTorrent(t.Hash()); cur == nil || cur == t {
-			_ = t.lh.Remove(false)
+		if cur := t.bt.GetTorrent(hash); cur == nil || cur == t {
+			_ = handle.Remove(false)
 		}
 	}
-	t.lh = nil
 	return true
 }
 
@@ -438,6 +547,7 @@ func (t *Torrent) markClosed() {
 			close(t.closeCh)
 		}
 	})
+	t.stopPreload()
 }
 
 // ----- accessors -----
@@ -451,8 +561,8 @@ func (t *Torrent) Hash() Hash {
 	if t.TorrentSpec != nil && !t.TorrentSpec.InfoHash.IsZero() {
 		return t.TorrentSpec.InfoHash
 	}
-	if t.lh != nil {
-		return NewHashFromHex(t.lh.InfoHash())
+	if handle := t.LTHandle(); handle != nil {
+		return NewHashFromHex(handle.InfoHash())
 	}
 	return Hash{}
 }
@@ -460,8 +570,8 @@ func (t *Torrent) Hash() Hash {
 // Name returns the torrent's display name (from metadata if available,
 // otherwise from the spec's display_name / file name).
 func (t *Torrent) Name() string {
-	if t.lh != nil {
-		if name := t.lh.DisplayName(); name != "" {
+	if handle := t.LTHandle(); handle != nil {
+		if name := handle.DisplayName(); name != "" {
 			return name
 		}
 	}
@@ -473,18 +583,20 @@ func (t *Torrent) Name() string {
 
 // Length returns the total payload size in bytes (0 before metadata).
 func (t *Torrent) Length() int64 {
-	if t == nil || t.lh == nil {
+	handle := t.LTHandle()
+	if handle == nil {
 		return 0
 	}
-	return t.lh.TotalSize()
+	return handle.TotalSize()
 }
 
 // Files returns the file list once metadata is known.
 func (t *Torrent) Files() []*File {
-	if t == nil || t.lh == nil {
+	handle := t.LTHandle()
+	if handle == nil {
 		return nil
 	}
-	raw, err := t.lh.Files()
+	raw, err := handle.Files()
 	if err != nil || len(raw) == 0 {
 		return nil
 	}
@@ -504,8 +616,13 @@ func (t *Torrent) Files() []*File {
 
 // LTHandle returns the underlying libtorrent handle for callers that
 // need to set piece priorities / deadlines. May be nil for DB-only
-// torrents.
-func (t *Torrent) LTHandle() *lt.Torrent { return t.lh }
+// or closed torrents. Captured handles remain safe to call after removal.
+func (t *Torrent) LTHandle() *lt.Torrent {
+	if t == nil {
+		return nil
+	}
+	return t.lh.Load()
+}
 
 // Status builds a state.TorrentStatus snapshot consumed by the web API.
 func (t *Torrent) Status() *state.TorrentStatus {
@@ -527,14 +644,15 @@ func (t *Torrent) Status() *state.TorrentStatus {
 		st.Hash = t.TorrentSpec.InfoHash.HexString()
 	}
 
-	if t.lh == nil {
+	handle := t.LTHandle()
+	if handle == nil {
 		// DB-resident torrent (not in the session): recover the file list from
 		// the record's cached Data so playlists and the web file tree work
 		// without waking the torrent (= without a swarm metadata fetch).
 		st.FileStats = fileStatsFromData(t.Data)
 		return st
 	}
-	lst, err := t.lh.Status()
+	lst, err := handle.Status()
 	if err != nil {
 		return st
 	}
@@ -557,6 +675,13 @@ func (t *Torrent) Status() *state.TorrentStatus {
 	st.BytesReadUsefulData = lst.TotalPayloadDownload
 	st.PreloadedBytes = t.PreloadedBytes
 	st.PreloadSize = t.PreloadSize
+	// Expose the existing playback-reader count so the library can highlight
+	// active torrents without polling detailed Flow snapshots for every card.
+	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+		st.ActiveReaders = cache.StreamingReaders()
+	}
+	st.WarmIdle = st.ActiveReaders == 0 && settings.CurrentFlow().Enabled &&
+		!t.warmIdleSince.IsZero() && time.Since(t.warmIdleSince) < torrentExpireTimeout()
 
 	// libtorrent doesn't surface chunk counters directly via
 	// torrent_status; approximate by dividing payload bytes by the
@@ -618,7 +743,8 @@ func (t *Torrent) NewReader(file *File) Reader {
 // caller's IP; internal consumers (DLNA index, tgbot, FUSE) use NewReader and
 // share the default group.
 func (t *Torrent) NewReaderGroup(file *File, group string) Reader {
-	if t == nil || t.lh == nil || file == nil {
+	handle := t.LTHandle()
+	if handle == nil || file == nil {
 		return nil
 	}
 	cache := torrstor.Global().CacheByHash([20]byte(t.Hash()))
@@ -626,7 +752,7 @@ func (t *Torrent) NewReaderGroup(file *File, group string) Reader {
 		log.TLogln("torr.NewReader: no cache for", t.Hash().HexString())
 		return nil
 	}
-	return torrstor.NewReader(cache, t.lh, torrstor.FileInfo{
+	return torrstor.NewReader(cache, handle, torrstor.FileInfo{
 		Index:  file.Index,
 		Path:   file.Path,
 		Offset: file.Offset,
@@ -643,9 +769,8 @@ func (t *Torrent) CloseReader(r Reader) {
 	t.AddExpiredTime(torrentExpireTimeout())
 }
 
-// CacheState returns a stubbed CacheState during Etap 3 — the real cache
-// is reborn in Etap 4. Fields are filled enough to keep /cache and the
-// tgbot snake command rendering something coherent (an empty piece map).
+// CacheState combines authoritative piece/reader accounting with torrent
+// status, returning an empty cache map when its native storage is closed.
 func (t *Torrent) CacheState() *storageState.CacheState {
 	if t == nil {
 		return &storageState.CacheState{Pieces: map[int]storageState.ItemState{}}
@@ -662,9 +787,9 @@ func (t *Torrent) CacheState() *storageState.CacheState {
 	if t.TorrentSpec != nil {
 		st.Hash = t.TorrentSpec.InfoHash.HexString()
 	}
-	if t.lh != nil {
-		st.PiecesCount = t.lh.NumPieces()
-		st.PiecesLength = t.lh.PieceLength()
+	if handle := t.LTHandle(); handle != nil {
+		st.PiecesCount = handle.NumPieces()
+		st.PiecesLength = handle.PieceLength()
 	}
 	// Never hand the web UI a nil Pieces/Readers: useCreateCacheMap iterates both
 	// without a null guard, so JSON null crashes the torrent info dialog.

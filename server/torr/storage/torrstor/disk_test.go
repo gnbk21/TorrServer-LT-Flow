@@ -2,6 +2,7 @@ package torrstor
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -78,7 +79,9 @@ func TestDiskPiece_SurvivesCacheClose(t *testing.T) {
 	}
 
 	// Fresh Storage, same hash: scan should see the existing piece.
-	bm := ScanHavePieces(hash, 4, pieceLen)
+	hashes := make([][20]byte, 4)
+	hashes[0] = sha1.Sum(bytes.Repeat([]byte{0xAB}, int(pieceLen)))
+	bm := ScanHavePieces(hash, 4, pieceLen, 4*pieceLen, hashes)
 	if len(bm) == 0 || bm[0]&0x1 == 0 {
 		t.Fatalf("ScanHavePieces missed the existing piece, bitmap=%x", bm)
 	}
@@ -119,10 +122,14 @@ func TestScanHavePieces_PartialAndFinal(t *testing.T) {
 	// piece 2 — missing
 	// piece 3 — full
 	must(filepath.Join(root, "3"), pieceLen)
-	// piece 4 (final) — any non-zero size counts as have
+	// piece 4 (final) — wrong size must never count as have
 	must(filepath.Join(root, "4"), 1)
 
-	bm := ScanHavePieces(h, numPieces, pieceLen)
+	hashes := make([][20]byte, numPieces)
+	for i := range hashes {
+		hashes[i] = sha1.Sum(bytes.Repeat([]byte{0x55}, int(pieceLen)))
+	}
+	bm := ScanHavePieces(h, numPieces, pieceLen, numPieces*pieceLen, hashes)
 	if len(bm) != (numPieces+7)/8 {
 		t.Fatalf("bitmap size: got %d, want %d", len(bm), (numPieces+7)/8)
 	}
@@ -136,15 +143,42 @@ func TestScanHavePieces_PartialAndFinal(t *testing.T) {
 	checkBit(1, false)
 	checkBit(2, false)
 	checkBit(3, true)
-	checkBit(4, true)
+	checkBit(4, false)
 }
 
 func TestScanHavePieces_OffWhenUseDiskFalse(t *testing.T) {
 	prev := settings.BTsets()
 	settings.StoreBTsets(&settings.BTSets{UseDisk: false})
 	t.Cleanup(func() { settings.StoreBTsets(prev) })
-	if bm := ScanHavePieces(mkHash(1), 4, pieceLen); bm != nil {
+	if bm := ScanHavePieces(mkHash(1), 4, pieceLen, 4*pieceLen, make([][20]byte, 4)); bm != nil {
 		t.Fatalf("expected nil bitmap when UseDisk=false, got %x", bm)
+	}
+}
+
+func TestDiskResumeUsesExactFinalPieceSize(t *testing.T) {
+	dir := withDiskCache(t, 0)
+	h := mkHash(0xD9)
+	root := filepath.Join(dir, hashHex(h))
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data := bytes.Repeat([]byte{0x75}, 123)
+	if err := os.WriteFile(filepath.Join(root, "1"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := NewStorage()
+	hashes := [][20]byte{{}, sha1.Sum(data)}
+	bitmap := ScanHavePieces(h, 2, pieceLen, pieceLen+123, hashes)
+	s.SetVerifiedResume(h, bitmap, pieceLen+123)
+	s.callbackOpen(33, h, 2, pieceLen)
+	s.callbackSize(33, pieceLen+123)
+	c := s.lookup(33)
+	if !c.Have(1) || c.readableAt(1, 0) != 123 || c.readableAt(1, 123) != 0 {
+		t.Fatal("persisted short final piece did not retain bounded resume availability")
+	}
+	dst := make([]byte, 123)
+	if n, err := s.callbackRead(33, 1, 0, dst); err != nil || n != len(data) || !bytes.Equal(dst, data) {
+		t.Fatal("persisted final piece content changed")
 	}
 }
 
@@ -247,6 +281,9 @@ func TestCache_EvictionSparesReaderWindow(t *testing.T) {
 	for _, gone := range []int{2, 10, 17, 18, 23, 25, 33} {
 		if present(gone) {
 			t.Fatalf("unprotected piece %d should have been evicted", gone)
+		}
+		if !c.consumeEvicted(gone) || c.consumeEvicted(gone) {
+			t.Fatalf("piece %d needs exactly one on-demand picker reset", gone)
 		}
 	}
 	if c.Filled() > c.capacity() {
@@ -606,14 +643,14 @@ func TestTailPiecesFor(t *testing.T) {
 		plen int64
 		want int
 	}{
-		{8 * MB, 1},  // > 5 MB -> one whole chunk
-		{6 * MB, 1},  // > 5 MB -> one whole chunk
-		{5 * MB, 1},  // == 5 MB -> the chunk already covers it
-		{4 * MB, 2},  // < 5 MB -> ceil(5/4) = 2
-		{2 * MB, 3},  // < 5 MB -> ceil(5/2) = 3
-		{1 * MB, 5},  // < 5 MB -> ceil(5/1) = 5
+		{8 * MB, 1},                   // > 5 MB -> one whole chunk
+		{6 * MB, 1},                   // > 5 MB -> one whole chunk
+		{5 * MB, 1},                   // == 5 MB -> the chunk already covers it
+		{4 * MB, 2},                   // < 5 MB -> ceil(5/4) = 2
+		{2 * MB, 3},                   // < 5 MB -> ceil(5/2) = 3
+		{1 * MB, 5},                   // < 5 MB -> ceil(5/1) = 5
 		{16 * 1024, maxTailPinPieces}, // tiny piece -> capped
-		{0, 1},       // no metadata yet
+		{0, 1},                        // no metadata yet
 	}
 	for _, c := range cases {
 		if got := TailPiecesFor(c.plen); got != c.want {

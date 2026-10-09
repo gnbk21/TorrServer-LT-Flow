@@ -1,5 +1,10 @@
 package settings
 
+const (
+	DefaultPort    = "8090"
+	DefaultSslPort = "8091"
+)
+
 type ExecArgs struct {
 	Port        string
 	IPs         []string
@@ -27,6 +32,8 @@ type ExecArgs struct {
 	ProxyURL    string
 	ProxyMode   string
 	ForceHTTPS  bool
+	HTTPSOnly   bool
+	HTTPMedia   bool
 }
 
 var Args *ExecArgs

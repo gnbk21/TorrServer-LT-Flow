@@ -76,14 +76,14 @@ type gstPadProbeInfoABI struct {
 type gstPadProbeInfoWindowsABI struct {
 	probeType uint32
 	id        uint32
-	data      uintptr
+	data      unsafe.Pointer
 }
 
 type gstPadProbeInfoUnixABI struct {
 	probeType uint32
 	_         uint32
 	id        uint64
-	data      uintptr
+	data      unsafe.Pointer
 }
 
 type gstPadProbeRegistration struct {
@@ -277,7 +277,7 @@ func (r *gstRunner) applyPendingVideoStart() {
 	gstTaskDebugf(r.task, "video seek start requested=%.3fs actual=%.3fs", float64(state.requestedNS)/1_000_000_000, seconds)
 }
 
-func videoStartPadProbe(_ purego.CDecl, _ uintptr, info uintptr, userData uintptr) (result uintptr) {
+func videoStartPadProbe(_ purego.CDecl, _ uintptr, info unsafe.Pointer, userData uintptr) (result uintptr) {
 	result = gstPadProbeOK
 	defer func() {
 		if recover() != nil {
@@ -320,7 +320,7 @@ func (state *videoStartProbeState) accepts(clockTime uint64) bool {
 	return state.requestedNS <= state.maxBackDiffNS || clockTime >= state.requestedNS-state.maxBackDiffNS
 }
 
-func videoSegmentClipPadProbe(_ purego.CDecl, _ uintptr, info uintptr, userData uintptr) (result uintptr) {
+func videoSegmentClipPadProbe(_ purego.CDecl, _ uintptr, info unsafe.Pointer, userData uintptr) (result uintptr) {
 	result = gstPadProbeOK
 	defer func() {
 		if recover() != nil {
@@ -366,43 +366,43 @@ func videoSegmentClipPadProbe(_ purego.CDecl, _ uintptr, info uintptr, userData 
 	return gstPadProbeOK
 }
 
-func gstProbeInfoType(info uintptr) uint32 {
-	if info == 0 {
+func gstProbeInfoType(info unsafe.Pointer) uint32 {
+	if info == nil {
 		return 0
 	}
-	return (*gstPadProbeInfoABI)(unsafe.Pointer(info)).probeType
+	return (*gstPadProbeInfoABI)(info).probeType
 }
 
-func gstProbeInfoData(info uintptr) uintptr {
-	if info == 0 {
-		return 0
+func gstProbeInfoData(info unsafe.Pointer) unsafe.Pointer {
+	if info == nil {
+		return nil
 	}
 	if runtime.GOOS == "windows" {
-		return (*gstPadProbeInfoWindowsABI)(unsafe.Pointer(info)).data
+		return (*gstPadProbeInfoWindowsABI)(info).data
 	}
-	return (*gstPadProbeInfoUnixABI)(unsafe.Pointer(info)).data
+	return (*gstPadProbeInfoUnixABI)(info).data
 }
 
-func gstEventType(event uintptr) uint32 {
-	if event == 0 {
+func gstEventType(event unsafe.Pointer) uint32 {
+	if event == nil {
 		return 0
 	}
-	return (*gstEventABI)(unsafe.Pointer(event)).eventType
+	return (*gstEventABI)(event).eventType
 }
 
-func gstBufferPTS(buffer uintptr) (uint64, bool) {
-	if buffer == 0 {
+func gstBufferPTS(buffer unsafe.Pointer) (uint64, bool) {
+	if buffer == nil {
 		return 0, false
 	}
-	pts := (*gstBufferABI)(unsafe.Pointer(buffer)).pts
+	pts := (*gstBufferABI)(buffer).pts
 	return pts, pts != gstClockTimeNone
 }
 
-func gstBufferClockTime(buffer uintptr) (uint64, bool) {
-	if buffer == 0 {
+func gstBufferClockTime(buffer unsafe.Pointer) (uint64, bool) {
+	if buffer == nil {
 		return 0, false
 	}
-	native := (*gstBufferABI)(unsafe.Pointer(buffer))
+	native := (*gstBufferABI)(buffer)
 	if native.pts != gstClockTimeNone {
 		return native.pts, true
 	}
@@ -412,7 +412,7 @@ func gstBufferClockTime(buffer uintptr) (uint64, bool) {
 	return 0, false
 }
 
-func gstSegmentClockTime(api *gstAPI, event uintptr) (uint64, bool) {
+func gstSegmentClockTime(api *gstAPI, event unsafe.Pointer) (uint64, bool) {
 	start, segmentTime, ok := gstTimeSegment(api, event)
 	if !ok {
 		return 0, false
@@ -423,16 +423,16 @@ func gstSegmentClockTime(api *gstAPI, event uintptr) (uint64, bool) {
 	return start, start != gstClockTimeNone
 }
 
-func gstTimeSegment(api *gstAPI, event uintptr) (start uint64, segmentTime uint64, ok bool) {
-	if api == nil || event == 0 || gstEventType(event) != gstEventSegment || api.gstEventParseSegment == nil {
+func gstTimeSegment(api *gstAPI, event unsafe.Pointer) (start uint64, segmentTime uint64, ok bool) {
+	if api == nil || event == nil || gstEventType(event) != gstEventSegment || api.gstEventParseSegment == nil {
 		return gstClockTimeNone, gstClockTimeNone, false
 	}
-	var segmentPointer uintptr
+	var segmentPointer unsafe.Pointer
 	api.gstEventParseSegment(event, unsafe.Pointer(&segmentPointer))
-	if segmentPointer == 0 {
+	if segmentPointer == nil {
 		return gstClockTimeNone, gstClockTimeNone, false
 	}
-	segment := (*gstSegmentABI)(unsafe.Pointer(segmentPointer))
+	segment := (*gstSegmentABI)(segmentPointer)
 	if segment.format != gstFormatTime {
 		return gstClockTimeNone, gstClockTimeNone, false
 	}

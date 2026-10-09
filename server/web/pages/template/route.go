@@ -1,338 +1,96 @@
 package template
 
-import (
-	"crypto/md5"
-	"fmt"
-	"github.com/gin-gonic/gin"
-)
+import "github.com/gin-gonic/gin"
 
 func RouteWebPages(route gin.IRouter) {
-	route.GET("/", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Indexhtml))
-		c.Header("Cache-Control", "no-cache")
-		c.Header("ETag", etag)
-		c.Data(200, "text/html; charset=utf-8", Indexhtml)
-	})
-
-	route.GET("/apple-splash-1125-2436.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash11252436jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash11252436jpg)
-	})
-
-	route.GET("/apple-splash-1136-640.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash1136640jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash1136640jpg)
-	})
-
-	route.GET("/apple-splash-1170-2532.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash11702532jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash11702532jpg)
-	})
-
-	route.GET("/apple-splash-1242-2208.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash12422208jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash12422208jpg)
-	})
-
-	route.GET("/apple-splash-1242-2688.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash12422688jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash12422688jpg)
-	})
-
-	route.GET("/apple-splash-1284-2778.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash12842778jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash12842778jpg)
-	})
-
-	route.GET("/apple-splash-1334-750.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash1334750jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash1334750jpg)
-	})
-
-	route.GET("/apple-splash-1536-2048.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash15362048jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash15362048jpg)
-	})
-
-	route.GET("/apple-splash-1620-2160.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash16202160jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash16202160jpg)
-	})
-
-	route.GET("/apple-splash-1668-2224.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash16682224jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash16682224jpg)
-	})
-
-	route.GET("/apple-splash-1668-2388.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash16682388jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash16682388jpg)
-	})
-
-	route.GET("/apple-splash-1792-828.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash1792828jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash1792828jpg)
-	})
-
-	route.GET("/apple-splash-2048-1536.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash20481536jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash20481536jpg)
-	})
-
-	route.GET("/apple-splash-2048-2732.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash20482732jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash20482732jpg)
-	})
-
-	route.GET("/apple-splash-2160-1620.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash21601620jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash21601620jpg)
-	})
-
-	route.GET("/apple-splash-2208-1242.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash22081242jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash22081242jpg)
-	})
-
-	route.GET("/apple-splash-2224-1668.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash22241668jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash22241668jpg)
-	})
-
-	route.GET("/apple-splash-2388-1668.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash23881668jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash23881668jpg)
-	})
-
-	route.GET("/apple-splash-2436-1125.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash24361125jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash24361125jpg)
-	})
-
-	route.GET("/apple-splash-2532-1170.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash25321170jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash25321170jpg)
-	})
-
-	route.GET("/apple-splash-2688-1242.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash26881242jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash26881242jpg)
-	})
-
-	route.GET("/apple-splash-2732-2048.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash27322048jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash27322048jpg)
-	})
-
-	route.GET("/apple-splash-2778-1284.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash27781284jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash27781284jpg)
-	})
-
-	route.GET("/apple-splash-640-1136.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash6401136jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash6401136jpg)
-	})
-
-	route.GET("/apple-splash-750-1334.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash7501334jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash7501334jpg)
-	})
-
-	route.GET("/apple-splash-828-1792.jpg", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Applesplash8281792jpg))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/jpeg", Applesplash8281792jpg)
-	})
-
-	route.GET("/asset-manifest.json", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Assetmanifestjson))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "application/json", Assetmanifestjson)
-	})
-
-	route.GET("/browserconfig.xml", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Browserconfigxml))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "text/xml; charset=utf-8", Browserconfigxml)
-	})
-
-	route.GET("/dlnaicon-120.png", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Dlnaicon120png))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/png", Dlnaicon120png)
-	})
-
-	route.GET("/dlnaicon-48.png", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Dlnaicon48png))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/png", Dlnaicon48png)
-	})
-
-	route.GET("/favicon-16x16.png", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Favicon16x16png))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/png", Favicon16x16png)
-	})
-
-	route.GET("/favicon-32x32.png", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Favicon32x32png))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/png", Favicon32x32png)
-	})
-
-	route.GET("/favicon.ico", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Faviconico))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/vnd.microsoft.icon", Faviconico)
-	})
-
-	route.GET("/icon.png", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Iconpng))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/png", Iconpng)
-	})
-
-	route.GET("/index.html", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Indexhtml))
-		c.Header("Cache-Control", "no-cache")
-		c.Header("ETag", etag)
-		c.Data(200, "text/html; charset=utf-8", Indexhtml)
-	})
-
-	route.GET("/logo.png", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Logopng))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/png", Logopng)
-	})
-
-	route.GET("/lord-icon-2.0.2.js", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Lordicon202js))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "text/javascript; charset=utf-8", Lordicon202js)
-	})
-
-	route.GET("/mstile-150x150.png", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Mstile150x150png))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "image/png", Mstile150x150png)
-	})
-
-	route.GET("/site.webmanifest", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Sitewebmanifest))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "application/manifest+json", Sitewebmanifest)
-	})
-
-	route.GET("/static/js/2.ccd0d851.chunk.js", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Staticjs2ccd0d851chunkjs))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "text/javascript; charset=utf-8", Staticjs2ccd0d851chunkjs)
-	})
-
-	route.GET("/static/js/2.ccd0d851.chunk.js.LICENSE.txt", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Staticjs2ccd0d851chunkjsLICENSEtxt))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "text/plain; charset=utf-8", Staticjs2ccd0d851chunkjsLICENSEtxt)
-	})
-
-	route.GET("/static/js/2.ccd0d851.chunk.js.map", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Staticjs2ccd0d851chunkjsmap))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "application/json", Staticjs2ccd0d851chunkjsmap)
-	})
-
-	route.GET("/static/js/main.c889017c.chunk.js", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Staticjsmainc889017cchunkjs))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "text/javascript; charset=utf-8", Staticjsmainc889017cchunkjs)
-	})
-
-	route.GET("/static/js/main.c889017c.chunk.js.map", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Staticjsmainc889017cchunkjsmap))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "application/json", Staticjsmainc889017cchunkjsmap)
-	})
-
-	route.GET("/static/js/runtime-main.5ed86a79.js", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Staticjsruntimemain5ed86a79js))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "text/javascript; charset=utf-8", Staticjsruntimemain5ed86a79js)
-	})
-
-	route.GET("/static/js/runtime-main.5ed86a79.js.map", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Staticjsruntimemain5ed86a79jsmap))
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.Header("ETag", etag)
-		c.Data(200, "application/json", Staticjsruntimemain5ed86a79jsmap)
-	})
+ route.GET("/", assetHandler(Indexhtml, "text/html; charset=utf-8", "no-cache"))
+ route.HEAD("/", assetHandler(Indexhtml, "text/html; charset=utf-8", "no-cache"))
+ route.GET("/THIRD_PARTY_NOTICES.txt", assetHandler(THIRDPARTYNOTICEStxt, "text/plain; charset=utf-8", "public, max-age=3600"))
+ route.HEAD("/THIRD_PARTY_NOTICES.txt", assetHandler(THIRDPARTYNOTICEStxt, "text/plain; charset=utf-8", "public, max-age=3600"))
+ route.GET("/assets/Add-Cb9ihC3l.js", assetHandler(AssetsAddCb9ihC3ljs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/Add-Cb9ihC3l.js", assetHandler(AssetsAddCb9ihC3ljs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/AddTorrentModal-BNDi13E_.js", assetHandler(AssetsAddTorrentModalBNDi13Ejs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/AddTorrentModal-BNDi13E_.js", assetHandler(AssetsAddTorrentModalBNDi13Ejs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/Button-KTs46vB5.js", assetHandler(AssetsButtonKTs46vB5js, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/Button-KTs46vB5.js", assetHandler(AssetsButtonKTs46vB5js, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/CacheMap-BzFLc-Cu.js", assetHandler(AssetsCacheMapBzFLcCujs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/CacheMap-BzFLc-Cu.js", assetHandler(AssetsCacheMapBzFLcCujs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/Dashboard-BPbZNBIm.js", assetHandler(AssetsDashboardBPbZNBImjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/Dashboard-BPbZNBIm.js", assetHandler(AssetsDashboardBPbZNBImjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/FlowDiagnosticsDrawer-DimfGnaY.js", assetHandler(AssetsFlowDiagnosticsDrawerDimfGnaYjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/FlowDiagnosticsDrawer-DimfGnaY.js", assetHandler(AssetsFlowDiagnosticsDrawerDimfGnaYjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/GstRuntimeStatus-BraJLjwx.js", assetHandler(AssetsGstRuntimeStatusBraJLjwxjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/GstRuntimeStatus-BraJLjwx.js", assetHandler(AssetsGstRuntimeStatusBraJLjwxjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/PhonePairingModal-q2f4nXtU.js", assetHandler(AssetsPhonePairingModalq2f4nXtUjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/PhonePairingModal-q2f4nXtU.js", assetHandler(AssetsPhonePairingModalq2f4nXtUjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/PlaybackLinks-Ccfy1QQ_.js", assetHandler(AssetsPlaybackLinksCcfy1QQjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/PlaybackLinks-Ccfy1QQ_.js", assetHandler(AssetsPlaybackLinksCcfy1QQjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/PosterSearch-DyWxdSkx.js", assetHandler(AssetsPosterSearchDyWxdSkxjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/PosterSearch-DyWxdSkx.js", assetHandler(AssetsPosterSearchDyWxdSkxjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/Settings-BBBxb4x-.js", assetHandler(AssetsSettingsBBBxb4xjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/Settings-BBBxb4x-.js", assetHandler(AssetsSettingsBBBxb4xjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/TorrentFilesDialog-Cs5RQYL6.js", assetHandler(AssetsTorrentFilesDialogCs5RQYL6js, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/TorrentFilesDialog-Cs5RQYL6.js", assetHandler(AssetsTorrentFilesDialogCs5RQYL6js, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/Torrents-D-lwNDwX.js", assetHandler(AssetsTorrentsDlwNDwXjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/Torrents-D-lwNDwX.js", assetHandler(AssetsTorrentsDlwNDwXjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/VideoPlayer-CzNiQMuu.js", assetHandler(AssetsVideoPlayerCzNiQMuujs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/VideoPlayer-CzNiQMuu.js", assetHandler(AssetsVideoPlayerCzNiQMuujs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/client-Dr26AKOf.js", assetHandler(AssetsclientDr26AKOfjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/client-Dr26AKOf.js", assetHandler(AssetsclientDr26AKOfjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/clipboard-BX4bd3OW.js", assetHandler(AssetsclipboardBX4bd3OWjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/clipboard-BX4bd3OW.js", assetHandler(AssetsclipboardBX4bd3OWjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/createLucideIcon-D7zlQbrg.js", assetHandler(AssetscreateLucideIconD7zlQbrgjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/createLucideIcon-D7zlQbrg.js", assetHandler(AssetscreateLucideIconD7zlQbrgjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/format-B_YcZLV7.js", assetHandler(AssetsformatBYcZLV7js, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/format-B_YcZLV7.js", assetHandler(AssetsformatBYcZLV7js, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/hls-D9b4QHpD.js", assetHandler(AssetshlsD9b4QHpDjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/hls-D9b4QHpD.js", assetHandler(AssetshlsD9b4QHpDjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/index-DVKn9Oxb.css", assetHandler(AssetsindexDVKn9Oxbcss, "text/css; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/index-DVKn9Oxb.css", assetHandler(AssetsindexDVKn9Oxbcss, "text/css; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/index-ya6-oKxm.js", assetHandler(Assetsindexya6oKxmjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/index-ya6-oKxm.js", assetHandler(Assetsindexya6oKxmjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/integrations-WHdJYyGB.js", assetHandler(AssetsintegrationsWHdJYyGBjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/integrations-WHdJYyGB.js", assetHandler(AssetsintegrationsWHdJYyGBjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/preload-helper-uBIymjUX.js", assetHandler(AssetspreloadhelperuBIymjUXjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/preload-helper-uBIymjUX.js", assetHandler(AssetspreloadhelperuBIymjUXjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/redact-C8NqrjZt.js", assetHandler(AssetsredactC8NqrjZtjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/redact-C8NqrjZt.js", assetHandler(AssetsredactC8NqrjZtjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/rolldown-runtime-CbXtAM7H.js", assetHandler(AssetsrolldownruntimeCbXtAM7Hjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/rolldown-runtime-CbXtAM7H.js", assetHandler(AssetsrolldownruntimeCbXtAM7Hjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/translation-BDIIZ4z3.js", assetHandler(AssetstranslationBDIIZ4z3js, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/translation-BDIIZ4z3.js", assetHandler(AssetstranslationBDIIZ4z3js, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/translation-BJTOjV1o.js", assetHandler(AssetstranslationBJTOjV1ojs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/translation-BJTOjV1o.js", assetHandler(AssetstranslationBJTOjV1ojs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/translation-BZ8kwz1c.js", assetHandler(AssetstranslationBZ8kwz1cjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/translation-BZ8kwz1c.js", assetHandler(AssetstranslationBZ8kwz1cjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/translation-CJ0GZYvA.js", assetHandler(AssetstranslationCJ0GZYvAjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/translation-CJ0GZYvA.js", assetHandler(AssetstranslationCJ0GZYvAjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/translation-DRZDcE4R.js", assetHandler(AssetstranslationDRZDcE4Rjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/translation-DRZDcE4R.js", assetHandler(AssetstranslationDRZDcE4Rjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/translation-UeTjBAnL.js", assetHandler(AssetstranslationUeTjBAnLjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/translation-UeTjBAnL.js", assetHandler(AssetstranslationUeTjBAnLjs, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/assets/useQuery-xJfTCyZ4.js", assetHandler(AssetsuseQueryxJfTCyZ4js, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.HEAD("/assets/useQuery-xJfTCyZ4.js", assetHandler(AssetsuseQueryxJfTCyZ4js, "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"))
+ route.GET("/browserconfig.xml", assetHandler(Browserconfigxml, "text/xml; charset=utf-8", "public, max-age=3600"))
+ route.HEAD("/browserconfig.xml", assetHandler(Browserconfigxml, "text/xml; charset=utf-8", "public, max-age=3600"))
+ route.GET("/dlnaicon-120.png", assetHandler(Dlnaicon120png, "image/png", "public, max-age=3600"))
+ route.HEAD("/dlnaicon-120.png", assetHandler(Dlnaicon120png, "image/png", "public, max-age=3600"))
+ route.GET("/dlnaicon-48.png", assetHandler(Dlnaicon48png, "image/png", "public, max-age=3600"))
+ route.HEAD("/dlnaicon-48.png", assetHandler(Dlnaicon48png, "image/png", "public, max-age=3600"))
+ route.GET("/favicon-16x16.png", assetHandler(Favicon16x16png, "image/png", "public, max-age=3600"))
+ route.HEAD("/favicon-16x16.png", assetHandler(Favicon16x16png, "image/png", "public, max-age=3600"))
+ route.GET("/favicon-32x32.png", assetHandler(Favicon32x32png, "image/png", "public, max-age=3600"))
+ route.HEAD("/favicon-32x32.png", assetHandler(Favicon32x32png, "image/png", "public, max-age=3600"))
+ route.GET("/favicon.ico", assetHandler(Faviconico, "image/vnd.microsoft.icon", "public, max-age=3600"))
+ route.HEAD("/favicon.ico", assetHandler(Faviconico, "image/vnd.microsoft.icon", "public, max-age=3600"))
+ route.GET("/icon.png", assetHandler(Iconpng, "image/png", "public, max-age=3600"))
+ route.HEAD("/icon.png", assetHandler(Iconpng, "image/png", "public, max-age=3600"))
+ route.GET("/index.html", assetHandler(Indexhtml, "text/html; charset=utf-8", "no-cache"))
+ route.HEAD("/index.html", assetHandler(Indexhtml, "text/html; charset=utf-8", "no-cache"))
+ route.GET("/logo.png", assetHandler(Logopng, "image/png", "public, max-age=3600"))
+ route.HEAD("/logo.png", assetHandler(Logopng, "image/png", "public, max-age=3600"))
+ route.GET("/mstile-150x150.png", assetHandler(Mstile150x150png, "image/png", "public, max-age=3600"))
+ route.HEAD("/mstile-150x150.png", assetHandler(Mstile150x150png, "image/png", "public, max-age=3600"))
+ route.GET("/site.webmanifest", assetHandler(Sitewebmanifest, "application/manifest+json", "no-cache"))
+ route.HEAD("/site.webmanifest", assetHandler(Sitewebmanifest, "application/manifest+json", "no-cache"))
 }

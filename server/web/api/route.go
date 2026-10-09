@@ -2,6 +2,7 @@ package api
 
 import (
 	config "server/settings"
+	"server/torr"
 	"server/web/auth"
 
 	"github.com/gin-gonic/gin"
@@ -12,12 +13,17 @@ type requestI struct {
 }
 
 func SetupRoute(route gin.IRouter) {
+	torr.StartConfigurationWorker(refreshIntegrations)
 	authorized := route.Group("/", auth.CheckAuth())
 
 	authorized.GET("/shutdown", shutdown)
 	authorized.GET("/shutdown/*reason", shutdown)
 
 	authorized.POST("/settings", settings)
+	authorized.GET("/mediabase", mediaBase)
+	authorized.POST("/flow/playback-link", playbackLink)
+	route.GET("/flow/play/:token", capabilityPlayback)
+	route.HEAD("/flow/play/:token", capabilityPlayback)
 	authorized.GET("/waf", getWAF)
 	authorized.POST("/waf", updateWAF)
 	authorized.POST("/torznab/test", torznabTest)
@@ -79,6 +85,20 @@ func SetupRoute(route gin.IRouter) {
 
 	// Structured server status (integration flags + BT stats + raw /stat text).
 	authorized.GET("/runtime/status", runtimeStatus)
+	authorized.GET("/flow/status/:hash", flowStatus)
+	authorized.GET("/flow/network", flowNetwork)
+	authorized.GET("/flow/lan-test", flowLANTest)
+	authorized.GET("/flow/tray", flowTray)
+	authorized.POST("/flow/maintenance", flowMaintenance)
+	authorized.GET("/flow/support", supportReport)
+	authorized.GET("/flow/backup", portableBackup)
+	authorized.POST("/flow/backup/preview", backupPreview)
+	authorized.POST("/flow/backup/apply", backupApply)
+	authorized.POST("/flow/control", flowControl)
+	authorized.GET("/flow/preparation", preparationStatus)
+	authorized.POST("/flow/preparation", preparationControl)
+	authorized.GET("/flow/sources/:hash", webSeedStatus)
+	authorized.POST("/flow/sources/:hash", webSeedControl)
 
 	authorized.GET("/ffp/status", ffprobeStatus)
 	authorized.GET("/ffp/:hash/:id", ffp)

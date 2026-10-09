@@ -24,35 +24,42 @@ func Start() {
 			if dbSSlPort != "0" {
 				settings.Args.SslPort = dbSSlPort
 			} else {
-				settings.Args.SslPort = "8091"
+				settings.Args.SslPort = settings.DefaultSslPort
 			}
-		} else { // store ssl port from params to DB
+		} else { // Apply the startup override to the in-memory settings snapshot.
 			dbSSlPort, err := strconv.Atoi(settings.Args.SslPort)
 			if err == nil {
-				settings.BTsets().SslPort = dbSSlPort
+				next := settings.CloneSettings(settings.BTsets())
+				next.SslPort = dbSSlPort
+				settings.StoreBTsets(next)
 			}
 		}
-		// check if ssl cert and key files exist
-		if settings.Args.SslCert != "" && settings.Args.SslKey != "" {
-			// set settings ssl cert and key files
-			settings.BTsets().SslCert = settings.Args.SslCert
-			settings.BTsets().SslKey = settings.Args.SslKey
+		// Pass a partial CLI pair through to EnsureCert so it fails clearly;
+		// silently ignoring it could generate a different certificate instead.
+		if settings.Args.SslCert != "" || settings.Args.SslKey != "" {
+			next := settings.CloneSettings(settings.BTsets())
+			next.SslCert, next.SslKey = settings.Args.SslCert, settings.Args.SslKey
+			settings.StoreBTsets(next)
 		}
 		log.TLogln("Check web ssl port", settings.Args.SslPort)
 		if err := netbind.CheckPort(settings.Args.IPs, settings.Args.SslPort); err != nil {
-			log.TLogln("Port", settings.Args.SslPort, "already in use! Please set different ssl port for HTTPS. Abort")
+			log.Event("ERROR", "HTTPS", "Cannot bind port "+settings.Args.SslPort+": "+err.Error()+". Choose another --sslport or stop the other listener.")
+			log.Close()
 			os.Exit(1)
 		}
 	}
 	// http checks
 	if settings.Args.Port == "" {
-		settings.Args.Port = "8090"
+		settings.Args.Port = settings.DefaultPort
 	}
 
-	log.TLogln("Check web port", settings.Args.Port, "on", netbind.Normalize(settings.Args.IPs))
-	if err := netbind.CheckPort(settings.Args.IPs, settings.Args.Port); err != nil {
-		log.TLogln("Cannot bind HTTP port", settings.Args.Port+":", err)
-		os.Exit(1)
+	if settings.HTTPEnabled() {
+		log.TLogln("Check web port", settings.Args.Port, "on", netbind.Normalize(settings.Args.IPs))
+		if err := netbind.CheckPort(settings.Args.IPs, settings.Args.Port); err != nil {
+			log.Event("ERROR", "HTTP", "Cannot bind port "+settings.Args.Port+": "+err.Error()+". Choose another --port or stop the other listener.")
+			log.Close()
+			os.Exit(1)
+		}
 	}
 	// remove old disk caches
 	go cleanCache()
@@ -61,12 +68,12 @@ func Start() {
 	settings.SslPort = settings.Args.SslPort
 	settings.IPs = settings.Args.IPs
 
-	if settings.Args.TGToken != "" {
+	web.Start()
+	if settings.Args.TGToken != "" && web.ListenersReady() {
 		if err := tgbot.Start(settings.Args.TGToken); err != nil {
 			log.TLogln("tg bot start failed", err)
 		}
 	}
-	web.Start()
 }
 
 func cleanCache() {

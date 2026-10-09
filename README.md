@@ -1,845 +1,306 @@
-# TorrServer-LT
+# TorrServer-Flow
 
-> Fork of [YouROK/TorrServer](https://github.com/YouROK/TorrServer) with the BitTorrent core replaced by [libtorrent (arvidn)](https://www.libtorrent.org/).
->
-> **Status:** feature parity with upstream **MatriX.145** (including GStreamer HLS transcoding, WAF and MCP) on the libtorrent engine — streaming, preload, and seeking (including back into already-evicted regions) are verified on real torrents. The HTTP API, on-disk databases (`config.db`, JSON, `accs.db`, viewed) and the `torrs://` token format remain compatible with upstream. The cache layout under `TorrentsSavePath/<hash>/<pieceID>` is preserved.
->
-> **Platforms:**
-> - Linux: `amd64`, `arm64`, `armv7`
-> - Windows: `amd64` (MSYS2 / MinGW64 runtime)
-> - macOS: `amd64` (Intel), `arm64` (Apple Silicon)
-> - Android: `arm64-v8a`, `armeabi-v7a` (Termux or similar shell)
->
-> Each platform's binary statically (or near-statically) links libtorrent + Boost; see the per-platform CI workflow under `.github/workflows/` for the exact toolchain.
+TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps the libtorrent engine, existing media cache and HTTP API, and adds a modern embedded web interface.
 
-## Introduction
+> **Flow 1.0:** the first full release combines Flow's streaming and modern interface with the useful LT 1.2.1 / 1.2.2 fixes. [Download](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.0.0), [release notes](RELEASE_1_0_NOTES.md), and [verification/field limits](RELEASE_1_0_VERIFICATION.md). Legacy remains the default profile; experimental options remain off. Phone/player coverage, multi-hour resources and physical Windows recovery checks remain incomplete and are disclosed in this owner-approved release.
 
-TorrServer-LT is a program that allows users to view torrents online without the need for preliminary file downloading.
-The core functionality includes caching torrents and subsequent data transfer via the HTTP protocol,
-allowing the cache size to be adjusted according to the system parameters and the user's internet connection speed.
+## Run on Windows
 
-The difference from upstream is the underlying torrent engine: `arvidn/libtorrent` (C++) is wired in via a thin CGo shim, replacing `anacrolix/torrent` (Go). This is expected to improve peer-protocol behaviour, throughput in real-world conditions, and bring in features absent from the Go-native engine.
+1. Open [Flow 1.0](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.0.0), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.0.0.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
+2. In PowerShell, run the standard executable from the extracted folder, using a separate data directory for Flow:
 
-## AI Documentation
+   ```powershell
+   .\TorrServer-LT-windows-amd64.exe --port 8090 --path .\flow-data
+   ```
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/YouROK/TorrServer)
+3. On the PC, open <http://127.0.0.1:8090>. On a phone on the same local network, use `http://<PC-LAN-IP>:8090` as the TorrServer address in your client (for example, Lampa), then play with Just Player. Allow the server through Windows Firewall on private networks if prompted.
 
-## Features
+Keep Flow and another TorrServer instance on **different ports and data directories**. Do not start them concurrently against the same `config.db`. The server listens on all interfaces by default. Keep it on a trusted private LAN or VPN. HTTP authentication (`--httpauth`, with an `accs.db` account file) protects management endpoints, but inherited playback routes can serve an existing torrent without credentials when its hash is known. Do not expose it directly to the Internet.
 
-- Caching
-- Streaming
-- Local and Remote Server
-- Viewing torrents on various devices
-- Integration with other apps through API
-- Torznab search (Jackett, Prowlarr, and similar indexer managers)
-- Cross-browser modern web interface
-- Optional DLNA server (with category folders)
-- Optional GStreamer HLS transcoding (`-gst` builds; audio AC3/EAC3/DTS → AAC for players without those decoders)
-- Native [MCP](server/mcp/README.md) server for AI agents (OpenClaw, Hermes, and other MCP clients)
-- HTTP access WAF (IP white/blacklist, Referer/Origin blocking)
+The artifact also contains a `-gst` executable for optional GStreamer HLS transcoding. Direct playback uses the standard executable and does not require GStreamer. The `-gst` variant needs GStreamer installed separately at runtime.
 
-## Getting Started
+## Console display
 
-### Installation
+The standard executable prints a grouped startup summary with web/LAN connection
+addresses, state directory, cache budget, Flow/swarm settings and startup timing.
+Logs have local timestamps and severity labels. Compatible terminals use subtle
+colors; redirected output and `NO_COLOR` stay plain. Periodic status shows uptime,
+engine/address/tracker state, active stream requests, cache data, process RSS,
+Go heap and goroutines. State changes are sampled every five seconds; otherwise
+the default heartbeat is 30 seconds. Cache/memory totals are collected only when
+a status report is due. Cache data counts ordinary cache extents in the selected
+RAM/disk store; retained preparation pieces have a separate disk reservation.
+These totals are not process memory or a measure of playable buffer.
+The web Dashboard provides detailed throughput and buffer
+graphs. LAN candidates can include VPN adapters; tracker waiting does not prove
+an Internet outage, especially when no torrent is active.
 
-Download the application for the required platform in the [releases](https://github.com/trinity-aml/TorrServer-LT/releases) page. After installation, open the link <http://127.0.0.1:8090> in the browser.
-
-Every release ships two flavours per desktop platform:
-
-- `TorrServer-LT-<platform>` — the base build;
-- `TorrServer-LT-<platform>-gst` — the same build with **GStreamer HLS
-  transcoding** compiled in (linux amd64/arm64, windows amd64, macOS
-  amd64/arm64). It loads the system GStreamer libraries dynamically at runtime
-  — install [GStreamer](https://gstreamer.freedesktop.org/download/) **1.22+**
-  (with the base/good/bad plugin sets) to actually use it; without GStreamer
-  the binary still works, the transcoding tab just reports unavailable. The
-  base build has the feature stubbed out entirely.
-
-#### Windows
-
-Run `TorrServer-LT-windows-amd64.exe` (or `TorrServer-LT-windows-amd64-gst.exe` for the transcoding variant).
-
-#### Linux
-
-Run in console
-
-```bash
-curl -s https://raw.githubusercontent.com/trinity-aml/TorrServer-LT/master/installTorrServerLinux.sh | sudo bash
+```powershell
+.\TorrServer-LT-windows-amd64.exe --console plain --console-interval 60
 ```
 
-The script supports interactive and non-interactive installation, configuration, updates, and removal. When running the script interactively, you can:
-
-- **Install/Update**: Choose to install or update TorrServer
-- **Reconfigure**: If TorrServer is already installed, you'll be prompted to reconfigure settings (port, auth, read-only mode, logging, BBR)
-- **Uninstall**: Type `Delete` (or `Удалить` in Russian) to uninstall TorrServer
-
-**Download first and set execute permissions:**
-
-```bash
-curl -s https://raw.githubusercontent.com/trinity-aml/TorrServer-LT/master/installTorrServerLinux.sh -o installTorrServerLinux.sh && chmod 755 installTorrServerLinux.sh
-```
-
-**Command-line examples:**
-
-- Install a specific version:
-
-  ```bash
-  sudo bash ./installTorrServerLinux.sh --install MatriX.145.LT-1.1.9 --silent
-  ```
-
-- Update to latest version:
-
-  ```bash
-  sudo bash ./installTorrServerLinux.sh --update --silent
-  ```
-
-- Reconfigure settings interactively:
-
-  ```bash
-  sudo bash ./installTorrServerLinux.sh --reconfigure
-  ```
-
-- Check for updates:
-
-  ```bash
-  sudo bash ./installTorrServerLinux.sh --check
-  ```
-
-- Downgrade to a specific version:
-
-  ```bash
-  sudo bash ./installTorrServerLinux.sh --down MatriX.LT-001
-  ```
-
-- Remove/uninstall:
-
-  ```bash
-  sudo bash ./installTorrServerLinux.sh --remove --silent
-  ```
-
-- Change the systemd service user:
-
-  ```bash
-  sudo bash ./installTorrServerLinux.sh --change-user root --silent
-  ```
-
-- Install the GStreamer transcoding (`-gst`) variant:
-
-  ```bash
-  sudo bash ./installTorrServerLinux.sh --install --gst --silent
-  ```
-
-**All available commands:**
-
-- `--install [VERSION]` - Install latest or specific version
-- `--update` - Update to latest version
-- `--reconfigure` - Reconfigure TorrServer settings (port, auth, read-only mode, logging, BBR)
-- `--check` - Check for updates (version info only)
-- `--down VERSION` - Downgrade to specific version
-- `--remove` - Uninstall TorrServer
-- `--change-user USER` - Change service user (root|torrserver)
-- `--root` - Run service as root user
-- `--silent` - Non-interactive mode with defaults
-- `--gst` - Install the `-gst` release variant (GStreamer HLS transcoding; amd64/arm64 only, needs a system GStreamer ≥ 1.22 at runtime). Updates keep the installed variant automatically.
-- `--no-gst` - Switch an existing `-gst` install back to the base variant
-- `--help` - Show help message
-
-#### macOS
-
-Run in Terminal.app
-
-```bash
-curl -s https://raw.githubusercontent.com/trinity-aml/TorrServer-LT/master/installTorrServerMac.sh -o installTorrserverMac.sh && chmod 755 installTorrServerMac.sh && bash ./installTorrServerMac.sh
-```
-
-Alternative install script for Intel Macs: <https://github.com/dancheskus/TorrServerMacInstaller>
-
-#### IOCage Plugin (Unofficial)
-
-On FreeBSD (TrueNAS/FreeNAS) you can use this plugin: <https://github.com/filka96/iocage-plugin-TorrServer>
-
-#### NAS Systems (Unofficial)
-
-- Several releases are available through this link: <https://github.com/vladlenas>
-- **Synology NAS** packages repo source: <https://grigi.lt>
-
-### Server args
-
-- `--port PORT`, `-p PORT` - web server port (default 8090)
-- `--ip IP`, `-i IP` - web server bind addr (repeatable; default empty binds to all interfaces)
-- `--ssl` - enables https for web server
-- `--sslport PORT` -  web server https port (default 8091). If not set, will be taken from db (if stored previously) or the default will be used.
-- `--sslcert PATH` -  path to ssl cert file. If not set, will be taken from db (if stored previously) or default self-signed certificate/key will be generated.
-- `--sslkey PATH` - path to ssl key file. If not set, will be taken from db (if stored previously) or default self-signed certificate/key will be generated.
-- `--force-https` - with `--ssl`, the HTTP listener (`--port`) answers only with **307 Temporary Redirect** to the same path on HTTPS (`--sslport`). The web UI and API are served on HTTPS only; nothing is served on HTTP except redirects. Requires `--ssl` (startup fails if `--force-https` is set without `--ssl`). Default is off so plain HTTP still works when SSL is disabled.
-- `--path PATH`, `-d PATH` - database and config dir path
-- `--logpath LOGPATH`, `-l LOGPATH` - server log file path
-- `--weblogpath WEBLOGPATH`, `-w WEBLOGPATH` - web access log file path
-- `--rdb`, `-r` - start in read-only DB mode
-- `--httpauth`, `-a` - enable http auth on all requests
-- `--dontkill`, `-k` - don't kill server on signal
-- `--ui`, `-u` - open torrserver page in browser
-- `--torrentsdir TORRENTSDIR`, `-t TORRENTSDIR` - autoload torrents from dir
-- `--torrentaddr TORRENTADDR` - Torrent client address (format [IP]:PORT, ex. :32000, 127.0.0.1:32768 etc)
-- `--pubipv4 PUBIPV4`, `-4 PUBIPV4` - set public IPv4 addr
-- `--pubipv6 PUBIPV6`, `-6 PUBIPV6` - set public IPv6 addr
-- `--searchwa`, `-s` - allow search without authentication
-- `--maxsize MAXSIZE`, `-m MAXSIZE` - max allowed stream size (in Bytes)
-- `--tg TGTOKEN`, `-T TGTOKEN` - [Telegram bot](server/tgbot/README.md) token
-- `--fuse FUSEPATH`, `-f FUSEPATH` - fuse mount path
-- `--webdav` - enable web dav
-- `--proxyurl PROXYURL` - set proxy URL for BitTorrent traffic (http, socks4, socks5, socks5h), example: socks5h://user:password@example.com:2080
-- `--proxymode PROXYMODE` - set proxy mode: "tracker" (only HTTP trackers, default), "peers" (only peer connections), or "full" (all traffic)
-- `--help`, `-h` - display this help and exit
-- `--version` - display version and exit
-
-Example:
-
-```bash
-TorrServer-darwin-arm64 [--port PORT] [--ip IP ...] [--path PATH] [--logpath LOGPATH] [--weblogpath WEBLOGPATH] [--rdb] [--httpauth] [--dontkill] [--ui] [--torrentsdir TORRENTSDIR] [--torrentaddr TORRENTADDR] [--pubipv4 PUBIPV4] [--pubipv6 PUBIPV6] [--searchwa] [--maxsize MAXSIZE] [--tg TGTOKEN] [--fuse FUSEPATH] [--webdav] [--ssl] [--sslport PORT] [--sslcert PATH] [--sslkey PATH] [--force-https]
-```
-
-### Running in Docker & Docker Compose
-
-Run in console
-
-```bash
-docker run --rm -d --name torrserver -p 8090:8090 ghcr.io/trinity-aml/torrserver-lt:latest
-```
-
-For running in persistence mode, just mount volume to container by adding `-v ~/ts:/opt/ts`, where `~/ts` folder path is just example, but you could use it anyway... Result example command:
-
-```bash
-docker run --rm -d --name torrserver -v ~/ts:/opt/ts -p 8090:8090 ghcr.io/trinity-aml/torrserver-lt:latest
-```
-
-#### Environments
-
-- `TS_HTTPAUTH` - 1, and place auth file into `~/ts/config` folder for enabling basic auth (also protects the MCP endpoint `/mcp`)
-- `TS_RDB` - if 1, then the enabling `--rdb` flag
-- `TS_DONTKILL` - if 1, then the enabling `--dontkill` flag
-- `TS_PORT` - for changind default port to **5555** (example), also u need to change `-p 8090:8090` to `-p 5555:5555` (example)
-- `TS_CONF_PATH` - for overriding torrserver config path inside container. Example `/opt/tsss`
-- `TS_TORR_DIR` - for overriding torrents directory. Example `/opt/torr_files`
-- `TS_LOG_PATH` - for overriding log path. Example `/opt/torrserver.log`
-- `TS_PROXYURL` - set proxy URL for BitTorrent traffic (http, socks4, socks5, socks5h), example: socks5h://user:password@example.com:2080
-- `TS_PROXYMODE` - set proxy mode: "tracker" (only HTTP trackers, default), "peers" (only peer connections), or "full" (all traffic)
-- `TS_IP` - web server bind address (`--ip`)
-- `TS_TORR_ADDR` - torrent client address (`--torrentaddr`)
-- `TS_WEB_LOG_PATH` - web access log path (`--weblogpath`)
-- `TS_SSL_ENABLE` - if 1, enables HTTPS (`--ssl`); the old name `TS_EN_SSL` still works
-- `TS_SSL_PORT` - HTTPS port (`--sslport`)
-- `TS_SSL_CERT_PATH` / `TS_SSL_KEY_PATH` - SSL certificate and key files (`--sslcert` / `--sslkey`)
-- `TS_FORCE_HTTPS_ENABLE` - if 1, redirects HTTP to HTTPS (`--force-https`)
-- `TS_SEARCH_WA_ENABLE` - if 1, search without auth (`--searchwa`)
-- `TS_STREAM_WA_ENABLE` - if 1, stream/play and M3U without auth (`--streamwa`)
-- `TS_WEBDAV_ENABLE` - if 1, enables WebDAV (`--webdav`)
-- `TS_PUBLIC_IPV4_ADDR` / `TS_PUBLIC_IPV6_ADDR` - public IP addresses (`--pubipv4` / `--pubipv6`)
-- `TS_MAX_SIZE` - max allowed stream size in bytes (`--maxsize`)
-- `TS_TELEGRAM_TOKEN` - Telegram bot token (`--tgtoken`)
-- `TS_FUSE_PATH` - FUSE mount path (`--fusepath`); the container needs `/dev/fuse` and `SYS_ADMIN`
-
-Example with full overrided command (on default values):
-
-```bash
-docker run --rm -d -e TS_PORT=5665 -e TS_DONTKILL=1 -e TS_HTTPAUTH=1 -e TS_RDB=1 -e TS_CONF_PATH=/opt/ts/config -e TS_LOG_PATH=/opt/ts/log -e TS_TORR_DIR=/opt/ts/torrents -e TS_PROXYURL=socks5h://user:password@example.com:2080 -e TS_PROXYMODE=tracker --name torrserver -v ~/ts:/opt/ts -p 5665:5665 ghcr.io/trinity-aml/torrserver-lt:latest
-```
-
-#### Docker Compose
-
-```yml
-# docker-compose.yml
-
-version: '3.3'
-services:
-    torrserver:
-        image: ghcr.io/trinity-aml/torrserver-lt
-        container_name: torrserver
-        network_mode: host    # to allow DLNA feature
-        environment:
-            - TS_PORT=5665
-            - TS_DONTKILL=1
-            - TS_HTTPAUTH=0
-            - TS_CONF_PATH=/opt/ts/config
-            - TS_TORR_DIR=/opt/ts/torrents
-        volumes:
-            - './CACHE:/opt/ts/torrents'
-            - './CONFIG:/opt/ts/config'
-        ports:
-            - '5665:5665'
-        restart: unless-stopped
-        
-
-```
-
-### Smart TV (using Media Station X)
-
-1. Install **Media Station X** on your Smart TV (see [platform support](https://msx.benzac.de/info/?tab=PlatformSupport))
-
-2. Open it and go to: **Settings -> Start Parameter -> Setup**
-
-3. Enter current ip and port of the TorrServe(r), e.g. `127.0.0.1:8090`
-
-## Settings
-
-Most behaviour is configured in the web UI (**Settings**), stored in the config
-DB and applied live — saving reconnects the torrent session, so changes take
-effect without a restart. The cache and streaming options that matter most for
-this libtorrent fork:
-
-| Setting | Default | What it does |
-|---------|---------|--------------|
-| **Cache size** (`CacheSize`) | 64 MB | Memory (or disk) budget for the piece cache. The streaming cache keeps the reader's forward window + recently-played pieces and evicts the rest; an evicted piece is un-`have`d in libtorrent so a later seek back into it re-downloads instead of stalling. |
-| **Readahead cache** (`ReaderReadAHead`) | 95% | Forward streaming window as a percentage of the cache — how far ahead of the play head pieces are prioritised (graded so the play head is fetched first). |
-| **Preload before play** (`PreloadCache`) | 50% | Buffer this fraction of the cache at the file head before playback starts (e.g. 64 MB × 50% = 32 MB). |
-| **Pad short tail piece** (`PadTailPartial`) | off | **New.** When the file's last piece is a short partial (smaller than a full piece *and* under 5 MB) the cache stops short of its size; pin one extra tail piece to fill it (may then run up to one piece over the configured size). |
-| **End-game mode** (`DisableEndGame`) | on | **New.** Request the final buffer pieces from all peers at once for a faster finish/seek; turn off to cut duplicate traffic. |
-| **Disk cache** (`UseDisk` + `TorrentsSavePath`) | off | Store pieces on disk under `TorrentsSavePath/<hash>/<pieceID>` instead of RAM. |
-| **Remove cache on drop** (`RemoveCacheOnDrop`) | off | Delete the on-disk cache when a torrent is removed. |
-| **Upload** (`DisableUpload`) | on | Turn off to run leech-only (never unchoke peers — no seeding). |
-
-The EOF seek index (MP4 `moov` / MKV cues / AVI `idx1`) at the file tail is
-buffered **automatically** — one whole piece when pieces exceed 5 MB, otherwise
-5 MB — so the player can read its index for instant seek; no setting is needed
-(`PadTailPartial` only tops up the cache when that tail piece is a short partial).
-`PadTailPartial` lives on the **Main** tab and the end-game toggle on the
-**Additional** tab (Additional requires PRO mode). The Additional tab also covers
-connection/rate limits (including **Max DHT connections**, `DHTConnectionsLimit` →
-libtorrent `dht_max_peers`, default 500), DHT, **PEX** (peer exchange — disabling
-it now actually drops the `ut_pex` plugin), LSD/UPnP, encryption, DLNA, HTTPS,
-proxy and Torznab search.
-
-A `-gst` build adds a **GStreamer** settings tab (PRO mode; shown only when the
-feature is compiled in) with the transcoding options: which codecs to transcode
-(H264/H265/AV1/VP9/VP8 video, AAC bitrate/channels for audio), segment length,
-parallel task limit and the GStreamer path/version override. Playback goes
-through `/gst/{hash}/master.m3u8` (HLS); MKV/WebM containers (and AVI when
-`TranscodeAVI` is on) are supported, audio is transcoded to AAC — for players
-that can't decode AC3/EAC3/DTS. It can also expose embedded text subtitles as
-WebVTT, tone-map HDR to SDR, and use a hardware H.264 encoder when available.
-Full detail — runtime installation per OS, configuration fields and the API —
-in the [GStreamer](#gstreamer) section below.
-
-## Development
-
-This fork links **libtorrent 2.1.0 (arvidn)** into the Go server through a CGo
-shim (`server/lt`). Unlike upstream's pure-Go engine, every build is therefore
-**CGo + C++** and needs a libtorrent/Boost toolchain. One shim feature — the
-per-piece `we_dont_have` the streaming cache uses to re-download evicted regions
-on seek-back — calls libtorrent internals that a **shared** `libtorrent-rasterbar`
-(distro / Homebrew) doesn't export. It's compiled in only when the build defines
-`TSL_HAVE_LT_INTERNALS`, which the `build/*.sh` scripts do because they link the
-**static** libtorrent they build from source. A plain `go build` against a system
-`libtorrent-rasterbar-dev` still links (the feature falls back to a no-op), so it
-runs for development; seek-back into an already-evicted region just won't
-re-download. For the full feature set, build via the scripts below (or pass
-`CGO_CXXFLAGS=-DTSL_HAVE_LT_INTERNALS` when linking a static libtorrent yourself).
-
-### Prerequisites
-
-- **Go 1.25+**
-- A host C/C++ toolchain (`gcc`/`g++`), `curl`, `git` — to bootstrap Boost's
-  `b2` and build libtorrent. No cmake, Docker or QEMU required.
-- For the web UI: **Node.js 18+** and **yarn**.
-
-### Local server (linux-amd64)
-
-Build the libtorrent + Boost deps once (cached in `_deps/linux-amd64/`); this
-also drops a ready binary in `_out/`:
-
-```bash
-build/linux-amd64.sh
-```
-
-To iterate on the Go code with `go run` / `go test`, point pkg-config at that
-static tree so cgo links the right libtorrent:
-
-```bash
-cd server
-export PKG_CONFIG_PATH=$PWD/../_deps/linux-amd64/lib/pkgconfig
-export PKG_CONFIG_LIBDIR=$PWD/../_deps/linux-amd64/lib/pkgconfig
-export CGO_LDFLAGS="-L$PWD/../_deps/linux-amd64/lib"
-go run ./cmd        # or: go test ./...
-```
-
-Then open <http://127.0.0.1:8090>.
-
-### Cross-compilation (no Docker)
-
-`build/` cross-builds **every** supported target on a Linux host: it builds
-libtorrent and `boost_system` from source with Boost.Build (`b2`) into
-`_deps/<target>/`, then links the Go binary against it via pkg-config. Output
-lands in `_out/TorrServer-LT-<target>`; the GStreamer-capable platforms (linux
-amd64/arm64, windows amd64, macOS) also get `_out/TorrServer-LT-<target>-gst`
-built with `-tags gst` — the variant is pure Go (GStreamer is dlopen'd at
-runtime via purego), so it needs no extra toolchain and reuses the build cache.
-
-```bash
-build/all.sh                        # everything the host can build
-TARGETS="linux-arm64" build/all.sh  # a subset
-```
-
-`all.sh` reports each target `OK` / `FAIL` / `SKIP` (toolchain missing).
-Targets and the cross-toolchain each needs:
-
-| Target          | Toolchain to install                                       |
-|-----------------|------------------------------------------------------------|
-| `linux-amd64`   | host gcc/g++ (nothing extra)                               |
-| `linux-arm64`   | `gcc-aarch64-linux-gnu g++-aarch64-linux-gnu`              |
-| `linux-armv7`   | `gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf`          |
-| `windows-amd64` | `gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64`                |
-| `android-arm64` / `android-armv7` | Android NDK r26+ (`export ANDROID_NDK_HOME=…`) |
-| `darwin-arm64` / `darwin-amd64`   | OSXCross + Apple macOS SDK (see below)     |
-
-libtorrent is built with `crypto=openssl` and `webtorrent=on`: each target gets
-a static OpenSSL built from source (no system OpenSSL needed) plus the WebRTC
-deps (libdatachannel/usrsctp/libjuice), enabling https trackers/web seeds and
-WebTorrent (`wss://` trackers, browser peers). `cmake` is required on the build
-host for the WebRTC deps. Everything links statically — the only dynamic deps
-in the final binary are libc/libstdc++/libgcc (Windows links those static
-too). Versions are pinned in `build/_common.sh` (Boost 1.85.0, libtorrent
-v2.1.0, OpenSSL 3.5.7) and overridable, e.g.
-`LIBTORRENT_TAG=v2.0.13 build/linux-arm64.sh`. Full detail and the per-target
-prerequisites table: [`build/README.md`](build/README.md).
-
-### macOS
-
-Three ways to produce macOS binaries (`darwin-amd64` Intel, `darwin-arm64`
-Apple Silicon):
-
-1. **On a real Mac** — install Go and the Xcode command-line tools, then run
-   `build/darwin-native.sh arm64` (or `amd64`). It builds the pinned libtorrent
-   from source via b2 — nothing is taken from Homebrew, whose libtorrent
-   version floats — then both the base and `-gst` binaries. This is the
-   supported path for anything you distribute.
-2. **CI** — `.github/workflows/build-macos.yml` runs that same script for both
-   arches on an Apple-Silicon runner (amd64 via Rosetta/`-arch x86_64`).
-3. **Cross-build from Linux via OSXCross** — needs the Apple macOS SDK, which
-   Apple's licence only permits on Apple hardware, so this is a legal grey area
-   and is meant for local reproducibility only. Set `OSXCROSS_ROOT` and run the
-   `darwin-arm64.sh` / `darwin-amd64.sh` scripts; the one-time SDK-extraction
-   recipe is in [`build/README.md`](build/README.md).
-
-### Web UI
-
-The React app under `web/` is compiled and **embedded** into the Go binary
-(`server/web/pages/template`), so a UI change is only visible after rebuilding
-the bundle *and* the server:
-
-```bash
+Use `--console-interval 0` to disable status reports while keeping the startup
+summary, or `--console off` for legacy log presentation. Intervals are 5–3600
+seconds. Services and `--logpath` retain their existing UTC file logs without
+the console summary or heartbeat. `--version` and `--doctor` remain machine
+readable. For a clean shutdown, use **Settings → Advanced → Shut down** in the
+web interface. The console does not accept interactive commands.
+See the [console verification record](CONSOLE_AUDIT.md) for the exact native
+source, executable identity and compatibility checks.
+
+For a saved session log, add `--logpath .\flow.log` to your usual launch command.
+This writes UTC file logs instead of the console panel. Console output alone is
+not retained after exit. See [startup delay findings and improvements](PERFORMANCE_AUDIT.md)
+for the peer-retention fix, controlled measurements and diagnostic guidance.
+
+## What Flow adds
+
+- **Adaptive startup:** schedules a bounded head buffer and the container index/tail; an optional `ffprobe` result can refine the startup target without blocking playback indefinitely.
+- **Adaptive read-ahead:** sizes the forward cache window from media bitrate and observed playback, within the configured cache budget. It can be disabled independently of other Flow features.
+- **Warm mobile sessions:** briefly protects data around the last playhead after a player disconnects, so a quick reconnect can resume from cached pieces.
+- **Seek and Range diagnostics:** tracks startup, buffering, piece waits, seek recovery, and HTTP Range timing. A torrent card opens live diagnostics; detailed Range traces are opt-in.
+- **Windows background operation:** includes a restricted service account and a separate tray companion. See [Flow development notes](FLOW.md) for service and tray commands.
+
+Flow also provides rolling 60-second health metrics, smoother adaptive
+windows, bounded per-file probe reuse, process/cache memory observations,
+redacted support downloads, portable backup/import, a startup doctor and an
+idle-only Windows updater with integrity checks and rollback. Advanced settings
+contain maintenance tools; importing settings requires preview/confirmation and
+retains local credentials. The library renders 50 cards per page while searching
+all entries. See [distribution guidance](DISTRIBUTION.md) and
+[measurements](MEASUREMENTS.md) for usage and verification limits.
+
+Flow settings are in the web interface's **Flow** tab and under `BitTorr.Flow` in `settings.json`. Flow is enabled by default. Flow 1.0 applies safe runtime changes immediately and offers **Apply when idle** for changes requiring an engine restart. `GET /flow/status/<torrent-hash>` exposes per-torrent diagnostics; `/flow/network` reports network readiness. Both follow the server's HTTP authentication setting. See [FLOW.md](FLOW.md) for defaults, endpoint behavior, and the comparison procedure.
+
+## Adaptive reliability
+
+Flow 1.0 includes verified useful-delivery rates, confidence and
+buffer risk; shared active/warm RAM budgets; preparation scheduling; Windows
+network notifications and recovery; configuration revisions, idle application
+and last-known-good recovery. Settings shows unsaved, saved and effective values.
+Optional origin/rate policies, expiring file links and torrent interface binding
+are available without changing compatibility defaults. Interface binding is not
+a verified VPN kill switch; OS DNS and physical disconnect tests remain separate.
+See [the reliability guide](ADAPTIVE_RELIABILITY.md) for settings, behavior,
+compatibility limits and test commands, and [the checklist](ADAPTIVE_RELIABILITY_CHECKLIST.md)
+for verification and remaining device gates.
+
+## Weak swarms and episode preparation
+
+Flow 1.0 includes:
+
+- **Availability diagnostics** distinguish metadata, discovery, connection,
+  choke, missing connected-peer pieces, throughput and local cache waits.
+  Samples are bounded and cached; unavailable or stale data is labelled unknown.
+- **Prepare episode**, in **Files / Play**, retains the selected file in the
+  existing piece store. Progress counts verified bytes; full-file readiness
+  supports arbitrary seeks. The default disk quota is 4 GiB, separate from the
+  evicting cache. Pause or cancel keeps progress; Remove releases it after readers
+  close. Jobs survive server restarts and temporary source absence.
+- **HTTP mirrors**, in the same dialog, use native Range requests, torrent
+  hashes and peer fallback. A mirror must supply identical bytes. Imported URLs
+  cannot access private destinations; a local mirror needs explicit approval.
+  Torrents with mirrors wait for piece verification before serving their bytes.
+- **Peer reachability** shows actual BitTorrent TCP/UDP ports, mapping results
+  and incoming connections. New settings use port 51413; existing explicit port
+  choices, including automatic port `0`, remain supported. HTTP port 8090 is separate.
+- **Remember useful public peers** is optional and disabled by default. It keeps
+  bounded private local hints for ten minutes and ignores them after network
+  changes. Private torrents never restore those hints.
+- **Rate-aware deadline experiment** is disabled by default after repeated
+  tests showed mixed seek results. It uses piece size and qualified consumption
+  estimates; the existing graded deadline ramp remains the default.
+- **Scarce-piece scheduling experiment** is disabled by default. It advances a
+  small amount of existing forward work using qualified, fresh evidence.
+
+The native dependency is pinned to libtorrent v2.1.2 plus the reviewed queue-time
+arithmetic fix. Delivery variation/outage feedback retains existing buffer
+budgets and independent reader reconciliation. **Legacy
+remains the default profile.** These changes cannot obtain bytes absent from all
+accessible sources. Diagnostics distinguish a useful-supply deficit from local
+request/cache delays; different encodes cannot share pieces.
+
+All of this works without a paid provider or account. See the [sparse streaming
+guide](SPARSE_STREAMING.md) for settings, storage, privacy, endpoints and verification
+limits, and the [implementation ledger](SPARSE_IMPLEMENTATION.md) for evidence.
+
+## Swarm profiles
+
+Select a profile in **Settings → Flow → Swarm profile**. `connection_speed` is outgoing connection attempts per second; `torrent_connect_boost` is the number of peers tried when a torrent is added. These are tuning choices, not measured speed rankings.
+
+| Profile | What it does |
+| --- | --- |
+| **Legacy (default)** | Keeps TorrServer-LT's existing streaming-oriented libtorrent tuning, including 250 connection attempts/second, a 100-peer connect boost, and shorter peer/piece timeouts. Use it as the compatibility baseline. |
+| **Adaptive Streaming (experimental)** | Uses Legacy's native peer settings and the existing full deadline ramp. With Flow adaptive read-ahead enabled, sustained HTTP progress can add a bounded VBR demand margin above credible media metadata, and recent qualified delivery shortfalls retain additional bounded reserve for up to 30 seconds. Partial slowdowns count as well as complete outages. Uses the same cache and user limits; does not automatically switch profiles. Not proven better than Legacy. |
+| **Conservative** | Removes those inherited swarm overrides and uses libtorrent defaults for them. Use it to compare with less modified swarm behavior. |
+| **Balanced** | Starts from Conservative, then sets 50 connection attempts/second and a 50-peer connect boost. A moderate connection ramp to evaluate. |
+| **Aggressive streaming** | Starts from Conservative, then sets 100 connection attempts/second and an 80-peer connect boost. It ramps up faster than Balanced, but less than Legacy on these two settings; it is not proven faster overall. |
+| **Custom** | Starts from Conservative and applies only positive values entered for connection speed, connect boost, peer connect timeout, piece timeout, request queue time, and minimum reconnect time. `0` leaves that field at libtorrent's default. Use it for controlled experiments. |
+
+All profiles retain your cache, proxy, upload, and active-torrent settings.
+Flow 1.0 also preserves healthy peers while a
+lazy/warm torrent has no requested pieces; Conservative uses libtorrent defaults
+for swarm tuning with these shared streaming lifecycle controls. Startup preload
+sets piece priorities without pausing and disconnecting the swarm. Applying a
+profile requires an engine restart and interrupts active streams; **Apply when
+idle** defers that restart. Keep **Legacy**
+unless testing shows another profile works better for your network and torrents.
+
+The experimental **Adaptive Streaming** profile implements the reserve-aware
+candidate described in [the investigation](STREAMING_PROFILE_RESEARCH.md).
+Initial comparisons rejected narrower deadline sets and global priority
+restoration as defaults, so the full streaming ramp remains. Neither full episode
+preparation nor a paid provider is required. Flow 1.0 includes this profile;
+broader real-phone and public-swarm comparisons remain pending.
+
+Flow 1.0 includes bounded asynchronous storage I/O, verified-contiguous
+buffer and urgent-request-age diagnostics, a phone/LAN transfer check, and three
+independent opt-in experiments: peer-capacity limits, a demand-sized urgent
+horizon and resident MKV/MP4 burst hints. An optional separate Flow Player build
+tests a memory-aware phone buffer. All preserve the original media quality;
+the experiments default off. See the [high bitrate guide](HIGH_BITRATE_GUIDE.md)
+for behavior, limits, testing and rollback.
+
+The server also restores priorities after removing native deadlines:
+libtorrent otherwise demotes those pieces, which can leave abandoned work
+downloading or reduce preload priorities. Diagnostics show bounded urgent block
+states, receiving progress and effective native priorities; finished blocks can
+still await verification. Snapshot age and actual outstanding request age are
+separate measurements; unknown request age is shown as unavailable.
+Sequential high bitrate consumption now qualifies without probe metadata:
+the old sample-size guard could understate demand above roughly 64 Mbps. Seek
+and idle transitions reset stale rate confidence. These fixes also apply to
+Legacy; they do not require selecting the experimental profile.
+
+The LT 1.1.10 maintenance fixes are included: managed
+HTTPS keys receive restricted permissions, user certificates are preserved,
+invalid or partial HTTPS configuration fails before listeners open, poster
+checks preserve existing artwork on temporary failures, and Linux can discover
+Entware CA roots. Optional browser HLS re-encodes unsupported AAC profiles.
+Flow retains its newer Go and libtorrent versions. See
+[verification and streaming comparisons](UPSTREAM_STREAMING_VERIFICATION.md).
+
+## HTTPS and external players
+
+HTTP remains the default. Start with `--ssl` for HTTPS (port 8091 by default).
+**Settings → Security → HTTPS certificates** shows identity, validity and SANs;
+you can download only the public certificate, upload a matching PEM pair, select
+server paths, reuse a self-signed identity, or explicitly regenerate it. Changes
+use settings revision checks and take effect on new handshakes within five
+seconds. Managed keys receive restricted permissions; user certificates are
+never silently replaced. Invalid explicit HTTPS configuration fails startup.
+
+| Startup flags | Behavior |
+| --- | --- |
+| `--ssl` | HTTP and HTTPS listeners. |
+| `--ssl --force-https` | HTTP redirects to HTTPS. |
+| `--ssl --force-https --http-media` | Management redirects to HTTPS; media GET/HEAD can use HTTP for player compatibility. |
+| `--ssl --https-only` | Only the public HTTPS listener; no HTTP compatibility fallback. |
+
+A self-signed certificate must be trusted separately on each device. When the
+page uses Flow's managed self-signed identity and HTTP media is available,
+external-player links and playlists use the HTTP media origin; in-page playback
+keeps HTTPS. HTTP media is unencrypted. A user certificate or HTTPS-only mode
+keeps external links on HTTPS. Upload private keys over HTTPS; path selection is
+preferable for certificates maintained by certbot/acme.sh. Renewal files are
+picked up automatically. Port/mode changes require a restart.
+
+Flow 1.0 also adds a lazy, bounded 1 MiB HTTP transport buffer. Scheduling still
+tracks bytes delivered to the client, not bytes prefetched into that buffer;
+Range/seek/cancellation semantics and the single native piece cache are retained.
+This reduces source-read calls, not a guarantee of higher torrent throughput.
+The optional `-gst` build includes LT's one-frame cue tolerance and a bounded
+cold-source warmup/retry with shared-probe cancellation. Direct Just Player
+streaming remains the primary path and does not require GStreamer.
+
+## Startup diagnostics
+
+Flow 1.0 returns explicit preload requests when the buffer
+is ready; an owned worker keeps the existing eight-second warm handoff in the
+background. Same-file requests share that worker, and an episode switch or
+removal cancels and joins the old owner. Reader windows continue to own playback
+priorities.
+
+**Settings → Flow → Retain diagnostic history** is opt-in and takes effect when
+settings are applied (which restarts the engine). It saves `flow-history.jsonl`
+in the server's state directory, with three rotating archives: at most 4 MiB
+and a 256-event queue. Producers never wait for disk; dropped events and write
+errors appear in Flow network diagnostics. Records contain UTC timestamps,
+process-local torrent IDs, file indices, stage timings and numeric disconnect
+codes. URLs, passkeys, credentials, media names/hashes and client addresses are
+excluded. Existing console/file/access logging is separate and unchanged; raw
+access logs can contain private URLs.
+
+The diagnostics drawer explains metadata, peer discovery, first data,
+header/index, prebuffer and bounded probe-grace waits. Metadata and first-DHT-peer
+times start at torrent registration; other startup times start at preload.
+Unobserved new timings show a dash. First media data is sampled from the existing
+cache every 200 ms; a cached start may measure zero. These are server observations,
+not the phone's decoded first frame or proof of Internet availability.
+
+**Reuse DHT routing state** defaults on when Flow and DHT are enabled. Native
+libtorrent saves only useful DHT nodes and node IDs to `flow-dht.bin`, every five
+minutes and on graceful stop. State is bounded to 1 MiB, validated, and replaced
+atomically; corrupt state is ignored without blocking local startup. Empty
+routing snapshots do not erase previous useful nodes. Read-only mode prevents
+writes; disabling DHT prevents loading and saving it. The binary routing file
+contains network addresses and should not be included in shared diagnostic logs.
+Persisted nodes are discovery hints. A bounded set (up to 32 per address family)
+is reintroduced through libtorrent's public API after UDP listener readiness,
+including listener changes; this handles late sockets without replacing native
+discovery or network-change recovery.
+Public-swarm and phone performance comparisons remain acceptance work.
+
+## Build and project status
+
+### Modern web interface
+
+The modern interface was merged through [PR #2](https://github.com/gnbk21/TorrServer-LT-Flow/pull/2)
+into **`develop`**, the default branch. The full release packages the modern
+build and accumulated Flow improvements. [PR #3](https://github.com/gnbk21/TorrServer-LT-Flow/pull/3) merged the streaming and recovery changes into `develop`;
+branch artifacts identify their exact development commit.
+Legacy sources remain in `web-legacy/` until real device acceptance.
+
+It provides a playback dashboard with bounded buffer/throughput history, a
+torrent library and file browser, search with explicit preparation before
+playback, and settings with Apply/discard and restart warnings. **Connect phone**
+offers a selectable LAN address and QR code; playback links include Just Player,
+VLC and ordinary HTTP open/copy fallbacks. Seven interface languages are retained.
+Ordinary LAN HTTP works without installing a PWA or service worker.
+
+The historical Preview 1 Windows build is available in
+[CI run 36631696935](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/36631696935)
+as `TorrServer-LT-windows-amd64`. It passed an isolated Windows UI/API smoke check;
+real phone and long playback acceptance remain pending.
+
+Frontend development requires Node.js 22.12 or newer and Yarn 1.22:
+
+```powershell
 cd web
-yarn install
-NODE_OPTIONS=--openssl-legacy-provider CI=false yarn build   # CRA needs legacy OpenSSL on Node 18+
-
-cd ..
-go run gen_web.go     # copies web/build → server tree, regenerates the //go:embed table + routes
+yarn install --frozen-lockfile
+yarn dev
 ```
 
-`gen_web.go` runs `yarn build` for you when `web/build` is missing. The embed
-table is keyed on CRA's hashed chunk filenames, so you **must** regenerate it
-after a rebuild — copying `web/build` by hand is not enough. For live UI work
-without rebuilding the binary, `cd web && yarn start` proxies to a running
-server. More info: [`web/README.md`](web/README.md).
-
-### Swagger
-
-`swag` must be installed to (re)build the API docs:
-
-```bash
-go install github.com/swaggo/swag/cmd/swag@latest
-cd server && swag init -g web/server.go
-swag fmt   # lint/format the annotations
-```
-
-## API
-
-### API Docs
-
-API documentation is hosted as Swagger format available at path `/swagger/index.html`.
-
-### MCP (AI agents)
-
-TorrServer exposes a native [Model Context Protocol](https://modelcontextprotocol.io/) server at **`/mcp`** on the same HTTP(S) port as the web UI (default `8090`). OpenClaw, Hermes, and other MCP clients can list, add, and manage torrents, and get a play URL for the next unwatched TV episode. The REST API is unchanged.
-
-Endpoint: `http://<host>:8090/mcp` (or `https://` when `--ssl` is enabled).
-
-When HTTP auth is on (`-a` / `TS_HTTPAUTH=1`), MCP uses the same Basic credentials as the rest of the API (`accs.db`). Play links returned by tools are ordinary HTTP URLs for VLC, mpv, or a browser.
-
-**OpenClaw** (`openclaw.json`):
-
-```json
-{
-  "mcp": {
-    "servers": {
-      "torrserver": {
-        "url": "http://127.0.0.1:8090/mcp",
-        "transport": "streamable-http"
-      }
-    }
-  }
-}
-```
-
-With auth, add `"headers": { "Authorization": "Basic <base64-user-pass>" }`.
-
-**Hermes** (`~/.hermes/config.yaml`):
-
-```yaml
-mcp_servers:
-  torrserver:
-    url: "http://127.0.0.1:8090/mcp"
-    headers:
-      Authorization: "Basic <base64-user-pass>"
-```
-
-See [server/mcp/README.md](server/mcp/README.md) for the tool list and next-unwatched behavior.
-
-## Authentication
-
-The users data file should be located near to the settings. Basic auth, read more in wiki <https://en.wikipedia.org/wiki/Basic_access_authentication>.
-
-`accs.db` in JSON format:
-
-```json
-{
-    "User1": "Pass1",
-    "User2": "Pass2"
-}
-```
-
-Note: You should enable authentication with -a (--httpauth) TorrServer startup option.
-
-## Retrackers
-
-When adding a torrent, TorrServer can modify its announce trackers according to **Settings → Additional → Retrackers**:
-
-| Mode | Behavior |
-|------|----------|
-| Don't add | Leave magnet/file trackers unchanged |
-| Add (default) | Append the default/remote list |
-| Remove | Clear trackers from the torrent |
-| Replace | Replace them with the default/remote list |
-
-Related settings (same Web UI section, also via `POST /settings`):
-
-- **`TrackersListURL`** — optional custom remote list URL. Leave it **empty** to use the built-in ngosang `trackers_best_ip.txt` mirrors, tried in order:
-  1. `https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_best_ip.txt`
-  2. `https://ngosang.github.io/trackerslist/trackers_best_ip.txt`
-  3. `https://cdn.jsdelivr.net/gh/ngosang/trackerslist@master/trackers_best_ip.txt`
-  4. `https://raw.githack.com/ngosang/trackerslist/master/trackers_best_ip.txt`
-
-  A custom URL is tried **first**, then the mirrors. Each fetch times out after 5 s and falls back to the next URL, and to `DefaultTrackers` when all of them fail. The list is fetched in the background at start and refreshed every 12 hours; adding a torrent never waits for it.
-- **`DefaultTrackers`** — local announce URLs, one per line (`udp`/`http`/`https`/`wss`; `#` starts a comment). Used alone when every remote fetch fails, otherwise appended after the remote list.
-
-Optional file overlay (always appended when present): put `trackers.txt` in the config directory (`--path` / `-d`), next to `config.db`. Only lines starting with `udp` or `http` are read from that file.
-
-## Web Application Firewall (WAF)
-
-TorrServer includes an HTTP access WAF that filters clients by IP address and by the `Referer` and `Origin` request headers. Configure it from **Settings → WAF** or through the authenticated `/waf` API.
-
-### Configuration
-
-WAF configuration is stored in the top-level **`waf`** object in **`settings.json`**. Each rule is a separate array entry:
-
-```json
-{
-  "waf": {
-    "version": 1,
-    "whitelist": [
-      "127.0.0.1",
-      "::1",
-      "10.0.0.0/8"
-    ],
-    "blacklist": [
-      "203.0.113.0/24"
-    ],
-    "referers": [
-      "example.com"
-    ]
-  }
-}
-```
-
-On first start, if `settings.json` has **no** `waf` key yet and legacy ACL files **`wip.txt`** (whitelist) / **`bip.txt`** (blacklist) exist in the config directory (same place as `config.db`), TorrServer imports them into `waf` arrays and renames the sources to **`wip.txt.bak`** / **`bip.txt.bak`**. Those backups are not read again. If a `waf` key already exists (even with empty lists), legacy files are left untouched.
-
-Changes saved through the web UI or API are applied immediately. After editing `settings.json` manually, restart TorrServer to load the changes.
-
-### IP rules
-
-Rules:
-
-- If the whitelist is **not empty**, the client IP must match it.
-- If the blacklist is **not empty**, a matching client IP is banned even when it is also on the whitelist.
-- An empty whitelist or blacklist disables that IP check.
-- Invalid entries are skipped and reported as warnings; valid entries remain active.
-- Banned responses use HTTP **403** with body `Banned`.
-- Client IP is taken from the TCP peer address (`RemoteAddr`). Reverse-proxy headers are not trusted by default.
-
-Supported array-entry formats include IPv4, IPv6, ranges, CIDR blocks, comments, and optional descriptions:
-
-```json
-[
-  "# comment",
-  "127.0.0.1",
-  "local:127.0.0.1",
-  "127.0.0.0-127.0.0.255",
-  "local:127.0.0.0-127.0.0.255",
-  "10.0.0.0/8",
-  "lan:10.0.0.0/8",
-  "2001:db8::1",
-  "local:2001:db8::1",
-  "2001:db8::/32"
-]
-```
-
-### Referer and Origin rules
-
-Block HTTP requests that come from unwanted sites (for example mirror pages that embed your TorrServer streams).
-
-- Each entry is a hostname. URLs with only an HTTP/HTTPS scheme and host are also accepted.
-- A rule blocks the hostname and all its subdomains.
-- Both `Referer` and `Origin` are checked before the IP allowlist, so an IP whitelist match cannot bypass a referer rule.
-- Requests without either header are allowed.
-- A built-in list of hosts (the same as upstream TorrServer's) is enforced on top of your own entries. The web UI shows it, and **Settings → WAF → Built-in referer blocklist** or `"disable_default_referers": true` in the `waf` object turns it off.
-
-```json
-{
-  "referers": [
-    "example.com",
-    "evil.example.org",
-    "# comment"
-  ]
-}
-```
-
-### API
-
-`GET /waf` returns the active editable lists, the built-in referer list (`default_referers`) and whether it is enforced (`default_referers_enabled`), status flags, and parse warnings. `POST /waf` atomically replaces all three editable lists and hot-reloads the WAF. The API uses newline-delimited strings for compatibility with the web text editors; the three lists are required and an empty string clears one. `default_referers_enabled` is optional; leaving it out keeps the current state.
-
-```shell
-curl -u USER:PASSWORD http://127.0.0.1:8090/waf
-
-curl -u USER:PASSWORD \
-  -H 'Content-Type: application/json' \
-  -d '{"whitelist":"127.0.0.1\n::1\n10.0.0.0/8","blacklist":"","referers":"example.com"}' \
-  http://127.0.0.1:8090/waf
-```
-
-In read-only mode, `GET /waf` remains available but `POST /waf` returns HTTP **403**.
-
-> **Note:** BitTorrent peer IP filtering uses a separate PeerGuardian-style file named `blocklist` in the config directory. That list is not managed by Settings → WAF / `/waf`.
-
-## Torznab
-
-TorrServer can talk to **Torznab** indexers so you can search for torrents from tools like **Jackett** and **Prowlarr**, including searching several configured indexers at once.
-
-Configure it in the web UI: **Settings → Torznab**.
-
-### Indexer parameters
-
-Each Torznab indexer needs:
-
-- **Host URL**: full URL to the Torznab API endpoint.
-  - Jackett example:
-
-  ```shell
-  http://192.168.1.10:9117/api/v2.0/indexers/all/results/torznab/
-  ```
-
-  - Prowlarr example:
-  
-  ```shell
-  http://localhost:9696/1
-  ```
-  
-  - Make sure to include the correct trailing slash (`/`) in your indexer's URL,
-  as required by your Torznab provider. TorrServer will try to properly format the path,
-  but matching your indexer's expected format is best to avoid connection issues.
-  
-- **API Key**: the key from your Torznab indexer manager.
-
-### Enabling Torznab search
-
-1. Open **Settings**.
-2. Open the **Torznab** tab.
-3. Turn on **Enable Torznab Search**.
-4. Enter **Host URL** and **API Key**, then **Add Server** for each indexer.
-5. **Save** settings.
-
-## GStreamer
-
-GStreamer enables **HLS transcoding** for Matroska/WebM torrents (and AVI when `TranscodeAVI` is on) when the client cannot play the original video or audio codec directly (typically audio: AC3/EAC3/DTS → AAC; video H.264/H.265/AV1/VP9/VP8 passes through, or is re-encoded when the matching `Transcode*` option is on). It can also convert embedded text subtitles to segmented WebVTT (`Subtitles`), tone-map HDR video to SDR (`HDRToSDR`), and encode on the GPU with a hardware H.264 encoder, falling back to x264 (`HardwareAcceleration`, `UseGPU`).
-
-### The `-gst` binary (main requirement)
-
-The **only** way to enable GStreamer in TorrServer-LT is to run a build compiled with the `gst` tag. There is no on/off switch in the settings.
-
-| Binary | GStreamer |
-| --- | --- |
-| `TorrServer-LT-<platform>-gst` | **Yes** — `/gst/*` routes and transcoding |
-| `TorrServer-LT-<platform>` (standard) | **No** — `GET /gst/settings` returns `built_in: false`; no other `/gst/*` routes are registered and pipelines do not run |
-
-Download `TorrServer-LT-*-gst` from [releases](https://github.com/trinity-aml/TorrServer-LT/releases) (Windows amd64 / Linux amd64+arm64 / macOS amd64+arm64), let the install scripts do it (`--gst`, see [Installation](#installation)), or build it yourself — the `build/*.sh` scripts produce both variants automatically, and for a manual build it is just the tag on top of the usual cgo environment:
-
-```bash
-cd server
-go build -tags gst -o TorrServer-LT-gst ./cmd
-```
-
-Per-codec behavior is configured on the **GStreamer** settings tab (`TranscodeH264`, `TranscodeH265`, `TranscodeAV1`, `TranscodeVP9`, `TranscodeVP8`, `TranscodeAVI`), along with the subtitle (`Subtitles`), HDR→SDR (`HDRToSDR`) and hardware-encoder (`HardwareAcceleration`, `UseGPU`) toggles.
-
-### Bundled vs dynamically loaded GStreamer
-
-TorrServer-LT stays a single Go binary. GStreamer is **not** linked into it at compile time — the libraries are loaded at runtime via `dlopen` / `LoadLibrary` (purego). What changes is **where** the GStreamer libraries and plugins come from:
-
-| Mode | How it works | Typical use |
-| --- | --- | --- |
-| **Bundled (portable)** | Place a `gst-lib/` directory next to the TorrServer executable (same layout as an extracted GStreamer runtime) | Portable installs, custom deployments |
-| **Dynamic (system)** | TorrServer loads `libgstreamer` / DLLs from OS packages or a system install path (`GSTPath`, `/opt/gstreamer`, framework path, etc.) | Linux, macOS, Windows with the [official GStreamer installer](https://gstreamer.freedesktop.org/download/) |
-| **Bundled (embedded)** | GStreamer runtime packed inside the binary and extracted to cache on first run — needs a custom Windows build with the extra `embed_gstlib` tag; release binaries don't include it | Self-contained Windows deployments |
-
-Auto-detection order: `GSTPath` from settings → `gst-lib/` beside the binary → common system paths → `LD_LIBRARY_PATH` / `PATH`.
-
-Verify whichever mode you use with `GET /gst/echo` or the status lines on the **GStreamer** settings tab.
-
-### Installing GStreamer for dynamic loading
-
-Needed for the `-gst` builds unless you ship a portable `gst-lib/`. Minimum GStreamer version: **1.22**.
-
-**Debian / Ubuntu**
-
-```bash
-sudo apt update
-sudo apt install -y \
-  gstreamer1.0-tools \
-  gstreamer1.0-plugins-base \
-  gstreamer1.0-plugins-good \
-  gstreamer1.0-plugins-bad \
-  gstreamer1.0-plugins-ugly \
-  gstreamer1.0-libav
-```
-
-**Fedora / RHEL / Rocky / AlmaLinux**
-
-```bash
-sudo dnf install -y \
-  gstreamer1-tools \
-  gstreamer1-plugins-base \
-  gstreamer1-plugins-good \
-  gstreamer1-plugins-bad-free \
-  gstreamer1-plugins-ugly-free \
-  gstreamer1-libav
-```
-
-`x264enc` (used when transcoding video to H.264) may require [RPM Fusion](https://rpmfusion.org/) on Fedora.
-
-**Arch Linux**
-
-```bash
-sudo pacman -S --needed \
-  gst-plugins-base \
-  gst-plugins-good \
-  gst-plugins-bad \
-  gst-plugins-ugly \
-  gst-libav
-```
-
-**macOS**
-
-[Official framework](https://gstreamer.freedesktop.org/download/) or Homebrew:
-
-```bash
-brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav
-```
-
-Set `GSTPath` if needed (e.g. `/Library/Frameworks/GStreamer.framework/Versions/1.0`).
-
-**Windows (dynamic)**
-
-Install the MSVC 64-bit runtime from [gstreamer.freedesktop.org](https://gstreamer.freedesktop.org/download/) (default: `C:\Program Files\gstreamer\1.0\mingw_x86_64`), or use a `gst-lib/` folder next to the exe.
-
-### Web UI configuration
-
-1. Open **Settings**.
-2. Enable **PRO mode**.
-3. Open the **GStreamer** tab (shown only on `-gst` builds).
-4. Adjust options and click **Save GStreamer Settings**.
-
-GStreamer settings are stored separately from the main BitTorrent settings and take effect immediately for new streams.
-
-### Configuration fields
-
-| Field | Description |
-| --- | --- |
-| `GSTVersion` | Installed GStreamer version (minimum `1.22`, e.g. `1.22`, `1.28`). Used for pipeline feature selection. |
-| `GSTPath` | Path to GStreamer installation. Empty = auto-detection. |
-| `Source` | Input URL mode: `stream` (`/stream/...`) or `play` (`/play/...`). |
-| `MaxTasks` | Parallel transcode task limit (`0` = default). |
-| `InactiveMinutes` | Freeze a pipeline after this many minutes without playback. |
-| `AACBitrateKbps` | Audio transcoding bitrate in kbps. |
-| `SegmentSeconds` | HLS segment length in seconds. |
-| `appsinkBuffers` | Number of buffers in the appsink queue. |
-| `TranscodeH264` / `TranscodeH265` / `TranscodeAV1` / `TranscodeVP9` | Re-encode that video codec instead of passing it through. |
-| `VideoBitrate` | Target video bitrate in kbps when transcoding video. |
-| `tempfs` | Use memory-backed tempfs for segments (Linux). |
-| `tempfs_ring` | Extra tempfs ring blocks (`0` = default). |
-| `PlaylistHLS` | **Fork extension.** Generated M3U playlists point MKV/WebM entries at `/gst/{hash}/master.m3u8` instead of the direct `/stream` link, so any HLS-capable player gets the AAC-transcoded audio straight from the playlist; other containers keep direct links. No effect on base builds. |
-
-### API
-
-**Settings** (requires authentication when `--httpauth` is enabled):
-
-- `GET /gst/settings` — on `-gst` builds: `built_in`, current config, and platform defaults; on standard builds: `{ "built_in": false }` only
-- `POST /gst/settings` — update or reset config (`404` on standard builds)
-
-  ```json
-  { "action": "set", "config": { "GSTVersion": 1.22, "Source": "stream" } }
-  ```
-
-  Reset to defaults:
-
-  ```json
-  { "action": "def" }
-  ```
-
-**Streaming** (available on `-gst` builds only):
-
-| Endpoint | Description |
-| --- | --- |
-| `GET /gst/echo` | GStreamer / gst-discoverer health check |
-| `GET /gst/:hash/probe` | Probe torrent file codecs (`index`, `id`, or `fileID` query) |
-| `GET /gst/:hash/master.m3u8` | HLS master playlist |
-| `GET /gst/:hash/init.mp4` | Initialization segment |
-| `GET /gst/:hash/seg/*segment` | Media segment |
-| `GET /gst/:hash/heartbeat` | Keep-alive for the active transcode task |
-| `GET /gst/remove` | Stop a transcode task (`hash` or `id` query) |
-
-Standard binaries serve a filtered Swagger spec at runtime (only `/gst/settings`); `-gst` builds document all `/gst/*` endpoints.
-
-## Donate
-
-- [YooMoney](https://yoomoney.ru/to/410013733697114/200)
-- [Boosty](https://boosty.to/yourok)
-- [TBank](https://www.tbank.ru/cf/742qEMhKhKn)
-
-## Thanks to everyone who tested and helped
-
-- [anacrolix](https://github.com/anacrolix) Matt Joiner
-- [tsynik](https://github.com/tsynik) Nikk Gitanes
-- [dancheskus](https://github.com/dancheskus) for react web GUI and PWA code
-- [kolsys](https://github.com/kolsys) for initial Media Station X support
-- [damiva](https://github.com/damiva) for Media Station X code updates
-- [vladlenas](https://github.com/vladlenas) for NAS builds
-- [pavelpikta](https://github.com/pavelpikta) Pavel Pikta for linux install script and more
-- [Nemiroff](https://github.com/Nemiroff) Tw1cker
-- [spawnlmg](https://github.com/spawnlmg) SpAwN_LMG for testing
-- [TopperBG](https://github.com/TopperBG) Dimitar Maznekov for Bulgarian web translation
-- [FaintGhost](https://github.com/FaintGhost) Zhang Yaowei for Simplified Chinese web translation
-- [Anton111111](https://github.com/Anton111111) Anton Potekhin for sleep on Windows fixes
-- [lieranderl](https://github.com/lieranderl) Evgeni for adding SSL support code
-- [cocool97](https://github.com/cocool97) for openapi API documentation and torrent categories
-- [shadeov](https://github.com/shadeov) for README improvements
-- [butaford](https://github.com/butaford) Pavel for make docker file and scripts
-- [filimonic](https://github.com/filimonic) Alexey D. Filimonov
-- [leporel](https://github.com/leporel) Viacheslav Evseev
-- and others
+Vite proxies server requests to `http://127.0.0.1:8090`; set `FLOW_DEV_SERVER` to
+use another isolated server. Run `yarn typecheck`, `yarn lint`, `yarn test` and
+`yarn test:e2e` for verification. Build with `yarn build`, then run
+`go run gen_web.go` from the repository root before building the native server.
+See [web acceptance record](WEB_AUDIT.md) and
+[implementation ledger](MODERNIZATION_CHECKLIST.md) for verified behavior and
+remaining device/release gates. Legacy sources remain in `web-legacy/`.
+
+The [build workflow](.github/workflows/build.yml) compiles the web UI, server, libtorrent, and Windows dependencies, then uploads platform artifacts. A local Go-only build is insufficient; see [build instructions](build/README.md) for the CGo/C++ toolchain. Other platform targets remain in CI, but Windows x64 and Android playback are the primary Flow development path.
+
+This fork retains the upstream API and settings format where possible. Upstream
+install scripts, the root `release.json`, and upstream release links still refer
+to **TorrServer-LT**. Use this fork's release assets or CI artifacts. Flow
+generates its own channel-aware release manifest, checksums, original dependency
+notices and GitHub build attestations. The managed scripts verify SHA-256 and
+the exact executable version; `-RequireAttestation` also requires GitHub CLI
+provenance verification. Executables remain unsigned by Authenticode. See
+[distribution and recovery](DISTRIBUTION.md), [current release notes](RELEASE_1_0_NOTES.md)
+and [release verification](RELEASE_1_0_VERIFICATION.md).
+Stable releases are tagged from `master`; ongoing integration uses `develop`.
+The broader field checks remain tracked separately in [project status](STATUS.md).
+
+Use torrents you are authorized to access. TorrServer-Flow retains the upstream [GPL-3.0 license](LICENSE) and acknowledges the work of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) and [TorrServer](https://github.com/YouROK/TorrServer).

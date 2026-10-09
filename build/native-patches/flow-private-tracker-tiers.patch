@@ -1,0 +1,54 @@
+--- a/src/torrent.cpp
++++ b/src/torrent.cpp
+@@ -3273,8 +3273,10 @@
+ 		// so that each one should get at least one announce
+ 		std::vector<announce_state> listen_socket_states;
+ 
+-		bool const announce_to_all_tiers = settings().get_bool(settings_pack::announce_to_all_tiers);
+-		bool const announce_to_all_trackers = settings().get_bool(settings_pack::announce_to_all_trackers);
++		bool const announce_to_all_tiers = settings().get_bool(settings_pack::announce_to_all_tiers)
++			&& !(valid_metadata() && m_torrent_file->priv());
++		bool const announce_to_all_trackers = settings().get_bool(settings_pack::announce_to_all_trackers)
++			&& !(valid_metadata() && m_torrent_file->priv());
+ #ifndef TORRENT_DISABLE_LOGGING
+ 		int idx = -1;
+ 		if (should_log())
+@@ -3853,6 +3855,13 @@
+ 				a.fails = 0;
+ 				a.last_error.clear();
+ 				a.message = !resp.warning_message.empty() ? resp.warning_message : std::string();
++				// BEP 27: a private tracker switch discards peers authorized by
++				// the previous tracker before accepting the new response's peers.
++				if (valid_metadata() && m_torrent_file->priv())
++				{
++					auto const previous = m_trackers.last_working_url();
++					if (!previous.empty() && previous != r.url) clear_peers();
++				}
+ 				m_trackers.record_working(ae);
+ 
+ 				if ((!resp.trackerid.empty()) && (ae->trackerid != resp.trackerid))
+@@ -8423,6 +8432,11 @@
+ 		inc_stats_counter(counters::num_total_pieces_added
+ 			, m_torrent_file->num_pieces());
+ 
++		// A magnet's privacy was unknown during metadata discovery. Discard
++		// those hints/connections once private metadata is established; the
++		// authorized tracker repopulates the peer list.
++		if (m_torrent_file->priv()) clear_peers();
++
+ 		// disconnect redundant peers
+ 		for (auto* p : m_connections)
+ 			p->disconnect_if_redundant();
+@@ -10547,8 +10561,10 @@
+ 		// handful at most), so linear search is cheaper than a map.
+ 		std::vector<timer_state> listen_socket_states;
+ 
+-		bool const announce_to_all_tiers = settings().get_bool(settings_pack::announce_to_all_tiers);
+-		bool const announce_to_all_trackers = settings().get_bool(settings_pack::announce_to_all_trackers);
++		bool const announce_to_all_tiers = settings().get_bool(settings_pack::announce_to_all_tiers)
++			&& !(valid_metadata() && m_torrent_file->priv());
++		bool const announce_to_all_trackers = settings().get_bool(settings_pack::announce_to_all_trackers)
++			&& !(valid_metadata() && m_torrent_file->priv());
+ #ifndef TORRENT_DISABLE_LOGGING
+ 		int idx = -1;
+ 		if (should_log())

@@ -1,0 +1,78 @@
+export default {
+  Flow: {
+    Enabled: true,
+    AdaptiveStartup: true,
+    BootstrapHeadMB: 16,
+    BootstrapTailMode: 'upstream-auto',
+    ProbeGraceMs: 1500,
+    StartupBufferSeconds: 6,
+    StartupBufferMinMB: 32,
+    StartupBufferMaxMB: 128,
+    StartupSafetyFactorPct: 130,
+    AdaptiveReadAhead: true,
+    TargetBufferSeconds: 45,
+    MaxBufferSeconds: 180,
+    WarmSessionTimeoutSec: 600,
+    NetworkRetryMinSec: 2,
+    NetworkRetryMaxSec: 60,
+    SwarmProfile: 'legacy',
+    SwarmCustom: {},
+    RangeTraceEnabled: false,
+    RangeClassification: true,
+    MetricsEnabled: true,
+    DebugFlow: false,
+  },
+  CacheSize: 64,
+  ReaderReadAHead: 95,
+  PreloadCache: 50,
+  PadTailPartial: false,
+  DisableEndGame: false,
+  UseDisk: false,
+  TorrentsSavePath: '',
+  RemoveCacheOnDrop: false,
+  ForceEncrypt: false,
+  RetrackersMode: 1,
+  TrackersListURL: '',
+  DefaultTrackers: `http://retracker.local/announce
+http://bt4.t-ru.org/ann?magnet
+http://retracker.mgts.by:80/announce
+http://tracker.city9x.com:2710/announce
+http://tracker.electro-torrent.pl:80/announce
+http://tracker.internetwarriors.net:1337/announce
+http://tracker2.itzmx.com:6961/announce
+udp://opentor.org:2710
+udp://public.popcorn-tracker.org:6969/announce
+udp://tracker.opentrackr.org:1337/announce
+http://bt.svao-ix.ru/announce
+udp://explodie.org:6969/announce
+wss://tracker.btorrent.xyz
+wss://tracker.openwebtorrent.com`,
+  TorrentDisconnectTimeout: 30,
+  EnableDebug: false,
+  MergeAllM3U: false,
+  EnableDLNA: false,
+  EnableBonjour: true,
+  FriendlyName: '',
+  EnableRutorSearch: false,
+  EnableJacRedSearch: false,
+  JacRedUrl: '',
+  JacRedKey: '',
+  EnableIPv6: false,
+  DisableTCP: false,
+  DisableUTP: false,
+  DisableUPNP: false,
+  DisableDHT: false,
+  DisablePEX: false,
+  DisableUpload: false,
+  EnableLPD: true,
+  DownloadRateLimit: 0,
+  UploadRateLimit: 0,
+  ConnectionsLimit: 25,
+  DHTConnectionsLimit: 500,
+  PeersListenPort: 0,
+  SslPort: 0,
+  SslCert: '',
+  SslKey: '',
+  ShowFSActiveTorr: true,
+  StoreSettingsInJson: true,
+}

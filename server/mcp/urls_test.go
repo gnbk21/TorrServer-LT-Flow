@@ -4,8 +4,25 @@ import (
 	"net/http"
 	"testing"
 
+	"server/settings"
 	"server/torr/state"
 )
+
+func TestFallbackUsesPublicDefaultPorts(t *testing.T) {
+	oldPort, oldSSLPort, oldSSL := settings.Port, settings.SslPort, settings.Ssl
+	t.Cleanup(func() { settings.Port, settings.SslPort, settings.Ssl = oldPort, oldSSLPort, oldSSL })
+	settings.Port, settings.SslPort = "", ""
+	settings.SetInternalBaseURL("http://127.0.0.1:12345")
+	t.Cleanup(func() { settings.SetInternalBaseURL("") })
+	settings.Ssl = false
+	if got := fallbackBaseURL(); got != "http://127.0.0.1:8090" {
+		t.Fatal(got)
+	}
+	settings.Ssl = true
+	if got := fallbackBaseURL(); got != "https://127.0.0.1:8091" {
+		t.Fatal(got)
+	}
+}
 
 func TestPlayURL(t *testing.T) {
 	u := playURL("http://127.0.0.1:8090", "abc", "Season 1/Show.S01E01.mkv", 3)

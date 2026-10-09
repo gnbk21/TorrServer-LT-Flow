@@ -37,6 +37,7 @@ extern "C" {
 /* ----- types ----- */
 typedef int64_t lt_session;
 typedef int64_t lt_torrent;
+int lt_cache_reconciliation_supported(void);
 
 /* ----- error codes ----- */
 #define LT_OK              0
@@ -75,7 +76,7 @@ typedef int64_t lt_torrent;
 #define LT_ALERT_DHT            0x00000400u  /* 10_bit */
 #define LT_ALERT_PIECE_PROGRESS 0x00400000u  /* 22_bit: piece_finished, hash_failed */
 #define LT_ALERT_BLOCK_PROGRESS 0x01000000u  /* 24_bit: block_finished */
-#define LT_ALERT_DEFAULT (LT_ALERT_ERROR | LT_ALERT_PEER | LT_ALERT_STORAGE | \
+#define LT_ALERT_DEFAULT (LT_ALERT_ERROR | LT_ALERT_PEER | LT_ALERT_STORAGE | LT_ALERT_PORT_MAPPING | \
                           LT_ALERT_TRACKER | LT_ALERT_CONNECT | LT_ALERT_STATUS | \
                           LT_ALERT_PERFORMANCE | LT_ALERT_DHT | \
                           LT_ALERT_PIECE_PROGRESS | LT_ALERT_BLOCK_PROGRESS)
@@ -104,6 +105,11 @@ size_t lt_engine_version(char* buf, size_t cap);
 /* ----- session lifecycle ----- */
 /* settings_json may be NULL or "{}" for defaults. */
 lt_session lt_session_new(const char* settings_json);
+/* Bounded, DHT-only native session state; no settings/proxy/plugin state. */
+lt_session lt_session_new_with_dht(const char* settings_json, const char* state, size_t len);
+char* lt_session_dht_state(lt_session s, size_t* len);
+int lt_dht_state_nodes(const char* state, size_t len);
+char* lt_dht_state_normalize(const char* state, size_t len, size_t* out_len);
 
 /* Apply a JSON dict to the session_pack. Unknown keys are ignored with a
  * warning recorded as last_error (but the call still returns LT_OK). */
@@ -140,7 +146,7 @@ lt_torrent lt_session_add_torrent(
     lt_session s,
     const char* link,
     const uint8_t* info_bytes, size_t info_len,
-    const char* trackers_csv,
+    const char* trackers_json,
     const char* save_path,
     int paused,
     const uint8_t* have_pieces_bitmap, int have_pieces_count);
@@ -151,6 +157,15 @@ int lt_torrent_resume(lt_torrent t);
 int lt_torrent_force_recheck(lt_torrent t);
 int lt_torrent_force_reannounce(lt_torrent t);
 int lt_torrent_force_dht_announce(lt_torrent t);
+int lt_torrent_replace_trackers(lt_torrent t, const char* tiers_json);
+int lt_torrent_url_seed(lt_torrent t, const char* url, int remove, int allow_local);
+// Schedule a bounded network-thread snapshot and return the previous cached
+// aggregate immediately. ranges_json is [[first_piece,count], ...], max 8
+// ranges, 256 pieces total. No peer identities or full bitfields are returned.
+char* lt_torrent_sparse_json_alloc(lt_torrent t, const char* ranges_json, size_t* out_len);
+// Private opt-in resume state; never serialized into HTTP diagnostics/history.
+char* lt_torrent_resume_peers_json_alloc(lt_torrent t, size_t* out_len);
+int lt_torrent_restore_peers(lt_torrent t, const char* peers_json);
 /* Per-torrent peer connection cap (torrent_handle::set_max_connections).
  * The BTsets "connections limit" is historically per-torrent, while
  * settings_pack's connections_limit is session-wide — this keeps the
@@ -206,6 +221,8 @@ int lt_torrent_set_file_priority(lt_torrent t, int file_idx, int prio);
  * public torrent_handle equivalent — this pokes the internal picker on the
  * session network thread). Also clears any deadline on the piece. */
 int lt_torrent_we_dont_have(lt_torrent t, int piece_idx, int prio);
+int lt_torrent_prune_partial(lt_torrent t, int piece_idx);
+int lt_torrent_evict_complete(lt_torrent t, int piece_idx);
 
 /* ----- status & stats -----
  * status_json output schema (subset used by Go state.TorrentStatus):

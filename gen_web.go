@@ -22,16 +22,8 @@ func main() {
 		if slices.ContainsFunc(os.Args, func(s string) bool {
 			return s == "--clean" || s == "-c"
 		}) {
-			// There are problems with running under windows
-			if err := run("rm", "-rf", "web/build"); err != nil {
-				if strings.Contains(err.Error(), "executable file not found") {
-					// Adding the ability to run on Windows with standard Go commands
-					if err := os.RemoveAll("web/build"); err != nil {
-						log.Default().Fatalln(err.Error())
-					}
-				} else {
-					log.Default().Fatalln(err.Error())
-				}
+			if err := os.RemoveAll(filepath.Join(dir, "web", "build")); err != nil {
+				log.Default().Fatalln(err.Error())
 			}
 		} else {
 			// Do not uncomment, be aware - its crash the build
@@ -39,7 +31,7 @@ func main() {
 		}
 	}
 
-	if _, err := os.Stat("web/build/static"); os.IsNotExist(err) {
+	if _, err := os.Stat("web/build/index.html"); os.IsNotExist(err) {
 		os.Chdir("web")
 		if err = run("yarn"); err != nil {
 			log.Default().Fatalln(err.Error())
@@ -53,44 +45,36 @@ func main() {
 	compileHtml := "web/build/"
 	srcGo := "server/web/pages/"
 
-	// There are problems with running under windows
-	if err := run("rm", "-rf", srcGo+"template/pages"); err != nil {
-		if strings.Contains(err.Error(), "executable file not found") {
-			// Adding the ability to run on Windows with standard Go commands
-			if err = os.RemoveAll(srcGo + "template/pages"); err != nil {
-				log.Default().Fatalln(err.Error())
-			}
-		} else {
-			log.Default().Fatalln(err.Error())
-		}
+	// Copy the built files, not web/ itself. The old Windows fallback copied the
+	// parent directory and left the generated embed table pointing at stale paths.
+	if err := os.RemoveAll(srcGo + "template/pages"); err != nil {
+		log.Default().Fatalln(err.Error())
 	}
-	// There are problems with running under windows
-	if err := run("cp", "-r", compileHtml, srcGo+"template/pages/"); err != nil {
-		if strings.Contains(err.Error(), "executable file not found") {
-			// Adding the ability to run on Windows with standard Go commands
-			if err = os.CopyFS(srcGo+"template/pages/", os.DirFS(filepath.Dir(compileHtml))); err != nil {
-				log.Default().Fatalln(err.Error())
-			}
-		} else {
-			log.Default().Fatalln(err.Error())
-		}
+	if err := os.CopyFS(srcGo+"template/pages", os.DirFS(compileHtml)); err != nil {
+		log.Default().Fatalln(err.Error())
 	}
 
 	files := make([]string, 0)
 
-	filepath.WalkDir(srcGo+"template/pages/", func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(srcGo+"template/pages/", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 		if !d.IsDir() {
 			name := strings.TrimPrefix(path, srcGo+"template/")
 			if strings.Contains(name, "\\") {
 				// Adding the ability to run on Windows with standard Go commands
 				name = strings.TrimPrefix(strings.ReplaceAll(name, "\\", "/"), "server/web/pages/template/")
 			}
-			if !strings.HasPrefix(filepath.Base(name), ".") {
+			if !strings.HasPrefix(filepath.Base(name), ".") && !strings.HasSuffix(name, ".map") {
 				files = append(files, name)
 			}
 		}
 		return nil
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
 	sort.Strings(files)
 	fmap := writeEmbed(srcGo+"template/html.go", files)
 	writeRoute(srcGo+"template/route.go", fmap)
@@ -124,29 +108,13 @@ import (
 func writeRoute(fname string, fmap map[string]string) {
 	ff, err := os.Create(fname)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 	defer ff.Close()
-	embedStr := `package template
-
-import (
-	"crypto/md5"
-	"fmt"
-	"github.com/gin-gonic/gin"
-)
-
-func RouteWebPages(route gin.IRouter) {
-	route.GET("/", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(Indexhtml))
-		c.Header("Cache-Control", "no-cache")
-		c.Header("ETag", etag)
-		c.Data(200, "text/html; charset=utf-8", Indexhtml)
-	})
-`
-	mime.AddExtensionType(".map", "application/json")
+	ff.WriteString("package template\n\nimport \"github.com/gin-gonic/gin\"\n\nfunc RouteWebPages(route gin.IRouter) {\n")
+	fmt.Fprintln(ff, " route.GET(\"/\", assetHandler(Indexhtml, \"text/html; charset=utf-8\", \"no-cache\"))")
+	fmt.Fprintln(ff, " route.HEAD(\"/\", assetHandler(Indexhtml, \"text/html; charset=utf-8\", \"no-cache\"))")
 	mime.AddExtensionType(".webmanifest", "application/manifest+json")
-	// sort fmap
 	keys := make([]string, 0, len(fmap))
 	for key := range fmap {
 		keys = append(keys, key)
@@ -154,34 +122,20 @@ func RouteWebPages(route gin.IRouter) {
 	sort.Strings(keys)
 	for _, link := range keys {
 		fmime := mime.TypeByExtension(filepath.Ext(link))
-		if fmime == "application/xml" || fmime == "application/javascript" {
-			fmime = fmime + "; charset=utf-8"
+		if fmime == "" {
+			fmime = "application/octet-stream"
+		}
+		if fmime == "application/javascript" || fmime == "application/xml" {
+			fmime += "; charset=utf-8"
 		}
 		if fmime == "image/x-icon" {
 			fmime = "image/vnd.microsoft.icon"
 		}
-		// Hashed assets (chunks, images) are immutable — their filename changes
-		// when their content does — so cache them for a year. The HTML entry
-		// point is NOT hashed and references the current chunk names; it must be
-		// revalidated, otherwise a browser keeps a stale index.html after a
-		// bundle update and requests the now-deleted old chunks (a white screen
-		// / "the app stopped working"). no-cache still uses the ETag for 304s.
-		cacheHdr := "public, max-age=31536000"
-		if strings.HasSuffix(link, ".html") {
-			cacheHdr = "no-cache"
+		for _, method := range []string{"GET", "HEAD"} {
+			fmt.Fprintf(ff, " route.%s(%q, assetHandler(%s, %q, %q))\n", method, link, fmap[link], fmime, assetCacheControl(link))
 		}
-		embedStr += `
-	route.GET("` + link + `", func(c *gin.Context) {
-		etag := fmt.Sprintf("%x", md5.Sum(` + fmap[link] + `))
-		c.Header("Cache-Control", "` + cacheHdr + `")
-		c.Header("ETag", etag)
-		c.Data(200, "` + fmime + `", ` + fmap[link] + `)
-	})
-`
 	}
-	embedStr += "}\n"
-
-	ff.WriteString(embedStr)
+	fmt.Fprintln(ff, "}")
 }
 
 func run(name string, args ...string) error {
@@ -198,4 +152,15 @@ func cleanName(fn string) string {
 		os.Exit(1)
 	}
 	return strings.Title(reg.ReplaceAllString(fn, ""))
+}
+
+func assetCacheControl(path string) string {
+	name := filepath.Base(path)
+	if strings.HasSuffix(name, ".html") || strings.HasSuffix(name, ".webmanifest") || name == "manifest.json" || name == "sw.js" || name == "service-worker.js" {
+		return "no-cache"
+	}
+	if strings.HasPrefix(path, "/assets/") && regexp.MustCompile(`-[A-Za-z0-9_-]{8,}\.`).MatchString(name) {
+		return "public, max-age=31536000, immutable"
+	}
+	return "public, max-age=3600"
 }

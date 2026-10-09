@@ -14,11 +14,17 @@ import (
 	"github.com/anacrolix/publicip"
 	"github.com/wlynxg/anet"
 
+	"os"
+	"path/filepath"
+	"server/diagnostics"
+	"server/flow"
 	"server/lt"
+	"server/netpolicy"
 	"server/settings"
 	"server/torr/storage/torrstor"
 	"server/torr/utils"
 	"server/version"
+	"sync/atomic"
 )
 
 // BTServer is the engine adapter. Owns the libtorrent session, the per-
@@ -26,11 +32,19 @@ import (
 // one BTServer in the process; the abstraction is kept for parity with
 // the previous code base.
 type BTServer struct {
-	mu        sync.Mutex
-	session   *lt.Session
-	torrents  map[Hash]*Torrent
-	stopAlert chan struct{}
-	alertDone chan struct{}
+	mu              sync.Mutex
+	session         *lt.Session
+	torrents        map[Hash]*Torrent
+	stopAlert       chan struct{}
+	alertDone       chan struct{}
+	networkMu       sync.Mutex
+	networkStatus   FlowNetworkStatus
+	networkDone     chan struct{}
+	dhtDone         chan struct{}
+	dhtRestored     atomic.Bool
+	history         atomic.Pointer[flow.History]
+	preparation     *preparationManager
+	preparationDone chan struct{}
 
 	// Latest session_stats counters snapshot, refreshed by the alert pump
 	// whenever a session_stats alert arrives (requested via SessionStats).
@@ -56,6 +70,9 @@ func (bt *BTServer) Connect() error {
 	if bt.session != nil {
 		return errors.New("torr.BTServer: already connected")
 	}
+	bt.networkMu.Lock()
+	bt.networkStatus = FlowNetworkStatus{}
+	bt.networkMu.Unlock()
 
 	cfg, err := buildSessionConfig()
 	if err != nil {
@@ -69,12 +86,45 @@ func (bt *BTServer) Connect() error {
 		return fmt.Errorf("torr.BTServer.Connect: install storage: %w", err)
 	}
 
-	s, err := lt.NewSession(cfg)
+	// Recorder failures are nonfatal and never affect ordinary file logging.
+	if bt.history.Load() == nil || bt.history.Load().Close(time.Second) {
+		bt.history.Store(nil)
+		if settings.CurrentFlow().DiagnosticHistory && !settings.ReadOnly {
+			history, historyErr := flow.NewHistory(settings.Path)
+			bt.history.Store(history)
+			err = historyErr
+			if err != nil {
+				log.Println("Flow diagnostic history unavailable")
+			}
+		}
+	}
+	sets := settings.BTsets()
+	dhtEnabled := settings.CurrentFlow().Enabled && settings.CurrentFlow().DHTStatePersistence && (sets == nil || !sets.DisableDHT)
+	bt.dhtRestored.Store(false)
+	var dhtState []byte
+	if dhtEnabled {
+		raw, readErr := flow.ReadDHTFile(filepath.Join(settings.Path, "flow-dht.bin"))
+		if readErr == nil {
+			dhtState, err = lt.NormalizeDHTState(raw)
+			if err != nil {
+				bt.history.Load().Record(flow.HistoryEvent{Type: "dht", Stage: "DHT_IGNORED"})
+			}
+		} else if !os.IsNotExist(readErr) {
+			bt.history.Load().Record(flow.HistoryEvent{Type: "dht", Stage: "DHT_IGNORED"})
+		}
+	}
+	s, err := lt.NewSessionWithDHT(cfg, dhtState)
 	if err != nil {
 		_ = torrstor.Global().Uninstall()
+		bt.history.Load().Close(time.Second)
 		return fmt.Errorf("torr.BTServer.Connect: %w", err)
 	}
 	bt.session = s
+	if len(dhtState) > 0 {
+		bt.dhtRestored.Store(true)
+		bt.history.Load().Record(flow.HistoryEvent{Type: "dht", Stage: "DHT_RESTORED", Bytes: int64(len(dhtState))})
+	}
+	bt.history.Load().Record(flow.HistoryEvent{Type: "engine_started"})
 	bt.torrents = map[Hash]*Torrent{}
 
 	if filterText, _ := utils.ReadBlockedIPText(); filterText != "" {
@@ -87,24 +137,38 @@ func (bt *BTServer) Connect() error {
 	bt.alertDone = make(chan struct{})
 	go bt.alertPump(bt.stopAlert, bt.alertDone)
 	go bt.expireWatch(bt.stopAlert)
+	bt.networkDone = make(chan struct{})
+	go bt.networkLifecycle(bt.stopAlert, bt.networkDone)
+	bt.dhtDone = make(chan struct{})
+	go bt.saveDHTLifecycle(s, bt.stopAlert, bt.dhtDone, dhtEnabled && !settings.ReadOnly, filepath.Join(settings.Path, "flow-dht.bin"), bt.history.Load())
 
 	InitApiHelper(bt)
+	bt.preparation = newPreparationManager(bt)
+	bt.preparationDone = make(chan struct{})
+	go bt.preparation.run(bt.stopAlert, bt.preparationDone)
+	diagnostics.MarkEngineReady(true)
 	return nil
 }
 
 // Disconnect stops the alert pump and tears down the session.
 func (bt *BTServer) Disconnect() {
+	diagnostics.MarkEngineReady(false)
 	// Stop the alert pump BEFORE taking bt.mu for teardown: handleAlert locks
 	// bt.mu for its registry lookup, so holding the lock while waiting on
 	// alertDone deadlocks whenever the pump is mid-batch — observed as
 	// /shutdown hanging forever under steady alert traffic (DHT churn).
 	bt.mu.Lock()
-	stop, done := bt.stopAlert, bt.alertDone
+	stop, done, networkDone, dhtDone := bt.stopAlert, bt.alertDone, bt.networkDone, bt.dhtDone
 	bt.stopAlert = nil
 	bt.mu.Unlock()
 	if stop != nil {
 		close(stop)
 		<-done
+		<-networkDone
+		<-dhtDone
+		if bt.preparationDone != nil {
+			<-bt.preparationDone
+		}
 	}
 
 	bt.mu.Lock()
@@ -116,6 +180,8 @@ func (bt *BTServer) Disconnect() {
 		t.markClosed()
 	}
 	bt.torrents = map[Hash]*Torrent{}
+	bt.history.Load().Record(flow.HistoryEvent{Type: "engine_stopped"})
+	bt.history.Load().Close(time.Second)
 	_ = bt.session.Close()
 	bt.session = nil
 	// Drop the disk callbacks so subsequent NewSession calls (in tests
@@ -125,7 +191,11 @@ func (bt *BTServer) Disconnect() {
 
 // Session is exposed so the rest of the package can call lt-level
 // operations without re-implementing the wrapper.
-func (bt *BTServer) Session() *lt.Session { return bt.session }
+func (bt *BTServer) Session() *lt.Session {
+	bt.mu.Lock()
+	defer bt.mu.Unlock()
+	return bt.session
+}
 
 // GetTorrent returns the in-memory torrent for the given hash (nil if
 // not currently registered with this server — note that database-only
@@ -265,8 +335,20 @@ func (bt *BTServer) expireWatch(stop <-chan struct{}) {
 }
 
 func (bt *BTServer) handleAlert(a *lt.Alert) {
+	bt.recordNetworkAlert(a)
 	if settings.BTsets() != nil && settings.BTsets().EnableDebug && a.Type != "" {
-		log.Printf("lt: %s — %s", a.Type, a.Message)
+		switch a.Type {
+		case "tracker_reply", "tracker_reply_alert":
+			log.Printf("lt: %s — peers=%d", a.Type, a.Peers)
+		case "tracker_error", "tracker_error_alert":
+			log.Printf("lt: %s — %s", a.Type, safeTrackerError(a.Error))
+		default:
+			if strings.HasPrefix(a.Type, "tracker") {
+				log.Printf("lt: %s", a.Type)
+			} else {
+				log.Printf("lt: %s — %s", a.Type, a.Message)
+			}
+		}
 	}
 	if len(a.Counters) > 0 && (a.Type == "session_stats" || a.Type == "session_stats_alert") {
 		bt.statsMu.Lock()
@@ -285,8 +367,32 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 		return
 	}
 	switch a.Type {
+	case "tracker_reply", "tracker_reply_alert", "tracker_error", "tracker_error_alert":
+		t.recordTrackerAlert(a)
+		bt.recordTrackerConnectivity(a.Type)
 	case "metadata_received", "metadata_received_alert", "add_torrent":
 		t.signalGotInfo()
+	case "dht_reply", "dht_reply_alert":
+		if a.Peers > 0 {
+			t.mu.Lock()
+			if t.flowStartup.FirstDHTPeerMs < 0 {
+				t.flowStartup.FirstDHTPeerMs = time.Since(t.flowAddedAt).Milliseconds()
+				t.historyEvent(flow.HistoryEvent{Type: "dht_peer", ElapsedMs: t.flowStartup.FirstDHTPeerMs, Code: a.Peers})
+			}
+			t.mu.Unlock()
+		}
+	case "peer_connect", "peer_connect_alert":
+		t.mu.Lock()
+		if t.flowStartup.FirstPeerMs < 0 && !t.flowStartupStarted.IsZero() {
+			t.flowStartup.FirstPeerMs = time.Since(t.flowStartupStarted).Milliseconds()
+		}
+		t.mu.Unlock()
+	case "peer_disconnected", "peer_disconnected_alert":
+		t.historyEvent(flow.HistoryEvent{Type: "peer_disconnected", Code: a.ErrorCode, Operation: a.Operation, Stage: a.DisconnectReason})
+	case "block_timeout", "block_timeout_alert":
+		t.requestTimeouts.Add(1)
+	case "request_dropped", "request_dropped_alert":
+		t.requestsDropped.Add(1)
 	case "torrent_finished":
 		t.signalGotInfo()
 	case "torrent_error", "file_error":
@@ -306,8 +412,13 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 // unrecognised key is silently ignored on the C++ side.
 func buildSessionConfig() (lt.SessionConfig, error) {
 	cfg := lt.SessionConfig{
-		"user_agent":       "qBittorrent/4.3.9",
-		"peer_fingerprint": "-qB4390-",
+		"urlseed_timeout":            15,
+		"urlseed_wait_retry":         30,
+		"web_seed_name_lookup_retry": 60,
+		"max_web_seed_connections":   4,
+		"urlseed_pipeline_size":      2,
+		"user_agent":                 "qBittorrent/4.3.9",
+		"peer_fingerprint":           "-qB4390-",
 
 		// Streaming-tuned defaults (cf. elgatito/elementum). These trade some
 		// bandwidth politeness for fast start/seek: find peers quickly, keep
@@ -468,6 +579,11 @@ func buildSessionConfig() (lt.SessionConfig, error) {
 	// Proxy (if CLI --proxy-url is set, plumb it through). Honours the
 	// --proxy-mode flag (tracker / peers / full).
 	applyProxyConfig(cfg)
+	applyFlowSwarmProfile(cfg, settings.CurrentFlow(), s.DisableEndGame)
+	if settings.CurrentFlow().TorrentInterface != "" && settings.Args != nil && settings.Args.ProxyURL != "" {
+		return nil, fmt.Errorf("torrent interface binding cannot be combined with --proxy-url")
+	}
+	applyInterfacePolicy(cfg, netpolicy.Snapshot(), s)
 
 	return cfg, nil
 }
@@ -486,7 +602,8 @@ func applyProxyConfig(cfg lt.SessionConfig) {
 	}
 	u, err := url.Parse(settings.Args.ProxyURL)
 	if err != nil || u.Host == "" {
-		log.Println("torr: cannot parse proxy URL:", err)
+		// url.Parse errors can contain the original URL, including credentials.
+		log.Println("torr: invalid proxy URL")
 		return
 	}
 

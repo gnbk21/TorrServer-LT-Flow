@@ -91,7 +91,8 @@ func addTorrent(req torrReqJS, c *gin.Context) {
 		return
 	}
 
-	log.TLogln("add torrent", req.Link)
+	// Magnet tracker URLs and remote torrent links may contain private passkeys.
+	log.TLogln("add torrent request")
 	req.Link = strings.ReplaceAll(req.Link, "&amp;", "&")
 
 	var torrSpec *torr.TorrentSpec
@@ -187,7 +188,10 @@ func remTorrent(req torrReqJS, c *gin.Context) {
 		abortWithJSONError(c, http.StatusBadRequest, errors.New("hash is empty"))
 		return
 	}
-	torr.RemTorrent(req.Hash)
+	if err := torr.RemTorrent(req.Hash); err != nil {
+		abortWithJSONError(c, http.StatusConflict, err)
+		return
+	}
 	gstreamer.Remove(req.Hash)
 	// TODO: remove
 	if set.BTsets().EnableDLNA {
@@ -205,7 +209,21 @@ func listTorrents(c *gin.Context) {
 	}
 	var stats []*state.TorrentStatus
 	for _, tr := range list {
-		stats = append(stats, tr.Status())
+		st := tr.Status()
+		if st.ActiveReaders > 0 {
+			for _, session := range tr.FlowStatus() {
+				if session.ActiveReaders <= 0 {
+					continue
+				}
+				summary := state.FlowPlaybackSummary{FileIndex: session.FileIndex, BufferWarning: session.BufferWarning}
+				if session.PlaybackConsumptionRate > 0 {
+					buffer, ratio := session.BufferAheadSeconds, session.SustainabilityRatio
+					summary.BufferSeconds, summary.Sustainability = &buffer, &ratio
+				}
+				st.FlowPlayback = append(st.FlowPlayback, summary)
+			}
+		}
+		stats = append(stats, st)
 	}
 	c.JSON(200, stats)
 }
@@ -223,7 +241,10 @@ func dropTorrent(req torrReqJS, c *gin.Context) {
 func wipeTorrents(c *gin.Context) {
 	torrents := torr.ListTorrent()
 	for _, t := range torrents {
-		torr.RemTorrent(t.TorrentSpec.InfoHash.HexString())
+		if err := torr.RemTorrent(t.TorrentSpec.InfoHash.HexString()); err != nil {
+			abortWithJSONError(c, http.StatusConflict, err)
+			return
+		}
 	}
 	// TODO: remove (copied todo from remTorrent())
 	if set.BTsets().EnableDLNA {

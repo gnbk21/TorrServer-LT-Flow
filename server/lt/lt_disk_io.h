@@ -28,11 +28,29 @@ struct tsl_storage_callbacks {
 
     // Etap 4.2: report locally-have pieces during resume.
     int  (*have)   (int64_t storage_id, int piece);
+    // Optional: remove a stale partial after native write/hash work settles.
+    int  (*prune)  (int64_t storage_id, int piece);
+    // Optional: remove a complete LRU entry after native I/O settles.
+    int  (*evict)  (int64_t storage_id, int piece);
+    // Exact metadata size, including the short final piece.
+    void (*size)   (int64_t storage_id, int64_t total_size);
+    // Native hash-failure fence; keep the backend but clear readable state.
+    void (*clear_piece)(int64_t storage_id, int piece);
 };
 
 // Install / clear the Go callbacks. Pass NULL to revert to default
 // libtorrent disk_io on the next session_new. Returns LT_OK on success.
 int lt_install_storage_callbacks_full(const struct tsl_storage_callbacks* cb);
+int lt_storage_prune_partial(int64_t storage_id, int piece);
+int lt_storage_evict_complete(int64_t storage_id, int piece);
+
+// Process aggregates, never paths, hashes or peer addresses. Latency percentiles
+// are conservative upper bounds from logarithmic microsecond buckets.
+struct tsl_io_stats {
+    uint64_t queued_bytes, peak_queue_bytes, queued_jobs, rejected_jobs;
+    uint64_t completed_jobs, wait_p95_us, wait_max_us, callback_p95_us, callback_max_us;
+};
+void lt_storage_io_stats(struct tsl_io_stats* out);
 
 #ifdef __cplusplus
 }

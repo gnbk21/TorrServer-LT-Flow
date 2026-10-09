@@ -76,7 +76,7 @@ func InitSets(readOnly, searchWA, streamWA bool) {
 	loadBTSets()
 
 	// Update preferences if they changed
-	if BTsets() != nil && (BTsets().StoreSettingsInJson != settingsStoragePref || BTsets().StoreViewedInJson != viewedStoragePref) {
+	if BTsets() != nil && SettingsRecovery().Issue == "" && (BTsets().StoreSettingsInJson != settingsStoragePref || BTsets().StoreViewedInJson != viewedStoragePref) {
 		BTsets().StoreSettingsInJson = settingsStoragePref
 		BTsets().StoreViewedInJson = viewedStoragePref
 		SetBTSets(BTsets())

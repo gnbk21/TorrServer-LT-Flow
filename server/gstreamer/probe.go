@@ -18,6 +18,8 @@ import (
 
 const gstProbeTimeout = 30 * time.Second
 
+var errDiscovererUnavailable = errors.New("gst-discoverer is unavailable")
+
 var (
 	discovererDurationRe  = regexp.MustCompile(`(?i)Duration:\s*(\d+):(\d+):(\d+)(?:\.(\d+))?`)
 	discovererContainerRe = regexp.MustCompile(`(?i)^(?:container(?:\s+#\d+)?|container[\s-]+format)\s*:\s*(.+)$`)
@@ -197,6 +199,49 @@ func (t TrackInfo) IsAACAudio() bool {
 		strings.Contains(codec, "mpegversion=4")
 }
 
+// IsBrowserAAC reports whether an AAC track can be copied into HLS as it is.
+// Browsers play AAC LC and HE-AAC (v1 and v2) only: Chrome, Firefox and Safari
+// refuse AAC Main, SSR and LTP (mp4a.40.1, .40.3, .40.4), and hls.js then
+// rejects the whole stream. Those are re-encoded like other audio.
+func (t TrackInfo) IsBrowserAAC() bool {
+	if !t.IsAACAudio() {
+		return false
+	}
+	switch aacProfile(t.Codec) {
+	case "main", "ssr", "ltp":
+		return false
+	}
+	return true
+}
+
+var (
+	aacProfileField   = regexp.MustCompile(`(?:^|[\s,;])profile=(?:\(string\))?"?([a-z0-9-]+)`)
+	aacCodecDataField = regexp.MustCompile(`codec_data=(?:\(buffer\))?([0-9a-f]{2})`)
+)
+
+// aacProfile is the AAC profile of codec (GStreamer caps): their "profile"
+// field, else the object type in codec_data (the AudioSpecificConfig's
+// first five bits), else "".
+func aacProfile(codec string) string {
+	codec = strings.ToLower(codec)
+	if m := aacProfileField.FindStringSubmatch(codec); m != nil {
+		return m[1]
+	}
+	if m := aacCodecDataField.FindStringSubmatch(codec); m != nil {
+		if b, err := strconv.ParseUint(m[1], 16, 8); err == nil {
+			switch b >> 3 {
+			case 1:
+				return "main"
+			case 3:
+				return "ssr"
+			case 4:
+				return "ltp"
+			}
+		}
+	}
+	return ""
+}
+
 func (t TrackInfo) IsHDRVideo() bool {
 	return t.Type == "video" && (t.IsDolbyVision || t.VideoTransfer == "pq" || t.VideoTransfer == "hlg")
 }
@@ -219,28 +264,39 @@ func (p ProbeInfo) IsVP9() bool  { return p.VideoCapsName() == "video/x-vp9" }
 func (p ProbeInfo) IsVP8() bool  { return p.VideoCapsName() == "video/x-vp8" }
 
 func probeSource(sourceURL string, conf Config) (ProbeInfo, error) {
-	output, err := runGSTDiscoverer(sourceURL, conf, gstProbeTimeout)
+	return probeSourceContext(context.Background(), sourceURL, conf)
+}
+
+func probeSourceContext(ctx context.Context, sourceURL string, conf Config) (ProbeInfo, error) {
+	output, err := runGSTDiscovererContext(ctx, sourceURL, conf, gstProbeTimeout)
+	if errors.Is(err, errDiscovererUnavailable) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return ProbeInfo{}, err
+	}
 	if strings.TrimSpace(output) == "" {
 		if err != nil {
-			return ProbeInfo{}, err
+			return ProbeInfo{}, fmt.Errorf("%w: %v", ErrProbeUnavailable, err)
 		}
-		return ProbeInfo{}, errors.New("gst-discoverer returned no output")
+		return ProbeInfo{}, ErrProbeUnavailable
 	}
 
 	probe := probeFromDiscoverer(output)
 	if len(probe.Tracks) == 0 {
 		if err != nil {
-			return ProbeInfo{}, fmt.Errorf("gst-discoverer parse failed: %w", err)
+			return ProbeInfo{}, fmt.Errorf("%w: %v", ErrProbeUnavailable, err)
 		}
-		return ProbeInfo{}, errors.New("gst-discoverer returned no stream info")
+		return ProbeInfo{}, ErrProbeUnavailable
 	}
 	return probe, nil
 }
 
 func runGSTDiscoverer(sourceURL string, conf Config, timeout time.Duration) (string, error) {
+	return runGSTDiscovererContext(context.Background(), sourceURL, conf, timeout)
+}
+
+func runGSTDiscovererContext(parent context.Context, sourceURL string, conf Config, timeout time.Duration) (string, error) {
 	bin, err := gstDiscovererPath(conf)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%w: %v", errDiscovererUnavailable, err)
 	}
 
 	timeoutSeconds := int(timeout.Seconds())
@@ -248,15 +304,24 @@ func runGSTDiscoverer(sourceURL string, conf Config, timeout time.Duration) (str
 		timeoutSeconds = 30
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout+3*time.Second)
+	ctx, cancel := context.WithTimeout(parent, timeout+3*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, bin, "-v", "-t", strconv.Itoa(timeoutSeconds), sourceURL)
+	cmd.WaitDelay = time.Second
 	cmd.Env = gstDiscovererEnv(conf)
 
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() != nil {
 		return string(out), ctx.Err()
+	}
+	// Failure to start cannot be repaired by fetching torrent data.
+	var exitError *exec.ExitError
+	if err != nil && !errors.As(err, &exitError) {
+		return string(out), fmt.Errorf("%w: %v", errDiscovererUnavailable, err)
+	}
+	if err != nil && (strings.Contains(string(out), "error while loading shared libraries") || strings.Contains(string(out), "Library not loaded")) {
+		return string(out), fmt.Errorf("%w: runtime dependencies missing", errDiscovererUnavailable)
 	}
 	return string(out), err
 }
