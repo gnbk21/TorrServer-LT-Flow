@@ -2,11 +2,11 @@
 
 TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps the libtorrent engine, existing media cache and HTTP API, and adds a modern embedded web interface.
 
-> **Development status:** [Preview 2](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v0.2.0-preview.5) is the current prerelease, built from `e0307c6d`. Its integration is tracked in [PR #3](https://github.com/gnbk21/TorrServer-LT-Flow/pull/3); see the [current status and exact remaining gates](STATUS.md). `develop` is the default integration branch; `master` is reserved for accepted stable releases. This preview is not a validated Flow / Modern Web 1.0 release.
+> **Development status:** [Preview 2 `.6`](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v0.2.0-preview.6) includes the high-bitrate, startup and recovery improvements from [PR #3](https://github.com/gnbk21/TorrServer-LT-Flow/pull/3). Each package's `BUILDINFO.json` records its exact source. See the [release notes](PREVIEW_2_6_NOTES.md) and [remaining acceptance gates](STATUS.md). `develop` is the integration branch; `master` is reserved for accepted stable releases. This preview is not a validated Flow / Modern Web 1.0 release.
 
 ## Run on Windows
 
-1. Open [Preview 2](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v0.2.0-preview.5), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v0.2.0-preview.5.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
+1. Open [Preview 2 `.6`](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v0.2.0-preview.6), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v0.2.0-preview.6.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
 2. In PowerShell, run the standard executable from the extracted folder, using a separate data directory for Flow:
 
    ```powershell
@@ -149,8 +149,8 @@ The development **Adaptive Streaming** profile implements the reserve-aware
 candidate described in [the investigation](STREAMING_PROFILE_RESEARCH.md).
 Initial comparisons rejected narrower deadline sets and global priority
 restoration as defaults, so the full streaming ramp remains. Neither full episode
-preparation nor a paid provider is required. The new profile is absent from
-published Preview 2 `.5`; real phone and public-swarm comparisons remain pending.
+preparation nor a paid provider is required. Preview 2 `.6` includes this profile;
+broader real-phone and public-swarm comparisons remain pending.
 
 Development builds add bounded asynchronous storage I/O, verified-contiguous
 buffer and urgent-request-age diagnostics, a phone/LAN transfer check, and three
