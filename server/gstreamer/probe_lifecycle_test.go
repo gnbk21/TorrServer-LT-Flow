@@ -28,8 +28,30 @@ func discovererFixture(t *testing.T, mode string) (Config, string) {
 	if err := os.Mkdir(filepath.Join(root, "bin"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	// A command fixture is not a complete GST runtime root. Put it on PATH,
-	// where discovery supports standalone gst-discoverer installations.
+	// Use the installed runtime's real base library so this explicit root takes
+	// precedence over /usr's real discoverer even during the media E2E gate.
+	// A PATH-only command loses to a valid default runtime root.
+	var base string
+	for _, installed := range gstRuntimeRoots(Config{}) {
+		for _, candidate := range gstBaseLibraryCandidates(installed) {
+			if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+				base = candidate
+				break
+			}
+		}
+		if base != "" {
+			break
+		}
+	}
+	if base == "" {
+		t.Fatal("installed GStreamer base library is required by the lifecycle gate")
+	}
+	if err := os.Mkdir(filepath.Join(root, "lib"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(base, filepath.Join(root, "lib", "libgstreamer-1.0.so.0")); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("PATH", filepath.Join(root, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("FLOW_GST_PROBE_FIXTURE", root)
 	t.Setenv("FLOW_GST_PROBE_FIXTURE_MODE", mode)
@@ -46,7 +68,11 @@ print("Properties:\n  Duration: 0:01:00.000000000\n  container: Matroska\n    vi
 	if err := os.WriteFile(filepath.Join(root, "bin", gstDiscovererExecutableName()), []byte(script), 0755); err != nil {
 		t.Fatal(err)
 	}
-	return Config{GSTPath: root}, root
+	conf := Config{GSTPath: root}
+	if selected, err := gstDiscovererPath(conf); err != nil || selected != filepath.Join(root, "bin", gstDiscovererExecutableName()) {
+		t.Fatalf("fixture discoverer was not selected: %q, %v", selected, err)
+	}
+	return conf, root
 }
 
 func waitProbeCondition(t *testing.T, condition func() bool) {
