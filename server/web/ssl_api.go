@@ -144,6 +144,7 @@ func sslCertDownload(c *gin.Context) {
 //	@Failure		400		{object}	map[string]string
 //	@Failure		403		{object}	map[string]string
 //	@Failure		409		{object}	map[string]string
+//	@Param			If-Match	header	string	true	"Current settings revision from /ssl/status"
 //	@Router			/ssl/upload [post]
 func sslUpload(c *gin.Context) {
 	if denyCertChange(c) {
@@ -221,6 +222,7 @@ type sslPathsReq struct {
 //	@Failure		400		{object}	map[string]string
 //	@Failure		403		{object}	map[string]string
 //	@Failure		409		{object}	map[string]string
+//	@Param			If-Match	header	string	true	"Current settings revision from /ssl/status"
 //	@Router			/ssl/paths [post]
 func sslSetPaths(c *gin.Context) {
 	if denyCertChange(c) {
@@ -264,6 +266,7 @@ func sslSetPaths(c *gin.Context) {
 //	@Failure		403	{object}	map[string]string
 //	@Failure		409	{object}	map[string]string
 //	@Failure		500	{object}	map[string]string
+//	@Param			If-Match	header	string	true	"Current settings revision from /ssl/status"
 //	@Router			/ssl/selfsigned [post]
 func sslUseSelfSigned(c *gin.Context) {
 	if denyCertChange(c) {
@@ -296,6 +299,7 @@ func sslUseSelfSigned(c *gin.Context) {
 //	@Failure		403	{object}	map[string]string
 //	@Failure		409	{object}	map[string]string
 //	@Failure		500	{object}	map[string]string
+//	@Param			If-Match	header	string	true	"Current settings revision from /ssl/status"
 //	@Router			/ssl/regenerate [post]
 func sslRegenerate(c *gin.Context) {
 	if denyCertChange(c) {

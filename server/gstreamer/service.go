@@ -43,11 +43,12 @@ type Service struct {
 	mu    sync.RWMutex
 	tasks map[string]*Task
 
-	probeMu    sync.Mutex
-	probeCache map[string]probeCacheEntry
-	probeCalls singleflight.Group
-	probeRuns  map[string]*probeRun
-	taskCalls  singleflight.Group
+	probeMu      sync.Mutex
+	probeCache   map[string]probeCacheEntry
+	probeCalls   singleflight.Group
+	probeRuns    map[string]*probeRun
+	probeWorkers sync.WaitGroup
+	taskCalls    singleflight.Group
 
 	cleanupRunning atomic.Bool
 	disposed       atomic.Bool
@@ -302,9 +303,14 @@ func (s *Service) ProbeContext(ctx context.Context, hash string, fileID string) 
 	}
 	run.waiters++
 	resultChannel := s.probeCalls.DoChan(key, func() (any, error) {
+		s.probeMu.Lock()
 		if s.disposed.Load() {
+			s.probeMu.Unlock()
 			return ProbeInfo{}, ErrServiceClosed
 		}
+		s.probeWorkers.Add(1)
+		s.probeMu.Unlock()
+		defer s.probeWorkers.Done()
 		if cached, found, err := s.cachedProbe(hash, fileID); found {
 			return cached, err
 		}
@@ -642,6 +648,7 @@ func (s *Service) Dispose() {
 	}
 	s.probeCache = make(map[string]probeCacheEntry)
 	s.probeMu.Unlock()
+	s.probeWorkers.Wait()
 
 	for _, task := range tasks {
 		task.Dispose()

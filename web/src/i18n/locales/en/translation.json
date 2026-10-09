@@ -915,7 +915,8 @@
         "self-signed": "Self-signed",
         "uploaded": "Uploaded",
         "user": "Server files"
-      }
+      },
+      "plainHttp": "This page uses plain HTTP. Uploading a private key here sends it unencrypted. Open HTTPS before uploading."
     }
   },
   "runtime": {

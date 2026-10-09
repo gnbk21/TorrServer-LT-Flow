@@ -915,7 +915,8 @@
         "self-signed": "Autosemnat",
         "uploaded": "Încărcat",
         "user": "Fișierele serverului"
-      }
+      },
+      "plainHttp": "Această pagină folosește HTTP. Încărcarea unei chei private aici o transmite necriptat. Deschideți HTTPS înainte de încărcare."
     }
   },
   "preparation": {

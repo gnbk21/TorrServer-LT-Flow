@@ -2,6 +2,79 @@ import { test, expect, type Page } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
 import settings from "./settings.json" with { type: "json" };
 
+test("certificate drafts survive tabs, block navigation and use revision checks", async ({
+  page,
+}) => {
+  await mockServer(page);
+  const status = {
+    enabled: true,
+    port: "8091",
+    http_port: "8090",
+    http_enabled: true,
+    force_https: false,
+    http_media: false,
+    read_only: false,
+    cert_from_flags: false,
+    revision: "fixture-revision-1",
+    cert: { source: "self-signed", trusted: false },
+  };
+  await page.route("**/ssl/status", (route) => route.fulfill({ json: status }));
+  const changes: { revision?: string; body: unknown }[] = [];
+  await page.route("**/ssl/paths", (route) => {
+    changes.push({
+      revision: route.request().headers()["if-match"],
+      body: route.request().postDataJSON(),
+    });
+    return route.fulfill({ json: status });
+  });
+  await page.goto("/#/settings");
+  await page.getByRole("tab", { name: "Security", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Certificate path on server", exact: true })
+    .fill("fixture.crt");
+  await page
+    .getByRole("textbox", { name: "Private key path on server", exact: true })
+    .fill("fixture.key");
+  await page.getByRole("tab", { name: "General", exact: true }).click();
+  await page.getByRole("tab", { name: "Security", exact: true }).click();
+  await expect(
+    page.getByRole("textbox", {
+      name: "Certificate path on server",
+      exact: true,
+    }),
+  ).toHaveValue("fixture.crt");
+  await page
+    .getByRole("link", { name: "Dashboard", exact: true })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Unsaved changes" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Continue editing" }).click();
+  await page
+    .getByRole("button", { name: "Use existing files", exact: true })
+    .click();
+  await expect(
+    page.getByRole("textbox", {
+      name: "Certificate path on server",
+      exact: true,
+    }),
+  ).toHaveValue("");
+  expect(changes).toEqual([
+    {
+      revision: "fixture-revision-1",
+      body: { cert: "fixture.crt", key: "fixture.key" },
+    },
+  ]);
+  await page
+    .getByRole("link", { name: "Dashboard", exact: true })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Dashboard", exact: true }),
+  ).toBeVisible();
+});
+
 test("legacy zero-cache settings remain accessible for explicit repair", async ({
   page,
 }) => {
@@ -215,6 +288,8 @@ async function mockServer(
       });
     if (path === "/echo")
       return route.fulfill({ body: "MatriX.145.Flow-test" });
+    if (path === "/mediabase")
+      return json({ base: new URL(route.request().url()).origin });
     if (path === "/ssl/status")
       return json({
         enabled: false,

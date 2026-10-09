@@ -6,12 +6,21 @@ import { Button } from "../common/Button";
 import { Modal } from "../common/Modal";
 import { Loading, RequestError } from "../common/RequestState";
 
-export function Certificates({ disabled }: { disabled: boolean }) {
+export function Certificates({
+  disabled,
+  visible,
+  onDirty,
+}: {
+  disabled: boolean;
+  visible: boolean;
+  onDirty: (dirty: boolean) => void;
+}) {
   const { t } = useTranslation();
   const cache = useQueryClient();
   const query = useQuery({
     queryKey: ["certificates"],
     queryFn: ({ signal }) => certificatesApi.status(signal),
+    enabled: visible,
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
@@ -20,8 +29,13 @@ export function Certificates({ disabled }: { disabled: boolean }) {
   const [keyPath, setKeyPath] = useState("");
   const [certFile, setCertFile] = useState<File>();
   const [keyFile, setKeyFile] = useState<File>();
+  const [fileReset, setFileReset] = useState(0);
   const [confirm, setConfirm] = useState<"regenerate" | "selfsigned">();
   const request = useRef<AbortController | null>(null);
+  const dirty = busy || !!certFile || !!keyFile || !!certPath || !!keyPath;
+  useEffect(() => {
+    onDirty(dirty);
+  }, [dirty, onDirty]);
   useEffect(() => () => request.current?.abort(), []);
   const status = query.data;
   const locked =
@@ -66,10 +80,14 @@ export function Certificates({ disabled }: { disabled: boolean }) {
       await Promise.all([
         cache.invalidateQueries({ queryKey: ["configuration"] }),
         cache.invalidateQueries({ queryKey: ["settings"] }),
+        cache.invalidateQueries({ queryKey: ["external-media-base"] }),
       ]);
       setNotice(true);
       setKeyFile(undefined);
       setCertFile(undefined);
+      setFileReset((value) => value + 1);
+      setCertPath("");
+      setKeyPath("");
     } catch (e) {
       if (!controller.signal.aborted) setError(e);
     } finally {
@@ -130,6 +148,11 @@ export function Certificates({ disabled }: { disabled: boolean }) {
           {status.enabled && (
             <p className="text-sm">{t("settings.certificates.trustHint")}</p>
           )}
+          {status.enabled && window.location.protocol === "http:" && (
+            <p role="status" className="text-amber-300">
+              {t("settings.certificates.plainHttp")}
+            </p>
+          )}
           {status.cert.error && <p role="alert">{status.cert.error}</p>}
           {status.enabled && (
             <a className="underline" href="/ssl/cert" download="torrserver.crt">
@@ -145,6 +168,7 @@ export function Certificates({ disabled }: { disabled: boolean }) {
                 {t("settings.certificates.certFile")}
                 <input
                   type="file"
+                  key={`cert-${fileReset}`}
                   accept=".pem,.crt,.cer"
                   onChange={(e) => setCertFile(e.target.files?.[0])}
                 />
@@ -153,6 +177,7 @@ export function Certificates({ disabled }: { disabled: boolean }) {
                 {t("settings.certificates.keyFile")}
                 <input
                   type="file"
+                  key={`key-${fileReset}`}
                   accept=".pem,.key"
                   onChange={(e) => setKeyFile(e.target.files?.[0])}
                 />
@@ -201,6 +226,19 @@ export function Certificates({ disabled }: { disabled: boolean }) {
               </Button>
             </div>
           </fieldset>
+          <Button
+            disabled={!dirty || busy}
+            onClick={() => {
+              setCertFile(undefined);
+              setKeyFile(undefined);
+              setCertPath("");
+              setKeyPath("");
+              setFileReset((value) => value + 1);
+              setError(undefined);
+            }}
+          >
+            {t("settings.discard")}
+          </Button>
         </>
       )}
       {!!error && <RequestError error={error} retry={() => query.refetch()} />}

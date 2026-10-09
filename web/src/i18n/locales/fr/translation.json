@@ -921,7 +921,8 @@
         "self-signed": "Autosigné",
         "uploaded": "Importé",
         "user": "Fichiers du serveur"
-      }
+      },
+      "plainHttp": "Cette page utilise HTTP. Envoyer une clé privée ici la transmet sans chiffrement. Ouvrez HTTPS avant cet envoi."
     }
   },
   "preparation": {

@@ -62,7 +62,7 @@ func allPlayList(c *gin.Context) {
 		torrs = filtered
 	}
 
-	host := utils.GetScheme(c) + "://" + utils.GetHost(c)
+	host := mediaBaseURL(c)
 	list := "#EXTM3U\n"
 	hash := ""
 	// fn=file.m3u fix forkplayer bug with end .m3u in link
@@ -132,7 +132,7 @@ func playList(c *gin.Context) {
 		}
 	}
 
-	host := utils.GetScheme(c) + "://" + utils.GetHost(c)
+	host := mediaBaseURL(c)
 	list := getM3uList(tor.Status(), host, fromlast, index)
 	list = "#EXTM3U\n" + list
 	name := strings.ReplaceAll(c.Param("fname"), `/`, "") // strip starting / from param

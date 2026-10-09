@@ -8,6 +8,21 @@ import (
 )
 
 func TestBufferedReaderTracksConsumptionRatherThanPrefetch(t *testing.T) {
+	for _, disk := range []bool{false, true} {
+		name := "RAM"
+		if disk {
+			name = "disk"
+		}
+		t.Run(name, func(t *testing.T) {
+			if disk {
+				withDiskCache(t, 8*pieceLen)
+			}
+			testBufferedConsumption(t)
+		})
+	}
+}
+
+func testBufferedConsumption(t *testing.T) {
 	c := mkCache(t, 2*pieceLen)
 	for i := 0; i < 2; i++ {
 		if _, err := c.writePiece(i, 0, bytes.Repeat([]byte{byte(i + 1)}, int(pieceLen))); err != nil {

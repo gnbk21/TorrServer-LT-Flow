@@ -114,6 +114,7 @@ export default function Settings() {
   const [pending, setPending] = useState<Record<string, SettingsValue>>();
   const [notice, setNotice] = useState("");
   const [integrationDirty, setIntegrationDirty] = useState(false);
+  const [certificateDirty, setCertificateDirty] = useState(false);
   const {
     register: rawRegister,
     handleSubmit,
@@ -163,7 +164,7 @@ export default function Settings() {
       setDraftRevision(configuration.data?.revision ?? "");
     }
   }, [query.data, configuration.data, reset, formState.isDirty]);
-  const dirty = formState.isDirty || integrationDirty;
+  const dirty = formState.isDirty || integrationDirty || certificateDirty;
   useEffect(() => {
     setDirty(dirty);
     const before = (e: BeforeUnloadEvent) => {
@@ -353,15 +354,18 @@ export default function Settings() {
         <p role="status">{t("settings.applying")}</p>
       )}
       {notice && <p role="status">{notice}</p>}
-      {tab === "security" && (
+      <div hidden={tab !== "security"}>
         <Certificates
+          visible={tab === "security"}
+          onDirty={setCertificateDirty}
           disabled={
-            dirty ||
+            formState.isDirty ||
+            integrationDirty ||
             !!configuration.data?.pending ||
             !!configuration.data?.applying
           }
         />
-      )}
+      </div>
       <form onSubmit={handleSubmit(submit)} className="space-y-5">
         {tab === "flow" && (
           <p className="panel text-sm">{t("settings.flowHint")}</p>

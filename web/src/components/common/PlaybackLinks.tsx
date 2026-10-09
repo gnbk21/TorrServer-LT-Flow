@@ -6,6 +6,8 @@ import { useTranslation } from "react-i18next";
 import { copyText } from "../../lib/clipboard";
 import { buildIntentUrls, isAppleDevice } from "../../lib/intent";
 import { Button } from "./Button";
+import { useExternalMediaBase } from "../../hooks/mediaBase";
+import { externalMediaURL } from "../../lib/mediaBase";
 export function PlaybackLinks({
   url: originalURL,
   onInternal,
@@ -17,6 +19,7 @@ export function PlaybackLinks({
   const [message, setMessage] = useState("");
   const [secure, setSecure] = useState(false);
   const settings = useSettings();
+  const mediaBase = useExternalMediaBase();
   const required = !!settings.data?.Flow?.RequirePlaybackToken;
   const input = new URL(originalURL, window.location.origin);
   const hash = input.searchParams.get("link") ?? "";
@@ -37,8 +40,9 @@ export function PlaybackLinks({
   // Preserve the playlist's device/session grouping across every Range request.
   if (capabilityURL && input.searchParams.has("ss"))
     capabilityURL.searchParams.set("ss", input.searchParams.get("ss")!);
-  const url =
+  const internalURL =
     capability.data && (secure || required) ? capabilityURL!.href : originalURL;
+  const url = externalMediaURL(internalURL, mediaBase.data);
   const blocked = required && !capability.data;
   const intents = buildIntentUrls(url);
   const linkClass =
@@ -66,7 +70,7 @@ export function PlaybackLinks({
         {t("torrent.copyStream")}
       </Button>
       {onInternal && (
-        <Button disabled={blocked} onClick={() => onInternal(url)}>
+        <Button disabled={blocked} onClick={() => onInternal(internalURL)}>
           {t("torrent.internalPlayer")}
         </Button>
       )}

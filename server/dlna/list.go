@@ -2,6 +2,7 @@ package dlna
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"path/filepath"
 	"sort"
@@ -396,14 +397,18 @@ func loadTorrent(path, host string) (ret []interface{}) {
 }
 
 func getLink(host, path string) string {
-	if !strings.HasPrefix(host, "http") {
+	if !strings.Contains(host, "://") {
 		host = "http://" + host
 	}
-	pos := strings.LastIndex(host, ":")
-	if pos > 7 {
-		host = host[:pos]
+	u, err := url.Parse(host)
+	if err != nil || u.Hostname() == "" {
+		return ""
 	}
-	return host + ":" + settings.Port + "/" + path
+	scheme, port := "http", settings.Port
+	if !settings.PlainHTTPServesMedia() {
+		scheme, port = "https", settings.SslPort
+	}
+	return scheme + "://" + net.JoinHostPort(u.Hostname(), port) + "/" + strings.TrimPrefix(path, "/")
 }
 
 func getObjFromTorrent(path, parent, host string, torr *torr.Torrent, file *state.TorrentFileStat) (ret interface{}) {

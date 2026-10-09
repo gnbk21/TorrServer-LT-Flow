@@ -20,6 +20,7 @@ func SetupRoute(route gin.IRouter) {
 	authorized.GET("/shutdown/*reason", shutdown)
 
 	authorized.POST("/settings", settings)
+	authorized.GET("/mediabase", mediaBase)
 	authorized.POST("/flow/playback-link", playbackLink)
 	route.GET("/flow/play/:token", capabilityPlayback)
 	route.HEAD("/flow/play/:token", capabilityPlayback)

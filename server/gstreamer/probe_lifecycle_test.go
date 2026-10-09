@@ -28,6 +28,9 @@ func discovererFixture(t *testing.T, mode string) (Config, string) {
 	if err := os.Mkdir(filepath.Join(root, "bin"), 0700); err != nil {
 		t.Fatal(err)
 	}
+	// A command fixture is not a complete GST runtime root. Put it on PATH,
+	// where discovery supports standalone gst-discoverer installations.
+	t.Setenv("PATH", filepath.Join(root, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("FLOW_GST_PROBE_FIXTURE", root)
 	t.Setenv("FLOW_GST_PROBE_FIXTURE_MODE", mode)
 	script := `#!/usr/bin/env python3

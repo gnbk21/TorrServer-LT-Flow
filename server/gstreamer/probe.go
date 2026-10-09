@@ -308,6 +308,7 @@ func runGSTDiscovererContext(parent context.Context, sourceURL string, conf Conf
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, bin, "-v", "-t", strconv.Itoa(timeoutSeconds), sourceURL)
+	cmd.WaitDelay = time.Second
 	cmd.Env = gstDiscovererEnv(conf)
 
 	out, err := cmd.CombinedOutput()

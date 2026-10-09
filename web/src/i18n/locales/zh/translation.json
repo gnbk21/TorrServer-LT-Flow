@@ -921,7 +921,8 @@
         "self-signed": "自签名",
         "uploaded": "已上传",
         "user": "服务器文件"
-      }
+      },
+      "plainHttp": "此页面使用 HTTP。在此上传私钥会以未加密方式传输。请先打开 HTTPS 再上传。"
     }
   },
   "preparation": {

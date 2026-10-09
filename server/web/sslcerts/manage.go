@@ -123,7 +123,7 @@ func uploadedPaths() (string, string) {
 }
 
 // SaveUploaded validates a PEM certificate (chain) and private key and stores them in
-// <config>/ssl/, replacing a previous upload. It returns the absolute paths to configure.
+// a new immutable directory below <config>/ssl/. It returns absolute paths to configure.
 // The pair must match and the leaf must be currently valid; it need not be trusted.
 func SaveUploaded(certPEM, keyPEM []byte) (string, string, error) {
 	if err := validatePEMPair(certPEM, keyPEM); err != nil {
@@ -156,8 +156,7 @@ func SaveUploaded(certPEM, keyPEM []byte) (string, string, error) {
 	if err = os.MkdirAll(filepath.Dir(certPath), 0o700); err != nil {
 		return "", "", err
 	}
-	// key first: until the cert is replaced too the pair mismatches and the Loader keeps
-	// serving the previous certificate instead of a half-updated one
+	// The staged pair is not live until revision-checked settings commit.
 	if err = diagnostics.AtomicPrivateFile(keyPath, keyPEM); err != nil {
 		return "", "", fmt.Errorf("write private key: %w", err)
 	}
@@ -169,9 +168,6 @@ func SaveUploaded(certPEM, keyPEM []byte) (string, string, error) {
 }
 
 func validatePEMPair(certPEM, keyPEM []byte) error {
-	if len(certPEM) > MaxPEMSize || len(keyPEM) > MaxPEMSize {
-		return errors.New("PEM file exceeds 1 MiB")
-	}
 	if len(certPEM) > MaxPEMSize || len(keyPEM) > MaxPEMSize {
 		return errors.New("PEM file exceeds 1 MiB")
 	}

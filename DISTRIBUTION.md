@@ -13,6 +13,8 @@ their original text is included in `NATIVE_AND_GO_NOTICES.txt`.
 
 - `MatriX.145.Flow-vX.Y.Z`: stable, after acceptance evidence is recorded in
   `RELEASE_ACCEPTANCE.json` and the tagged commit is present on `master`.
+  Flow 1.0 follows the owner-approved policy: required automated gates pass;
+  unfinished field checks are explicitly disclosed in the release notes.
 - `MatriX.145.Flow-vX.Y.Z-preview.N` (or alpha/beta/rc): prerelease. Preview
   builds pass CI but may have remaining real-device or long-session gates.
 - `MatriX.145.Flow-preview.N`: the initial numbered preview releases.
@@ -53,7 +55,7 @@ requires successful provenance verification in addition to SHA-256 and version
 checks. Running the standard executable directly does not require GitHub CLI.
 
 ```powershell
-.\Install-Flow.ps1 -Channel preview -InstallDirectory C:\Flow\bin -StateDirectory C:\Flow\state -RequireAttestation
+.\Install-Flow.ps1 -Channel stable -InstallDirectory C:\Flow\bin -StateDirectory C:\Flow\state -RequireAttestation
 & C:\Flow\bin\TorrServer-LT-windows-amd64.exe --path C:\Flow\state --port 8090
 ```
 
@@ -85,7 +87,7 @@ by a failed migration are retained privately under the recovery directory's
 `failed-state` folder and removed from the restored server's active state path.
 
 ```powershell
-.\Update-Flow.ps1 -InstallDirectory C:\Flow\bin -Channel preview -RequireAttestation
+.\Update-Flow.ps1 -InstallDirectory C:\Flow\bin -Channel stable -RequireAttestation
 ```
 
 For authentication, add `-Credential (Get-Credential)`. The credential is used

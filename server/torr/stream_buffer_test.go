@@ -2,15 +2,95 @@ package torr
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 )
+
+func TestStreamBufferLazyHeadAndCancellation(t *testing.T) {
+	r := newBufferedStreamReader(bytes.NewReader(make([]byte, 2<<20)), streamBufferSize)
+	w := httptest.NewRecorder()
+	w.Header().Set("Content-Type", "application/octet-stream")
+	http.ServeContent(w, httptest.NewRequest("HEAD", "http://local/video", nil), "video", time.Unix(1, 0), r)
+	if r.buffer != nil {
+		t.Fatal("HEAD allocated a transport buffer")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	r.ctx = ctx
+	if _, err := r.Read(make([]byte, 17)); err != nil {
+		t.Fatal(err)
+	}
+	cancel()
+	if _, err := r.Read(make([]byte, 17)); err != context.Canceled {
+		t.Fatal("buffered data ignored cancellation", err)
+	}
+}
+
+// Compare the production wrapper against memory and file sources. This measures
+// transport overhead and source read calls, not public-swarm throughput.
+func BenchmarkStreamBuffer(b *testing.B) {
+	data := bytes.Repeat([]byte("0123456789abcdef"), 1<<20)
+	path := filepath.Join(b.TempDir(), "media.bin")
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		b.Fatal(err)
+	}
+	for _, disk := range []bool{false, true} {
+		for _, buffered := range []bool{false, true} {
+			name := "RAM/plain"
+			if disk {
+				name = "file/plain"
+			}
+			if buffered {
+				name += "/buffered"
+			}
+			b.Run(name, func(b *testing.B) {
+				var source io.ReadSeeker = bytes.NewReader(data)
+				if disk {
+					f, err := os.Open(path)
+					if err != nil {
+						b.Fatal(err)
+					}
+					defer f.Close()
+					source = f
+				}
+				reads := 0
+				buf := make([]byte, 32<<10)
+				b.SetBytes(int64(len(data)))
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					if _, err := source.Seek(0, io.SeekStart); err != nil {
+						b.Fatal(err)
+					}
+					counting := &streamCountingReader{source: source}
+					var reader io.Reader = counting
+					if buffered {
+						reader = newBufferedStreamReader(counting, streamBufferSize)
+					}
+					for {
+						_, err := reader.Read(buf)
+						if err == io.EOF {
+							break
+						}
+						if err != nil {
+							b.Fatal(err)
+						}
+					}
+					reads += counting.reads
+				}
+				b.ReportMetric(float64(reads)/float64(b.N), "source-reads/op")
+			})
+		}
+	}
+}
 
 func TestStreamBufferReadAndSeek(t *testing.T) {
 	data := bytes.Repeat([]byte("abcdefghijklmnopqrstuvwxyz"), 1000)
@@ -56,7 +136,7 @@ func TestStreamBufferFailedSeekKeepsUnreadData(t *testing.T) {
 }
 
 type streamCountingReader struct {
-	source *bytes.Reader
+	source io.ReadSeeker
 	reads  int
 }
 
