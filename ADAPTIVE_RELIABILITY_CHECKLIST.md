@@ -1,5 +1,12 @@
 # Adaptive reliability implementation
 
+> **Historical implementation evidence.** Results and release-gate statements
+> below describe the named revisions. Current publication policy and
+> remaining field checks are in [project status](STATUS.md) and
+> [Flow 1.0 verification](RELEASE_1_0_VERIFICATION.md). The owner approved
+> Latest publication with unfinished field checks disclosed; those checks
+> remain unfinished.
+
 Specification: the eight improvement areas accepted on 7 October 2026, together
 with the original Flow and Modern Web specifications. Existing compatibility,
 free-only sources, one authoritative piece cache and explicit device acceptance

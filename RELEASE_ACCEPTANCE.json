@@ -73,6 +73,21 @@
       ],
       "native_contract_test": "Runs in tagged CI with exported DTOs",
       "native_source_changed": false
+    },
+    {
+      "scope": "Exact tagged publication and downloaded package verification",
+      "source_commit": "55c16dc399b8f9b14bd5ae76b62450af027c6b81",
+      "published_tag": "MatriX.145.Flow-v1.0.1",
+      "ci_run": 37991885358,
+      "result": "passed",
+      "url": "https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/37991885358",
+      "verification_record": "RELEASE_1_0_VERIFICATION.md",
+      "downloaded_assets": 32,
+      "verified_checksums": 31,
+      "controlled_streaming_trials_passed": 72,
+      "windows_executable_sha256": "fb2c5ddb010085127a3f30058a8507309fc7160004642b494c8e7a75dc945420",
+      "container_index_digest": "sha256:abfeb6055e3a096808a6168207c5e44116f4b2c6152777533e420e00c1877484",
+      "physical_field_checks_passed": false
     }
   ],
   "remaining": [],

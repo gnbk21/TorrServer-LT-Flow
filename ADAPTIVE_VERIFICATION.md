@@ -1,5 +1,12 @@
 # Adaptive reliability verification
 
+> **Historical implementation evidence.** Results and release-gate statements
+> below describe the named revisions. Current publication policy and
+> remaining field checks are in [project status](STATUS.md) and
+> [Flow 1.0 verification](RELEASE_1_0_VERIFICATION.md). The owner approved
+> Latest publication with unfinished field checks disclosed; those checks
+> remain unfinished.
+
 Scope: the eight accepted improvement areas in
 [ADAPTIVE_RELIABILITY_CHECKLIST.md](ADAPTIVE_RELIABILITY_CHECKLIST.md).
 The implementation guide is [ADAPTIVE_RELIABILITY.md](ADAPTIVE_RELIABILITY.md).

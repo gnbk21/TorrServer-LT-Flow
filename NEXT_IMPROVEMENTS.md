@@ -1,5 +1,12 @@
 # Startup and retained diagnostics implementation checklist
 
+> **Historical implementation evidence.** Results and release-gate statements
+> below describe the named revisions. Current publication policy and
+> remaining field checks are in [project status](STATUS.md) and
+> [Flow 1.0 verification](RELEASE_1_0_VERIFICATION.md). The owner approved
+> Latest publication with unfinished field checks disclosed; those checks
+> remain unfinished.
+
 Scope: the first four next-work items in `PERFORMANCE_AUDIT.md`. Preserve the
 native engine, single cache, HTTP correctness, bounded probes, existing settings
 migration and independent playback windows.

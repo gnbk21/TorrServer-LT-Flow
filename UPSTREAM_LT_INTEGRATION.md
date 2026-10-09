@@ -30,7 +30,7 @@ recovery checks disclosed. These field checks must not be reported as passed.
 - [x] README, release notes, version, source/license/provenance and acceptance
   record reconciled with the actual implementation.
 - [x] Automated web/native/platform/security/streaming/package gates pass.
-- [ ] Published assets, installed package and container verified; full release
+- [x] Published assets, installed package and container verified; full release
   is public, not a prerelease, and returned by GitHub's latest-release endpoint.
 
 ## Remaining field validation

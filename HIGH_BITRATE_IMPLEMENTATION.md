@@ -1,5 +1,12 @@
 # High bitrate streaming implementation
 
+> **Historical implementation evidence.** Results and release-gate statements
+> below describe the named revisions. Current publication policy and
+> remaining field checks are in [project status](STATUS.md) and
+> [Flow 1.0 verification](RELEASE_1_0_VERIFICATION.md). The owner approved
+> Latest publication with unfinished field checks disclosed; those checks
+> remain unfinished.
+
 Scope: implement the actionable recommendations from the 8 October research,
 preserving original quality, free sources, one rolling cache, existing clients,
 Legacy as the default and experimental scheduling behind explicit switches.

@@ -1,5 +1,12 @@
 # Preview 2 measurements and validation
 
+> **Historical implementation evidence.** Results and release-gate statements
+> below describe the named revisions. Current publication policy and
+> remaining field checks are in [project status](STATUS.md) and
+> [Flow 1.0 verification](RELEASE_1_0_VERIFICATION.md). The owner approved
+> Latest publication with unfinished field checks disclosed; those checks
+> remain unfinished.
+
 This record separates generated-fixture measurements from real-phone acceptance.
 Measurements are observations of this workload, not claims that Flow is faster
 than upstream for every torrent or that all defects have been eliminated.
