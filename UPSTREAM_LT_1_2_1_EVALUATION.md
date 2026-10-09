@@ -59,3 +59,27 @@ For comparison, Flow's stripped executable reports only [GO-2026-5932](https://p
 Keep Flow's current architecture, updated dependencies and streaming defaults. Prioritize the engine-publication race fix; then evaluate HTTP buffering with Flow-specific measurements. Certificate hot reload and HTTPS-only deployment are useful later additions, with the safeguards above. Do not replace Flow with LT 1.2.1 or bulk-merge its source based on the release number or cached-file benchmark.
 
 This release adds a useful I/O optimization and deployment features. It provides no demonstrated replacement for Flow's sparse-swarm/high-bitrate scheduling, and no guarantee of better playback on the user's torrents.
+
+## LT 1.2.2 follow-up
+
+The [1.2.2 release](https://github.com/trinity-aml/TorrServer-LT/releases/tag/MatriX.146.LT-1.2.2) was published on 9 October 2026 at 16:16:24 UTC, source `9a08d66c0f23166895c13b930d2d01ee3c4b835e`. The complete [1.2.1 to 1.2.2 comparison](https://github.com/trinity-aml/TorrServer-LT/compare/MatriX.146.LT-1.2.1...MatriX.146.LT-1.2.2) contains two functional fixes, their tests, and version updates. Both fixes target the optional GStreamer browser-player path.
+
+### Segment boundaries
+
+The [first fix](https://github.com/trinity-aml/TorrServer-LT/commit/60217f6813fef0e4429460630a2c18ecb50fa063) allows one frame of muxer timing variation in addition to the container timestamp scale. At 25 fps and a 1 ms scale, tolerance increases from 1 ms to 41 ms. This addresses a reported 40 ms discrepancy that caused browser segments to return HTTP 502 for a particular Matroska file.
+
+Flow `.7` still uses only the container-scale tolerance, so this is relevant to its optional browser player. Adapt it with boundary regressions, including fractional/unknown frame rates, and verify that materially incorrect segment boundaries are still rejected. The upstream media reproduction and byte-identical unaffected segments are the author's evidence, not local playback results.
+
+### Cold media probes
+
+The [second fix](https://github.com/trinity-aml/TorrServer-LT/commit/fbff205942d75d8266350740f295e732da76daf0) retries a failed GStreamer probe once after reading a 512 KiB head and, when appropriate, a 256 KiB tail through the existing stream URL. Warm-up has a shared 45-second deadline; a missing discoverer executable fails immediately. Small known files are clamped to their size, and a failed tail read does not prevent retry after a successful head read.
+
+Flow `.7` does not have this GStreamer-specific retry, although its ordinary torrent preload already prioritizes container headers/tails. A port should reuse that ownership and cancellation rather than introduce competing preload work.
+
+Two limitations matter: the 45-second limit covers **only warm-up**, not the initial and retried probes; with each subprocess allowed 33 seconds, the combined configured budgets approach 111 seconds. The warm-up and probes use background contexts, so cancelling the HTTP request does not automatically cancel them. Retry classification also includes errors beyond missing data. Prefer a total operation deadline, service/request cancellation and selective transient-error handling when adapting this behavior.
+
+### Security and relevance to this installation
+
+Downloaded and hash-verified the standard 1.2.2 Windows executable without launching it: SHA-256 `27188eaa15cb678e9f85694efe9ea51197926b472eebaf6b581a235f2dfd3f56`, matching GitHub's digest. Build metadata confirms Go 1.25.7, x/net v0.55.0, x/crypto v0.52.0, x/text v0.37.0 and source `9a08d66c`. `go.mod` and the HTTPS server source are unchanged from 1.2.1. The binary scan reports the same 56 module-level advisory IDs, with the same stripped-binary limitations described above. The earlier dependency and HTTPS-only findings therefore remain relevant.
+
+These fixes do **not directly change the ordinary Lampa to Just Player original-byte stream** or sparse-swarm download capacity. They are worthwhile browser-player maintenance candidates, not evidence that replacing Flow would improve this user's episodes. No 1.2.2 GStreamer playback or native regression suite was run locally, and no upstream runtime code was merged into Flow by this evaluation.
