@@ -170,6 +170,8 @@ type Reader struct {
 	// a stream was waiting on a slow piece. mu still serialises the Read/Seek
 	// logic that writes them, so the window diff in scheduleWindow stays coherent.
 	offset    atomic.Int64 // current position within the file
+	consumed  atomic.Int64 // position delivered through a bounded HTTP buffer
+	buffered  atomic.Bool  // fixed before the first Read; protected by mu
 	readahead atomic.Int64 // forward window hint in bytes; 0 = no readahead
 	// prioritised window [winFirst, winLast]; -1 = none. scheduleWindow drops
 	// priority on pieces that scrolled out, so it needs the previous extent.
@@ -435,11 +437,11 @@ func (r *Reader) Read(p []byte) (int, error) {
 	// every ~10s behind the advancing window for the rest of the stream (field
 	// log: piece 184 fetched 36 times / 288 MB during 4 minutes of playback).
 	if plen := r.cache.PieceLength; plen > 0 {
-		if wp := r.waitPiece.Load(); wp >= 0 && r.currentPiece() > int(wp) {
+		if wp := r.waitPiece.Load(); wp >= 0 && int((r.file.Offset+r.offset.Load())/plen) > int(wp) {
 			r.waitPiece.CompareAndSwap(wp, -1)
 		}
 	}
-	if written > 0 {
+	if written > 0 && !r.buffered.Load() {
 		if !r.internal {
 			r.cache.ObserveFlowProgress(r.group, r.file.Index, off+int64(written))
 		}
@@ -602,6 +604,7 @@ func (r *Reader) Seek(offset int64, whence int) (int64, error) {
 		off = 0
 	}
 	r.offset.Store(off)
+	r.consumed.Store(off)
 	// A real repositioning of a LIVE reader (DLNA/FUSE seek mid-stream): drop the
 	// sticky wait flag so the old blocked piece isn't force-downloaded from the new
 	// position. HTTP readers never hit this mid-stream (ServeContent's probe seeks
@@ -689,7 +692,34 @@ func (r *Reader) Readahead() int64 {
 
 // Offset implements torr.Reader.
 func (r *Reader) Offset() int64 {
+	if r.buffered.Load() {
+		return r.consumed.Load()
+	}
 	return r.offset.Load()
+}
+
+// TrackBufferedConsumption separates cache read-ahead from bytes returned to the
+// HTTP caller. Configure before reading; internal/DLNA/FUSE readers retain their
+// existing behavior unless explicitly wrapped.
+func (r *Reader) TrackBufferedConsumption() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.consumed.Store(r.offset.Load())
+	r.buffered.Store(true)
+}
+
+func (r *Reader) ConsumeBuffered(n int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if n <= 0 || r.closed {
+		return
+	}
+	r.lastRead.Store(time.Now().Unix())
+	off := r.consumed.Add(int64(n))
+	if !r.internal {
+		r.cache.ObserveFlowProgress(r.group, r.file.Index, off)
+	}
+	r.scheduleWindow()
 }
 
 // scheduleWindow recomputes this reader's window snapshot (for the /cache view and
@@ -773,7 +803,7 @@ func (r *Reader) currentPiece() int {
 	if r.cache.PieceLength <= 0 {
 		return 0
 	}
-	return int((r.file.Offset + r.offset.Load()) / r.cache.PieceLength)
+	return int((r.file.Offset + r.Offset()) / r.cache.PieceLength)
 }
 
 // fileLastPiece is the last torrent piece that belongs to this reader's file

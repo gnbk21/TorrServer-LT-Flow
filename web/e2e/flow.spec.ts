@@ -215,6 +215,18 @@ async function mockServer(
       });
     if (path === "/echo")
       return route.fulfill({ body: "MatriX.145.Flow-test" });
+    if (path === "/ssl/status")
+      return json({
+        enabled: false,
+        http_port: "8090",
+        http_enabled: true,
+        force_https: false,
+        http_media: false,
+        read_only: false,
+        cert_from_flags: false,
+        revision,
+        cert: { source: "none", trusted: false },
+      });
     if (path === "/flow/tray")
       return json(
         {

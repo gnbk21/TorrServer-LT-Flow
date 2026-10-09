@@ -202,10 +202,10 @@ func (p *preparationManager) removeTorrentJobs(hash Hash) (bool, error) {
 	return true, nil
 }
 func PreparationSnapshot() PreparationStatus {
-	if bts == nil || bts.preparation == nil {
+	if helperEngine() == nil || helperEngine().preparation == nil {
 		return PreparationStatus{Jobs: []PreparationJob{}, ErrorCode: "NOT_STARTED"}
 	}
-	p := bts.preparation
+	p := helperEngine().preparation
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	out := PreparationStatus{Jobs: make([]PreparationJob, 0, len(p.jobs)), QuotaBytes: int64(settings.CurrentFlow().PreparationQuotaMB) << 20, ErrorCode: p.failure}
@@ -231,10 +231,10 @@ func PrepareEpisode(hashText string, index int, action string) error {
 	if settings.ReadOnly {
 		return errors.New("preparation requires writable state")
 	}
-	if bts == nil || bts.preparation == nil {
+	if helperEngine() == nil || helperEngine().preparation == nil {
 		return errors.New("engine not started")
 	}
-	p := bts.preparation
+	p := helperEngine().preparation
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.failure != "" {

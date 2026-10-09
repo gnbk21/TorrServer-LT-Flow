@@ -78,7 +78,7 @@ func UpdateTorrentWebSeed(hashText, action, value, id string, allowLocal bool) e
 			return errors.New("known metadata required")
 		}
 		var err error
-		t, err = NewTorrent(&initial, bts)
+		t, err = NewTorrent(&initial, helperEngine())
 		if err != nil {
 			return err
 		}
@@ -145,8 +145,8 @@ func UpdateTorrentWebSeed(hashText, action, value, id string, allowLocal bool) e
 	t.mu.Lock()
 	t.TorrentSpec.WebSeeds = spec.WebSeeds
 	t.mu.Unlock()
-	if bts != nil && bts.preparation != nil {
-		p := bts.preparation
+	if helperEngine() != nil && helperEngine().preparation != nil {
+		p := helperEngine().preparation
 		p.mu.Lock()
 		changed := false
 		for _, j := range p.jobs {
@@ -166,7 +166,7 @@ func UpdateTorrentWebSeed(hashText, action, value, id string, allowLocal bool) e
 	}
 	handle := t.LTHandle()
 	if handle == nil {
-		t, err = NewTorrent(&spec, bts)
+		t, err = NewTorrent(&spec, helperEngine())
 		if err != nil {
 			return err
 		}

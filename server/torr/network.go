@@ -175,10 +175,10 @@ func (bt *BTServer) recordTrackerConnectivity(alertType string) {
 }
 
 func NetworkStatusSnapshot() FlowNetworkStatus {
-	if bts == nil {
+	if helperEngine() == nil {
 		return FlowNetworkStatus{State: "NOT_STARTED"}
 	}
-	return bts.FlowNetworkStatus()
+	return helperEngine().FlowNetworkStatus()
 }
 
 func localNetworkAddresses() ([]string, error) {

@@ -900,11 +900,8 @@ func (t *Torrent) probeMediaInfo(index int) {
 	// stat=ffprobe tags this loopback reader as internal (see streamGroupKey /
 	// ProbeReaderGroup) so it isn't counted as a playback client by the preload's
 	// hand-off gate while the fill is still running.
-	link := "http://127.0.0.1:" + settings.Port + "/play/" + t.Hash().HexString() + "/" + strconv.Itoa(index) + "?stat=ffprobe"
-	if settings.Ssl {
-		link = "https://127.0.0.1:" + settings.SslPort + "/play/" + t.Hash().HexString() + "/" + strconv.Itoa(index) + "?stat=ffprobe"
-	}
-	link += "&probe_key=" + probeAccessKey
+	link := settings.LoopbackBaseURL() + "/play/" + t.Hash().HexString() + "/" + strconv.Itoa(index) + "?stat=ffprobe"
+	link = InternalMediaURL(link, true)
 	// Bound how far ffprobe reads PAST the header: probesize stays generous so MKVs
 	// with large headers still parse, analyzeduration caps the clusters
 	// find_stream_info reads (2 s ~ a couple of MB, inside the resident head). This

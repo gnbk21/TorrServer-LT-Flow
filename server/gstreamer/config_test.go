@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"server/settings"
+	"server/torr"
 )
 
 func TestNormalizedConfigDefaultsToGStreamer122(t *testing.T) {
@@ -86,7 +87,7 @@ func TestSourceURLDefaultsToStream(t *testing.T) {
 	})
 
 	got := sourceURL(Config{}.normalized(), "abc def", "1")
-	want := "http://127.0.0.1:8090/stream/?link=abc+def&index=1&play"
+	want := torr.InternalMediaURL("http://127.0.0.1:8090/stream/?link=abc+def&index=1&play", false)
 	if got != want {
 		t.Fatalf("sourceURL(default) = %q, want %q", got, want)
 	}
@@ -100,7 +101,7 @@ func TestSourceURLCanUsePlayEndpoint(t *testing.T) {
 	})
 
 	got := sourceURL(Config{Source: "play"}.normalized(), "abc def", "1")
-	want := "http://127.0.0.1:8090/play/abc%20def/1"
+	want := torr.InternalMediaURL("http://127.0.0.1:8090/play/abc%20def/1", false)
 	if got != want {
 		t.Fatalf("sourceURL(play) = %q, want %q", got, want)
 	}

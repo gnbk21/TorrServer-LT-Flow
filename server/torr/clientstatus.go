@@ -70,10 +70,10 @@ func SnapshotClientStatus() ClientStatusSnapshot {
 	}
 	snap.RawStat = raw
 
-	if bts == nil {
+	if helperEngine() == nil {
 		return snap
 	}
-	if actual := bts.FlowNetworkStatus().PeerTCPPort; actual > 0 {
+	if actual := helperEngine().FlowNetworkStatus().PeerTCPPort; actual > 0 {
 		snap.ListenPort = actual
 	}
 

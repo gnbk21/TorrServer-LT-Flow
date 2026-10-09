@@ -27,6 +27,8 @@ type ExecArgs struct {
 	ProxyURL    string
 	ProxyMode   string
 	ForceHTTPS  bool
+	HTTPSOnly   bool
+	HTTPMedia   bool
 }
 
 var Args *ExecArgs

@@ -21,10 +21,10 @@ type FlowTrayStatus struct {
 func FlowIsPaused() bool { return flowPaused.Load() }
 
 func FlowHasActiveWork() bool {
-	if bts == nil || bts.Session() == nil {
+	if helperEngine() == nil || helperEngine().Session() == nil {
 		return true
 	}
-	for _, tor := range bts.ListTorrents() {
+	for _, tor := range helperEngine().ListTorrents() {
 		if tor == nil {
 			continue
 		}
@@ -42,12 +42,12 @@ func FlowHasActiveWork() bool {
 }
 
 func SetFlowPaused(paused bool) error {
-	if bts == nil || bts.Session() == nil {
+	if helperEngine() == nil || helperEngine().Session() == nil {
 		return errors.New("torrent engine is not running")
 	}
 	flowPaused.Store(paused)
 	var firstErr error
-	for _, tor := range bts.ListTorrents() {
+	for _, tor := range helperEngine().ListTorrents() {
 		if tor == nil || tor.LTHandle() == nil {
 			continue
 		}
@@ -66,14 +66,14 @@ func SetFlowPaused(paused bool) error {
 
 func SnapshotFlowTray() FlowTrayStatus {
 	snapshot := FlowTrayStatus{ServerState: "RUNNING"}
-	if bts == nil || bts.Session() == nil {
+	if helperEngine() == nil || helperEngine().Session() == nil {
 		snapshot.ServerState = "STARTING"
 		return snapshot
 	}
 	if flowPaused.Load() {
 		snapshot.ServerState = "PAUSED"
 	}
-	for _, tor := range bts.ListTorrents() {
+	for _, tor := range helperEngine().ListTorrents() {
 		if tor == nil {
 			continue
 		}

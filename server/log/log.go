@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"server/console"
 	"strings"
 	"sync"
@@ -192,7 +193,13 @@ func Close() {
 }
 
 func TLogln(v ...interface{}) {
-	log.Println(v...)
+	log.Print(RedactInternalMediaKey(fmt.Sprintln(v...)))
+}
+
+var internalMediaKey = regexp.MustCompile(`probe_key=[A-Za-z0-9%_-]+`)
+
+func RedactInternalMediaKey(s string) string {
+	return internalMediaKey.ReplaceAllString(s, "probe_key=[redacted]")
 }
 
 func WebLogln(v ...interface{}) {

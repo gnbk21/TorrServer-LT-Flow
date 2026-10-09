@@ -878,7 +878,51 @@
     "lanTitle": "Test de transfert téléphone / LAN",
     "lanHint": "Ouvrez cette page sur le téléphone via l’adresse du serveur PC. Transfère 16 Mio, s’arrête après 20 secondes et n’utilise aucun torrent. Répétez au repos et pendant la lecture. Les pauses de lecture incluent l’ordonnancement du navigateur, pas les pertes de paquets ni les blocages du décodeur.",
     "lanRun": "Tester la connexion",
-    "lanResult": "{{rate}} Mbit/s · premier octet {{ttfb}} ms · pause p95 {{p95}} ms · maximum {{max}} ms"
+    "lanResult": "{{rate}} Mbit/s · premier octet {{ttfb}} ms · pause p95 {{p95}} ms · maximum {{max}} ms",
+    "certificates": {
+      "title": "Certificats HTTPS",
+      "startupHint": "Démarrez avec --ssl pour HTTPS. Les modes et ports nécessitent un redémarrage du serveur.",
+      "mode": "Mode de connexion",
+      "source": "Source du certificat",
+      "subject": "Sujet",
+      "issuer": "Émetteur",
+      "expires": "Expiration",
+      "names": "Noms d’hôtes et IP",
+      "trust": "Vérification de confiance du serveur",
+      "trusted": "Reconnu par ce serveur",
+      "untrusted": "Non reconnu par ce serveur",
+      "trustHint": "Le téléphone vérifie la confiance séparément. Un certificat autosigné doit être accepté sur chaque appareil. Le média HTTP n’est pas chiffré.",
+      "download": "Télécharger le certificat public",
+      "draftHint": "Enregistrez ou abandonnez le brouillon et résolvez les modifications différées.",
+      "readOnly": "Le mode lecture seule empêche les changements de certificat.",
+      "flags": "Les chemins sont définis par les options de démarrage.",
+      "certFile": "Fichier PEM du certificat",
+      "keyFile": "Clé privée PEM sans mot de passe",
+      "fileLimit": "Choisissez les deux fichiers, chacun de 1 Mio maximum.",
+      "uploadHint": "La clé est conservée de manière privée sur le serveur, jamais dans les téléchargements ou le statut. Utilisez HTTPS ou une connexion locale de confiance.",
+      "upload": "Importer et utiliser",
+      "certPath": "Chemin du certificat sur le serveur",
+      "keyPath": "Chemin de la clé sur le serveur",
+      "usePaths": "Utiliser les fichiers",
+      "selfsigned": "Utiliser un certificat autosigné",
+      "regenerate": "Régénérer le certificat autosigné",
+      "confirmTitle": "Changer l’identité HTTPS ?",
+      "confirmHint": "Les appareils peuvent devoir accepter le certificat à nouveau. Les connexions actuelles continuent ; les nouvelles l’utilisent sous cinq secondes.",
+      "saved": "Certificat enregistré. Le rechargement peut nécessiter de l’accepter à nouveau.",
+      "modes": {
+        "http": "HTTP",
+        "only": "HTTPS uniquement",
+        "media": "Interface HTTPS, média HTTP",
+        "redirect": "HTTP redirigé vers HTTPS",
+        "both": "HTTP et HTTPS"
+      },
+      "sources": {
+        "none": "Aucun",
+        "self-signed": "Autosigné",
+        "uploaded": "Importé",
+        "user": "Fichiers du serveur"
+      }
+    }
   },
   "preparation": {
     "title": "Préparer cet épisode",

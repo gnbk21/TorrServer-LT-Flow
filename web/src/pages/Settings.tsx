@@ -26,6 +26,7 @@ import { Loading, RequestError } from "../components/common/RequestState";
 import IntegrationSettings from "../components/settings/IntegrationSettings";
 import { MaintenancePanel } from "../components/settings/MaintenancePanel";
 import { LANTest } from "../components/settings/LANTest";
+import { Certificates } from "../components/settings/Certificates";
 const groups: Record<string, string[]> = {
   general: [
     "CacheSize",
@@ -74,8 +75,6 @@ const groups: Record<string, string[]> = {
   ],
   security: [
     "SslPort",
-    "SslCert",
-    "SslKey",
     "Flow.ManagementOrigins",
     "Flow.ManagementRateLimit",
     "Flow.SecurityProfile",
@@ -354,6 +353,15 @@ export default function Settings() {
         <p role="status">{t("settings.applying")}</p>
       )}
       {notice && <p role="status">{notice}</p>}
+      {tab === "security" && (
+        <Certificates
+          disabled={
+            dirty ||
+            !!configuration.data?.pending ||
+            !!configuration.data?.applying
+          }
+        />
+      )}
       <form onSubmit={handleSubmit(submit)} className="space-y-5">
         {tab === "flow" && (
           <p className="panel text-sm">{t("settings.flowHint")}</p>

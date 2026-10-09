@@ -181,7 +181,9 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		)
 	}
 
-	http.ServeContent(resp, req, file.Path, time.Unix(t.Timestamp, 0), reader)
+	buffered := newBufferedStreamReader(reader, streamBufferSize)
+	buffered.ctx = req.Context()
+	http.ServeContent(resp, req, file.Path, time.Unix(t.Timestamp, 0), buffered)
 
 	if sets.BTsets() != nil && sets.BTsets().EnableDebug {
 		log.TLogln("torr.Stream: disconnect", "id=", streamID, "remote=", req.RemoteAddr)
@@ -212,7 +214,7 @@ func streamGroupKey(req *http.Request) string {
 		// Internal ffprobe media probe (BitRate/DurationSeconds): a loopback read
 		// tagged with stat=ffprobe gets the reserved internal group so it is not
 		// counted as a streaming client by the preload hand-off gate.
-		if IsInternalProbe(req) {
+		if IsInternalProbe(req) && req.URL.Query().Get("stat") == "ffprobe" {
 			return torrstor.ProbeReaderGroup
 		}
 		if ss := req.URL.Query().Get("ss"); ss != "" {

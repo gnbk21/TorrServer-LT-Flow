@@ -53,6 +53,8 @@ type args struct {
 	ProxyURL        string   `help:"proxy URL for BitTorrent traffic (http, socks4, socks5, socks5h), e.g. socks5://user:password@127.0.0.1:8080"`
 	ProxyMode       string   `help:"proxy mode: tracker (only HTTP trackers, default), peers (only peer connections), or full (all traffic)"`
 	ForceHTTPS      bool     `arg:"--force-https" help:"redirect all HTTP requests to HTTPS (requires --ssl)"`
+	HTTPSOnly       bool     `arg:"--https-only" help:"disable the public HTTP listener (requires --ssl)"`
+	HTTPMedia       bool     `arg:"--http-media" help:"keep media on HTTP with --force-https; use only on a trusted network"`
 	Service         string   `arg:"--service" help:"Windows service command: install, start, stop, restart, uninstall, or run"`
 	ProfileAddress  string   `arg:"--profile-address" help:"opt-in profiling listener on a numeric loopback address, e.g. 127.0.0.1:6060"`
 	Doctor          bool     `arg:"--doctor" help:"check local state, port, authentication and optional dependencies without starting the server"`
@@ -203,14 +205,16 @@ func main() {
 		ProxyURL:    params.ProxyURL,
 		ProxyMode:   params.ProxyMode,
 		ForceHTTPS:  params.ForceHTTPS,
+		HTTPSOnly:   params.HTTPSOnly,
+		HTTPMedia:   params.HTTPMedia,
 	}
 
 	if params.ProxyURL != "" {
 		log.TLogln("Proxy configured from CLI; mode:", settings.Args.ProxyMode)
 	}
 
-	if params.ForceHTTPS && !params.Ssl {
-		log.Event("ERROR", "Server", "--force-https requires --ssl")
+	if (params.ForceHTTPS || params.HTTPSOnly) && !params.Ssl || params.HTTPMedia && (!params.ForceHTTPS || params.HTTPSOnly) {
+		log.Event("ERROR", "Server", "--force-https and --https-only require --ssl; --http-media requires --force-https without --https-only")
 		log.Close()
 		os.Exit(1)
 	}
