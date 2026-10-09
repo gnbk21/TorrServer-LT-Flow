@@ -7,6 +7,8 @@ const endpoints = [
   "torrents",
   "torrent",
   "settings",
+  "ssl",
+  "mediabase",
   "flow",
   "runtime",
   "search",

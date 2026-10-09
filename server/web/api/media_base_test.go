@@ -7,16 +7,16 @@ import (
 
 	"github.com/gin-contrib/location/v2"
 	"github.com/gin-gonic/gin"
-	"server/settings"
+	config "server/settings"
 	"server/web/sslcerts"
 )
 
 func TestExternalMediaBaseRespectsHTTPSModesAndIPv6(t *testing.T) {
-	oldPath, oldSSL, oldPort, oldArgs, oldSets := settings.Path, settings.Ssl, settings.Port, settings.Args, settings.BTsets()
-	settings.Path, settings.Ssl, settings.Port = t.TempDir(), true, "8090"
+	oldPath, oldSSL, oldPort, oldArgs, oldSets := config.Path, config.Ssl, config.Port, config.Args, config.BTsets()
+	config.Path, config.Ssl, config.Port = t.TempDir(), true, "8090"
 	t.Cleanup(func() {
-		settings.Path, settings.Ssl, settings.Port, settings.Args = oldPath, oldSSL, oldPort, oldArgs
-		settings.StoreBTsets(oldSets)
+		config.Path, config.Ssl, config.Port, config.Args = oldPath, oldSSL, oldPort, oldArgs
+		config.StoreBTsets(oldSets)
 	})
 	cert, key, err := sslcerts.MakeCertKeyFiles(nil)
 	if err != nil {
@@ -24,24 +24,24 @@ func TestExternalMediaBaseRespectsHTTPSModesAndIPv6(t *testing.T) {
 	}
 	for _, tc := range []struct {
 		name string
-		args settings.ExecArgs
+		args config.ExecArgs
 		user bool
 		want string
 	}{
-		{"both", settings.ExecArgs{}, false, "http://[fd00::1]:8090"},
-		{"only", settings.ExecArgs{HTTPSOnly: true}, false, "https://[fd00::1]:8091"},
-		{"redirect", settings.ExecArgs{ForceHTTPS: true}, false, "https://[fd00::1]:8091"},
-		{"media", settings.ExecArgs{ForceHTTPS: true, HTTPMedia: true}, false, "http://[fd00::1]:8090"},
-		{"user-identity", settings.ExecArgs{}, true, "https://[fd00::1]:8091"},
+		{"both", config.ExecArgs{}, false, "http://[fd00::1]:8090"},
+		{"only", config.ExecArgs{HTTPSOnly: true}, false, "https://[fd00::1]:8091"},
+		{"redirect", config.ExecArgs{ForceHTTPS: true}, false, "https://[fd00::1]:8091"},
+		{"media", config.ExecArgs{ForceHTTPS: true, HTTPMedia: true}, false, "http://[fd00::1]:8090"},
+		{"user-identity", config.ExecArgs{}, true, "https://[fd00::1]:8091"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			settings.Args = &tc.args
-			s := settings.NewDefaultConfig()
+			config.Args = &tc.args
+			s := config.NewDefaultConfig()
 			s.SslCert, s.SslKey = cert, key
 			if tc.user {
 				s.SslCert, s.SslKey = "user.crt", "user.key"
 			}
-			settings.StoreBTsets(s)
+			config.StoreBTsets(s)
 			router := gin.New()
 			router.Use(location.Default())
 			router.GET("/mediabase", mediaBase)

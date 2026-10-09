@@ -24,6 +24,7 @@ func TestBufferedReaderTracksConsumptionRatherThanPrefetch(t *testing.T) {
 
 func testBufferedConsumption(t *testing.T) {
 	c := mkCache(t, 2*pieceLen)
+	defer c.close()
 	for i := 0; i < 2; i++ {
 		if _, err := c.writePiece(i, 0, bytes.Repeat([]byte{byte(i + 1)}, int(pieceLen))); err != nil {
 			t.Fatal(err)

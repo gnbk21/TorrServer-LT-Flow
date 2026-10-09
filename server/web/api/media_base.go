@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"server/settings"
+	config "server/settings"
 	"server/utils"
 	"server/web/sslcerts"
 )
@@ -15,12 +15,12 @@ import (
 // origin to avoid mixed content. Only an available plain-media listener and a
 // managed self-signed identity permit the compatibility fallback.
 func mediaBaseURL(c *gin.Context) string {
-	if s := settings.BTsets(); c.Request.TLS != nil && s != nil && settings.PlainHTTPServesMedia() && settings.Port != "" && sslcerts.IsGenerated(s.SslCert, s.SslKey) {
+	if s := config.BTsets(); c.Request.TLS != nil && s != nil && config.PlainHTTPServesMedia() && config.Port != "" && sslcerts.IsGenerated(s.SslCert, s.SslKey) {
 		host, _, err := net.SplitHostPort(c.Request.Host)
 		if err != nil {
 			host = strings.Trim(c.Request.Host, "[]")
 		}
-		return "http://" + net.JoinHostPort(host, settings.Port)
+		return "http://" + net.JoinHostPort(host, config.Port)
 	}
 	return utils.GetScheme(c) + "://" + utils.GetHost(c)
 }
