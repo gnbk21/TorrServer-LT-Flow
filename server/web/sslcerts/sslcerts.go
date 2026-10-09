@@ -29,6 +29,8 @@ import (
 const (
 	certFileName = "server.pem"
 	keyFileName  = "server.key"
+	renewBefore  = 30 * 24 * time.Hour
+	maxKeptIPs   = 16
 )
 
 // EnsureCert returns usable cert and key file paths for the HTTPS server.
@@ -40,6 +42,8 @@ const (
 // is never replaced, the error is returned instead.
 // changed reports whether the returned paths differ from the input and should be saved.
 func EnsureCert(certFile, keyFile string, ips []string) (cert, key string, changed bool, err error) {
+	certFilesMu.Lock()
+	defer certFilesMu.Unlock()
 	if (certFile == "") != (keyFile == "") {
 		return "", "", false, errors.New("configure both HTTPS certificate and private key paths, or leave both empty")
 	}
@@ -54,7 +58,7 @@ func EnsureCert(certFile, keyFile string, ips []string) (cert, key string, chang
 			log.TLogln("Using existing certificate at the default location:", c)
 			return c, k, true, nil
 		}
-		cert, key, err = MakeCertKeyFiles(ips)
+		cert, key, err = makeCertKeyFiles(ips)
 		return cert, key, err == nil, err
 	}
 	verr := VerifyCertKeyFiles(certFile, keyFile)
@@ -62,6 +66,14 @@ func EnsureCert(certFile, keyFile string, ips []string) (cert, key string, chang
 		if IsGenerated(certFile, keyFile) {
 			if err := diagnostics.RestrictPrivateFile(keyFile); err != nil {
 				return "", "", false, fmt.Errorf("protect managed private key: %w", err)
+			}
+			pair, err := loadPair(certFile, keyFile)
+			if err != nil {
+				return "", "", false, err
+			}
+			if renewalReason(pair.Leaf, ips) != "" {
+				c, k, err := makeCertKeyFiles(mergeIPs(pair.Leaf.IPAddresses, ips))
+				return c, k, false, err
 			}
 		}
 		return certFile, keyFile, false, nil
@@ -75,8 +87,64 @@ func EnsureCert(certFile, keyFile string, ips []string) (cert, key string, chang
 		return "", "", false, err
 	}
 	log.TLogln("Self-signed certificate is invalid, regenerating:", verr)
-	cert, key, err = MakeCertKeyFiles(ips)
+	cert, key, err = makeCertKeyFiles(ips)
 	return cert, key, err == nil && (cert != certFile || key != keyFile), err
+}
+
+// renewalReason returns why a generated leaf should be regenerated, or "" if it is fine.
+func renewalReason(leaf *x509.Certificate, ips []string) string {
+	if time.Until(leaf.NotAfter) < renewBefore {
+		return "expires on " + leaf.NotAfter.Format(time.RFC3339)
+	}
+	for _, s := range ips {
+		if ip := net.ParseIP(s); ip != nil && !volatileIP(ip) && !containsIP(leaf.IPAddresses, ip) {
+			return "missing IP " + s
+		}
+	}
+	for _, name := range localDNSNames() {
+		if !slices.Contains(leaf.DNSNames, name) {
+			return "missing hostname " + name
+		}
+	}
+	return ""
+}
+
+func containsIP(list []net.IP, ip net.IP) bool {
+	return slices.ContainsFunc(list, ip.Equal)
+}
+
+// volatileIP reports addresses that change on their own: global IPv6, where SLAAC
+// privacy extensions (RFC 8981) replace the temporary address every few hours.
+// Unique local (fd00::/8) IPv6 addresses are stable.
+func volatileIP(ip net.IP) bool {
+	return ip.To4() == nil && ip.IsGlobalUnicast() && !ip.IsPrivate()
+}
+
+// mergeIPs returns the current IPs plus up to maxKeptIPs previously covered stable ones,
+// most recent first. Volatile old addresses are dropped, as they never come back.
+func mergeIPs(old []net.IP, current []string) []string {
+	out := slices.Clone(current)
+	kept := 0
+	for _, ip := range old {
+		if kept == maxKeptIPs {
+			break
+		}
+		if ip.IsLoopback() || volatileIP(ip) || slices.Contains(out, ip.String()) {
+			continue
+		}
+		out = append(out, ip.String())
+		kept++
+	}
+	return out
+}
+
+func localDNSNames() []string {
+	names := []string{"localhost"}
+	if host, err := os.Hostname(); err == nil && host != "" {
+		host = strings.TrimSuffix(host, ".local")
+		names = append(names, host, host+".local")
+	}
+	return names
 }
 
 // IsGenerated reports whether the paths point to the self-signed pair managed by TorrServer:
@@ -235,6 +303,43 @@ func generateSelfSignedCert(ips []string) ([]byte, []byte, error) {
 
 // MakeCertKeyFiles generates a self-signed cert and key in settings.Path and returns their absolute paths.
 func MakeCertKeyFiles(ips []string) (string, string, error) {
+	certFilesMu.Lock()
+	defer certFilesMu.Unlock()
+	return makeCertKeyFiles(ips)
+}
+
+var certFilesMu sync.Mutex
+
+// RegenerateWithCommit keeps a failed settings save from changing the identity.
+// The TLS loader and renewal worker cannot observe the uncommitted pair.
+func RegenerateWithCommit(ips []string, commit func(string, string) error) error {
+	certFilesMu.Lock()
+	defer certFilesMu.Unlock()
+	c, k := generatedPaths()
+	if !IsGenerated(c, k) {
+		return errors.New("not using the self-signed certificate")
+	}
+	cert, err := os.ReadFile(c)
+	if err != nil {
+		return err
+	}
+	key, err := os.ReadFile(k)
+	if err != nil {
+		return err
+	}
+	newCert, newKey, err := makeCertKeyFiles(ips)
+	if err == nil {
+		err = commit(newCert, newKey)
+	}
+	if err == nil {
+		return nil
+	}
+	// Restore both files even when one restoration fails, retaining the loader's
+	// last valid pair and reporting any filesystem failure to the caller.
+	return errors.Join(err, writeFileAtomic(c, cert, 0o644), diagnostics.AtomicPrivateFile(k, key))
+}
+
+func makeCertKeyFiles(ips []string) (string, string, error) {
 	certPEM, privPEM, err := generateSelfSignedCert(ips)
 	if err != nil {
 		return "", "", fmt.Errorf("generate certificate: %w", err)
@@ -287,6 +392,30 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 		return err
 	}
 	return os.Rename(tmpName, path)
+}
+
+// loadPair loads the cert and key, checks they match and the leaf is currently valid.
+func loadPair(certFile, keyFile string) (*tls.Certificate, error) {
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+	if len(cert.Certificate) == 0 {
+		return nil, errors.New("no certificate found")
+	}
+	if cert.Leaf == nil {
+		if cert.Leaf, err = x509.ParseCertificate(cert.Certificate[0]); err != nil {
+			return nil, err
+		}
+	}
+	now := time.Now()
+	if now.Before(cert.Leaf.NotBefore) {
+		return nil, fmt.Errorf("certificate is not valid until %s", cert.Leaf.NotBefore.Format(time.RFC3339))
+	}
+	if now.After(cert.Leaf.NotAfter) {
+		return nil, fmt.Errorf("certificate has expired on %s", cert.Leaf.NotAfter.Format(time.RFC3339))
+	}
+	return &cert, nil
 }
 
 // VerifyCertKeyFiles checks that the cert and key load, match and the leaf is currently valid.

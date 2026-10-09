@@ -12,10 +12,10 @@ func SupportPlayback() ([]SupportTorrent, bool) {
 	out := []SupportTorrent{}
 	truncated := false
 	remaining := 256
-	if bts == nil {
+	if helperEngine() == nil {
 		return out, false
 	}
-	for _, tor := range bts.ListTorrents() {
+	for _, tor := range helperEngine().ListTorrents() {
 		if tor == nil {
 			continue
 		}

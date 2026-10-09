@@ -872,7 +872,52 @@
     "lanTitle": "Test de transfer telefon / LAN",
     "lanHint": "Deschideți pagina pe telefon la adresa serverului PC. Transferă 16 MiB, se oprește după 20 de secunde și nu folosește un torrent. Repetați fără trafic și în timpul redării. Pauzele de citire includ programarea browserului, nu pierderile de pachete sau blocajele decodorului.",
     "lanRun": "Testează conexiunea",
-    "lanResult": "{{rate}} Mbps · primul octet {{ttfb}} ms · pauză p95 {{p95}} ms · maxim {{max}} ms"
+    "lanResult": "{{rate}} Mbps · primul octet {{ttfb}} ms · pauză p95 {{p95}} ms · maxim {{max}} ms",
+    "certificates": {
+      "title": "Certificate HTTPS",
+      "startupHint": "Porniți cu --ssl pentru HTTPS. Modurile și porturile necesită repornirea serverului.",
+      "mode": "Mod de conectare",
+      "source": "Sursa certificatului",
+      "subject": "Subiect",
+      "issuer": "Emitent",
+      "expires": "Expiră",
+      "names": "Nume de gazdă și IP",
+      "trust": "Verificarea încrederii serverului",
+      "trusted": "Acceptat de acest server",
+      "untrusted": "Neacceptat de acest server",
+      "trustHint": "Telefonul verifică separat încrederea. Un certificat autosemnat trebuie acceptat pe fiecare dispozitiv. Media HTTP nu este criptată.",
+      "download": "Descărcați certificatul public",
+      "draftHint": "Salvați sau renunțați la ciornă și rezolvați schimbările programate mai întâi.",
+      "readOnly": "Modul doar citire împiedică schimbarea certificatului.",
+      "flags": "Căile sunt controlate de opțiunile de pornire.",
+      "certFile": "Fișierul PEM al certificatului",
+      "keyFile": "Cheia privată PEM fără parolă",
+      "fileLimit": "Alegeți ambele fișiere, fiecare de maximum 1 MiB.",
+      "uploadHint": "Cheia este păstrată privat pe server, niciodată în descărcări sau stare. Folosiți HTTPS sau o conexiune locală de încredere.",
+      "upload": "Încărcați și utilizați",
+      "certPath": "Calea certificatului pe server",
+      "keyPath": "Calea cheii pe server",
+      "usePaths": "Utilizați fișierele",
+      "selfsigned": "Utilizați certificatul autosemnat",
+      "regenerate": "Regenerați certificatul autosemnat",
+      "confirmTitle": "Schimbați identitatea HTTPS?",
+      "confirmHint": "Dispozitivele pot necesita acceptarea din nou. Conexiunile actuale continuă; cele noi folosesc certificatul în cinci secunde.",
+      "saved": "Certificat salvat. Reîncărcarea poate necesita acceptarea lui din nou.",
+      "modes": {
+        "http": "HTTP",
+        "only": "Doar HTTPS",
+        "media": "Interfață HTTPS, media HTTP",
+        "redirect": "HTTP redirecționat spre HTTPS",
+        "both": "HTTP și HTTPS"
+      },
+      "sources": {
+        "none": "Niciuna",
+        "self-signed": "Autosemnat",
+        "uploaded": "Încărcat",
+        "user": "Fișierele serverului"
+      },
+      "plainHttp": "Această pagină folosește HTTP. Încărcarea unei chei private aici o transmite necriptat. Deschideți HTTPS înainte de încărcare."
+    }
   },
   "preparation": {
     "title": "Pregătește episodul",

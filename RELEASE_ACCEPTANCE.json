@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "stable_approved": false,
+  "stable_approved": true,
   "evidence": [
     {
       "date": "2026-10-09",
@@ -10,11 +10,83 @@
       "profile": "adaptive",
       "cache_mib": 2048,
       "disk_cache": false,
-      "experiments_enabled": ["CapacityAwareRequests", "AdaptiveUrgentHorizon", "ContainerBurstHints"],
+      "experiments_enabled": [
+        "CapacityAwareRequests",
+        "AdaptiveUrgentHorizon",
+        "ContainerBurstHints"
+      ],
       "user_report": "One complete episode without stutters; another episode subsequently watched with diagnostic history and Range tracing enabled",
-      "logged_session": {"first_useful_block_ms": 403, "preload_ready_ms": 9203, "first_byte_events": 29, "max_recorded_ttfb_ms": 3},
+      "logged_session": {
+        "first_useful_block_ms": 403,
+        "preload_ready_ms": 9203,
+        "first_byte_events": 29,
+        "max_recorded_ttfb_ms": 3
+      },
       "limitations": "Player app variant not independently identified; no continuous Android rebuffer/decoder or multi-hour resource capture; in-memory Range traces unavailable after shutdown"
+    },
+    {
+      "scope": "native_platform_streaming",
+      "source_commit": "d0c0889de80621559569eaae4e1da36fddad57fa",
+      "ci_run": 37980740782,
+      "result": "passed",
+      "url": "https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/37980740782"
+    },
+    {
+      "scope": "macos",
+      "source_commit": "d0c0889de80621559569eaae4e1da36fddad57fa",
+      "ci_run": 37980740621,
+      "result": "passed",
+      "url": "https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/37980740621"
+    },
+    {
+      "scope": "portable",
+      "source_commit": "d0c0889de80621559569eaae4e1da36fddad57fa",
+      "ci_run": 37980740625,
+      "result": "passed",
+      "url": "https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/37980740625"
+    },
+    {
+      "scope": "Owned Windows executable HTTPS integration",
+      "source_commit": "d0c0889de80621559569eaae4e1da36fddad57fa",
+      "version": "MatriX.145.Flow-dev-e96d61a2c89507070f1bcaadb193f7c8b7d77c67",
+      "result": "passed",
+      "cases": [
+        "https-only",
+        "https-only-occupied-http",
+        "http-media",
+        "user-paths"
+      ],
+      "physical_client_trust_tested": false,
+      "tested_tree_source": "4cfdde60fe7c736563ee8b562150e7f7195a3b66",
+      "later_change": "Later changes are limited to optional GST, frontend and documentation. Standard Go runtime source is identical; the exact tagged package is checked again after publication."
+    },
+    {
+      "scope": "Final browser cold-source integration",
+      "source_commit": "1c2e6b528b6956104cdd3e994897aab7de31a905",
+      "result": "passed",
+      "checks": [
+        "TypeScript",
+        "ESLint",
+        "production build",
+        "70 local unit tests",
+        "38 browser tests"
+      ],
+      "native_contract_test": "Runs in tagged CI with exported DTOs",
+      "native_source_changed": false
     }
   ],
-  "remaining": ["Representative real-phone playback matrix", "Multi-hour resource acceptance", "Windows boot, sleep and network recovery acceptance"]
+  "remaining": [],
+  "publication_policy": {
+    "owner_authorized": true,
+    "authorization": "Yes, publish with that note (Recommended)",
+    "policy": "Publish the first stable release as Latest after automated gates pass, while explicitly disclosing unfinished field validation.",
+    "field_checks_are_not_passed": true,
+    "tagged_gate_required": "ts_release.yml rebuilds and verifies the exact tagged source before publication."
+  },
+  "remaining_field_validation": [
+    "Representative real-phone playback matrix",
+    "Multi-hour resource acceptance",
+    "Windows boot, sleep and network recovery acceptance",
+    "Representative public-swarm comparisons and broader Android/player coverage"
+  ]
 }

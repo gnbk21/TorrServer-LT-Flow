@@ -872,7 +872,52 @@
     "lanTitle": "Phone / LAN transfer test",
     "lanHint": "Run this page on the phone, using the PC server address. Transfers 16 MiB, stops after 20 seconds, and does not use a torrent. Repeat while idle and while streaming. Browser read gaps include browser scheduling; they do not measure packet loss or decoder stalls.",
     "lanRun": "Test connection",
-    "lanResult": "{{rate}} Mbps · first byte {{ttfb}} ms · read-gap p95 {{p95}} ms · maximum {{max}} ms"
+    "lanResult": "{{rate}} Mbps · first byte {{ttfb}} ms · read-gap p95 {{p95}} ms · maximum {{max}} ms",
+    "certificates": {
+      "title": "HTTPS certificates",
+      "startupHint": "Start with --ssl to enable HTTPS. Modes and ports require a server restart.",
+      "mode": "Connection mode",
+      "source": "Certificate source",
+      "subject": "Subject",
+      "issuer": "Issuer",
+      "expires": "Expires",
+      "names": "Hostnames and IPs",
+      "trust": "Server trust check",
+      "trusted": "Trusted by this server",
+      "untrusted": "Not trusted by this server",
+      "trustHint": "Your phone checks trust separately. A self-signed certificate must be trusted on each device. HTTP media is unencrypted.",
+      "download": "Download public certificate",
+      "draftHint": "Save or discard your settings draft and resolve queued changes first.",
+      "readOnly": "Read-only mode prevents certificate changes.",
+      "flags": "Certificate paths are controlled by startup flags.",
+      "certFile": "Certificate PEM file",
+      "keyFile": "Unencrypted private key PEM file",
+      "fileLimit": "Choose both files, each no larger than 1 MiB.",
+      "uploadHint": "The key is stored privately on the server. It is never included in downloads or status. Use HTTPS or a trusted local connection for uploads.",
+      "upload": "Upload and use",
+      "certPath": "Certificate path on server",
+      "keyPath": "Private key path on server",
+      "usePaths": "Use existing files",
+      "selfsigned": "Use self-signed certificate",
+      "regenerate": "Regenerate self-signed certificate",
+      "confirmTitle": "Change HTTPS identity?",
+      "confirmHint": "Devices may need to trust the certificate again. Existing connections continue; new handshakes use the new certificate within five seconds.",
+      "saved": "Certificate saved. Reload may require accepting the new certificate.",
+      "modes": {
+        "http": "HTTP",
+        "only": "HTTPS only",
+        "media": "HTTPS interface, HTTP media",
+        "redirect": "HTTP redirects to HTTPS",
+        "both": "HTTP and HTTPS"
+      },
+      "sources": {
+        "none": "None",
+        "self-signed": "Self-signed",
+        "uploaded": "Uploaded",
+        "user": "Server files"
+      },
+      "plainHttp": "This page uses plain HTTP. Uploading a private key here sends it unencrypted. Open HTTPS before uploading."
+    }
   },
   "runtime": {
     "torrents": "Torrents",

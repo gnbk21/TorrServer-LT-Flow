@@ -3,6 +3,7 @@
 package gstreamer
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -42,10 +43,12 @@ type Service struct {
 	mu    sync.RWMutex
 	tasks map[string]*Task
 
-	probeMu    sync.Mutex
-	probeCache map[string]probeCacheEntry
-	probeCalls singleflight.Group
-	taskCalls  singleflight.Group
+	probeMu      sync.Mutex
+	probeCache   map[string]probeCacheEntry
+	probeCalls   singleflight.Group
+	probeRuns    map[string]*probeRun
+	probeWorkers sync.WaitGroup
+	taskCalls    singleflight.Group
 
 	cleanupRunning atomic.Bool
 	disposed       atomic.Bool
@@ -53,6 +56,12 @@ type Service struct {
 }
 
 const probeCacheTTL = time.Hour
+
+type probeRun struct {
+	ctx     context.Context
+	cancel  context.CancelFunc
+	waiters int
+}
 
 type probeCacheEntry struct {
 	probe     ProbeInfo
@@ -259,6 +268,13 @@ func disposeTasks(tasks []*Task) {
 }
 
 func (s *Service) Probe(hash string, fileID string) (ProbeInfo, error) {
+	return s.ProbeContext(context.Background(), hash, fileID)
+}
+
+func (s *Service) ProbeContext(ctx context.Context, hash string, fileID string) (ProbeInfo, error) {
+	if err := ctx.Err(); err != nil {
+		return ProbeInfo{}, err
+	}
 	if hash == "" || fileID == "" {
 		return ProbeInfo{}, ErrBadSource
 	}
@@ -271,15 +287,39 @@ func (s *Service) Probe(hash string, fileID string) (ProbeInfo, error) {
 	}
 
 	key := probeCacheKey(hash, fileID)
-	value, err, _ := s.probeCalls.Do(key, func() (any, error) {
+	s.probeMu.Lock()
+	if s.disposed.Load() {
+		s.probeMu.Unlock()
+		return ProbeInfo{}, ErrServiceClosed
+	}
+	if s.probeRuns == nil {
+		s.probeRuns = make(map[string]*probeRun)
+	}
+	run := s.probeRuns[key]
+	if run == nil {
+		owner, cancel := context.WithTimeout(context.Background(), 2*(gstProbeTimeout+3*time.Second)+probeWarmupTimeout)
+		run = &probeRun{ctx: owner, cancel: cancel}
+		s.probeRuns[key] = run
+	}
+	run.waiters++
+	resultChannel := s.probeCalls.DoChan(key, func() (any, error) {
+		s.probeMu.Lock()
 		if s.disposed.Load() {
+			s.probeMu.Unlock()
 			return ProbeInfo{}, ErrServiceClosed
 		}
+		s.probeWorkers.Add(1)
+		s.probeMu.Unlock()
+		defer s.probeWorkers.Done()
 		if cached, found, err := s.cachedProbe(hash, fileID); found {
 			return cached, err
 		}
 		conf := s.currentConfig()
-		result, err := probeSource(sourceURL(conf, hash, fileID), conf)
+		src := sourceURL(conf, hash, fileID)
+		result, err := probeSourceContext(run.ctx, src, conf)
+		if err != nil && probeRetryableError(err) && run.ctx.Err() == nil && warmProbeSource(run.ctx, src, torrentFileSize(hash, fileID)) {
+			result, err = probeSourceContext(run.ctx, src, conf)
+		}
 		if err != nil {
 			return ProbeInfo{}, err
 		}
@@ -290,16 +330,41 @@ func (s *Service) Probe(hash string, fileID string) (ProbeInfo, error) {
 		if s.disposed.Load() {
 			return ProbeInfo{}, ErrServiceClosed
 		}
+		if err := run.ctx.Err(); err != nil {
+			return ProbeInfo{}, err
+		}
 		s.setCachedProbe(hash, fileID, result)
 		return result, nil
 	})
-	if err != nil {
-		return ProbeInfo{}, err
+	s.probeMu.Unlock()
+	defer func() {
+		s.probeMu.Lock()
+		defer s.probeMu.Unlock()
+		run.waiters--
+		if run.waiters == 0 && s.probeRuns[key] == run {
+			run.cancel()
+			s.probeCalls.Forget(key)
+			delete(s.probeRuns, key)
+		}
+	}()
+	var result singleflight.Result
+	select {
+	case <-ctx.Done():
+		return ProbeInfo{}, ctx.Err()
+	case <-run.ctx.Done():
+		if s.disposed.Load() {
+			return ProbeInfo{}, ErrServiceClosed
+		}
+		return ProbeInfo{}, run.ctx.Err()
+	case result = <-resultChannel:
+	}
+	if result.Err != nil {
+		return ProbeInfo{}, result.Err
 	}
 	if s.disposed.Load() {
 		return ProbeInfo{}, ErrServiceClosed
 	}
-	probe := refreshProbeFileSize(value.(ProbeInfo), hash, fileID)
+	probe := refreshProbeFileSize(result.Val.(ProbeInfo), hash, fileID)
 	if err := validateProbe(probe, s.currentConfig()); err != nil {
 		return ProbeInfo{}, err
 	}
@@ -578,8 +643,12 @@ func (s *Service) Dispose() {
 	s.mu.Unlock()
 
 	s.probeMu.Lock()
+	for _, run := range s.probeRuns {
+		run.cancel()
+	}
 	s.probeCache = make(map[string]probeCacheEntry)
 	s.probeMu.Unlock()
+	s.probeWorkers.Wait()
 
 	for _, task := range tasks {
 		task.Dispose()
@@ -659,15 +728,15 @@ func (s *Service) isCurrentTask(id string, expected *Task) bool {
 
 func sourceURL(conf Config, hash string, fileID string) string {
 	if conf.normalized().Source == "play" {
-		return playURL(hash, fileID)
+		return torr.InternalMediaURL(playURL(hash, fileID), false)
 	}
-	return streamURL(hash, fileID)
+	return torr.InternalMediaURL(streamURL(hash, fileID), false)
 }
 
 func streamURL(hash string, fileID string) string {
-	return "http://127.0.0.1:" + settings.Port + "/stream/?link=" + url.QueryEscape(hash) + "&index=" + url.QueryEscape(fileID) + "&play"
+	return settings.LoopbackBaseURL() + "/stream/?link=" + url.QueryEscape(hash) + "&index=" + url.QueryEscape(fileID) + "&play"
 }
 
 func playURL(hash string, fileID string) string {
-	return "http://127.0.0.1:" + settings.Port + "/play/" + url.PathEscape(hash) + "/" + url.PathEscape(fileID)
+	return settings.LoopbackBaseURL() + "/play/" + url.PathEscape(hash) + "/" + url.PathEscape(fileID)
 }

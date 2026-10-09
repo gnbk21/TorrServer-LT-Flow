@@ -31,8 +31,14 @@ func consoleStartup() {
 	if settings.Ssl {
 		access = append(access, "HTTPS: clients must trust your configured or generated certificate.")
 	}
-	if settings.Args.ForceHTTPS {
-		access = append(access, "HTTP redirects to HTTPS.")
+	if !settings.HTTPEnabled() {
+		access = append(access, "HTTPS only: the public HTTP listener is disabled.")
+	} else if settings.Args.ForceHTTPS {
+		if settings.Args.HTTPMedia {
+			access = append(access, "HTTP media is available; management redirects to HTTPS.")
+		} else {
+			access = append(access, "HTTP redirects to HTTPS.")
+		}
 	}
 	sets := settings.BTsets()
 	cache := "RAM"

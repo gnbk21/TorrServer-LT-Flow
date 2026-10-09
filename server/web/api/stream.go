@@ -59,6 +59,11 @@ func stream(c *gin.Context) {
 	indexStr := c.Query("index")
 	_, preload := c.GetQuery("preload")
 	_, stat := c.GetQuery("stat")
+	// The process-secret stat marker identifies media ownership; it is not an
+	// external request for torrent statistics.
+	if torr.IsInternalProbe(c.Request) {
+		stat = false
+	}
 	_, save := c.GetQuery("save")
 	_, m3u := c.GetQuery("m3u")
 	_, fromlast := c.GetQuery("fromlast")
@@ -69,7 +74,7 @@ func stream(c *gin.Context) {
 
 	data := ""
 
-	notAuth := c.GetBool("auth_required") && c.GetString(gin.AuthUserKey) == ""
+	notAuth := c.GetBool("auth_required") && c.GetString(gin.AuthUserKey) == "" && !torr.IsInternalProbe(c.Request)
 
 	if notAuth {
 		err := utils.TestLink(link, !notAuth)

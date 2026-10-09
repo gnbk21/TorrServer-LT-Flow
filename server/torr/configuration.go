@@ -1,6 +1,8 @@
 package torr
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"os"
@@ -58,7 +60,7 @@ func ConfigurationSnapshot() ConfigurationState {
 	s.Applying = configControl.applying
 	if s.Applying {
 		s.Effective = settings.CloneSettings(configControl.effective)
-	} else if bts != nil && bts.Session() == nil {
+	} else if helperEngine() != nil && helperEngine().Session() == nil {
 		s.Effective = nil
 	}
 	if configControl.pending != nil {
@@ -81,6 +83,12 @@ func ApplyConfiguration(next *settings.BTSets, revision, when string) error {
 	}
 	if err := settings.ValidateSettings(next); err != nil {
 		return err
+	}
+	current := settings.BTsets()
+	if current != nil && (current.SslCert != next.SslCert || current.SslKey != next.SslKey) {
+		if err := validateCertificateChange(next); err != nil {
+			return err
+		}
 	}
 	if next.Flow != nil && next.Flow.RequirePlaybackToken && !settings.HttpAuth {
 		return errors.New("enable HTTP authentication before requiring playback capabilities")
@@ -108,6 +116,70 @@ func ApplyConfiguration(next *settings.BTSets, revision, when string) error {
 	configControl.error = ""
 	retirePendingLocked()
 	return nil
+}
+
+func validateCertificateChange(next *settings.BTSets) error {
+	if settings.Args != nil && (settings.Args.SslCert != "" || settings.Args.SslKey != "") {
+		return errors.New("certificate paths are controlled by startup flags")
+	}
+	if (next.SslCert == "") != (next.SslKey == "") {
+		return errors.New("both certificate paths are required")
+	}
+	if next.SslCert == "" {
+		if settings.Ssl {
+			return errors.New("use the certificate controls to generate a self-signed pair")
+		}
+		return nil
+	}
+	pair, err := tls.LoadX509KeyPair(next.SslCert, next.SslKey)
+	if err != nil {
+		return errors.New("certificate and key must be readable and match")
+	}
+	leaf, err := x509.ParseCertificate(pair.Certificate[0])
+	if err != nil || time.Now().Before(leaf.NotBefore) || !time.Now().Before(leaf.NotAfter) {
+		return errors.New("certificate must be currently valid")
+	}
+	return nil
+}
+
+// ApplyCertificateConfiguration serializes file selection/generation with every
+// settings mutation. Queued settings are retained; resolve them before changing
+// certificate identity, rather than silently discarding another tab's draft.
+func ApplyCertificateConfiguration(revision string, change func(commit func(string, string) error) error, retire func(string, string)) error {
+	configControl.operation.Lock()
+	defer configControl.operation.Unlock()
+	configControl.Lock()
+	defer configControl.Unlock()
+	if revision == "" || revision != configurationRevisionLocked() {
+		return ErrSettingsConflict
+	}
+	if configControl.pending != nil {
+		return errors.New("resolve scheduled settings before changing the certificate")
+	}
+	if settings.ReadOnly {
+		return errors.New("database is read-only")
+	}
+	if settings.Args != nil && (settings.Args.SslCert != "" || settings.Args.SslKey != "") {
+		return errors.New("certificate paths are controlled by startup flags")
+	}
+	return change(func(cert, key string) error {
+		next := settings.CloneSettings(settings.BTsets())
+		if next == nil {
+			return errors.New("settings are unavailable")
+		}
+		oldCert, oldKey := next.SslCert, next.SslKey
+		next.SslCert, next.SslKey = cert, key
+		if err := validateCertificateChange(next); err != nil {
+			return err
+		}
+		if err := settings.SetBTSetsChecked(next); err != nil {
+			return err
+		}
+		if retire != nil && (oldCert != cert || oldKey != key) {
+			retire(oldCert, oldKey)
+		}
+		return nil
+	})
 }
 func CancelPendingConfiguration(revision string) error {
 	configControl.operation.Lock()
@@ -159,7 +231,7 @@ func applyPendingConfiguration() {
 	configControl.Lock()
 	defer configControl.Unlock()
 	p := configControl.pending
-	if p == nil || configControl.error != "" || bts == nil || bts.Session() == nil || FlowHasActiveWork() {
+	if p == nil || configControl.error != "" || helperEngine() == nil || helperEngine().Session() == nil || FlowHasActiveWork() {
 		return
 	}
 	if p.Base != settings.SettingsRevision(settings.BTsets()) {

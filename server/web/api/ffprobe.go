@@ -5,7 +5,9 @@ import (
 	"net/http"
 
 	"server/ffprobe"
+	"server/log"
 	sets "server/settings"
+	"server/torr"
 
 	"github.com/gin-gonic/gin"
 )
@@ -56,16 +58,16 @@ func ffp(c *gin.Context) {
 		return
 	}
 
-	link := "http://127.0.0.1:" + sets.Port + "/play/" + hash + "/" + indexStr
-	if sets.Ssl {
-		link = "https://127.0.0.1:" + sets.SslPort + "/play/" + hash + "/" + indexStr
-	}
+	link := sets.LoopbackBaseURL() + "/play/" + hash + "/" + indexStr
 
-	data, err := ffprobe.ProbeUrl(link)
+	data, err := ffprobe.ProbeURLContext(c.Request.Context(), torr.InternalMediaURL(link, true))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("error getting data: %v", err)})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": log.RedactInternalMediaKey(fmt.Sprintf("error getting data: %v", err))})
 		return
 	}
 
+	if data.Format != nil {
+		data.Format.Filename = "/play/" + hash + "/" + indexStr
+	}
 	c.JSON(200, data)
 }

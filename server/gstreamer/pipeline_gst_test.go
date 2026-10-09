@@ -1071,7 +1071,7 @@ func TestGetSegmentReturnsRuntimeBusError(t *testing.T) {
 
 	messageText := append([]byte("decoder failed at runtime"), 0)
 	gerror := make([]byte, 16)
-	*(*uintptr)(unsafe.Pointer(&gerror[8])) = uintptr(unsafe.Pointer(&messageText[0]))
+	*(*unsafe.Pointer)(unsafe.Pointer(&gerror[8])) = unsafe.Pointer(&messageText[0])
 
 	messageReturned := false
 	gstRuntime = &gstAPI{
@@ -1083,12 +1083,12 @@ func TestGetSegmentReturnsRuntimeBusError(t *testing.T) {
 			return 77
 		},
 		gstMessageParseError: func(_ uintptr, errOut unsafe.Pointer, debugOut unsafe.Pointer) {
-			*(*uintptr)(errOut) = uintptr(unsafe.Pointer(&gerror[0]))
-			*(*uintptr)(debugOut) = 0
+			*(*unsafe.Pointer)(errOut) = unsafe.Pointer(&gerror[0])
+			*(*unsafe.Pointer)(debugOut) = nil
 		},
 		gstMiniObjectUnref: func(uintptr) {},
-		gErrorFree:         func(uintptr) {},
-		gFree:              func(uintptr) {},
+		gErrorFree:         func(unsafe.Pointer) {},
+		gFree:              func(unsafe.Pointer) {},
 		gstElementSetState: func(uintptr, int32) int32 {
 			return gstStateChangeSuccess
 		},

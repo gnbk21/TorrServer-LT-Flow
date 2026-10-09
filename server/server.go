@@ -24,12 +24,14 @@ func Start() {
 			if dbSSlPort != "0" {
 				settings.Args.SslPort = dbSSlPort
 			} else {
-				settings.Args.SslPort = "8091"
+				settings.Args.SslPort = settings.DefaultSslPort
 			}
-		} else { // store ssl port from params to DB
+		} else { // Apply the startup override to the in-memory settings snapshot.
 			dbSSlPort, err := strconv.Atoi(settings.Args.SslPort)
 			if err == nil {
-				settings.BTsets().SslPort = dbSSlPort
+				next := settings.CloneSettings(settings.BTsets())
+				next.SslPort = dbSSlPort
+				settings.StoreBTsets(next)
 			}
 		}
 		// Pass a partial CLI pair through to EnsureCert so it fails clearly;
@@ -48,14 +50,16 @@ func Start() {
 	}
 	// http checks
 	if settings.Args.Port == "" {
-		settings.Args.Port = "8090"
+		settings.Args.Port = settings.DefaultPort
 	}
 
-	log.TLogln("Check web port", settings.Args.Port, "on", netbind.Normalize(settings.Args.IPs))
-	if err := netbind.CheckPort(settings.Args.IPs, settings.Args.Port); err != nil {
-		log.Event("ERROR", "HTTP", "Cannot bind port "+settings.Args.Port+": "+err.Error()+". Choose another --port or stop the other listener.")
-		log.Close()
-		os.Exit(1)
+	if settings.HTTPEnabled() {
+		log.TLogln("Check web port", settings.Args.Port, "on", netbind.Normalize(settings.Args.IPs))
+		if err := netbind.CheckPort(settings.Args.IPs, settings.Args.Port); err != nil {
+			log.Event("ERROR", "HTTP", "Cannot bind port "+settings.Args.Port+": "+err.Error()+". Choose another --port or stop the other listener.")
+			log.Close()
+			os.Exit(1)
+		}
 	}
 	// remove old disk caches
 	go cleanCache()

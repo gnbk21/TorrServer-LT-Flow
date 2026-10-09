@@ -878,7 +878,52 @@
     "lanTitle": "手机 / 局域网传输测试",
     "lanHint": "在手机上使用电脑服务器地址打开此页面。传输 16 MiB，20 秒后停止，不使用种子。分别在空闲和播放时重复测试。读取间隔包含浏览器调度延迟，不代表丢包或解码器卡顿。",
     "lanRun": "测试连接",
-    "lanResult": "{{rate}} Mbps · 首字节 {{ttfb}} 毫秒 · 读取间隔 p95 {{p95}} 毫秒 · 最大 {{max}} 毫秒"
+    "lanResult": "{{rate}} Mbps · 首字节 {{ttfb}} 毫秒 · 读取间隔 p95 {{p95}} 毫秒 · 最大 {{max}} 毫秒",
+    "certificates": {
+      "title": "HTTPS 证书",
+      "startupHint": "使用 --ssl 启用 HTTPS。模式和端口变更需要重启服务器。",
+      "mode": "连接模式",
+      "source": "证书来源",
+      "subject": "主体",
+      "issuer": "颁发者",
+      "expires": "到期时间",
+      "names": "主机名和 IP",
+      "trust": "服务器信任检查",
+      "trusted": "此服务器信任",
+      "untrusted": "此服务器不信任",
+      "trustHint": "手机单独检查信任。自签名证书必须在每个设备上接受。HTTP 媒体未加密。",
+      "download": "下载公开证书",
+      "draftHint": "请先保存或放弃设置草稿，并处理已排队的更改。",
+      "readOnly": "只读模式禁止更改证书。",
+      "flags": "证书路径由启动参数控制。",
+      "certFile": "证书 PEM 文件",
+      "keyFile": "无密码的私钥 PEM 文件",
+      "fileLimit": "请选择两个文件，每个不超过 1 MiB。",
+      "uploadHint": "私钥保密存储在服务器上，不包含在下载或状态中。请使用 HTTPS 或可信的本地连接上传。",
+      "upload": "上传并使用",
+      "certPath": "服务器上的证书路径",
+      "keyPath": "服务器上的私钥路径",
+      "usePaths": "使用现有文件",
+      "selfsigned": "使用自签名证书",
+      "regenerate": "重新生成自签名证书",
+      "confirmTitle": "更改 HTTPS 身份？",
+      "confirmHint": "设备可能需要重新信任证书。当前连接继续使用；新连接会在五秒内使用新证书。",
+      "saved": "证书已保存。刷新页面时可能需要重新接受证书。",
+      "modes": {
+        "http": "HTTP",
+        "only": "仅 HTTPS",
+        "media": "HTTPS 界面、HTTP 媒体",
+        "redirect": "HTTP 重定向到 HTTPS",
+        "both": "HTTP 和 HTTPS"
+      },
+      "sources": {
+        "none": "无",
+        "self-signed": "自签名",
+        "uploaded": "已上传",
+        "user": "服务器文件"
+      },
+      "plainHttp": "此页面使用 HTTP。在此上传私钥会以未加密方式传输。请先打开 HTTPS 再上传。"
+    }
   },
   "preparation": {
     "title": "准备剧集",

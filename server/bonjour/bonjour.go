@@ -34,9 +34,13 @@ func Start() {
 	defer mu.Unlock()
 	stopLocked()
 
-	port, err := strconv.Atoi(settings.Port)
+	primaryPort := settings.Port
+	if !settings.HTTPEnabled() {
+		primaryPort = settings.SslPort
+	}
+	port, err := strconv.Atoi(primaryPort)
 	if err != nil || port <= 0 {
-		log.TLogln("Bonjour: invalid web port", settings.Port)
+		log.TLogln("Bonjour: invalid web port", primaryPort)
 		return
 	}
 
@@ -51,7 +55,9 @@ func Start() {
 	txt := baseTXT()
 
 	register(name, serviceTorrServer, port, host, ips, txt, ifaces)
-	register(name, serviceHTTP, port, host, ips, txt, ifaces)
+	if settings.HTTPEnabled() {
+		register(name, serviceHTTP, port, host, ips, txt, ifaces)
+	}
 
 	if settings.Ssl {
 		if sslPort, err := strconv.Atoi(settings.SslPort); err == nil && sslPort > 0 {

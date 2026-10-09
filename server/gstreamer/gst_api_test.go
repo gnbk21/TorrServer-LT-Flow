@@ -47,18 +47,18 @@ func TestLoadGStreamerRuntimeIfAvailable(t *testing.T) {
 func TestParseLaunchRejectsPartialPipeline(t *testing.T) {
 	message := append([]byte("partial pipeline parse error"), 0)
 	gerror := make([]byte, 16)
-	*(*uintptr)(unsafe.Pointer(&gerror[8])) = uintptr(unsafe.Pointer(&message[0]))
+	*(*unsafe.Pointer)(unsafe.Pointer(&gerror[8])) = unsafe.Pointer(&message[0])
 
 	var unrefed uintptr
 	api := &gstAPI{
 		gstParseLaunch: func(_ string, errOut unsafe.Pointer) uintptr {
-			*(*uintptr)(errOut) = uintptr(unsafe.Pointer(&gerror[0]))
+			*(*unsafe.Pointer)(errOut) = unsafe.Pointer(&gerror[0])
 			return 123
 		},
 		gstObjectUnref: func(value uintptr) {
 			unrefed = value
 		},
-		gErrorFree: func(uintptr) {},
+		gErrorFree: func(unsafe.Pointer) {},
 	}
 
 	pipeline, err := api.parseLaunch("broken ! pipeline")

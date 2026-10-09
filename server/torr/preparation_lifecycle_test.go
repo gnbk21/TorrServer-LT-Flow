@@ -8,13 +8,13 @@ import (
 )
 
 func TestPreparationCleanupCannotBeReversed(t *testing.T) {
-	previous, readOnly := bts, settings.ReadOnly
+	previous, readOnly := helperEngine(), settings.ReadOnly
 	settings.ReadOnly = false
-	t.Cleanup(func() { bts, settings.ReadOnly = previous, readOnly })
+	t.Cleanup(func() { InitApiHelper(previous); settings.ReadOnly = readOnly })
 	hash := NewHashFromHex("0123456789012345678901234567890123456789")
 	id := preparationID(hash, 1)
 	job := &preparationRecord{PreparationJob: PreparationJob{ID: id, State: "cleaning"}}
-	bts = &BTServer{preparation: &preparationManager{jobs: map[string]*preparationRecord{id: job}}}
+	InitApiHelper(&BTServer{preparation: &preparationManager{jobs: map[string]*preparationRecord{id: job}}})
 	for _, action := range []string{"start", "resume", "pause", "cancel"} {
 		if err := PrepareEpisode(hash.HexString(), 1, action); err == nil {
 			t.Fatalf("%s reversed a native cleanup fence", action)
@@ -29,9 +29,9 @@ func TestPreparationCleanupCannotBeReversed(t *testing.T) {
 }
 
 func TestPreparationActionSaveFailurePreservesScheduling(t *testing.T) {
-	previous, readOnly := bts, settings.ReadOnly
+	previous, readOnly := helperEngine(), settings.ReadOnly
 	settings.ReadOnly = false
-	t.Cleanup(func() { bts, settings.ReadOnly = previous, readOnly })
+	t.Cleanup(func() { InitApiHelper(previous); settings.ReadOnly = readOnly })
 	hash := NewHashFromHex("0123456789012345678901234567890123456789")
 	id := preparationID(hash, 1)
 	root := t.TempDir()
@@ -40,7 +40,7 @@ func TestPreparationActionSaveFailurePreservesScheduling(t *testing.T) {
 		t.Fatal(err)
 	}
 	job := &preparationRecord{PreparationJob: PreparationJob{ID: id, State: "paused", ErrorCode: "previous", SchedulingReason: "PLAYBACK_PRIORITY"}}
-	bts = &BTServer{preparation: &preparationManager{name: filepath.Join(blocked, "jobs.json"), root: root, jobs: map[string]*preparationRecord{id: job}}}
+	InitApiHelper(&BTServer{preparation: &preparationManager{name: filepath.Join(blocked, "jobs.json"), root: root, jobs: map[string]*preparationRecord{id: job}}})
 	if err := PrepareEpisode(hash.HexString(), 1, "resume"); err == nil {
 		t.Fatal("failed write was accepted")
 	}

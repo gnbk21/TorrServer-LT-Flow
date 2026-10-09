@@ -2,7 +2,9 @@ package web
 
 import (
 	"context"
+	cryptoTLS "crypto/tls"
 	"errors"
+	stdlog "log"
 	"net"
 	"net/http"
 	"sort"
@@ -51,6 +53,8 @@ var (
 	engineReady    atomic.Bool
 	listenersReady atomic.Bool
 	lifecycleMu    sync.Mutex
+	stopRenew      chan struct{}
+	renewDone      chan struct{}
 )
 
 //	@title			Swagger Torrserver API
@@ -85,7 +89,7 @@ func Start() {
 	corsCfg.AllowPrivateNetwork = true
 	corsCfg.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "HEAD", "OPTIONS", "DELETE"}
 	corsCfg.AllowHeaders = []string{
-		"Origin", "Content-Length", "Content-Type", "X-Requested-With", "Accept", "Authorization",
+		"Origin", "Content-Length", "Content-Type", "X-Requested-With", "Accept", "Authorization", "If-Match",
 		// MCP Streamable HTTP (browser-based agents)
 		"Mcp-Protocol-Version", "Mcp-Session-Id", "Last-Event-ID", "Mcp-Method", "Mcp-Name",
 	}
@@ -121,6 +125,7 @@ func Start() {
 	route.GET("/echo", echo)
 
 	api.SetupRoute(route)
+	setupSSLRoutes(route)
 	mcp.Mount(route.Group("/", auth.CheckAuth()))
 	gstreamer.SetupRoute(route)
 	msx.SetupRoute(route)
@@ -134,7 +139,7 @@ func Start() {
 	// Explicit HTTPS configuration fails before any listener is opened. Never
 	// replace a user's identity or silently downgrade a forced-HTTPS deployment.
 	if settings.Ssl {
-		cert, key, changed, err := sslcerts.EnsureCert(settings.BTsets().SslCert, settings.BTsets().SslKey, ips)
+		cert, key, changed, err := sslcerts.EnsureCert(settings.BTsets().SslCert, settings.BTsets().SslKey, certIPs())
 		if err != nil {
 			startupError(err)
 			return
@@ -161,11 +166,26 @@ func Start() {
 		}
 		handler := http.Handler(route)
 		if settings.Args != nil && settings.Args.ForceHTTPS && settings.Ssl {
-			handler = httpsRedirectHandler()
+			handler = forceHTTPSHandler(route, settings.Args.HTTPMedia)
+		}
+		if !settings.HTTPEnabled() {
+			continue
 		}
 		if err := startListener(handler, netbind.Addr(ip, settings.Port), false); err != nil {
 			startupError(err)
 			return
+		}
+	}
+	if err := startInternalListener(route); err != nil {
+		startupError(err)
+		return
+	}
+	if settings.Ssl {
+		stopRenew, renewDone = make(chan struct{}), make(chan struct{})
+		stop, done := stopRenew, renewDone
+		go func() { defer close(done); sslcerts.RenewLoop(stop, time.Hour, sslCertPaths, certIPs) }()
+		if !settings.PlainHTTPServesMedia() && sslcerts.IsGenerated(sslCertPaths()) {
+			log.TLogln("HTTPS media uses a self-signed certificate; players must trust it, or configure a trusted certificate")
 		}
 	}
 	listenersReady.Store(true)
@@ -216,32 +236,92 @@ func Stop() {
 	}
 }
 
-func startListener(handler http.Handler, addr string, tls bool) error {
-	listener, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
-	}
-	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+func registerServer(handler http.Handler) *http.Server {
+	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 120 * time.Second, ErrorLog: stdlog.New(serverErrors, "", 0)}
 	serversMu.Lock()
 	servers = append(servers, srv)
 	serversMu.Unlock()
+	return srv
+}
+
+func reportServe(fn func() error) {
 	go func() {
-		var serveErr error
-		if tls {
-			log.TLogln("Start https server at", addr)
-			serveErr = srv.ServeTLS(listener, settings.BTsets().SslCert, settings.BTsets().SslKey)
-		} else {
-			log.TLogln("Start http server at", addr)
-			serveErr = srv.Serve(listener)
-		}
-		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+		if err := fn(); err != nil && !errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
 			select {
-			case waitChan <- serveErr:
+			case waitChan <- err:
 			default:
 			}
 		}
 	}()
+}
+
+func startListener(handler http.Handler, addr string, secure bool) error {
+	var loader *sslcerts.Loader
+	if secure {
+		var err error
+		loader, err = sslcerts.NewLoader(sslCertPaths)
+		if err != nil {
+			return err
+		}
+	}
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	srv := registerServer(handler)
+	if secure {
+		tlsLn, plainLn := splitTLS(listener)
+		srv.TLSConfig = &cryptoTLS.Config{GetCertificate: loader.GetCertificate}
+		redirect := registerServer(httpsRedirectHandler())
+		reportServe(func() error { return srv.ServeTLS(tlsLn, "", "") })
+		reportServe(func() error { return redirect.Serve(plainLn) })
+		log.TLogln("Start https server at", addr)
+	} else {
+		reportServe(func() error { return srv.Serve(listener) })
+		log.TLogln("Start http server at", addr)
+	}
 	return nil
+}
+
+func startInternalListener(handler http.Handler) error {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return err
+	}
+	settings.SetInternalBaseURL("http://" + listener.Addr().String())
+	srv := registerServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		media := strings.HasPrefix(r.URL.Path, "/play/") || r.URL.Path == "/stream" || strings.HasPrefix(r.URL.Path, "/stream/")
+		if !torr.IsInternalProbe(r) || !media || (r.Method != http.MethodGet && r.Method != http.MethodHead) {
+			http.Error(w, "internal media access required", http.StatusForbidden)
+			return
+		}
+		handler.ServeHTTP(w, r)
+	}))
+	reportServe(func() error { return srv.Serve(listener) })
+	return nil
+}
+
+func certIPs() []string {
+	var bound []string
+	for _, addr := range settings.IPs {
+		ip := net.ParseIP(addr)
+		if ip == nil || ip.IsUnspecified() {
+			return GetLocalIps()
+		}
+		bound = append(bound, ip.String())
+	}
+	if len(bound) == 0 {
+		return GetLocalIps()
+	}
+	return bound
+}
+
+func sslCertPaths() (string, string) {
+	s := settings.BTsets()
+	if s == nil {
+		return "", ""
+	}
+	return s.SslCert, s.SslKey
 }
 
 func startupError(err error) {
@@ -255,6 +335,12 @@ func startupError(err error) {
 }
 
 func shutdownListeners() {
+	if stopRenew != nil {
+		close(stopRenew)
+		<-renewDone
+		stopRenew, renewDone = nil, nil
+	}
+	settings.SetInternalBaseURL("")
 	serversMu.Lock()
 	current := servers
 	servers = nil

@@ -222,6 +222,13 @@ jobs:
           _out/test-io-queue
           _out/test-disk-upload
 
+      - name: Prepare real GStreamer media validation
+        if: matrix.target == 'linux-amd64'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg gstreamer1.0-tools gstreamer1.0-plugins-base-apps gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav
+          ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=320x180:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 12 -c:v libx264 -preset ultrafast -g 75 -c:a aac -y _out/gst-e2e.mkv
+
       - name: Unit tests
         if: matrix.target == 'linux-amd64'
         working-directory: server
@@ -234,7 +241,7 @@ jobs:
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
         run: |
           go test -count=1 -timeout 180s ./console/ ./log/ ./diagnostics/ ./flow/ ./netpolicy/ ./netchange/ ./ffprobe/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/pages/template/ ./dlna/ ./web/sslcerts/ ./torr/utils/ ./cmd/
-          go test -tags gst -count=1 -timeout 180s ./gstreamer/
+          GST_E2E_MKV="$GITHUB_WORKSPACE/_out/gst-e2e.mkv" go test -tags gst -count=1 -timeout 180s ./gstreamer/
 
       - name: Go vet
         if: matrix.target == 'linux-amd64'
@@ -293,9 +300,11 @@ jobs:
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
         run: |
-          go test -race -count=1 -timeout 180s ./console/ ./log/ ./flow/ ./netpolicy/ ./netchange/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/sslcerts/ ./torr/utils/
+          go test -race -count=1 -timeout 180s ./console/ ./log/ ./flow/ ./netpolicy/ ./netchange/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/sslcerts/ ./torr/utils/ ./mcp/ ./tgbot/
+          go test -race -tags gst -count=1 -timeout 180s ./gstreamer/
           go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
           govulncheck ./...
+          govulncheck -tags gst ./...
 
       - name: Probe --version
         if: matrix.target == 'linux-amd64'

@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -19,6 +20,41 @@ import (
 
 	"server/settings"
 )
+
+func TestRegenerationRollsBackFailedSettingsCommit(t *testing.T) {
+	withTempPath(t)
+	c, k, err := MakeCertKeyFiles(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeCert, _ := os.ReadFile(c)
+	beforeKey, _ := os.ReadFile(k)
+	l, err := NewLoader(func() (string, string) { return c, k })
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous, _ := l.GetCertificate(nil)
+	saveError := errors.New("fixture settings save failed")
+	err = RegenerateWithCommit(nil, func(cert, key string) error {
+		if bytes.Equal(leaf(t, cert, key).Raw, previous.Leaf.Raw) {
+			t.Fatal("regeneration did not create a new identity")
+		}
+		return saveError
+	})
+	if !errors.Is(err, saveError) {
+		t.Fatalf("save failure lost: %v", err)
+	}
+	afterCert, _ := os.ReadFile(c)
+	afterKey, _ := os.ReadFile(k)
+	if !bytes.Equal(beforeCert, afterCert) || !bytes.Equal(beforeKey, afterKey) {
+		t.Fatal("failed settings save changed the identity on disk")
+	}
+	l.lastCheck = time.Now().Add(-reloadCheckInterval)
+	reloaded, err := l.GetCertificate(nil)
+	if err != nil || !bytes.Equal(previous.Leaf.Raw, reloaded.Leaf.Raw) {
+		t.Fatal("loader adopted a failed identity change", err)
+	}
+}
 
 func withTempPath(t *testing.T) string {
 	t.Helper()

@@ -46,7 +46,7 @@ func TestVideoProbePublicABILayout(t *testing.T) {
 
 func TestVideoStartProbeUsesFirstAcceptableBufferTimestamp(t *testing.T) {
 	buffer := &gstBufferABI{pts: uint64(95_000_000_000), dts: gstClockTimeNone}
-	info, keepInfo := testPadProbeInfo(gstPadProbeTypeBuffer, uintptr(unsafe.Pointer(buffer)))
+	info, keepInfo := testPadProbeInfo(gstPadProbeTypeBuffer, unsafe.Pointer(buffer))
 	state := &videoStartProbeState{
 		requestedNS:   100_000_000_000,
 		maxBackDiffNS: 6_000_000_000,
@@ -90,7 +90,7 @@ func TestVideoStartProbeRejectsTimestampTooFarBehind(t *testing.T) {
 
 func TestVideoSegmentClipProbeDropsPreSeekBuffer(t *testing.T) {
 	buffer := &gstBufferABI{pts: uint64(91_000_000_000), dts: gstClockTimeNone}
-	info, keepInfo := testPadProbeInfo(gstPadProbeTypeBuffer, uintptr(unsafe.Pointer(buffer)))
+	info, keepInfo := testPadProbeInfo(gstPadProbeTypeBuffer, unsafe.Pointer(buffer))
 	state := &videoSegmentClipProbeState{requestedStart: 92_000_000_000}
 	state.segmentStart.Store(92_000_000_000)
 	registration := &gstPadProbeRegistration{api: &gstAPI{}, state: state}
@@ -118,10 +118,10 @@ func TestVideoSegmentClipProbeUsesDownstreamTimeSegment(t *testing.T) {
 		time:   92_759_000_000,
 	}
 	event := &gstEventABI{eventType: gstEventSegment}
-	info, keepInfo := testPadProbeInfo(gstPadProbeTypeEventDownstream, uintptr(unsafe.Pointer(event)))
+	info, keepInfo := testPadProbeInfo(gstPadProbeTypeEventDownstream, unsafe.Pointer(event))
 	api := &gstAPI{
-		gstEventParseSegment: func(_ uintptr, output unsafe.Pointer) {
-			*(*uintptr)(output) = uintptr(unsafe.Pointer(segment))
+		gstEventParseSegment: func(_ unsafe.Pointer, output unsafe.Pointer) {
+			*(*unsafe.Pointer)(output) = unsafe.Pointer(segment)
 		},
 	}
 	state := &videoSegmentClipProbeState{requestedStart: gstClockTimeNone}
@@ -221,13 +221,13 @@ func TestVideoStartProbeNativeCallback(t *testing.T) {
 	}
 }
 
-func testPadProbeInfo(probeType uint32, data uintptr) (uintptr, any) {
+func testPadProbeInfo(probeType uint32, data unsafe.Pointer) (unsafe.Pointer, any) {
 	if runtime.GOOS == "windows" {
 		info := &gstPadProbeInfoWindowsABI{probeType: probeType, data: data}
-		return uintptr(unsafe.Pointer(info)), info
+		return unsafe.Pointer(info), info
 	}
 	info := &gstPadProbeInfoUnixABI{probeType: probeType, data: data}
-	return uintptr(unsafe.Pointer(info)), info
+	return unsafe.Pointer(info), info
 }
 
 func TestInstallVideoSeekProbesSkipsStartProbeForExactSeeks(t *testing.T) {

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync/atomic"
 	"time"
 
 	"server/flow"
@@ -19,15 +20,18 @@ import (
 	"server/version"
 )
 
-// bts is the package-level engine handle initialised by BTServer.Connect.
-var bts *BTServer
+// engineHandle publishes the engine safely while Connect/Disconnect run alongside
+// status and playback requests. Session lifetime remains protected by BTServer.mu.
+var engineHandle atomic.Pointer[BTServer]
+
+func helperEngine() *BTServer { return engineHandle.Load() }
 
 var engineRetryContext, cancelEngineRetries = context.WithCancel(context.Background())
 
 func reconnectEngine() error {
 	ctx, cancel := context.WithTimeout(engineRetryContext, 5*time.Second)
 	defer cancel()
-	return flow.RetryTransient(ctx, bts.Connect, func(err error) bool {
+	return flow.RetryTransient(ctx, helperEngine().Connect, func(err error) bool {
 		var networkError net.Error
 		return errors.Is(err, lt.ErrTimeout) || (errors.As(err, &networkError) && networkError.Timeout())
 	})
@@ -35,7 +39,7 @@ func reconnectEngine() error {
 
 // InitApiHelper is called by BTServer.Connect to publish the engine
 // instance to the rest of this package.
-func InitApiHelper(bt *BTServer) { bts = bt }
+func InitApiHelper(bt *BTServer) { engineHandle.Store(bt) }
 
 // LoadTorrent re-adds a DB-only torrent into the running session.
 func LoadTorrent(tor *Torrent) *Torrent {
@@ -43,7 +47,7 @@ func LoadTorrent(tor *Torrent) *Torrent {
 		return nil
 	}
 	hadInfo := len(tor.TorrentSpec.InfoBytes) > 0
-	out, err := NewTorrent(tor.TorrentSpec, bts)
+	out, err := NewTorrent(tor.TorrentSpec, helperEngine())
 	if err != nil {
 		log.TLogln("torr.LoadTorrent:", err)
 		return nil
@@ -83,7 +87,7 @@ func AddTorrent(spec *TorrentSpec, title, poster, data, category string) (*Torre
 		spec.InfoBytes = dbt.TorrentSpec.InfoBytes
 	}
 
-	t, err := NewTorrent(spec, bts)
+	t, err := NewTorrent(spec, helperEngine())
 	if err != nil {
 		log.TLogln("torr.AddTorrent:", err)
 		return nil, err
@@ -137,8 +141,8 @@ func SaveTorrentToDB(torr *Torrent) {
 // cache map) rather than 404. Only actual playback (an active reader) keeps a
 // torrent alive. nil only when the hash is unknown to both session and DB.
 func GetTorrentInfo(hashHex string) *Torrent {
-	if bts != nil {
-		if t := bts.GetTorrent(NewHashFromHex(hashHex)); t != nil {
+	if helperEngine() != nil {
+		if t := helperEngine().GetTorrent(NewHashFromHex(hashHex)); t != nil {
 			return t
 		}
 	}
@@ -154,7 +158,7 @@ func GetTorrent(hashHex string) *Torrent {
 	hash := NewHashFromHex(hashHex)
 	timeout := torrentExpireTimeout()
 
-	tor := bts.GetTorrent(hash)
+	tor := helperEngine().GetTorrent(hash)
 	if tor != nil {
 		tor.AddExpiredTime(timeout)
 		return tor
@@ -167,7 +171,7 @@ func GetTorrent(hashHex string) *Torrent {
 	go func() {
 		log.TLogln("torr.GetTorrent: promoting DB torrent", tor.Hash().HexString())
 		hadInfo := len(tor.TorrentSpec.InfoBytes) > 0
-		fresh, err := NewTorrent(tor.TorrentSpec, bts)
+		fresh, err := NewTorrent(tor.TorrentSpec, helperEngine())
 		if err != nil || fresh == nil {
 			log.TLogln("torr.GetTorrent: promote failed:", tor.Hash().HexString(), err)
 			return
@@ -190,7 +194,7 @@ func GetTorrent(hashHex string) *Torrent {
 // SetTorrent updates the in-memory and DB-side metadata of a torrent.
 func SetTorrent(hashHex, title, poster, category, data string) *Torrent {
 	hash := NewHashFromHex(hashHex)
-	tor := bts.GetTorrent(hash)
+	tor := helperEngine().GetTorrent(hash)
 	dbt := GetTorrentDB(hash)
 
 	if title == "" && tor == nil && dbt != nil {
@@ -237,8 +241,8 @@ func RemTorrent(hashHex string) error {
 		return errors.New("read-only DB mode")
 	}
 	hash := NewHashFromHex(hashHex)
-	if bts != nil && bts.preparation != nil {
-		if handled, err := bts.preparation.removeTorrentJobs(hash); handled {
+	if helperEngine() != nil && helperEngine().preparation != nil {
+		if handled, err := helperEngine().preparation.removeTorrentJobs(hash); handled {
 			if err != nil {
 				return err
 			}
@@ -247,7 +251,7 @@ func RemTorrent(hashHex string) error {
 		}
 	}
 
-	tor := bts.GetTorrent(hash)
+	tor := helperEngine().GetTorrent(hash)
 	if tor == nil {
 		RemTorrentDB(hash)
 		if sets.BTsets().UseDisk && hashHex != "" && hashHex != "/" {
@@ -257,7 +261,7 @@ func RemTorrent(hashHex string) error {
 	}
 
 	closeCh := tor.closeCh
-	if bts.RemoveTorrent(hash) {
+	if helperEngine().RemoveTorrent(hash) {
 		select {
 		case <-closeCh:
 		case <-time.After(5 * time.Second):
@@ -277,7 +281,7 @@ func RemTorrent(hashHex string) error {
 
 // ListTorrent merges in-memory torrents with DB-only records.
 func ListTorrent() []*Torrent {
-	live := bts.ListTorrents()
+	live := helperEngine().ListTorrents()
 	dbm := ListTorrentsDB()
 	for h, t := range dbm {
 		if _, ok := live[h]; !ok {
@@ -299,7 +303,7 @@ func ListTorrent() []*Torrent {
 
 // DropTorrent removes from the running session without touching the DB.
 func DropTorrent(hashHex string) {
-	bts.RemoveTorrent(NewHashFromHex(hashHex))
+	helperEngine().RemoveTorrent(NewHashFromHex(hashHex))
 }
 
 // SetSettings applies a new settings_pack and bounces the session.
@@ -335,13 +339,13 @@ func applySettings(set *sets.BTSets) error {
 	if trackersChanged {
 		utils.InvalidateTrackersCache()
 	}
-	if !restart || bts == nil {
+	if !restart || helperEngine() == nil {
 		return nil
 	}
 	log.TLogln("torr.SetSettings: dropping all torrents")
 	dropAllTorrent()
 	log.TLogln("torr.SetSettings: disconnect")
-	bts.Disconnect()
+	helperEngine().Disconnect()
 	log.TLogln("torr.SetSettings: reconnect")
 	if err := reconnectEngine(); err != nil {
 		log.TLogln("torr.SetSettings: connect:", err)
@@ -371,7 +375,7 @@ func SetDefSettings() {
 }
 
 func dropAllTorrent() {
-	for _, t := range bts.ListTorrents() {
+	for _, t := range helperEngine().ListTorrents() {
 		t.markClosed()
 		if handle := t.LTHandle(); handle != nil {
 			_ = handle.Remove(false)
@@ -389,7 +393,7 @@ func Shutdown() {
 	log.Event("INFO", "Server", "Stopping...")
 	done := make(chan struct{})
 	go func() {
-		bts.Disconnect()
+		helperEngine().Disconnect()
 		sets.CloseDB()
 		close(done)
 	}()
@@ -408,14 +412,14 @@ func Shutdown() {
 // snapshot fetched through the alert pump (bounded wait, so /stat cannot
 // hang); torrent details come from the same state the web UI uses.
 func WriteStatus(w io.Writer) {
-	if bts == nil || bts.Session() == nil {
+	if helperEngine() == nil || helperEngine().Session() == nil {
 		w.Write([]byte("session not running\n"))
 		return
 	}
 
 	fmt.Fprintf(w, "TorrServer-LT %s (libtorrent %s)\n", version.Version, lt.Version())
 
-	live := bts.ListTorrents()
+	live := helperEngine().ListTorrents()
 	fmt.Fprintf(w, "Torrents: %d in session, %d in DB\n", len(live), len(ListTorrentsDB()))
 
 	hashes := make([]Hash, 0, len(live))
@@ -444,7 +448,7 @@ func WriteStatus(w io.Writer) {
 		}
 	}
 
-	counters := bts.SessionStats(2 * time.Second)
+	counters := helperEngine().SessionStats(2 * time.Second)
 	if len(counters) == 0 {
 		w.Write([]byte("\nlibtorrent session counters: not available\n"))
 		return

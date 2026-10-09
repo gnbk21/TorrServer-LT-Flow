@@ -1,12 +1,16 @@
 # Modern interface audit and acceptance record
 
-See [current project status](STATUS.md) for Preview 2 maintenance, telemetry and
-large-library changes. Dated validation below records earlier revisions; the
-real-device and stable-release gates remain independent of browser CI.
+See [current project status](STATUS.md) and
+[Flow 1.0 verification](RELEASE_1_0_VERIFICATION.md) for current publication
+evidence. Dated validation below records earlier revisions. On 9 October 2026
+the owner approved Latest publication after automated gates with unfinished
+field checks disclosed. This supersedes the historical publication hold below;
+real-device acceptance remains unfinished and independent of browser CI.
 
 Specification: supplied Modern Web Interface plan, revision 2.0, sections 1–100.
 Integration branch: develop. Implementation began on feature/modern-web. This
-is an implementation record, not a Modern Web 1.0 release approval.
+is the original modernization implementation record; current release approval
+and its limits are recorded separately in `RELEASE_ACCEPTANCE.json`.
 
 ## First public preview
 

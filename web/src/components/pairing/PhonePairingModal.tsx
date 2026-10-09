@@ -5,6 +5,7 @@ import { Button } from "../common/Button";
 import { generateQrSvg } from "../../lib/qr";
 import { rankServerAddresses, safePairingUrl } from "../../lib/network";
 import { copyText } from "../../lib/clipboard";
+import { useExternalMediaBase } from "../../hooks/mediaBase";
 export interface PhonePairingModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -16,17 +17,23 @@ export function PhonePairingModal({
   serverIps,
 }: PhonePairingModalProps) {
   const { t } = useTranslation();
-  const addresses = rankServerAddresses(serverIps || []);
+  const mediaBase = useExternalMediaBase(isOpen);
+  const addresses = rankServerAddresses(
+    serverIps || [],
+    undefined,
+    mediaBase.data,
+  );
   const [selected, setSelected] = useState("");
+  const [manualSelection, setManualSelection] = useState(false);
   const [qr, setQr] = useState("");
   const [message, setMessage] = useState("");
   const initial = addresses.find((a) => !a.isLoopback)?.url || "";
   useEffect(() => {
     if (isOpen) {
-      setSelected((previous) => previous || initial);
+      if (!manualSelection) setSelected(initial);
       setMessage("");
     }
-  }, [isOpen, initial]);
+  }, [isOpen, initial, manualSelection]);
   let safe = "";
   try {
     safe = safePairingUrl(selected);
@@ -66,7 +73,10 @@ export function PhonePairingModal({
           <select
             id="pairing-address"
             value={addresses.some((a) => a.url === selected) ? selected : ""}
-            onChange={(e) => setSelected(e.target.value)}
+            onChange={(e) => {
+              setManualSelection(true);
+              setSelected(e.target.value);
+            }}
           >
             <option value="">{t("pairing.manual")}</option>
             {addresses.map((a) => (
@@ -80,7 +90,10 @@ export function PhonePairingModal({
           {t("pairing.manual")}
           <input
             value={selected}
-            onChange={(e) => setSelected(e.target.value)}
+            onChange={(e) => {
+              setManualSelection(true);
+              setSelected(e.target.value);
+            }}
             placeholder="http://192.168.1.2:8090"
           />
         </label>
