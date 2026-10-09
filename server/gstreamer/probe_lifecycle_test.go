@@ -43,14 +43,14 @@ func discovererFixture(t *testing.T, mode string) (Config, string) {
 			break
 		}
 	}
-	if base == "" {
-		t.Fatal("installed GStreamer base library is required by the lifecycle gate")
-	}
-	if err := os.Mkdir(filepath.Join(root, "lib"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(base, filepath.Join(root, "lib", "libgstreamer-1.0.so.0")); err != nil {
-		t.Fatal(err)
+	if base != "" {
+		target := gstBaseLibraryCandidates(root)[0]
+		if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(base, target); err != nil {
+			t.Fatal(err)
+		}
 	}
 	t.Setenv("PATH", filepath.Join(root, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("FLOW_GST_PROBE_FIXTURE", root)
