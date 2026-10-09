@@ -52,9 +52,38 @@ const props = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(integrationsApi.getGstProbe).mockResolvedValue({ Tracks: [] });
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "canPlayType").mockReturnValue("");
+});
+it("waits for cold discovery and cancels it when the player closes", async () => {
+  vi.mocked(integrationsApi.getGst).mockResolvedValue({ built_in: true });
+  let finish!: (value: { Tracks: [] }) => void;
+  let signal: AbortSignal | undefined;
+  vi.mocked(integrationsApi.getGstProbe).mockImplementation(
+    (_hash, _index, requestSignal) => {
+      signal = requestSignal;
+      return new Promise((resolve) => {
+        finish = resolve;
+      });
+    },
+  );
+  const view = render(
+    <QueryClientProvider client={new QueryClient()}>
+      <VideoPlayer {...props} />
+    </QueryClientProvider>,
+  );
+  await waitFor(() =>
+    expect(integrationsApi.getGstProbe).toHaveBeenCalledOnce(),
+  );
+  expect(engine.loadSource).not.toHaveBeenCalled();
+  view.unmount();
+  expect(signal?.aborted).toBe(true);
+  finish({ Tracks: [] });
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(engine.loadSource).not.toHaveBeenCalled();
 });
 afterEach(() => {
   cleanup();

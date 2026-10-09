@@ -3,8 +3,35 @@ import { apiClient, ApiError } from "./client";
 import { settingsApi } from "./settings";
 import { runtimeApi } from "./runtime";
 import { torrentsApi } from "./torrents";
-afterEach(() => vi.unstubAllGlobals());
+import { integrationsApi } from "./integrations";
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 describe("API contract", () => {
+  it("allows cold GST discovery beyond the old deadline but bounds the full retry", async () => {
+    vi.useFakeTimers();
+    let signal: AbortSignal | undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((_url, init) => {
+        signal = init.signal;
+        return new Promise((_resolve, reject) => {
+          signal!.addEventListener("abort", () => reject(signal!.reason), {
+            once: true,
+          });
+        });
+      }),
+    );
+    const result = integrationsApi
+      .getGstProbe("fixture", 1)
+      .catch((error) => error);
+    await vi.advanceTimersByTimeAsync(40_000);
+    expect(signal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(80_000);
+    expect(signal?.aborted).toBe(true);
+    expect(await result).toMatchObject({ name: "TimeoutError" });
+  });
   it("preserves a plain-text error body and status", async () => {
     vi.stubGlobal(
       "fetch",

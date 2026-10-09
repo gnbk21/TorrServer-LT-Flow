@@ -7,8 +7,10 @@ publication with the field limitations in `RELEASE_1_0_NOTES.md`.
 
 ## Local checks
 
-- Web: TypeScript, ESLint, production build, 68 unit tests and 38 browser tests
+- Web: TypeScript, ESLint, production build, 70 unit tests and 38 browser tests
   pass. One cross-language contract test runs only when CI exports native DTOs.
+- Browser GST discovery allows the bounded cold-source retry to finish before
+  starting HLS; regression checks cover the old timeout and closing mid-probe.
 - Production HTTP wrapper: read/seek, failed seek, ordinary/suffix/open-ended/
   invalid/multipart Range, HEAD and buffered cancellation regressions pass.
 - TLS splitter: first-byte routing preserves sniffed bytes and shutdown closes

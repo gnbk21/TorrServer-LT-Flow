@@ -47,7 +47,8 @@ export const integrationsApi = {
     api.get<GstProbe>(
       `/gst/${encodeURIComponent(hash)}/probe?index=${index}`,
       signal,
-      35000,
+      // Server budget: two 33-second attempts plus 45-second cold warmup.
+      120_000,
     ),
   testTorznab: (host: string, key = "", signal?: AbortSignal) =>
     api.post<

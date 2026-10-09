@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type Hls from "hls.js";
 import { integrationsApi } from "../../api/integrations";
 import { Modal } from "../common/Modal";
@@ -21,6 +21,7 @@ export default function VideoPlayer({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [error, setError] = useState(false);
@@ -60,6 +61,14 @@ export default function VideoPlayer({
           (/\.(mkv|mk3d|webm)$/i.test(path) ||
             (/\.avi$/i.test(path) && gst.config?.TranscodeAVI === true))
         ) {
+          await queryClient.fetchQuery({
+            queryKey: ["gst-probe", hash, index],
+            queryFn: ({ signal }) =>
+              integrationsApi.getGstProbe(hash, index, signal),
+            staleTime: Infinity,
+            retry: false,
+          });
+          if (stopped) return;
           setGstEnabled(true);
           source = integrationsApi.getGstMasterUrl(hash, index, audio);
           let heartbeatPending = false;
@@ -164,7 +173,7 @@ export default function VideoPlayer({
       video.removeAttribute("src");
       video.load();
     };
-  }, [url, hash, index, path, video, audio]);
+  }, [url, hash, index, path, video, audio, queryClient]);
   useEffect(
     () => () => {
       if (subtitle) URL.revokeObjectURL(subtitle);
