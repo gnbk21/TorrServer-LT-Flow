@@ -70,12 +70,23 @@ func (v *DBReadCache) Set(xPath, name string, value []byte) {
 		log.TLogln("DBReadCache.Set: no dataCache or DB is closed, cannot set", name)
 		return
 	}
+	if _, ok := v.db.(interface {
+		PutChecked(string, string, []byte) error
+	}); ok {
+		if err := v.PutChecked(xPath, name, value); err != nil {
+			log.TLogln("DBReadCache.Set: durable write failed:", err)
+		}
+		return
+	}
+	// Legacy in-memory backends retain their interface. Publish only after the
+	// backend call, and own the stored bytes so callers cannot mutate the cache.
+	v.db.Set(xPath, name, value)
 
 	cacheKey := v.makeDataCacheKey(xPath, name)
 
 	v.dataCacheMutex.Lock()
 	if v.dataCache != nil { // Двойная проверка
-		v.dataCache[cacheKey] = value
+		v.dataCache[cacheKey] = append([]byte(nil), value...)
 	}
 	v.dataCacheMutex.Unlock()
 
@@ -85,7 +96,6 @@ func (v *DBReadCache) Set(xPath, name string, value []byte) {
 	}
 	v.listCacheMutex.Unlock()
 
-	v.db.Set(xPath, name, value)
 }
 
 func (v *DBReadCache) List(xPath string) []string {

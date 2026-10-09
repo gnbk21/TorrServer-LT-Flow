@@ -37,12 +37,14 @@ export function useLibrary() {
     refetchInterval: (query) =>
       !visible
         ? false
-        : query.state.data?.some(
-              (t) =>
-                (t.active_readers ?? 0) > 0 || t.stat === 1 || t.stat === 2,
-            )
-          ? 1000
-          : 5000,
+        : (query.state.data?.length ?? 0) > 200
+          ? 5000
+          : query.state.data?.some(
+                (t) =>
+                  (t.active_readers ?? 0) > 0 || t.stat === 1 || t.stat === 2,
+              )
+            ? 1000
+            : 5000,
   });
 }
 export function useRuntime() {
@@ -86,6 +88,15 @@ export function useFlows(hashes: string[]) {
         flowApi.getStatus(hash, signal),
       refetchInterval: visible ? 1000 : false,
     })),
+  });
+}
+export function useFlowDiagnostics(hash: string | undefined, enabled: boolean) {
+  const visible = useVisible();
+  return useQuery({
+    queryKey: ["flow-diagnostics", hash],
+    queryFn: ({ signal }) => flowApi.getStatus(hash!, signal, true),
+    enabled: enabled && !!hash,
+    refetchInterval: enabled && visible ? 3000 : false,
   });
 }
 export function useVersion() {

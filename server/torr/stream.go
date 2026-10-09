@@ -121,6 +121,9 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 	var recorder *flow.ResponseRecorder
 	if sets.CurrentFlow().MetricsEnabled {
 		recorder = flow.NewResponseRecorder(resp)
+		recorder.OnBodyStart = func(offset int64) {
+			t.flowBodyStart(fileID, group, flowSeq, offset)
+		}
 		recorder.OnFirstByte = func(ttfb time.Duration) {
 			if recorder.Status == http.StatusOK || recorder.Status == http.StatusPartialContent {
 				t.flowFirstByte(fileID, group, flowSeq, started, ttfb)
@@ -209,7 +212,7 @@ func streamGroupKey(req *http.Request) string {
 		// Internal ffprobe media probe (BitRate/DurationSeconds): a loopback read
 		// tagged with stat=ffprobe gets the reserved internal group so it is not
 		// counted as a streaming client by the preload hand-off gate.
-		if req.URL.Query().Get("stat") == "ffprobe" {
+		if IsInternalProbe(req) {
 			return torrstor.ProbeReaderGroup
 		}
 		if ss := req.URL.Query().Get("ss"); ss != "" {

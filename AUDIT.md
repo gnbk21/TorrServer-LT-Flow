@@ -1,5 +1,20 @@
 # Flow audit — 27 September 2026
 
+**Historical record.** See [current project status](STATUS.md) for Preview 2
+changes and present gates. The observations and missing features below refer to
+the revisions named in this audit; they are not a current feature inventory.
+
+For the 3–4 October startup/history/DHT follow-up, see
+[NEXT_IMPROVEMENTS.md](NEXT_IMPROVEMENTS.md). Its development implementation and
+verification do not change the published Preview 2 `.5` acceptance boundaries.
+
+For the 4–5 October sparse-streaming implementation, use
+[SPARSE_IMPLEMENTATION.md](SPARSE_IMPLEMENTATION.md) and
+[SPARSE_STREAMING.md](SPARSE_STREAMING.md), with final-source gates, repeated
+comparisons and individual profile failures in
+[SPARSE_VERIFICATION.md](SPARSE_VERIFICATION.md). They supersede the historical
+feature inventory below for that development work.
+
 This document records the core audit and historical acceptance boundaries.
 For the modern interface implemented on `feature/modern-web`, see
 [WEB_AUDIT.md](WEB_AUDIT.md), [the implementation ledger](MODERNIZATION_CHECKLIST.md)

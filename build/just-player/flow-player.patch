@@ -1,0 +1,28 @@
+--- a/app/src/main/java/com/brouken/player/PlayerActivity.java
++++ b/app/src/main/java/com/brouken/player/PlayerActivity.java
+@@ -1244,7 +1244,14 @@
+             }
+         }
+ 
++        if (haveMedia && isNetworkUri && mPrefs.mediaUri != null
++                && ("http".equalsIgnoreCase(mPrefs.mediaUri.getScheme())
++                || "https".equalsIgnoreCase(mPrefs.mediaUri.getScheme()))) {
++            playerBuilder.setLoadControl(FlowLoadControl.create(this));
++        }
+         player = playerBuilder.build();
++        if (getIntent().getBooleanExtra("flow_diagnostics", false))
++            FlowPlaybackAnalytics.attach(player);
+ 
+         AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                 .setUsage(C.USAGE_MEDIA)
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -9,7 +9,7 @@
+ 
+     defaultConfig {
+         def abiFilter = project.findProperty("abiFilter")
+-        applicationId "com.brouken.player"
++        applicationId "com.brouken.player.flow"
+         minSdkVersion 23
+         targetSdkVersion 36
+         versionCode 217

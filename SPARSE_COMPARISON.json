@@ -1,0 +1,1382 @@
+{
+  "schema_version": 1,
+  "run_url": "https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/37267072705",
+  "artifact_id": 11329781463,
+  "artifact_sha256": "6fb048ee69dc5f5680e3cc7822dfed1f4d9b386fc4fdae60e0453994db3787c4",
+  "raw_report_sha256": "5060b331750c163e8d9eccad166bdf1665eb10b7deadc6f00348333adfc7c755",
+  "candidate_source": "997e18f57a80c26e60e3565f65a9158541ca7897",
+  "candidate_rate_aware_deadlines": true,
+  "candidate_scarce_hints": false,
+  "http_delivery_only": true,
+  "generated_fixture": {
+    "name": "variable.mp4",
+    "bytes": 37495328,
+    "sha256": "78d6042a04fea590bc4c7730db142d01a1ff1104b97cbfd30027c700ad020f7a",
+    "duration": 60.0,
+    "streams": 2,
+    "variable_bitrate": true,
+    "mp4_moov_offset": 32,
+    "mp4_mdat_offset": 32136
+  },
+  "variants": {
+    "original": {
+      "executable_sha256": "307e32293b93e0969819bf2a5de410f12835d46a6ce66e82b0474c45a7e4e477"
+    },
+    "stable": {
+      "executable_sha256": "e79b5eabcf124dcea3be5115b639232cf105fcac3bbf139ac744de528aca3e3e"
+    },
+    "queue": {
+      "executable_sha256": "4bf5734ce0e6b3f3f7b82462a2a551cc6de68a7d2cc13611eb5ec155de4997fb"
+    },
+    "candidate": {
+      "executable_sha256": "385c876c3dfa61677173bc708ab5dc6b4f19e2a9c3a62c609d869c988a6bcb2c"
+    }
+  },
+  "layer_cases": 72,
+  "layer_passed": 72,
+  "summary": {
+    "original": {
+      "below": {
+        "buffer_gate_response_ms": {
+          "median": 11003.193649999957,
+          "minimum": 11002.396650000264,
+          "maximum": 11003.582018000088,
+          "n": 3
+        },
+        "urgent_first_request_ms_after_seek": {
+          "median": 1138.0591379997895,
+          "minimum": 1137.4727909999365,
+          "maximum": 1182.9229400000258,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4491.116390000116,
+          "minimum": 4478.867342000058,
+          "maximum": 4491.780492000089,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 26327.349013000003,
+          "minimum": 26319.386961999953,
+          "maximum": 26822.238662000018,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 1.532137999902261,
+          "minimum": 1.001529999939521,
+          "maximum": 1.5638330000911083,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 3588.6448439996457,
+          "minimum": 3583.3990569999514,
+          "maximum": 3591.9892130000335,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.8030189997043635,
+          "minimum": 0.7873499998822808,
+          "maximum": 0.8642140001029475,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          6589.572434999809,
+          7094.623621002029,
+          8461.706610000874
+        ]
+      },
+      "near": {
+        "buffer_gate_response_ms": {
+          "median": 8603.145630999961,
+          "minimum": 8602.975801999946,
+          "maximum": 8603.199898000184,
+          "n": 3
+        },
+        "urgent_first_request_ms_after_seek": {
+          "median": 317.2672700000021,
+          "minimum": 315.4518569999709,
+          "maximum": 318.7541899997086,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4470.752934000302,
+          "minimum": 4470.513496999956,
+          "maximum": 4470.932259000165,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 19738.339145999817,
+          "minimum": 19234.87301099999,
+          "maximum": 20242.68329800043,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 2.136879999852681,
+          "minimum": 1.8243350000375358,
+          "maximum": 2.2294729997156537,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 1966.5710539998145,
+          "minimum": 1964.6256979999634,
+          "maximum": 1972.0216530004109,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.8719370002836513,
+          "minimum": 0.8597049998115835,
+          "maximum": 0.9996439998758433,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          5774.205451999933,
+          5652.1497419994375,
+          6674.265979001575
+        ]
+      },
+      "above": {
+        "buffer_gate_response_ms": {
+          "median": 6203.044511999906,
+          "minimum": 6202.419444000043,
+          "maximum": 6203.181000999848,
+          "n": 3
+        },
+        "urgent_first_request_ms_after_seek": {
+          "median": 699.8611479998544,
+          "minimum": 694.6813969998402,
+          "maximum": 702.144854999915,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4461.153781000121,
+          "minimum": 4460.937203999947,
+          "maximum": 4464.681272999769,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 16511.888178999925,
+          "minimum": 15701.161950999904,
+          "maximum": 16531.10391900009,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 1.5265210004145047,
+          "minimum": 0.958079000156431,
+          "maximum": 1.8002070000875392,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 1692.0267549999153,
+          "minimum": 869.1874040000585,
+          "maximum": 1707.2845699999561,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.8822679999411775,
+          "minimum": 0.813900000139256,
+          "maximum": 1.8170629996347998,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          3.9893139989999327,
+          4.211302999010513,
+          5.410615000528196
+        ]
+      },
+      "complementary": {
+        "urgent_first_request_ms_after_seek": {
+          "median": 131.8881889997101,
+          "minimum": 29.64628600011565,
+          "maximum": 449.12223100004667,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4421.940697000082,
+          "minimum": 4421.343132999937,
+          "maximum": 4460.053372000175,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 6820.511236999664,
+          "minimum": 5604.008525000154,
+          "maximum": 7001.04241300005,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 5052.472086999842,
+          "minimum": 4458.492213999989,
+          "maximum": 5468.412309999621,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 1184.2338760002349,
+          "minimum": 989.7077970001646,
+          "maximum": 1384.7266850002597,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.95815899999252,
+          "minimum": 0.8835600001475541,
+          "maximum": 0.9983139998439583,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          null,
+          null,
+          null
+        ]
+      },
+      "ten-suppliers": {
+        "urgent_first_request_ms_after_seek": {
+          "median": 1.125382000054742,
+          "minimum": 1.005044000066846,
+          "maximum": 1.2359510001260787,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4413.002798000207,
+          "minimum": 4411.794525999994,
+          "maximum": 4414.22015399985,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 5500.740818000168,
+          "minimum": 5496.583648000069,
+          "maximum": 5503.281447999598,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 4518.0719549998685,
+          "minimum": 4512.554882000131,
+          "maximum": 4552.440740000293,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 115.64776799991705,
+          "minimum": 108.05860099981146,
+          "maximum": 115.9190819998912,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.9155699999610079,
+          "minimum": 0.7788450000134617,
+          "maximum": 0.9720550001475203,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          null,
+          null,
+          null
+        ]
+      },
+      "late-have": {
+        "urgent_first_request_ms_after_seek": {
+          "median": 876.3737909998781,
+          "minimum": 2.0705130000351346,
+          "maximum": 878.6748800000623,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4450.426860999869,
+          "minimum": 4449.915911999597,
+          "maximum": 4451.5120050000405,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 6780.354043999978,
+          "minimum": 5671.432511000148,
+          "maximum": 6801.924953000025,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 5021.450202999858,
+          "minimum": 4760.864640999898,
+          "maximum": 5329.648328000076,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 1186.4202290000776,
+          "minimum": 585.8609039996736,
+          "maximum": 1203.1779999997525,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.8728990001145576,
+          "minimum": 0.8712069998182415,
+          "maximum": 1.062834000094881,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          null,
+          null,
+          null
+        ]
+      }
+    },
+    "stable": {
+      "below": {
+        "buffer_gate_response_ms": {
+          "median": 11002.506815999823,
+          "minimum": 11002.33327900014,
+          "maximum": 11002.815650000002,
+          "n": 3
+        },
+        "urgent_first_request_ms_after_seek": {
+          "median": 1141.055542000231,
+          "minimum": 1140.0769209999453,
+          "maximum": 1179.920157999959,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4492.017355999906,
+          "minimum": 4491.61760700008,
+          "maximum": 4492.132111000046,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 26819.61172000001,
+          "minimum": 26317.769362000035,
+          "maximum": 27325.41034499991,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 2.1560430000135966,
+          "minimum": 2.0687329999873327,
+          "maximum": 2.6758659998904477,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 3585.267866999857,
+          "minimum": 3583.2968439999604,
+          "maximum": 3586.0197440001684,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.9009519999381155,
+          "minimum": 0.8719280003788299,
+          "maximum": 1.4809559997956967,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          8198.616030999801,
+          6996.3395650001985,
+          8634.84293700185
+        ]
+      },
+      "near": {
+        "buffer_gate_response_ms": {
+          "median": 8602.948497999932,
+          "minimum": 8402.729351999824,
+          "maximum": 8602.94941899997,
+          "n": 3
+        },
+        "urgent_first_request_ms_after_seek": {
+          "median": 317.74103099996864,
+          "minimum": 317.6183220000439,
+          "maximum": 503.9022189998832,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4460.97239300002,
+          "minimum": 4420.578512999782,
+          "maximum": 4514.957649000053,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 19281.793019999895,
+          "minimum": 19234.878668999954,
+          "maximum": 20238.16849700006,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 1.8796299998484756,
+          "minimum": 1.6620100000181992,
+          "maximum": 2.166385000009541,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 1973.5348080000676,
+          "minimum": 1972.8893100000278,
+          "maximum": 2207.3213039998336,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.9001409998745658,
+          "minimum": 0.8621800000128133,
+          "maximum": 1.0108879996550968,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          6503.386683999679,
+          3621.0640010010593,
+          3671.0166379998554
+        ]
+      },
+      "above": {
+        "buffer_gate_response_ms": {
+          "median": 6203.01038200023,
+          "minimum": 6202.798192000046,
+          "maximum": 6203.161779999846,
+          "n": 3
+        },
+        "urgent_first_request_ms_after_seek": {
+          "median": 696.1732189997747,
+          "minimum": 692.3185240000294,
+          "maximum": 697.0355099999779,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4461.288344999957,
+          "minimum": 4410.254549999991,
+          "maximum": 4461.316536999902,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 15698.276667000073,
+          "minimum": 15591.991204000124,
+          "maximum": 16539.504954000222,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 2.1677400000044145,
+          "minimum": 1.0103659999458614,
+          "maximum": 2.178198999899905,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 866.8893109997953,
+          "minimum": 799.5967529998325,
+          "maximum": 1696.8561720000253,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.8447779998732585,
+          "minimum": 0.7827609999822016,
+          "maximum": 1.1884939999617927,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          4.320192000022871,
+          4.244596999797068,
+          3.9282590000766504
+        ]
+      },
+      "complementary": {
+        "urgent_first_request_ms_after_seek": {
+          "median": 647.6328930000363,
+          "minimum": 1.5856310001254315,
+          "maximum": 764.4090539999979,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4421.774593000009,
+          "minimum": 4421.428909000042,
+          "maximum": 4461.090872000113,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 7254.477778999899,
+          "minimum": 7031.133049000346,
+          "maximum": 8049.146209000128,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 5254.4493059999695,
+          "minimum": 4877.35885699999,
+          "maximum": 6098.342191000029,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 2129.022049000014,
+          "minimum": 410.79354799967405,
+          "maximum": 2440.18405099996,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.8805840000150056,
+          "minimum": 0.8597949999966659,
+          "maximum": 0.902035000081014,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          null,
+          null,
+          null
+        ]
+      },
+      "ten-suppliers": {
+        "urgent_first_request_ms_after_seek": {
+          "median": 0.9487550000812917,
+          "minimum": 0.9428999999272492,
+          "maximum": 0.9859839997261588,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4412.9269459999705,
+          "minimum": 4412.174811000114,
+          "maximum": 4415.172015999815,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 5497.781994999968,
+          "minimum": 5497.2733190002145,
+          "maximum": 5499.548955999671,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 4507.985553000253,
+          "minimum": 4507.623113000136,
+          "maximum": 4509.870758000034,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 114.822550000099,
+          "minimum": 107.12716600028216,
+          "maximum": 115.33898900006534,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.8854830000473157,
+          "minimum": 0.8465009996143635,
+          "maximum": 0.9755979999681585,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          null,
+          null,
+          null
+        ]
+      },
+      "late-have": {
+        "urgent_first_request_ms_after_seek": {
+          "median": 1378.8583259999996,
+          "minimum": 875.6825959999333,
+          "maximum": 1380.343898000092,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4450.80008099967,
+          "minimum": 4409.813101999816,
+          "maximum": 4451.365947000113,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 6792.1060119999765,
+          "minimum": 6791.054997000174,
+          "maximum": 6842.357794000009,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 4919.914001000052,
+          "minimum": 4887.941923999961,
+          "maximum": 5512.5676609995935,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 1677.5096669998675,
+          "minimum": 1172.5731749997976,
+          "maximum": 1767.341880999993,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.8164230000602402,
+          "minimum": 0.8081390001279942,
+          "maximum": 1.470448000191027,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          null,
+          null,
+          null
+        ]
+      }
+    },
+    "queue": {
+      "below": {
+        "buffer_gate_response_ms": {
+          "median": 11002.79710399991,
+          "minimum": 11002.456746000007,
+          "maximum": 11002.83828900001,
+          "n": 3
+        },
+        "urgent_first_request_ms_after_seek": {
+          "median": 4942.106893000073,
+          "minimum": 2972.688819000041,
+          "maximum": 11053.823702000045,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4491.398190999917,
+          "minimum": 4452.414772000338,
+          "maximum": 4492.146758999979,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 31431.142036999972,
+          "minimum": 30837.51189700001,
+          "maximum": 40735.65542200004,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 2.028798000083043,
+          "minimum": 1.781757000117068,
+          "maximum": 2.4979969998639717,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 7693.485151999994,
+          "minimum": 5590.885816000082,
+          "maximum": 13987.732943000083,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.937149000037607,
+          "minimum": 0.8485949999794684,
+          "maximum": 1.001529999939521,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          10798.943242998803,
+          9489.809902999923,
+          12762.632418997327
+        ]
+      },
+      "near": {
+        "buffer_gate_response_ms": {
+          "median": 8602.762017000032,
+          "minimum": 8402.615314000059,
+          "maximum": 8603.566932999911,
+          "n": 3
+        },
+        "urgent_first_request_ms_after_seek": {
+          "median": 2331.5098570001282,
+          "minimum": 338.82584700018015,
+          "maximum": 4616.334645999814,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4470.756121999784,
+          "minimum": 4431.437266000103,
+          "maximum": 4471.441727000183,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 22364.03185400013,
+          "minimum": 19340.91337100017,
+          "maximum": 25734.882737000135,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 1.794740999912392,
+          "minimum": 1.6080640002655855,
+          "maximum": 2.1274620000895084,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 4588.945737999893,
+          "minimum": 2078.3440139998675,
+          "maximum": 7157.318238000016,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.8212430000185122,
+          "minimum": 0.8180679999441054,
+          "maximum": 1.0430780002934625,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          7171.7545839999275,
+          5029.125109999541,
+          6305.031358998804
+        ]
+      },
+      "above": {
+        "buffer_gate_response_ms": {
+          "median": 6203.352842999948,
+          "minimum": 6203.255505000016,
+          "maximum": 6203.611762000037,
+          "n": 3
+        },
+        "urgent_first_request_ms_after_seek": {
+          "median": 524.1031230000317,
+          "minimum": 379.8562309998488,
+          "maximum": 697.0967760000804,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4461.1169009999685,
+          "minimum": 4459.63846199993,
+          "maximum": 4461.754712999891,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 15702.198859999953,
+          "minimum": 15231.161734000125,
+          "maximum": 16326.787608999894,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 0.9630079998714791,
+          "minimum": 0.8890799999790033,
+          "maximum": 1.5734510002403113,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 871.2140630000249,
+          "minimum": 401.1736910001673,
+          "maximum": 1497.414101000004,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.844437000068865,
+          "minimum": 0.7695970000440866,
+          "maximum": 0.9222919998137513,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          4.131840999434644,
+          4.64432199919429,
+          3.2533779994992074
+        ]
+      },
+      "complementary": {
+        "urgent_first_request_ms_after_seek": {
+          "median": 118.77742699994087,
+          "minimum": 4.430146000231616,
+          "maximum": 335.40587299989966,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4420.635938000032,
+          "minimum": 4420.420910000075,
+          "maximum": 4421.277006000082,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 4986.758236000014,
+          "minimum": 4769.75038799992,
+          "maximum": 7421.031279999852,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 4430.441229000053,
+          "minimum": 4418.8642409999375,
+          "maximum": 5041.355290999945,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 375.96075800001927,
+          "minimum": 157.59804699973756,
+          "maximum": 1805.2071189999879,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.7992429998466832,
+          "minimum": 0.7927010001367307,
+          "maximum": 0.8052230000430427,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          null,
+          null,
+          null
+        ]
+      },
+      "ten-suppliers": {
+        "urgent_first_request_ms_after_seek": {
+          "median": 1.133866999680322,
+          "minimum": 0.9865270001228055,
+          "maximum": 41.143257999920024,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4412.143226999888,
+          "minimum": 4408.3284939999885,
+          "maximum": 4413.387655999941,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 5500.695410999924,
+          "minimum": 5496.764142000075,
+          "maximum": 5536.962453000115,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 4507.074434999822,
+          "minimum": 4504.084255999942,
+          "maximum": 4508.026472000438,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 116.37709599995105,
+          "minimum": 114.86736400001973,
+          "maximum": 146.6961319999882,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.9120129998336779,
+          "minimum": 0.8235400000558002,
+          "maximum": 1.0022880001088197,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          null,
+          null,
+          null
+        ]
+      },
+      "late-have": {
+        "urgent_first_request_ms_after_seek": {
+          "median": 483.40168300001096,
+          "minimum": 41.37846699995862,
+          "maximum": 1378.0170150000686,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4449.888599000133,
+          "minimum": 4410.497840000062,
+          "maximum": 4491.757548000351,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 6170.6651370000145,
+          "minimum": 6154.191231999903,
+          "maximum": 6750.562784000067,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 4837.2754320000695,
+          "minimum": 4448.688559999937,
+          "maximum": 5512.352361000012,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 1530.265684999904,
+          "minimum": 52.09869500004061,
+          "maximum": 1634.1872610000792,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.9725059999254881,
+          "minimum": 0.8256220003204362,
+          "maximum": 1.361653000003571,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          null,
+          null,
+          null
+        ],
+        "paced_client_read_wait_ms": [
+          null,
+          null,
+          null
+        ]
+      }
+    },
+    "candidate": {
+      "below": {
+        "buffer_gate_response_ms": {
+          "median": 11003.105720999883,
+          "minimum": 11002.86995600004,
+          "maximum": 11003.326256000037,
+          "n": 3
+        },
+        "urgent_first_request_ms_after_seek": {
+          "median": 6296.141637000119,
+          "minimum": 2976.1315539999487,
+          "maximum": 7653.3063209999455,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4491.7357480003375,
+          "minimum": 4491.464104999977,
+          "maximum": 4493.469177999941,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 33325.701749000014,
+          "minimum": 30339.05126799982,
+          "maximum": 35731.16320300005,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 0.9611250000034488,
+          "minimum": 0.9545920001983177,
+          "maximum": 2.38269900000887,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 9086.303985999848,
+          "minimum": 5595.433427999978,
+          "maximum": 10484.864689000005,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.9246360000361165,
+          "minimum": 0.8964439998635498,
+          "maximum": 0.949262999711209,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          0,
+          0,
+          0
+        ],
+        "paced_client_read_wait_ms": [
+          9536.416247001398,
+          10518.269224998221,
+          11393.136136000066
+        ]
+      },
+      "near": {
+        "buffer_gate_response_ms": {
+          "median": 8603.150190999713,
+          "minimum": 8603.076084000122,
+          "maximum": 8603.483548000213,
+          "n": 3
+        },
+        "urgent_first_request_ms_after_seek": {
+          "median": 2334.403752999833,
+          "minimum": 633.3730609999293,
+          "maximum": 5766.822508999894,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4472.915634000401,
+          "minimum": 4472.447143000181,
+          "maximum": 4472.925894999889,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 24866.292129000158,
+          "minimum": 20265.975884,
+          "maximum": 30656.13066099991,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 1.0825859999386012,
+          "minimum": 0.8736110003155773,
+          "maximum": 2.1067960001346364,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 4593.710195999847,
+          "minimum": 2490.9482220000427,
+          "maximum": 8365.458321000006,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.9231139999883453,
+          "minimum": 0.9063919999334757,
+          "maximum": 0.9925230001499585,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          0,
+          0,
+          0
+        ],
+        "paced_client_read_wait_ms": [
+          9484.086060999516,
+          8632.493545998614,
+          3733.215329000359
+        ]
+      },
+      "above": {
+        "buffer_gate_response_ms": {
+          "median": 6202.7593910002,
+          "minimum": 6202.517681000018,
+          "maximum": 6203.488340999911,
+          "n": 3
+        },
+        "urgent_first_request_ms_after_seek": {
+          "median": 707.9347210001288,
+          "minimum": 705.5086619998292,
+          "maximum": 714.3787889999658,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4461.064154000269,
+          "minimum": 4453.354699000101,
+          "maximum": 4461.887856999965,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 15865.066178999996,
+          "minimum": 15705.31162799989,
+          "maximum": 16915.353763999974,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 1.4799030000176572,
+          "minimum": 1.0180360000049404,
+          "maximum": 1.5820449998500408,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 1043.8563249999788,
+          "minimum": 882.275493999714,
+          "maximum": 2081.22301100002,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.8117049999327719,
+          "minimum": 0.8008750000954024,
+          "maximum": 0.9911380000175996,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          0,
+          0,
+          0
+        ],
+        "paced_client_read_wait_ms": [
+          4.2672900001434755,
+          146.8728610002472,
+          4.077273998973396
+        ]
+      },
+      "complementary": {
+        "urgent_first_request_ms_after_seek": {
+          "median": 659.7730779999438,
+          "minimum": 549.9192199999925,
+          "maximum": 760.826606000137,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4421.461950000094,
+          "minimum": 4421.281808999993,
+          "maximum": 4421.46888000002,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 7029.996621999999,
+          "minimum": 6846.324867000021,
+          "maximum": 8293.700324999918,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 4877.041544999884,
+          "minimum": 4838.5079399999995,
+          "maximum": 5050.094715999876,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 1901.7859900000076,
+          "minimum": 1728.4570280003209,
+          "maximum": 2656.9725280000966,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.9403249998740648,
+          "minimum": 0.8984269998109085,
+          "maximum": 0.946637999959421,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          0,
+          0,
+          0
+        ],
+        "paced_client_read_wait_ms": [
+          null,
+          null,
+          null
+        ]
+      },
+      "ten-suppliers": {
+        "urgent_first_request_ms_after_seek": {
+          "median": 41.7013119999865,
+          "minimum": 1.1068569999679312,
+          "maximum": 41.98971200003143,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4413.923070000237,
+          "minimum": 4413.046998000027,
+          "maximum": 4414.582580999877,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 5547.859937999874,
+          "minimum": 5498.017247000007,
+          "maximum": 5549.533157999576,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 4507.057734999989,
+          "minimum": 4506.901366999955,
+          "maximum": 4511.743033999892,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 147.6632349999818,
+          "minimum": 107.63024199991378,
+          "maximum": 148.13404099982108,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.9305080000103771,
+          "minimum": 0.8335669999723905,
+          "maximum": 0.9969709999495535,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          0,
+          0,
+          0
+        ],
+        "paced_client_read_wait_ms": [
+          null,
+          null,
+          null
+        ]
+      },
+      "late-have": {
+        "urgent_first_request_ms_after_seek": {
+          "median": 108.26811200013253,
+          "minimum": 2.2949230001358956,
+          "maximum": 486.9916360000843,
+          "n": 3
+        },
+        "first_peer_payload_ms": {
+          "median": 4452.147732000412,
+          "minimum": 4451.140885999848,
+          "maximum": 4453.547427999865,
+          "n": 3
+        },
+        "elapsed_ms": {
+          "median": 6158.12400599998,
+          "minimum": 5661.717895000038,
+          "maximum": 6221.86353699999,
+          "n": 3
+        },
+        "head_ttfb_ms": {
+          "median": 4606.674555999916,
+          "minimum": 4505.431130000034,
+          "maximum": 4659.932559000026,
+          "n": 3
+        },
+        "seek_ttfb_ms": {
+          "median": 1106.1095649997696,
+          "minimum": 577.009821999809,
+          "maximum": 1542.994495999892,
+          "n": 3
+        },
+        "back_ttfb_ms": {
+          "median": 0.9255560000838159,
+          "minimum": 0.853322999773809,
+          "maximum": 1.0930789999292756,
+          "n": 3
+        },
+        "duplicate_bytes": [
+          0,
+          0,
+          0
+        ],
+        "paced_client_read_wait_ms": [
+          null,
+          null,
+          null
+        ]
+      }
+    }
+  },
+  "profiles": {
+    "legacy": {
+      "cases": 9,
+      "passed": 9,
+      "failures": []
+    },
+    "conservative": {
+      "cases": 9,
+      "passed": 6,
+      "failures": [
+        {
+          "case": "intermittent-supplier",
+          "repetition": 1,
+          "error": "Range status/content mismatch: status=206, file=1, start=18874368, first=, expected=8f, content_range=bytes 18874368-18939903/37495328"
+        },
+        {
+          "case": "intermittent-supplier",
+          "repetition": 2,
+          "error": "Range status/content mismatch: status=206, file=1, start=18874368, first=, expected=8f, content_range=bytes 18874368-18939903/37495328"
+        },
+        {
+          "case": "intermittent-supplier",
+          "repetition": 3,
+          "error": "Range status/content mismatch: status=206, file=1, start=18874368, first=, expected=8f, content_range=bytes 18874368-18939903/37495328"
+        }
+      ]
+    },
+    "balanced": {
+      "cases": 9,
+      "passed": 6,
+      "failures": [
+        {
+          "case": "intermittent-supplier",
+          "repetition": 1,
+          "error": "Range status/content mismatch: status=206, file=1, start=18874368, first=, expected=8f, content_range=bytes 18874368-18939903/37495328"
+        },
+        {
+          "case": "intermittent-supplier",
+          "repetition": 2,
+          "error": "Range status/content mismatch: status=206, file=1, start=18874368, first=, expected=8f, content_range=bytes 18874368-18939903/37495328"
+        },
+        {
+          "case": "intermittent-supplier",
+          "repetition": 3,
+          "error": "Range status/content mismatch: status=206, file=1, start=18874368, first=, expected=8f, content_range=bytes 18874368-18939903/37495328"
+        }
+      ]
+    }
+  },
+  "scarce_experiment": {
+    "false": {
+      "variation": {
+        "cases": 3,
+        "passed": 3,
+        "seek_ttfb_ms": [
+          1422.9946959999324,
+          5092.827347999901,
+          5832.12933599998
+        ],
+        "redundant_bytes": [
+          0,
+          0,
+          0
+        ]
+      },
+      "intermittent-supplier": {
+        "cases": 3,
+        "passed": 3,
+        "seek_ttfb_ms": [
+          1530.0086359998204,
+          1991.3391239997509,
+          1526.3398439997218
+        ],
+        "redundant_bytes": [
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "true": {
+      "variation": {
+        "cases": 3,
+        "passed": 3,
+        "seek_ttfb_ms": [
+          1987.0463830002336,
+          2935.030873999949,
+          5506.8250459999035
+        ],
+        "redundant_bytes": [
+          0,
+          0,
+          0
+        ]
+      },
+      "intermittent-supplier": {
+        "cases": 3,
+        "passed": 3,
+        "seek_ttfb_ms": [
+          2025.7555959997262,
+          1996.1299569999937,
+          1527.110164000078
+        ],
+        "redundant_bytes": [
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  }
+}

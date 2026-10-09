@@ -18,6 +18,9 @@ type ResponseRecorder struct {
 	Bytes       int64
 	TTFB        time.Duration
 	OnFirstByte func(time.Duration)
+	// OnBodyStart receives the actual single-response media start before a
+	// potentially blocking body read. Errors and multipart framing are excluded.
+	OnBodyStart func(int64)
 	// OnProgress receives the file offset after successful body writes. It is
 	// deliberately unavailable for errors and multipart framing.
 	OnProgress func(int64)
@@ -30,6 +33,11 @@ func NewResponseRecorder(w http.ResponseWriter) *ResponseRecorder {
 func (w *ResponseRecorder) WriteHeader(status int) {
 	if w.Status == 0 {
 		w.Status = status
+		if w.OnBodyStart != nil {
+			if offset, ok := w.mediaOffset(); ok {
+				w.OnBodyStart(offset)
+			}
+		}
 	}
 	w.ResponseWriter.WriteHeader(status)
 }

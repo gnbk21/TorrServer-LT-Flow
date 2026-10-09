@@ -4,6 +4,7 @@ import (
 	"errors"
 	"sync/atomic"
 
+	"server/torr/state"
 	"server/torr/storage/torrstor"
 )
 
@@ -18,6 +19,27 @@ type FlowTrayStatus struct {
 }
 
 func FlowIsPaused() bool { return flowPaused.Load() }
+
+func FlowHasActiveWork() bool {
+	if bts == nil || bts.Session() == nil {
+		return true
+	}
+	for _, tor := range bts.ListTorrents() {
+		if tor == nil {
+			continue
+		}
+		tor.mu.Lock()
+		preload := tor.Stat == state.TorrentPreload
+		tor.mu.Unlock()
+		if preload {
+			return true
+		}
+		if cache := torrstor.Global().CacheByHash([20]byte(tor.Hash())); cache != nil && cache.ActiveReaders() > 0 {
+			return true
+		}
+	}
+	return false
+}
 
 func SetFlowPaused(paused bool) error {
 	if bts == nil || bts.Session() == nil {

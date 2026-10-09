@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "stable_approved": false,
+  "evidence": [
+    {
+      "date": "2026-10-09",
+      "scope": "Partial real-phone acceptance; not the complete playback matrix",
+      "source_commit": "52d0ad2087df111611c58b7f917d1493babb9b70",
+      "executable_sha256": "005601f1f750cd2488ce89779c98ebde3cd5f138950cf92a6c0328f269757d7c",
+      "profile": "adaptive",
+      "cache_mib": 2048,
+      "disk_cache": false,
+      "experiments_enabled": ["CapacityAwareRequests", "AdaptiveUrgentHorizon", "ContainerBurstHints"],
+      "user_report": "One complete episode without stutters; another episode subsequently watched with diagnostic history and Range tracing enabled",
+      "logged_session": {"first_useful_block_ms": 403, "preload_ready_ms": 9203, "first_byte_events": 29, "max_recorded_ttfb_ms": 3},
+      "limitations": "Player app variant not independently identified; no continuous Android rebuffer/decoder or multi-hour resource capture; in-memory Range traces unavailable after shutdown"
+    }
+  ],
+  "remaining": ["Representative real-phone playback matrix", "Multi-hour resource acceptance", "Windows boot, sleep and network recovery acceptance"]
+}

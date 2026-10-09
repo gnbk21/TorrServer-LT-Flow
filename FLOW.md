@@ -18,6 +18,11 @@ logical session in the diagnostic response. `DebugFlow` additionally emits JSON
 trace lines to the server log. A trace classification is a hint and never affects
 HTTP responses.
 
+Preview 2 permits `?traces=false` to omit optional history during ordinary
+polling. Default API responses remain compatible; the modern UI requests full
+histories only while the diagnostics drawer is open. Current release and
+verification status is recorded in [STATUS.md](STATUS.md).
+
 The startup path uses the upstream preload's container-aware tail reservation
 and MP4 `moov` refinement. It first schedules a configurable bootstrap head
 (default 16 MiB) plus the upstream tail. It then fills at least the provisional
@@ -99,6 +104,10 @@ command line. Service logs default to `flow.log` in that data directory.
 External DNS is no longer checked before the local server starts. The service
 has no interactive window; open the HTTP UI from a browser. The tray companion
 is separate from the service.
+Preview 2 installs the service under the restricted `NT SERVICE\TorrServer-Flow`
+account, with explicit access to its state directory and executable. See
+[DISTRIBUTION.md](DISTRIBUTION.md) for managed installation, authenticated update
+and recovery commands.
 The authenticated `/flow/network` endpoint reports local address readiness,
 the next check, and reannounce attempts. `ADDRESS_READY` means a usable local
 address exists; it does not certify Internet or tracker reachability. The
@@ -144,7 +153,11 @@ the default until a controlled benchmark supports changing the default.
 `ConnectionSpeed`, `TorrentConnectBoost`, `PeerConnectTimeout`, `PieceTimeout`,
 `RequestQueueTime`, and `MinReconnectTime`; zero leaves that libtorrent value
 untouched. Cache limits, proxy settings, upload choices, and active-torrent
-queue protection are retained for every profile.
+queue protection are retained for every profile. Development builds after
+Preview 2 `.5` also retain healthy seeders while a lazy/warm torrent has zero
+piece demand. Preload raises priorities without a pause/resume disconnect.
+See [the startup investigation](PERFORMANCE_AUDIT.md) for controlled before/after
+measurements and the remaining real-player validation.
 
 The authenticated `/flow/status/<hash>` response also includes a bounded
 tracker event summary by protocol and host. Its identifiers hash the original

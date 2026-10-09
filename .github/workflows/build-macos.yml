@@ -9,7 +9,7 @@ name: build-macos
 # the same b2 engine every cross target uses — NOT taken from Homebrew: brew's
 # libtorrent floats and would silently change what a release links against
 # (and it lacks the internal symbols the shim needs, TSL_HAVE_LT_INTERNALS).
-# The pin lives in build/_common.sh (currently v2.1.0 + static OpenSSL for
+# The pin lives in build/_common.sh (currently v2.1.2 + static OpenSSL for
 # webtorrent/https).
 
 on:
@@ -17,7 +17,7 @@ on:
   # Build manually (workflow_dispatch) or via a release tag, which reuses this
   # workflow through ts_release.yml's workflow_call.
   pull_request:
-    branches: [master]
+    branches: [master, develop]
   workflow_dispatch:
   # Reused by ts_release.yml on a tag; `version` stamps the binaries.
   workflow_call:
@@ -67,7 +67,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: _src
-          key: src-boost1.85.0-lt2.1.0-ossl3.5.7-v1
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
 
       # Per-arch install tree (lib + headers + .pc). With it present the b2
       # step short-circuits and only the Go binaries are relinked.
@@ -75,7 +75,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: _deps/darwin-${{ matrix.arch }}
-          key: deps-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.0-ossl3.5.7-v1
+          key: deps-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.7-flowsparse-pcfold2-${{ hashFiles('build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
+          restore-keys: deps-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.7-
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -101,10 +102,12 @@ jobs:
         working-directory: server
         env:
           CGO_ENABLED: '1'
+          CGO_CXXFLAGS: -DTSL_HAVE_LT_INTERNALS
+          FLOW_REQUIRE_CACHE_EXTENSION: '1'
           PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/darwin-arm64/lib/pkgconfig
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/darwin-arm64/lib/pkgconfig
           CGO_LDFLAGS: "-L${{ github.workspace }}/_deps/darwin-arm64/lib -framework SystemConfiguration -framework CoreFoundation"
-        run: go test -count=1 -timeout 180s ./flow/ ./ffprobe/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./dlna/
+        run: go test -count=1 -timeout 180s ./flow/ ./ffprobe/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./dlna/ ./web/sslcerts/ ./torr/utils/
 
       # The x86_64 binary runs on the arm64 host via Rosetta, so both probe.
       - name: Probe --version

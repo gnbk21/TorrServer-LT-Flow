@@ -1,0 +1,81 @@
+--- a/include/libtorrent/settings_pack.hpp
++++ b/include/libtorrent/settings_pack.hpp
+@@ -1083,6 +1083,9 @@
+ 			// updated) are not removed, and remain in use until they are
+ 			// naturally evicted.
+ 			apply_filter_to_dht,
++
++			// Flow opt-in experiment: enforce local and remote reqq for urgent work.
++			flow_capacity_aware_requests,
+ 
+ 			max_bool_setting_internal
+ 		};
+--- a/src/settings_pack.cpp
++++ b/src/settings_pack.cpp
+@@ -221,6 +221,7 @@
+ 		SET(disk_disable_copy_on_write, false, nullptr),
+ 		SET(allow_multiple_connections_per_pid, false, nullptr),
+ 		SET(apply_filter_to_dht, true, nullptr),
++		SET(flow_capacity_aware_requests, false, nullptr),
+ 	}});
+ 
+ 	CONSTEXPR_SETTINGS
+--- a/include/libtorrent/aux_/peer_connection.hpp
++++ b/include/libtorrent/aux_/peer_connection.hpp
+@@ -111,6 +111,9 @@
+ 
+ 		piece_block block;
+ 
++		// Actual send-buffer handoff, not a snapshot timestamp or queue estimate.
++		time_point flow_requested_at{};
++
+ 		static constexpr std::uint32_t not_in_buffer = 0x1fffffff;
+ 
+ 		// the number of bytes into the send buffer this request is. Every time
+--- a/src/peer_connection.cpp
++++ b/src/peer_connection.cpp
+@@ -3572,6 +3572,10 @@
+ 	{
+ 		TORRENT_ASSERT(is_single_thread());
+ 		if (has_peer_choked() || !is_interesting()) return false;
++		if (m_settings.get_bool(settings_pack::flow_capacity_aware_requests)
++			&& int(m_download_queue.size() + m_request_queue.size())
++				>= std::max(1, std::min(int(m_max_out_request_queue),
++					m_settings.get_int(settings_pack::max_out_request_queue)))) return false;
+ 		if (int(m_download_queue.size()) + int(m_request_queue.size())
+ 			> m_desired_queue_size * 2) return false;
+ 		if (on_parole()) return false;
+@@ -4066,8 +4070,12 @@
+ 			|| t->upload_mode()) return;
+ 
+ 		bool const empty_download_queue = m_download_queue.empty();
++		int const flow_capacity = m_settings.get_bool(settings_pack::flow_capacity_aware_requests)
++			? std::max(1, std::min(int(m_max_out_request_queue),
++				m_settings.get_int(settings_pack::max_out_request_queue))) : INT_MAX;
+ 
+ 		while (!m_request_queue.empty()
++			&& int(m_download_queue.size()) < flow_capacity
+ 			&& (int(m_download_queue.size()) < m_desired_queue_size
+ 				|| m_queued_time_critical > 0))
+ 		{
+@@ -4109,7 +4117,8 @@
+ 				aux::request_merger merger(
+ 					block.block, piece_sz, t->torrent_file().piece_length(), t->block_size());
+ 
+-				while (!m_request_queue.empty())
++				while (!m_request_queue.empty()
++					&& int(m_download_queue.size()) < flow_capacity)
+ 				{
+ 					// cheap check first, so a block that wouldn't be merged
+ 					// anyway never triggers a piece_size_for_req() lookup below
+@@ -6478,7 +6487,10 @@
+ 			if (block.send_buffer_offset == pending_block::not_in_buffer)
+ 				continue;
+ 			if (block.send_buffer_offset < int(bytes_transferred))
++			{
+ 				block.send_buffer_offset = pending_block::not_in_buffer;
++				block.flow_requested_at = now;
++			}
+ 			else
+ 				block.send_buffer_offset -= int(bytes_transferred);
+ 		}

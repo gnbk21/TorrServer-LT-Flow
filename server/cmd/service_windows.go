@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
+	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 
@@ -65,11 +67,24 @@ func serviceCommand(command string, p *args) error {
 			Description:      "Torrent streaming server for local playback",
 			StartType:        mgr.StartAutomatic,
 			DelayedAutoStart: true,
+			ServiceStartName: `NT SERVICE\` + flowServiceName,
+			SidType:          windows.SERVICE_SID_TYPE_RESTRICTED,
 		}, installedArgs...)
 		if err != nil {
 			return err
 		}
 		defer s.Close()
+		if err := s.SetRecoveryActions([]mgr.RecoveryAction{{Type: mgr.ServiceRestart, Delay: 15 * time.Second}, {Type: mgr.ServiceRestart, Delay: 30 * time.Second}, {Type: mgr.ServiceRestart, Delay: 60 * time.Second}, {Type: mgr.NoAction}}, 86400); err != nil {
+			s.Delete()
+			return fmt.Errorf("configure bounded crash recovery: %w", err)
+		}
+		account := `NT SERVICE\` + flowServiceName
+		for _, grant := range []struct{ path, rights string }{{path, "(OI)(CI)M"}, {exe, "RX"}} {
+			if output, err := exec.Command("icacls.exe", grant.path, "/grant", account+":"+grant.rights).CombinedOutput(); err != nil {
+				s.Delete()
+				return fmt.Errorf("grant restricted service access: %w (%s)", err, output)
+			}
+		}
 		fmt.Println("Installed", flowServiceName, "with state at", path)
 		return nil
 	}

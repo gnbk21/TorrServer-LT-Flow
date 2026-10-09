@@ -26,6 +26,11 @@ func TestFlowProgressFollowsLiveBodyAndIgnoresOldRequest(t *testing.T) {
 	}
 	req.Header.Set("Range", "bytes=67108864-")
 	_, _, second := tor.flowStart(1, file, "test", req)
+	tor.flowBodyStart(1, "test", second, 64<<20)
+	tor.flowBodyStart(1, "test", first, 0)
+	if s.demandOffset != 64<<20 || s.PlaybackOffsetBytes != 20<<20 {
+		t.Fatal("pending seek demand did not preserve delivered progress")
+	}
 	tor.flowProgress(1, "test", second, 70<<20)
 	tor.flowProgress(1, "test", first, 21<<20)
 	tor.flowEnd(1, "test", first, FlowRangeTrace{Method: "GET", BytesServed: 21 << 20})
@@ -34,8 +39,9 @@ func TestFlowProgressFollowsLiveBodyAndIgnoresOldRequest(t *testing.T) {
 	}
 	req.Header.Set("Range", "bytes=-1024")
 	_, _, probe := tor.flowStart(1, file, "test", req)
+	tor.flowBodyStart(1, "test", probe, file.Length-1024)
 	tor.flowProgress(1, "test", probe, file.Length)
-	if s.PlaybackOffsetBytes != 70<<20 {
+	if s.PlaybackOffsetBytes != 70<<20 || s.demandOffset != 70<<20 {
 		t.Fatal("tail probe overwrote playback progress")
 	}
 }

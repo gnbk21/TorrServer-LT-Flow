@@ -11,6 +11,7 @@
 #include "third_party/nlohmann/json.hpp"
 
 #include <libtorrent/add_torrent_params.hpp>
+#include <libtorrent/bdecode.hpp>
 #include <libtorrent/alert.hpp>
 #include <libtorrent/alert_types.hpp>
 #include <libtorrent/error_code.hpp>
@@ -42,9 +43,14 @@
 // methods we call are unchanged and native_handle() already returns the
 // aux type, so only the include paths differ).
 #include <libtorrent/aux_/piece_picker.hpp>
+#include <libtorrent/aux_/peer_list.hpp>
+#include <libtorrent/aux_/peer_connection.hpp>
+#include <libtorrent/aux_/torrent_peer.hpp>
 #include <libtorrent/aux_/torrent.hpp>
 #else
 #include <libtorrent/piece_picker.hpp>
+#include <libtorrent/peer_list.hpp>
+#include <libtorrent/peer_connection.hpp>
 #include <libtorrent/torrent.hpp>
 #endif
 #include <libtorrent/aux_/session_interface.hpp>
@@ -59,16 +65,105 @@ extern void tsl_install_disk_io_on(libtorrent::session_params& params);
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
 #include <sstream>
 #include <string>
+#include <stdexcept>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <type_traits>
+#include <map>
 
 namespace lt = libtorrent;
+
+#ifdef TSL_HAVE_LT_INTERNALS
+// A cache miss is not a hash failure: reconcile availability without blaming
+// peers or rechecking the entire torrent. The pinned build declares this
+// non-virtual member in torrent.hpp; it changes no class layout.
+#if LIBTORRENT_VERSION_NUM >= 20100
+void libtorrent::aux::torrent::flow_forget_piece(piece_index_t const index,
+    download_priority_t const priority)
+#else
+void libtorrent::torrent::flow_forget_piece(piece_index_t const index,
+    download_priority_t const priority)
+#endif
+{
+    if (m_abort || !valid_metadata() || index < piece_index_t{0}
+        || index >= m_torrent_file->end_piece()) return;
+    bool const was_finished = is_finished();
+    bool const was_all = m_have_all;
+    leave_seed_mode(seed_mode_t::skip_checking);
+    m_have_all = false;
+    if (!has_picker()) {
+        need_picker();
+        if (was_all) m_picker->we_have_all();
+    }
+    bool const had_piece = m_picker->have_piece(index);
+    m_picker->set_piece_priority(index, dont_download);
+    m_picker->we_dont_have(index);
+    m_picker->set_piece_priority(index, priority);
+    // File progress must forget the byte count too, or the next completion
+    // counts the same bytes twice. Rebuild only for formerly complete pieces.
+    if (had_piece || was_all) {
+        m_file_progress.clear();
+#if LIBTORRENT_VERSION_NUM >= 20100
+        m_file_progress.init(*m_picker, m_torrent_file->layout());
+#else
+        m_file_progress.init(*m_picker, m_torrent_file->files());
+#endif
+    }
+    if (had_piece) inc_stats_counter(counters::num_have_pieces, -1);
+    // is_seed() also consults m_state. Leaving that at seeding makes priority
+    // updates no-ops and disconnects the very seed needed for the cache miss.
+    if (state() == torrent_status::seeding)
+        set_state(m_picker->is_finished() ? torrent_status::finished : torrent_status::downloading);
+    update_gauge();
+    update_peer_interest(was_finished);
+    flow_refresh_connect_candidates();
+    set_need_save_resume(torrent_handle::if_download_progress);
+    state_updated();
+}
+
+#if LIBTORRENT_VERSION_NUM >= 20100
+void libtorrent::aux::torrent::flow_refresh_connect_candidates()
+#else
+void libtorrent::torrent::flow_refresh_connect_candidates()
+#endif
+{
+    if (m_abort) return;
+    // Ordinary priority/deadline changes can also transition finished to
+    // downloading after an eviction left the missing piece at priority zero.
+    // Refresh after every demand change, not only when clearing a have bit.
+    if (m_peer_list) {
+        auto peer_state = get_peer_list_state();
+        m_peer_list->flow_refresh_connect_candidates(&peer_state);
+    }
+    update_want_peers();
+}
+#endif
+
+static void refresh_connect_candidates(lt::torrent_handle const& h) {
+#ifdef TSL_HAVE_LT_INTERNALS
+    auto tor = h.native_handle();
+    if (!tor) return;
+    // torrent_handle enqueues its priority operation on this same context.
+    // Posting afterwards observes the resulting state without racing it.
+    lt::post(tor->session().get_context(), [tor]() {
+        // Avoid scanning a large peer list on every window/deadline update.
+        // The blocked transition is specifically a downloading torrent with
+        // known peers but a stale zero candidate count.
+        if (!tor->is_finished() && tor->num_connect_candidates() == 0
+            && tor->num_known_peers() > 0)
+            tor->flow_refresh_connect_candidates();
+    });
+#else
+    (void)h;
+#endif
+}
 using json = nlohmann::json;
 
 // nlohmann::json::dump() defaults to error_handler_t::strict, which THROWS
@@ -194,6 +289,7 @@ namespace {
 struct session_slot {
     std::unique_ptr<lt::session> s;
     std::mutex pump_mu; // serializes wait_alert+pop_alerts on this session
+    std::vector<lt::udp::endpoint> restored_dht_nodes; // <=32 per address family; pump_mu
 };
 
 std::shared_mutex g_sess_mu;
@@ -207,9 +303,19 @@ std::shared_mutex g_torr_mu;
 // keeps g_hash2id from retaining a stale hash -> dead-id mapping, which would
 // make every future add of the same info-hash return the dead id ("torrent
 // not found" forever).
+struct sparse_snapshot {
+    std::mutex mu;
+    bool pending = false;
+    std::chrono::steady_clock::time_point last_request{};
+    std::string cached = "{\"known\":false}";
+    std::string resume_peers = "[]"; // private opt-in state, never a status field
+    std::chrono::steady_clock::time_point peers_at{};
+    std::int64_t peers_at_ms = 0;
+};
 struct torrent_entry {
     lt::torrent_handle h;
     std::string hex; // 40-char lowercase v1 info-hash
+    std::shared_ptr<sparse_snapshot> sparse = std::make_shared<sparse_snapshot>();
 };
 std::unordered_map<int64_t, torrent_entry> g_torrents;
 std::unordered_map<std::string, int64_t> g_hash2id;
@@ -244,6 +350,7 @@ int64_t register_torrent(lt::torrent_handle const& h) {
             g_torrents.emplace(exist->second, torrent_entry{h, hex});
         } else if (!told->second.h.is_valid()) {
             told->second.h = h;
+            told->second.sparse = std::make_shared<sparse_snapshot>();
         }
         return exist->second;
     }
@@ -397,6 +504,7 @@ json status_to_json(lt::torrent_handle const& h) {
         j["piece_length"] = ti->piece_length();
         j["total_size"]   = ti->total_size();
         j["has_metadata"] = true;
+        j["private"] = ti->priv();
     } else {
         j["piece_length"] = 0;
         j["total_size"]   = 0;
@@ -417,6 +525,12 @@ json alert_to_json(lt::alert const* a) {
     j["type"]     = a->what();
     j["category"] = static_cast<uint64_t>(static_cast<std::uint32_t>(a->category()));
     j["message"]  = a->message();
+    // A signed mirror URL can include secrets in its path or query. Native
+    // alerts must never hand that URL to console/debug logging or history.
+    if (auto const* seed = lt::alert_cast<lt::url_seed_alert>(a)) {
+        j["message"] = "web seed unavailable";
+        j["error_code"] = seed->error.value();
+    }
 
     // torrent_alert is an abstract base — its `alert_type` constant is
     // deprecated and may be absent (libtorrent built with
@@ -429,7 +543,21 @@ json alert_to_json(lt::alert const* a) {
         }
     }
 
-    if (auto const* fa = lt::alert_cast<lt::piece_finished_alert>(a)) {
+    if (auto const* fa = lt::alert_cast<lt::listen_succeeded_alert>(a)) {
+        j["port"] = fa->port;
+        j["transport"] = fa->socket_type == lt::socket_type_t::udp ? "udp" : "tcp";
+        j["ipv6"] = fa->address.is_v6();
+    } else if (auto const* fa = lt::alert_cast<lt::listen_failed_alert>(a)) {
+        j["error_code"] = fa->error.value();
+    } else if (auto const* fa = lt::alert_cast<lt::portmap_alert>(a)) {
+        j["port"] = fa->external_port;
+        j["transport"] = fa->map_protocol == lt::portmap_protocol::tcp ? "tcp" : "udp";
+    } else if (auto const* fa = lt::alert_cast<lt::portmap_error_alert>(a)) {
+        j["error_code"] = fa->error.value();
+    } else if (auto const* fa = lt::alert_cast<lt::incoming_connection_alert>(a)) {
+        j["ipv6"] = fa->endpoint.address().is_v6();
+        j["transport"] = fa->socket_type == lt::socket_type_t::utp ? "utp" : "tcp";
+    } else if (auto const* fa = lt::alert_cast<lt::piece_finished_alert>(a)) {
         j["piece"] = static_cast<int>(fa->piece_index);
     } else if (auto const* fa = lt::alert_cast<lt::block_finished_alert>(a)) {
         j["piece"] = static_cast<int>(fa->piece_index);
@@ -438,6 +566,13 @@ json alert_to_json(lt::alert const* a) {
         j["file"] = static_cast<int>(fa->index);
     } else if (auto const* fa = lt::alert_cast<lt::hash_failed_alert>(a)) {
         j["piece"] = static_cast<int>(fa->piece_index);
+    } else if (auto const* fa = lt::alert_cast<lt::peer_disconnected_alert>(a)) {
+        j["error_code"] = fa->error.value();
+        j["operation"] = static_cast<int>(fa->op);
+        j["disconnect_reason"] = fa->error == lt::errors::torrent_paused ? "PAUSED"
+            : fa->error == lt::errors::upload_upload_connection ? "REDUNDANT" : "OTHER";
+    } else if (auto const* fa = lt::alert_cast<lt::dht_reply_alert>(a)) {
+        j["peers"] = fa->num_peers;
     } else if (auto const* fa = lt::alert_cast<lt::tracker_reply_alert>(a)) {
         j["url"]   = std::string(fa->tracker_url());
         j["peers"] = fa->num_peers;
@@ -506,6 +641,14 @@ size_t lt_shim_version(char* buf, size_t cap) {
     return copy_string(ver, buf, cap);
 }
 
+int lt_cache_reconciliation_supported(void) {
+#ifdef TSL_HAVE_LT_INTERNALS
+    return 1;
+#else
+    return 0;
+#endif
+}
+
 size_t lt_engine_version(char* buf, size_t cap) {
     static const std::string ver = LIBTORRENT_VERSION;
     return copy_string(ver, buf, cap);
@@ -513,10 +656,85 @@ size_t lt_engine_version(char* buf, size_t cap) {
 
 // ----- session lifecycle -----
 
+static lt::session_params decode_dht_state(const char* state, size_t len) {
+    if (!state || len == 0 || len > 1024 * 1024)
+        throw std::invalid_argument("invalid DHT state size");
+    lt::error_code ec;
+    auto root = lt::bdecode(lt::span<char const>(state, len), ec, nullptr, 16, 16384);
+    if (ec || root.type() != lt::bdecode_node::dict_t || root.data_section().size() != len)
+        throw std::invalid_argument("invalid DHT state encoding");
+    auto dht = root.dict_find_dict("dht state");
+    if (!dht) throw std::invalid_argument("missing DHT state");
+    for (auto key : {"nodes", "nodes6", "node-id"}) {
+        auto list = dht.dict_find(key);
+        if (!list) continue;
+        if (list.type() != lt::bdecode_node::list_t || list.list_size() > 4096)
+            throw std::invalid_argument("invalid DHT state list");
+        for (int i = 0; i < list.list_size(); ++i) {
+            auto item = list.list_at(i);
+            if (item.type() != lt::bdecode_node::string_t)
+                throw std::invalid_argument("invalid DHT state entry");
+            int n = item.string_length();
+            bool ok = std::strcmp(key, "nodes") == 0 ? n == 6
+                : std::strcmp(key, "nodes6") == 0 ? n == 18 : n == 24 || n == 36;
+            if (!ok) throw std::invalid_argument("invalid DHT endpoint length");
+        }
+    }
+    return lt::read_session_params(root, lt::session_handle::save_dht_state);
+}
+
+static char* encode_dht_state(lt::session_params const& params, size_t* len) {
+    auto buf = lt::write_session_params_buf(params, lt::session_handle::save_dht_state);
+    if (buf.size() > 1024 * 1024) { set_err(LT_ERR_INVALID, "DHT state too large"); return nullptr; }
+    auto* out = static_cast<char*>(std::malloc(buf.size()));
+    if (!out) { set_err(LT_ERR_INTERNAL, "DHT allocation failed"); return nullptr; }
+    std::memcpy(out, buf.data(), buf.size());
+    if (len) *len = buf.size();
+    return out;
+}
+
+int lt_dht_state_nodes(const char* state, size_t len) {
+    try {
+        auto params = decode_dht_state(state, len);
+        return static_cast<int>(params.dht_state.nodes.size() + params.dht_state.nodes6.size());
+    } catch (std::exception const&) { return set_err(LT_ERR_PARSE, "invalid DHT state"); }
+}
+
+char* lt_dht_state_normalize(const char* state, size_t len, size_t* out_len) {
+    set_err(LT_OK, "");
+    try { return encode_dht_state(decode_dht_state(state, len), out_len); }
+    catch (std::exception const&) { set_err(LT_ERR_PARSE, "invalid DHT state"); return nullptr; }
+}
+
+char* lt_session_dht_state(lt_session id, size_t* len) {
+    set_err(LT_OK, "");
+    try {
+        auto slot = get_session(id);
+        if (!slot) { set_err(LT_ERR_NOT_FOUND, "session not found"); return nullptr; }
+        auto params = slot->s->session_state(lt::session_handle::save_dht_state);
+        // Keep useful native hints for later address/socket changes too. An
+        // offline or empty snapshot must not erase the last known nodes.
+        if (!params.dht_state.nodes.empty() || !params.dht_state.nodes6.empty()) {
+            std::lock_guard<std::mutex> lk(slot->pump_mu);
+            slot->restored_dht_nodes.clear();
+            for (auto const* nodes : {&params.dht_state.nodes, &params.dht_state.nodes6}) {
+                for (size_t i = 0; i < std::min<size_t>(32, nodes->size()); ++i)
+                    slot->restored_dht_nodes.push_back((*nodes)[i]);
+            }
+        }
+        return encode_dht_state(params, len);
+    } catch (std::exception const&) { set_err(LT_ERR_INTERNAL, "DHT snapshot failed"); return nullptr; }
+}
+
 lt_session lt_session_new(const char* settings_json) {
+    return lt_session_new_with_dht(settings_json, nullptr, 0);
+}
+
+lt_session lt_session_new_with_dht(const char* settings_json, const char* state, size_t len) {
     set_err(LT_OK, "");
     try {
         lt::session_params params;
+        if (len != 0) params.dht_state = decode_dht_state(state, len).dht_state;
         params.settings.set_int(lt::settings_pack::alert_mask, LT_ALERT_DEFAULT);
 
         // PEX (peer exchange) is libtorrent's ut_pex PLUGIN, not a settings_pack
@@ -524,9 +742,18 @@ lt_session lt_session_new(const char* settings_json) {
         // in a shim-private key "tsl_disable_pex" and strip it before the settings
         // pass (otherwise it would be reported as an unknown setting).
         bool disable_pex = false;
+        bool network_paused = false;
         if (settings_json && *settings_json) {
             try {
                 auto j = json::parse(settings_json);
+                if (auto it = j.find("tsl_network_paused"); it != j.end()) {
+                    if (!it->is_boolean()) {
+                        set_err(LT_ERR_INVALID, "invalid network pause policy");
+                        return 0;
+                    }
+                    network_paused = it->get<bool>();
+                    j.erase(it);
+                }
                 if (auto it = j.find("tsl_disable_pex"); it != j.end()) {
                     if (it->is_boolean()) disable_pex = it->get<bool>();
                     j.erase(it);
@@ -550,6 +777,15 @@ lt_session lt_session_new(const char* settings_json) {
         // never exchanges peers. The add_default_plugins ctor flag has no effect on the
         // session_params overload, so the plugin set is governed solely by .extensions.
         auto slot = std::make_shared<session_slot>();
+        // In 2.1, DHT may start before listen sockets exist. A late socket's
+        // bootstrap then receives no saved nodes. Retain a bounded set of native
+        // hints and reintroduce them through the public API after UDP readiness.
+        auto retain_hints = [&](auto const& nodes) {
+            for (size_t i = 0; i < std::min<size_t>(32, nodes.size()); ++i)
+                slot->restored_dht_nodes.push_back(nodes[i]);
+        };
+        retain_hints(params.dht_state.nodes);
+        retain_hints(params.dht_state.nodes6);
         if (disable_pex) {
             params.extensions.clear();
             slot->s = std::make_unique<lt::session>(std::move(params));
@@ -559,6 +795,7 @@ lt_session lt_session_new(const char* settings_json) {
             slot->s = std::make_unique<lt::session>(std::move(params));
         }
 
+        if (network_paused) slot->s->pause();
         int64_t id = g_next_sess++;
         {
             std::unique_lock<std::shared_mutex> lk(g_sess_mu);
@@ -583,8 +820,18 @@ int lt_session_apply_settings(lt_session id, const char* settings_json) {
 
     lt::settings_pack sp;
     std::string warn;
+    bool change_pause = false;
+    bool network_paused = false;
+    if (auto it = j.find("tsl_network_paused"); it != j.end()) {
+        if (!it->is_boolean()) return set_err(LT_ERR_INVALID, "invalid network pause policy");
+        change_pause = true;
+        network_paused = it->get<bool>();
+        j.erase(it);
+        if (network_paused) slot->s->pause();
+    }
     json_into_settings(j, sp, &warn);
     slot->s->apply_settings(std::move(sp));
+    if (change_pause && !network_paused) slot->s->resume();
     if (!warn.empty()) g_last_error = "settings warnings: " + warn;
     return LT_OK;
     WRAP_END(LT_ERR_INTERNAL)
@@ -674,11 +921,25 @@ static std::shared_ptr<lt::torrent_info> parse_torrent_or_info(
     return nullptr;
 }
 
+// Keep tracker tiers bounded and reject malformed JSON before calling native code.
+static bool valid_tracker_tiers(json const& tiers) {
+    if (!tiers.is_array() || tiers.size() > 256) return false;
+    std::size_t count = 0;
+    for (auto const& urls : tiers) {
+        if (!urls.is_array()) return false;
+        for (auto const& url : urls) {
+            if (!url.is_string() || url.get_ref<std::string const&>().size() > 8192
+                || ++count > 1024) return false;
+        }
+    }
+    return true;
+}
+
 lt_torrent lt_session_add_torrent(
     lt_session sid,
     const char* link,
     const uint8_t* info_bytes, size_t info_len,
-    const char* trackers_csv,
+    const char* trackers_json,
     const char* save_path,
     int paused,
     const uint8_t* have_pieces_bitmap, int have_pieces_count)
@@ -720,10 +981,21 @@ lt_torrent lt_session_add_torrent(
             return 0;
         }
 
-        if (trackers_csv && *trackers_csv) {
-            for (auto& t : split_csv(trackers_csv)) {
-                atp.trackers.push_back(t);
+        if (trackers_json && *trackers_json
+            && !(atp.ti && atp.ti->priv() && !atp.ti->trackers().empty())) {
+            auto tiers = json::parse(trackers_json);
+            if (!valid_tracker_tiers(tiers)) { set_err(LT_ERR_INVALID, "invalid tracker tiers"); return 0; }
+            atp.trackers.clear();
+            atp.tracker_tiers.clear();
+            int tier = 0;
+            for (auto const& urls : tiers) {
+                for (auto const& url : urls) {
+                    atp.trackers.push_back(url.get<std::string>());
+                    atp.tracker_tiers.push_back(tier);
+                }
+                ++tier;
             }
+            atp.flags |= lt::torrent_flags::override_trackers;
         }
 
         if (paused) {
@@ -742,9 +1014,8 @@ lt_torrent lt_session_add_torrent(
                     atp.have_pieces.set_bit(lt::piece_index_t{i});
                 }
             }
-            // Tell libtorrent to trust our bitmap; skips the post-add hash
-            // verification. Matches the "trust file-sizes" resume policy
-            // we agreed on in Etap 2.
+            // Go verified exact lengths and metadata SHA-1 hashes before addition.
+            // Share that verified bitmap without doing a second full disk scan.
             atp.flags |= lt::torrent_flags::no_verify_files;
         }
 
@@ -780,6 +1051,284 @@ int lt_torrent_pause(lt_torrent tid) {
     h.pause();
     return LT_OK;
     WRAP_END(LT_ERR_INTERNAL)
+}
+
+int lt_torrent_url_seed(lt_torrent tid, const char* url, int remove, int allow_local) {
+    WRAP_BEGIN
+    if (!url || std::strlen(url) > 8192) return set_err(LT_ERR_INVALID, "invalid mirror URL");
+    auto h = get_torrent(tid);
+    if (!h.is_valid()) return set_err(LT_ERR_NOT_FOUND, "torrent not found");
+    auto ti = h.torrent_file();
+    if (!ti || (!remove && ti->priv())) return set_err(LT_ERR_INVALID, "known public metadata required");
+#ifdef TSL_HAVE_LT_INTERNALS
+    auto tor = h.native_handle();
+    if (!tor) return set_err(LT_ERR_NOT_FOUND, "torrent not found");
+    std::string value(url);
+    lt::post(tor->session().get_context(), [tor, value=std::move(value), remove, allow_local]() {
+        tor->remove_web_seed(value);
+        if (!remove && tor->web_seeds().size() < 16)
+            tor->add_web_seed(value, {}, {}, allow_local ? lt::aux::web_seed_flag_t{} : lt::aux::torrent::no_local_ips);
+    });
+    return LT_OK;
+#else
+    return set_err(LT_ERR_NOT_IMPL, "source destination guard unavailable");
+#endif
+    WRAP_END(LT_ERR_INTERNAL)
+}
+
+int lt_torrent_replace_trackers(lt_torrent tid, const char* tiers_json) {
+    WRAP_BEGIN
+    auto h = get_torrent(tid);
+    if (!h.is_valid()) return set_err(LT_ERR_NOT_FOUND, "torrent not found");
+    auto ti = h.torrent_file();
+    if (!ti || ti->priv()) return set_err(LT_ERR_INVALID, "public metadata required");
+    auto tiers = json::parse(tiers_json ? tiers_json : "[]");
+    if (!valid_tracker_tiers(tiers)) return set_err(LT_ERR_INVALID, "invalid tracker tiers");
+    std::vector<lt::announce_entry> entries;
+    int tier = 0;
+    for (auto const& urls : tiers) {
+        for (auto const& url : urls) {
+            lt::announce_entry e(url.get<std::string>());
+            e.tier = static_cast<std::uint8_t>(std::min(tier, 255));
+            entries.push_back(std::move(e));
+        }
+        ++tier;
+    }
+    h.replace_trackers(entries);
+    return LT_OK;
+    WRAP_END(LT_ERR_INTERNAL)
+}
+
+char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size_t* out_len) {
+    set_err(LT_OK, "");
+    try {
+        lt::torrent_handle h;
+        std::shared_ptr<sparse_snapshot> snapshot;
+        {
+            std::shared_lock<std::shared_mutex> lk(g_torr_mu);
+            auto it = g_torrents.find(tid);
+            if (it == g_torrents.end()) { set_err(LT_ERR_NOT_FOUND, "torrent not found"); return nullptr; }
+            h = it->second.h;
+            snapshot = it->second.sparse;
+        }
+        auto ranges = json::parse(ranges_json ? ranges_json : "[]");
+        int pieces = 0;
+        if (!ranges.is_array() || ranges.size() > 8) { set_err(LT_ERR_INVALID, "invalid sparse ranges"); return nullptr; }
+        for (auto const& range : ranges) {
+            if (!range.is_array() || range.size() != 2 || !range[0].is_number_integer()
+                || !range[1].is_number_integer()) { set_err(LT_ERR_INVALID, "invalid sparse range"); return nullptr; }
+            auto const first = range[0].get<std::int64_t>();
+            auto const count = range[1].get<std::int64_t>();
+            if (first < 0 || first > INT32_MAX || count < 1 || count > 128 || first+count > INT32_MAX
+                || (pieces += static_cast<int>(count)) > 256) { set_err(LT_ERR_INVALID, "sparse range exceeds bounds"); return nullptr; }
+        }
+        std::lock_guard<std::mutex> lk(snapshot->mu);
+        std::string cached = snapshot->cached;
+#ifdef TSL_HAVE_LT_INTERNALS
+        auto const now = std::chrono::steady_clock::now();
+        if (!snapshot->pending && now-snapshot->last_request >= std::chrono::seconds(2)) {
+            auto tor = h.native_handle();
+            if (tor) {
+                snapshot->pending = true;
+                snapshot->last_request = now;
+                lt::post(tor->session().get_context(), [tor, snapshot, ranges=std::move(ranges)]() {
+                    json result = {{"known", false}};
+                    json hints = json::array();
+                    bool private_torrent = true;
+                    try {
+                        if (tor->valid_metadata()) {
+                            private_torrent = tor->torrent_file().priv();
+                            int const total = tor->torrent_file().num_pieces();
+                            json windows = json::array();
+                            for (auto const& range : ranges) {
+                                int const first = range[0].get<int>();
+                                int const count = range[1].get<int>();
+                                if (first >= total || count > total-first) continue;
+                                windows.push_back({{"first_piece", first}, {"availability", std::vector<int>(count, 0)},
+                                    {"unchoked_suppliers", 0}});
+                            }
+                            int sampled = 0, useful = 0, downloading = 0, choked = 0, snubbed = 0, pending = 0;
+                            // Copy a bounded urgent frontier directly on the network thread.
+                            // No full download-queue allocation, peer identities or native
+                            // pointers escape this snapshot. Blocks still requested may be
+                            // receiving; that progress is aggregated separately below.
+                            json urgent = json::array();
+                            std::map<int, std::size_t> urgent_index;
+                            std::map<std::pair<int, int>, int> receiving;
+                            bool blocks_truncated = false;
+                            int inspected_blocks = 0;
+                            for (auto const& window : windows) {
+                                int const first = window["first_piece"].get<int>();
+                                int const count = std::min<int>(8, window["availability"].size());
+                                for (int i = first; i < first + count; ++i) {
+                                    if (urgent_index.count(i)) continue;
+                                    auto const piece = lt::piece_index_t{i};
+                                    int const block_count = (tor->torrent_file().piece_size(piece) + 16383) / 16384;
+                                    if (inspected_blocks + block_count > 8192) { blocks_truncated = true; continue; }
+                                    inspected_blocks += block_count;
+                                    int requested = 0, writing = 0, finished = 0, duplicates = 0;
+                                    bool const have = tor->have_piece(piece);
+                                    if (have) finished = block_count;
+                                    else if (tor->has_picker() && tor->picker().piece_stats(piece).downloading) {
+                                        auto const& picker = tor->picker();
+                                        using Picker = std::remove_cv_t<std::remove_reference_t<decltype(picker)>>;
+                                        Picker::downloading_piece partial;
+                                        picker.piece_info(piece, partial);
+                                        for (auto const& block : picker.blocks_for_piece(partial)) {
+                                            requested += block.state == Picker::block_info::state_requested;
+                                            writing += block.state == Picker::block_info::state_writing;
+                                            finished += block.state == Picker::block_info::state_finished;
+                                            duplicates += std::max(0, int(block.num_peers) - 1);
+                                        }
+                                    }
+                                    urgent_index[i] = urgent.size();
+                                    urgent.push_back({{"piece", i}, {"priority", int(static_cast<std::uint8_t>(tor->piece_priority(piece)))},
+                                        {"blocks", block_count}, {"unrequested", std::max(0, block_count-requested-writing-finished)},
+                                        {"requested", requested}, {"writing", writing}, {"finished", finished},
+                                        {"duplicate_requests", duplicates}, {"verified", have},
+                                        {"receiving_blocks", 0}, {"receiving_bytes", 0}, {"oldest_request_age_ms", -1}});
+                                }
+                            }
+                            int tracker = 0, dht = 0, pex = 0, incoming = 0;
+                            std::int64_t outstanding = 0, queue_ms = 0, queued = 0;
+                            unsigned request_age_budget = 65536;
+                            bool request_age_truncated = false;
+                            for (auto* peer : *tor) {
+                                if (sampled == 512) break;
+                                ++sampled;
+                                pending += peer->is_connecting();
+                                choked += peer->has_peer_choked();
+                                snubbed += peer->flow_snubbed();
+                                incoming += !peer->is_outgoing();
+                                if (auto* info = peer->peer_info_struct()) {
+                                    auto const source = info->peer_source();
+                                    tracker += bool(source & lt::peer_info::tracker);
+                                    dht += bool(source & lt::peer_info::dht);
+                                    pex += bool(source & lt::peer_info::pex);
+                                }
+                                bool supplies = false;
+                                if (!peer->is_connecting() && !peer->is_disconnecting()) {
+                                    auto const progress = peer->downloading_piece_progress();
+                                    int const index = int(progress.piece_index);
+                                    if (urgent_index.count(index) && progress.block_index >= 0
+                                        && progress.bytes_downloaded > 0 && progress.full_block_bytes > 0) {
+                                        auto& bytes = receiving[{index, progress.block_index}];
+                                        bytes = std::max(bytes, std::min(progress.bytes_downloaded, progress.full_block_bytes));
+                                    }
+                                    for (auto& window : windows) {
+                                        int const first = window["first_piece"].get<int>();
+                                        auto& available = window["availability"];
+                                        for (std::size_t i = 0; i < available.size(); ++i) {
+                                            if (!peer->has_piece(lt::piece_index_t{first+static_cast<int>(i)})) continue;
+                                            available[i] = available[i].get<int>()+1;
+                                            supplies = true;
+                                            if (i == 0 && !peer->has_peer_choked())
+                                                window["unchoked_suppliers"] = window["unchoked_suppliers"].get<int>()+1;
+                                        }
+                                    }
+                                    outstanding += peer->outstanding_bytes();
+                                    queued += peer->request_queue().size()+peer->download_queue().size();
+                                    queue_ms = std::max(queue_ms, lt::total_milliseconds(peer->download_queue_time()));
+                                    for (auto const& block : peer->download_queue()) {
+                                        if (request_age_budget == 0) { request_age_truncated = true; break; }
+                                        --request_age_budget;
+                                        auto const found = urgent_index.find(int(block.block.piece_index));
+                                        if (found == urgent_index.end() || block.not_wanted || block.timed_out
+                                            || block.flow_requested_at == lt::time_point{}) continue;
+                                        auto& row = urgent[found->second];
+                                        auto const age = std::max<std::int64_t>(0, lt::total_milliseconds(lt::clock_type::now()-block.flow_requested_at));
+                                        row["oldest_request_age_ms"] = std::max(row.value("oldest_request_age_ms", int64_t(-1)), age);
+                                    }
+                                }
+                                useful += supplies;
+                                downloading += supplies && peer->statistics().download_payload_rate() > 0;
+                                if (!private_torrent && hints.size() < 32 && !peer->on_parole()
+                                    && peer->type() == lt::connection_type::bittorrent
+                                    && !peer->is_connecting() && !peer->is_disconnecting()
+                                    && peer->statistics().download_payload_rate() > 0) {
+                                    auto const ep = peer->remote();
+                                    if (ep.port() != 0 && !ep.address().is_unspecified()
+                                        && !ep.address().is_multicast())
+                                        hints.push_back({{"ip", ep.address().to_string()}, {"port", ep.port()}});
+                                }
+                            }
+                            lt::torrent_status status;
+                            for (auto const& entry : receiving) {
+                                auto& row = urgent[urgent_index.at(entry.first.first)];
+                                row["receiving_blocks"] = row["receiving_blocks"].get<int>() + 1;
+                                row["receiving_bytes"] = row["receiving_bytes"].get<int>() + entry.second;
+                            }
+                            tor->status(&status, {});
+                            auto const timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                std::chrono::system_clock::now().time_since_epoch()).count();
+                            result = {{"known", true}, {"private", tor->torrent_file().priv()}, {"sampled_at_ms", timestamp}, {"sampled_peers", sampled},
+                                {"truncated", tor->num_peers() > sampled}, {"useful_peers", useful},
+                                {"useful_downloading_peers", downloading}, {"choked_peers", choked}, {"snubbed_peers", snubbed},
+                                {"pending_connections", pending}, {"tracker_peers", tracker}, {"dht_peers", dht},
+                                {"pex_peers", pex}, {"incoming_peers", incoming}, {"outstanding_bytes", outstanding},
+                                {"queued_blocks", queued}, {"max_queue_ms", queue_ms}, {"failed_bytes", status.total_failed_bytes},
+                                {"redundant_bytes", status.total_redundant_bytes}, {"windows", std::move(windows)},
+                                {"urgent", std::move(urgent)}, {"urgent_truncated", blocks_truncated},
+                                {"request_age_truncated", request_age_truncated}};
+                        }
+                    } catch (...) { result = {{"known", false}}; }
+                    std::lock_guard<std::mutex> done(snapshot->mu);
+                    snapshot->cached = result.dump();
+                    if (private_torrent) snapshot->resume_peers = "[]";
+                    else if (!hints.empty()) {
+                        snapshot->resume_peers = hints.dump();
+                        snapshot->peers_at = std::chrono::steady_clock::now();
+                        snapshot->peers_at_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::system_clock::now().time_since_epoch()).count();
+                    }
+                    snapshot->pending = false;
+                });
+            }
+        }
+#endif
+        return alloc_string(cached, out_len);
+    } catch (std::exception const& e) { set_err(LT_ERR_INVALID, e.what()); return nullptr; }
+}
+
+char* lt_torrent_resume_peers_json_alloc(lt_torrent tid, size_t* out_len) {
+    set_err(LT_OK, "");
+    try {
+    std::shared_lock<std::shared_mutex> lk(g_torr_mu);
+    auto it = g_torrents.find(tid);
+    if (it == g_torrents.end()) { set_err(LT_ERR_NOT_FOUND, "torrent not found"); return nullptr; }
+    auto snapshot = it->second.sparse;
+    std::lock_guard<std::mutex> guard(snapshot->mu);
+    if (std::chrono::steady_clock::now()-snapshot->peers_at > std::chrono::minutes(10))
+        return alloc_string("{\"observed_at_ms\":0,\"peers\":[]}", out_len);
+    return alloc_string(json{{"observed_at_ms", snapshot->peers_at_ms},
+        {"peers", json::parse(snapshot->resume_peers)}}.dump(), out_len);
+    } catch (std::exception const& e) { set_err(LT_ERR_INTERNAL, e.what()); return nullptr; }
+}
+
+int lt_torrent_restore_peers(lt_torrent tid, const char* peers_json) {
+    WRAP_BEGIN
+    auto h = get_torrent(tid);
+    if (!h.is_valid()) return set_err(LT_ERR_NOT_FOUND, "torrent not found");
+    auto ti = h.torrent_file();
+    if (!ti || ti->priv()) return set_err(LT_ERR_INVALID, "known public metadata required");
+    auto peers = json::parse(peers_json ? peers_json : "[]");
+    if (!peers.is_array() || peers.size() > 32) return set_err(LT_ERR_INVALID, "peer hint limit");
+    std::vector<lt::tcp::endpoint> endpoints;
+    for (auto const& item : peers) {
+        if (!item.is_object() || !item.contains("ip") || !item["ip"].is_string()
+            || !item.contains("port") || !item["port"].is_number_integer())
+            return set_err(LT_ERR_INVALID, "invalid peer hint");
+        lt::error_code ec;
+        auto const address = lt::make_address(item["ip"].get<std::string>(), ec);
+        int const port = item["port"].get<int>();
+        if (ec || address.is_unspecified() || address.is_multicast() || port < 1 || port > 65535)
+            return set_err(LT_ERR_INVALID, "invalid peer endpoint");
+        endpoints.emplace_back(address, static_cast<std::uint16_t>(port));
+    }
+    // Native peer-list failure counters and reconnect backoff own all retries.
+    for (auto const& ep : endpoints) h.connect_peer(ep, lt::peer_info::resume_data);
+    return LT_OK;
+    WRAP_END(LT_ERR_INVALID)
 }
 
 int lt_torrent_resume(lt_torrent tid) {
@@ -1001,6 +1550,7 @@ int lt_torrent_set_piece_priority(lt_torrent tid, int piece_idx, int prio) {
     if (prio < 0 || prio > 7) return set_err(LT_ERR_INVALID, "prio out of range");
     h.piece_priority(lt::piece_index_t{piece_idx},
                      static_cast<lt::download_priority_t>(static_cast<std::uint8_t>(prio)));
+    refresh_connect_candidates(h);
     return LT_OK;
     WRAP_END(LT_ERR_INTERNAL)
 }
@@ -1019,6 +1569,7 @@ int lt_torrent_set_all_pieces_priority(lt_torrent tid, int prio) {
         static_cast<std::size_t>(ti->num_pieces()),
         static_cast<lt::download_priority_t>(static_cast<std::uint8_t>(prio)));
     h.prioritize_pieces(v);
+    refresh_connect_candidates(h);
     return LT_OK;
     WRAP_END(LT_ERR_INTERNAL)
 }
@@ -1046,6 +1597,7 @@ int lt_torrent_prioritize_pieces(lt_torrent tid, const int* prios, int count) {
         v.push_back(static_cast<lt::download_priority_t>(static_cast<std::uint8_t>(p)));
     }
     h.prioritize_pieces(v);
+    refresh_connect_candidates(h);
     return LT_OK;
     WRAP_END(LT_ERR_INTERNAL)
 }
@@ -1079,15 +1631,17 @@ int lt_torrent_we_dont_have(lt_torrent tid, int piece_idx, int prio) {
     lt::io_context& ioc = tor->session().get_context();
     lt::post(ioc, [tor, piece_idx, prio]() {
         lt::piece_index_t const pi{piece_idx};
-        // need_picker() materialises a picker reflecting current have-state
-        // (e.g. a seeding torrent with have_all and no picker), so we_dont_have
-        // works even after the torrent finished.
-        if (!tor->has_picker()) tor->need_picker();
-        tor->set_piece_priority(pi, lt::dont_download);
-        tor->picker().we_dont_have(pi);
-        // Re-apply the requested priority last so the picker will (or won't)
-        // re-request the piece exactly as the caller intends.
-        tor->set_piece_priority(pi,
+        // A stale eviction marker must not reset a newer in-flight download.
+        // In particular, clearing its hash/write bookkeeping can make a valid
+        // peer look corrupt when a queued hash reads a replaced cache entry.
+        if (tor->valid_metadata() && tor->has_picker() && piece_idx >= 0
+            && pi < tor->torrent_file().end_piece()
+            && !tor->picker().is_piece_flushed(pi)) {
+            tor->set_piece_priority(pi,
+                static_cast<lt::download_priority_t>(static_cast<std::uint8_t>(prio)));
+            return;
+        }
+        tor->flow_forget_piece(pi,
             static_cast<lt::download_priority_t>(static_cast<std::uint8_t>(prio)));
     });
     return LT_OK;
@@ -1104,6 +1658,71 @@ int lt_torrent_we_dont_have(lt_torrent tid, int piece_idx, int prio) {
     WRAP_END(LT_ERR_INTERNAL)
 }
 
+int lt_torrent_prune_partial(lt_torrent tid, int piece_idx) {
+    WRAP_BEGIN
+    auto h = get_torrent(tid);
+    if (!h.is_valid()) return set_err(LT_ERR_NOT_FOUND, "torrent not found");
+#ifdef TSL_HAVE_LT_INTERNALS
+    auto tor = h.native_handle();
+    if (!tor) return set_err(LT_ERR_NOT_FOUND, "no native handle");
+    lt::post(tor->session().get_context(), [tor, piece_idx]() {
+        lt::piece_index_t const pi{piece_idx};
+        if (!tor->valid_metadata() || !tor->has_storage() || !tor->has_picker()
+            || piece_idx < 0 || pi >= tor->torrent_file().end_piece()
+            || tor->picker().have_piece(pi)) return;
+        // A hash worker or deferred write completion still owns this data.
+        // Never clear it or synthesize a hash failure that would blame peers.
+        for (auto const& dp : tor->picker().get_download_queue())
+            if (dp.index == pi && (dp.hashing || dp.writing != 0 || dp.locked)) return;
+        using U = typename lt::aux::underlying_index_t<lt::storage_index_t>::type;
+        if (!lt_storage_prune_partial(static_cast<int64_t>(static_cast<U>(tor->storage())), piece_idx)) return;
+        // No native network operation can interleave the cache removal and
+        // picker reset. Late wire blocks are stored normally, never acknowledged
+        // as successful writes while silently discarding their bytes.
+        int const blocks = tor->picker().blocks_in_piece(pi);
+        for (int block = 0; block < blocks; ++block)
+            tor->cancel_block(lt::piece_block{pi, block});
+        tor->set_piece_priority(pi, lt::dont_download);
+        tor->flow_forget_piece(pi, lt::dont_download);
+    });
+#endif
+    return LT_OK;
+    WRAP_END(LT_ERR_INTERNAL)
+}
+
+int lt_torrent_evict_complete(lt_torrent tid, int piece_idx) {
+    WRAP_BEGIN
+    auto h = get_torrent(tid);
+    if (!h.is_valid()) return 0;
+#ifdef TSL_HAVE_LT_INTERNALS
+    auto tor = h.native_handle();
+    if (!tor) return 0;
+    auto result = std::make_shared<std::promise<int>>();
+    auto ready = result->get_future();
+    lt::post(tor->session().get_context(), [tor, piece_idx, result]() {
+        lt::piece_index_t const pi{piece_idx};
+        int removed = 0;
+        if (tor->valid_metadata() && tor->has_storage() && piece_idx >= 0
+            && pi < tor->torrent_file().end_piece()
+            && (!tor->has_picker() || tor->picker().is_piece_flushed(pi))) {
+            // Hash/write completions and cache removal share this context.
+            // Keep the native have bit; reconciliation remains lazy on demand.
+            using U = typename lt::aux::underlying_index_t<lt::storage_index_t>::type;
+            removed = lt_storage_evict_complete(
+                static_cast<int64_t>(static_cast<U>(tor->storage())), piece_idx);
+        }
+        result->set_value(removed);
+    });
+    // A concurrently closing session may stop its context before this task.
+    // Do not strand the Go eviction goroutine during shutdown.
+    if (ready.wait_for(std::chrono::seconds(2)) != std::future_status::ready) return 0;
+    return ready.get();
+#else
+    return 0;
+#endif
+    WRAP_END(0)
+}
+
 int lt_torrent_set_piece_deadline(lt_torrent tid, int piece_idx, int deadline_ms, int alert_when_ready) {
     WRAP_BEGIN
     auto h = get_torrent(tid);
@@ -1111,6 +1730,7 @@ int lt_torrent_set_piece_deadline(lt_torrent tid, int piece_idx, int deadline_ms
     lt::deadline_flags_t flags = {};
     if (alert_when_ready) flags |= lt::torrent_handle::alert_when_available;
     h.set_piece_deadline(lt::piece_index_t{piece_idx}, deadline_ms, flags);
+    refresh_connect_candidates(h);
     return LT_OK;
     WRAP_END(LT_ERR_INTERNAL)
 }
@@ -1211,12 +1831,25 @@ char* lt_session_pop_alerts_json_alloc(lt_session sid, size_t* out_len) {
         if (!slot) { set_err(LT_ERR_NOT_FOUND, "session not found"); return nullptr; }
 
         std::vector<lt::alert*> alerts;
-        {
-            std::lock_guard<std::mutex> lk(slot->pump_mu);
-            slot->s->pop_alerts(&alerts);
-        }
+        // Borrowed alert pointers and the hint queue stay protected until JSON
+        // conversion finishes; a concurrent pop must not invalidate the batch.
+        std::lock_guard<std::mutex> lk(slot->pump_mu);
+        slot->s->pop_alerts(&alerts);
         json arr = json::array();
         for (auto* a : alerts) {
+            if (auto* ready = lt::alert_cast<lt::listen_succeeded_alert>(a)) {
+                if (ready->socket_type == lt::socket_type_t::utp
+                    && !ready->address.is_loopback()
+                    && !slot->restored_dht_nodes.empty()) {
+                    bool enabled = slot->s->get_settings().get_bool(lt::settings_pack::enable_dht);
+                    if (enabled) {
+                        for (auto const& ep : slot->restored_dht_nodes) {
+                            if (ep.address().is_v4() == ready->address.is_v4())
+                                slot->s->add_dht_node({ep.address().to_string(), ep.port()});
+                        }
+                    }
+                }
+            }
             try { arr.push_back(alert_to_json(a)); }
             catch (std::exception const&) { /* skip malformed */ }
         }
@@ -1241,13 +1874,31 @@ static char* parse_atp_to_json(lt::add_torrent_params const& atp, size_t* out_le
     json tr = json::array();
     for (auto const& t : atp.trackers) tr.push_back(t);
     j["trackers"] = std::move(tr);
+    json tiers = json::array();
+    for (std::size_t i = 0; i < atp.trackers.size(); ++i) {
+        int const tier = i < atp.tracker_tiers.size() ? atp.tracker_tiers[i] : 0;
+        while (tiers.size() <= static_cast<std::size_t>(tier)) tiers.push_back(json::array());
+        tiers[tier].push_back(atp.trackers[i]);
+    }
+    j["tracker_tiers"] = std::move(tiers);
     if (atp.ti) {
         auto const& info = atp.ti->info_section();
         j["has_metadata"]  = true;
+        j["private"] = atp.ti->priv();
         j["metadata_size"] = static_cast<int>(info.size());
         j["num_pieces"]    = atp.ti->num_pieces();
         j["piece_length"]  = atp.ti->piece_length();
         j["total_size"]    = atp.ti->total_size();
+        std::string piece_hashes;
+        if (atp.ti->v1()) {
+            piece_hashes.reserve(static_cast<std::size_t>(atp.ti->num_pieces()) * 40);
+            for (int i = 0; i < atp.ti->num_pieces(); ++i)
+                piece_hashes += sha1_hex(atp.ti->hash_for_piece(lt::piece_index_t{i}));
+        }
+        j["piece_hashes"] = std::move(piece_hashes);
+        json seeds = json::array();
+        for (auto const& seed : atp.ti->web_seeds()) { if (seeds.size() == 16) break; seeds.push_back(seed.url); }
+        j["web_seeds"] = std::move(seeds);
     } else {
         j["has_metadata"]  = false;
         j["metadata_size"] = 0;
@@ -1288,6 +1939,7 @@ char* lt_parse_torrent_bytes_alloc(const uint8_t* buf, size_t len, size_t* out_l
         atp.name = ti->name();
         for (auto const& tracker : ti->trackers()) {
             atp.trackers.push_back(tracker.url);
+            atp.tracker_tiers.push_back(tracker.tier);
         }
         return parse_atp_to_json(atp, out_len);
     } catch (std::exception const& e) {

@@ -35,13 +35,16 @@ type Piece struct {
 	// accessed is the last read/write unix time; atomic so ReadAt can stamp it
 	// under the shared (read) lock without racing concurrent readers of the same
 	// piece, and so Accessed() can be read lock-free for LRU eviction sorting.
-	accessed atomic.Int64
-	complete bool
+	accessed     atomic.Int64
+	complete     bool
+	hashRecovery bool // native clear-piece fence retained the full backend
 }
 
 func newPiece(c *Cache, id int) *Piece {
 	p := &Piece{cache: c, Id: id}
-	if useDisk() {
+	if c.diskRoot != "" {
+		p.disk = newDiskPiece(p, c.diskRoot)
+	} else if useDisk() {
 		p.disk = newDiskPiece(p, savePath())
 	} else {
 		p.mem = newMemPiece(p)
@@ -97,12 +100,9 @@ func (p *Piece) WriteAt(b []byte, off int64) (int, error) {
 
 // markAvailLocked flags the 16 KiB blocks FULLY covered by the write [off,
 // off+n) as available. Called with p.mu held (from WriteAt). Only whole blocks
-// count: a short write into the torrent's very last piece (whose real length is
-// below PieceLength, which we don't know here) leaves its tail block unmarked,
-// so reads there simply fall back to waiting for the hash-verified complete
-// flag — one piece per torrent, always preloaded/pinned anyway (EOF index).
+// count, except for a write covering the exact short final block from metadata.
 func (p *Piece) markAvailLocked(off, n int64) {
-	plen := p.cache.PieceLength
+	plen := p.expectedSize()
 	if plen <= 0 || n <= 0 {
 		return
 	}
@@ -125,11 +125,16 @@ func (p *Piece) markAvailLocked(off, n int64) {
 // off: the whole remainder for a complete piece, else the run of consecutive
 // written blocks from off (0 when the block under off hasn't arrived). This is
 // the responsive-read predicate: Reader serves exactly this prefix without
-// waiting for the rest of the piece or its hash.
+// waiting for the rest of the piece or its hash. Cache readers additionally
+// enforce the whole-piece verification gate for torrents with mirrors.
 func (p *Piece) availableFrom(off int64) int64 {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	plen := p.cache.PieceLength
+	return p.availableFromLocked(off)
+}
+
+func (p *Piece) availableFromLocked(off int64) int64 {
+	plen := p.expectedSize()
 	if plen <= 0 || off < 0 || off >= plen {
 		return 0
 	}
@@ -162,6 +167,10 @@ func (p *Piece) availableFrom(off int64) int64 {
 func (p *Piece) ReadAt(b []byte, off int64) (int, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
+	return p.readAtLocked(b, off)
+}
+
+func (p *Piece) readAtLocked(b []byte, off int64) (int, error) {
 	var (
 		n   int
 		err error
@@ -180,7 +189,51 @@ func (p *Piece) ReadAt(b []byte, off int64) (int, error) {
 // expectedSize accounts for the final piece being potentially shorter
 // than PieceLength.
 func (p *Piece) expectedSize() int64 {
+	if total := p.cache.totalSize.Load(); total > 0 && p.Id == p.cache.NumPieces-1 {
+		return total - int64(p.Id)*p.cache.PieceLength
+	}
 	return p.cache.PieceLength
+}
+
+// An alert can outlive eviction and refer to an older incarnation of this
+// piece. Never let it mark a new partial buffer complete or expose its holes.
+func (p *Piece) markVerifiedComplete() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.complete {
+		return false
+	}
+	expected := p.expectedSize()
+	if p.cache.totalSize.Load() == 0 && p.Id == p.cache.NumPieces-1 {
+		// Standalone callers without metadata retain short-final-piece support.
+		expected = p.size
+	}
+	if expected <= 0 || p.size < expected {
+		return false
+	}
+	blocks := int((expected + pieceBlockSize - 1) / pieceBlockSize)
+	if p.hashRecovery {
+		// Native just hashed the retained backend, including any unchanged good
+		// blocks. A successful hash is authoritative after its failure fence.
+		p.avail = make([]uint64, (blocks+63)/64)
+		for b := 0; b < blocks; b++ {
+			p.avail[b>>6] |= 1 << uint(b&63)
+		}
+		p.hashRecovery = false
+		p.complete = true
+		return true
+	}
+	for b := 0; b < blocks; b++ {
+		if p.cache.totalSize.Load() == 0 && p.Id == p.cache.NumPieces-1 &&
+			int64(b+1)*pieceBlockSize > expected {
+			break
+		}
+		if b>>6 >= len(p.avail) || p.avail[b>>6]&(1<<uint(b&63)) == 0 {
+			return false
+		}
+	}
+	p.complete = true
+	return true
 }
 
 // release frees the in-memory buffer only. The on-disk file (if any)
@@ -189,6 +242,9 @@ func (p *Piece) expectedSize() int64 {
 func (p *Piece) release() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.disk != nil {
+		p.disk.Close()
+	}
 	if p.mem != nil {
 		p.mem.Release()
 	}
@@ -201,6 +257,11 @@ func (p *Piece) release() {
 func (p *Piece) wipe() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	p.wipeLocked()
+}
+
+func (p *Piece) wipeLocked() {
+	p.hashRecovery = false
 	if p.disk != nil {
 		p.disk.Release()
 	}

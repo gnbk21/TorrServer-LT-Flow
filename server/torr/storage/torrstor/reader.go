@@ -101,15 +101,10 @@ const windowLingerDelay = 3 * time.Second
 // it matters while the buffer still fills ahead. Mirrors elementum's
 // PrioritizePieces tiering, combined with our existing deadline tiers.
 //
-// Every window piece gets a deadline on an ASCENDING ramp, so libtorrent's
-// time-critical picker fetches the whole window strictly in playback order — no
-// out-of-order holes ahead of the playhead, and the far pieces are downloaded
-// before a leading read-ahead connection jumps to them. The ramp (not a flat
-// near-0 deadline across the window — the old behaviour that flooded the
-// time-critical queue with unmeetable deadlines and could collapse a small swarm
-// after a seek) keeps each later piece strictly less urgent than the one before,
-// so the picker never busy-requests duplicate blocks: the playhead piece is
-// always first, the tail merely queued behind it.
+// Several nearby pieces share a deadline tier when no qualified media rate is
+// known. Metadata/stable consumption supplies byte/rate-aware timing in the cache
+// reconciler. Priorities and deadlines express demand, not strict completion
+// order: native peers are asynchronous and may hedge stalled blocks.
 func windowPriority(pos int) (prio, deadlineMs int) {
 	switch {
 	case pos <= 0: // NOW — the piece being read
@@ -253,7 +248,12 @@ func NewReader(cache *Cache, handle *lt.Torrent, file FileInfo, group ...string)
 	r.winLast.Store(-1)
 	r.waitPiece.Store(-1)
 	r.lastRead.Store(time.Now().Unix()) // fresh reader is active until proven idle
-	cache.registerReader(r)
+	if !cache.registerReader(r) {
+		return nil
+	}
+	if !r.internal {
+		cache.requestBurstIndex(file)
+	}
 	// Capacity grows automatically to fit this reader's working set now that it
 	// is registered (capacity() sums every reader live), so eviction won't drop
 	// pieces we're about to play (forward window) or just played (behind margin,
@@ -369,7 +369,8 @@ func (r *Reader) Read(p []byte) (int, error) {
 		// produced bytes and the next ones aren't in yet, hand back what we have —
 		// io.Copy simply calls Read again, which then parks on this exact spot. With
 		// nothing read yet (written == 0) we must block: this is the very byte the
-		// client asked for.
+		// client asked for. Mirrors require whole-piece hash verification; both
+		// modes recheck their gate under the copy lock below.
 		avail := r.cache.readableAt(piece, pieceOff)
 		miss := avail <= 0
 		if avail <= 0 {
@@ -391,9 +392,19 @@ func (r *Reader) Read(p []byte) (int, error) {
 		if end > want {
 			end = want
 		}
-		n, err := r.cache.readPiece(piece, pieceOff, p[written:int(end)])
+		n, err := r.cache.readStreamPiece(piece, pieceOff, p[written:int(end)])
+		if n == 0 && (err == nil || err == io.EOF || err == errOutOfPiece) {
+			if written > 0 {
+				break
+			}
+			if r.ctx != nil && r.ctx.Err() != nil {
+				return 0, r.ctx.Err()
+			}
+			r.ensuredAtMs = 0 // availability changed between inspection and copying
+			continue          // a cache eviction is not the end of the media file
+		}
 		if n > 0 {
-			if settings.CurrentFlow().MetricsEnabled {
+			if settings.CurrentFlow().MetricsEnabled && r.group != ProbeReaderGroup {
 				if miss {
 					r.cache.flowCounters.Miss(n)
 				} else {
@@ -461,9 +472,6 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 	if !fresh {
 		r.ensuredPiece = piece
 		r.ensuredAtMs = nowMs
-		// This reader genuinely needs the piece now (e.g. a seek back into a region we
-		// abandoned): lift any straggler-drop suppression so its blocks are stored.
-		r.cache.clearAbandoned(piece)
 		if r.handle != nil {
 			// On-demand have/cache reconciliation: if libtorrent thinks it already has
 			// this piece but our cache doesn't (we evicted it, or a seek landed in an
@@ -471,7 +479,7 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 			// until timeout. Un-have just this one piece so the picker re-downloads it.
 			// This replaces un-having on every eviction, which churned the picker and
 			// stalled the whole download once the cache started evicting mid-stream.
-			if r.handle.HasPiece(piece) {
+			if r.cache.consumeEvicted(piece) || r.handle.HasPiece(piece) {
 				// Un-have it and leave it at top priority (applied atomically inside
 				// WeDontHave) so the picker re-requests it immediately.
 				if s := settings.BTsets(); s != nil && s.EnableDebug {
@@ -501,6 +509,10 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 		}
 	}
 	parent := r.ctx
+	if !r.internal {
+		r.cache.flowWaiting.Add(1)
+		defer r.cache.flowWaiting.Add(-1)
+	}
 	if parent == nil {
 		parent = context.Background()
 	}
@@ -534,8 +546,26 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 		r.cache.applyStreamPriorities()
 	}
 	waitStarted := time.Now()
-	ready := r.cache.WaitForBytes(ctx, piece, pieceOff)
-	if settings.CurrentFlow().MetricsEnabled {
+	ready := r.cache.waitForBytes(ctx, piece, pieceOff, func() {
+		r.cache.lastApplyMs.Store(0)
+		r.cache.applyStreamPriorities()
+		if r.handle != nil {
+			// A late hash completion can reassert ownership after the initial
+			// on-demand reset. Reconcile this exact parked offset independently
+			// of the group's held anchor and refresh its urgent deadline last.
+			if r.cache.readableAt(piece, pieceOff) == 0 && r.handle.HasPiece(piece) {
+				_ = r.handle.WeDontHave(piece, ltTopPriority)
+			}
+			_ = r.handle.SetPieceDeadline(piece, 0, false)
+			if s := settings.BTsets(); s != nil && s.EnableDebug {
+				if status, err := r.handle.Status(); err == nil {
+					log.TLogln("torrstor.Reader: parked reconcile piece", piece, "state", status.State,
+						"have", r.handle.HasPiece(piece), "peers", status.NumPeers, "candidates", status.ConnectCandidates)
+				}
+			}
+		}
+	})
+	if settings.CurrentFlow().MetricsEnabled && r.group != ProbeReaderGroup {
 		r.cache.flowCounters.Wait(time.Since(waitStarted))
 	}
 	if !ready {
@@ -681,6 +711,7 @@ func (r *Reader) scheduleWindow() {
 	if r.internal {
 		return
 	}
+	r.cache.requestBurstIndex(r.file)
 	plen := r.cache.PieceLength
 	if plen <= 0 {
 		return

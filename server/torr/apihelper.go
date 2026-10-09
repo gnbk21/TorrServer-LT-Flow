@@ -1,13 +1,17 @@
 package torr
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
 	"time"
 
+	"server/flow"
 	"server/log"
 	"server/lt"
 	sets "server/settings"
@@ -17,6 +21,17 @@ import (
 
 // bts is the package-level engine handle initialised by BTServer.Connect.
 var bts *BTServer
+
+var engineRetryContext, cancelEngineRetries = context.WithCancel(context.Background())
+
+func reconnectEngine() error {
+	ctx, cancel := context.WithTimeout(engineRetryContext, 5*time.Second)
+	defer cancel()
+	return flow.RetryTransient(ctx, bts.Connect, func(err error) bool {
+		var networkError net.Error
+		return errors.Is(err, lt.ErrTimeout) || (errors.As(err, &networkError) && networkError.Timeout())
+	})
+}
 
 // InitApiHelper is called by BTServer.Connect to publish the engine
 // instance to the rest of this package.
@@ -79,7 +94,7 @@ func AddTorrent(spec *TorrentSpec, title, poster, data, category string) (*Torre
 		if title == "" && dbt != nil {
 			t.Title = dbt.Title
 		}
-		if t.Title == "" && t.lh != nil {
+		if t.Title == "" && t.LTHandle() != nil {
 			t.Title = t.Name()
 		}
 	}
@@ -182,14 +197,14 @@ func SetTorrent(hashHex, title, poster, category, data string) *Torrent {
 		tor = GetTorrent(hashHex)
 		if tor != nil {
 			tor.GotInfo()
-			if tor.lh != nil {
+			if tor.LTHandle() != nil {
 				title = tor.Name()
 			}
 		}
 	}
 
 	if tor != nil {
-		if title == "" && tor.lh != nil {
+		if title == "" && tor.LTHandle() != nil {
 			title = tor.Name()
 		}
 		tor.Title = title
@@ -216,12 +231,21 @@ func SetTorrent(hashHex, title, poster, category, data string) *Torrent {
 
 // RemTorrent removes a torrent from memory, the DB and (when configured)
 // the on-disk cache directory.
-func RemTorrent(hashHex string) {
+func RemTorrent(hashHex string) error {
 	if sets.ReadOnly {
 		log.TLogln("torr.RemTorrent: read-only DB mode:", hashHex)
-		return
+		return errors.New("read-only DB mode")
 	}
 	hash := NewHashFromHex(hashHex)
+	if bts != nil && bts.preparation != nil {
+		if handled, err := bts.preparation.removeTorrentJobs(hash); handled {
+			if err != nil {
+				return err
+			}
+			RemTorrentDB(hash)
+			return nil // cleanup owns the native handle and retained files
+		}
+	}
 
 	tor := bts.GetTorrent(hash)
 	if tor == nil {
@@ -229,7 +253,7 @@ func RemTorrent(hashHex string) {
 		if sets.BTsets().UseDisk && hashHex != "" && hashHex != "/" {
 			os.RemoveAll(filepath.Join(sets.BTsets().TorrentsSavePath, hashHex))
 		}
-		return
+		return nil
 	}
 
 	closeCh := tor.closeCh
@@ -248,6 +272,7 @@ func RemTorrent(hashHex string) {
 		}
 	}
 	RemTorrentDB(hash)
+	return nil
 }
 
 // ListTorrent merges in-memory torrents with DB-only records.
@@ -278,10 +303,14 @@ func DropTorrent(hashHex string) {
 }
 
 // SetSettings applies a new settings_pack and bounces the session.
-func SetSettings(set *sets.BTSets) {
+func SetSettings(set *sets.BTSets) error {
+	return ApplyConfiguration(set, "", "now")
+}
+
+func applySettings(set *sets.BTSets) error {
 	if sets.ReadOnly {
 		log.TLogln("torr.SetSettings: read-only DB mode")
-		return
+		return errors.New("database is read-only")
 	}
 	// The storage-backend preferences (json vs config.db for Settings/Viewed)
 	// are owned exclusively by the /storage/settings switch endpoint, which
@@ -298,19 +327,36 @@ func SetSettings(set *sets.BTSets) {
 			trackersChanged = set.TrackersListURL != cur.TrackersListURL || set.DefaultTrackers != cur.DefaultTrackers
 		}
 	}
-	sets.SetBTSets(set)
+	previous := sets.CloneSettings(sets.BTsets())
+	restart := sets.NeedsEngineRestart(previous, set)
+	if err := sets.SetBTSetsChecked(set); err != nil {
+		return err
+	}
 	if trackersChanged {
 		utils.InvalidateTrackersCache()
 	}
+	if !restart || bts == nil {
+		return nil
+	}
 	log.TLogln("torr.SetSettings: dropping all torrents")
 	dropAllTorrent()
-	time.Sleep(time.Second)
 	log.TLogln("torr.SetSettings: disconnect")
 	bts.Disconnect()
 	log.TLogln("torr.SetSettings: reconnect")
-	if err := bts.Connect(); err != nil {
+	if err := reconnectEngine(); err != nil {
 		log.TLogln("torr.SetSettings: connect:", err)
+		// Do not publish a failed engine configuration as effective. Restore
+		// the previous persisted configuration before attempting recovery.
+		if restoreErr := sets.SetBTSetsChecked(previous); restoreErr != nil {
+			return errors.Join(err, fmt.Errorf("settings rollback: %w", restoreErr))
+		}
+		utils.InvalidateTrackersCache()
+		if restoreErr := reconnectEngine(); restoreErr != nil {
+			return errors.Join(err, fmt.Errorf("engine rollback: %w", restoreErr))
+		}
+		return fmt.Errorf("configuration rejected; previous settings restored: %w", err)
 	}
+	return nil
 }
 
 // SetDefSettings resets settings to defaults and bounces the session.
@@ -319,22 +365,16 @@ func SetDefSettings() {
 		log.TLogln("torr.SetDefSettings: read-only DB mode")
 		return
 	}
-	sets.SetDefaultConfig()
-	utils.InvalidateTrackersCache()
-	log.TLogln("torr.SetDefSettings: dropping all torrents")
-	dropAllTorrent()
-	time.Sleep(time.Second)
-	bts.Disconnect()
-	if err := bts.Connect(); err != nil {
-		log.TLogln("torr.SetDefSettings: connect:", err)
+	if err := SetSettings(sets.NewDefaultConfig()); err != nil {
+		log.TLogln("torr.SetDefSettings:", err)
 	}
 }
 
 func dropAllTorrent() {
 	for _, t := range bts.ListTorrents() {
 		t.markClosed()
-		if t.lh != nil {
-			_ = t.lh.Remove(false)
+		if handle := t.LTHandle(); handle != nil {
+			_ = handle.Remove(false)
 		}
 	}
 }
@@ -344,6 +384,9 @@ func dropAllTorrent() {
 // announces, and a wedged teardown must not leave a half-dead server that
 // still answers HTTP but can never be stopped via the API.
 func Shutdown() {
+	cancelEngineRetries()
+	log.StopConsoleStatus()
+	log.Event("INFO", "Server", "Stopping...")
 	done := make(chan struct{})
 	go func() {
 		bts.Disconnect()
@@ -352,10 +395,11 @@ func Shutdown() {
 	}()
 	select {
 	case <-done:
+		log.Event("INFO", "Server", "Stopped.")
 	case <-time.After(15 * time.Second):
-		log.TLogln("torr.Shutdown: teardown timed out — forcing exit")
+		log.Event("WARN", "Server", "Teardown timed out; forcing exit.")
 	}
-	log.TLogln("torr.Shutdown: received shutdown — quit")
+	log.CloseConsole()
 	os.Exit(0)
 }
 
@@ -364,7 +408,7 @@ func Shutdown() {
 // snapshot fetched through the alert pump (bounded wait, so /stat cannot
 // hang); torrent details come from the same state the web UI uses.
 func WriteStatus(w io.Writer) {
-	if bts == nil || bts.session == nil {
+	if bts == nil || bts.Session() == nil {
 		w.Write([]byte("session not running\n"))
 		return
 	}

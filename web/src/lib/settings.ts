@@ -1,5 +1,10 @@
 import type { BTSettings } from "../types/settings";
 export const flowBounds: Record<string, readonly [number, number]> = {
+  GlobalCacheBudgetMB: [0, 1048576],
+  WarmCacheBudgetMB: [0, 65536],
+  PreparationConcurrency: [1, 16],
+  ManagementRateLimit: [0, 60000],
+  PlaybackTokenTTL: [30, 86400],
   BootstrapHeadMB: [1, 128],
   ProbeGraceMs: [0, 10000],
   StartupBufferSeconds: [1, 60],
@@ -8,6 +13,7 @@ export const flowBounds: Record<string, readonly [number, number]> = {
   StartupSafetyFactorPct: [100, 300],
   TargetBufferSeconds: [10, 180],
   MaxBufferSeconds: [10, 600],
+  PreparationQuotaMB: [64, 1048576],
   WarmSessionTimeoutSec: [30, 1800],
   NetworkRetryMinSec: [1, 60],
   NetworkRetryMaxSec: [1, 600],
@@ -78,10 +84,10 @@ export function validateSettings(
       errors[key] = `${min}–${max}`;
   }
   for (const [key, min, max] of [
-    ["CacheSize", 1, Number.MAX_SAFE_INTEGER],
+    ["CacheSize", 1, 16 * 1024 * 1024 * 1024],
     ["ReaderReadAHead", 5, 100],
     ["PreloadCache", 0, 100],
-    ["ConnectionsLimit", 1, 100000],
+    ["ConnectionsLimit", 1, 10000],
     ["DHTConnectionsLimit", 1, 100000],
     ["PeersListenPort", 0, 65535],
     ["SslPort", 0, 65535],
@@ -106,6 +112,9 @@ export function validateSettings(
       errors[`Flow.${max}`] = "settings.validationOrder";
   if (values.UseDisk && !String(values.TorrentsSavePath || "").trim())
     errors.TorrentsSavePath = "settings.pathRequired";
+  const cachePath = String(values.TorrentsSavePath || "").trim();
+  if (values.UseDisk && (cachePath.startsWith('"') || cachePath.endsWith('"')))
+    errors.TorrentsSavePath = "settings.pathNoQuotes";
   if (
     values["Flow.BootstrapTailMode"] !== undefined &&
     values["Flow.BootstrapTailMode"] !== "upstream-auto"

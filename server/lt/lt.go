@@ -42,6 +42,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 )
@@ -181,7 +182,9 @@ func cAlloc(call func(*C.size_t) *C.char) ([]byte, error) {
 
 // Session wraps a libtorrent session.
 type Session struct {
-	id C.lt_session
+	id        C.lt_session // immutable identity; native lookup fences destruction
+	closed    atomic.Bool
+	closeDone chan struct{}
 }
 
 // SessionConfig is a thin alias over the JSON-encodable settings_pack dict.
@@ -193,6 +196,11 @@ type SessionConfig map[string]any
 // NewSession constructs a libtorrent session with the given settings.
 // Pass nil for defaults.
 func NewSession(cfg SessionConfig) (*Session, error) {
+	return NewSessionWithDHT(cfg, nil)
+}
+
+// NewSessionWithDHT restores only native DHT routing state before networking starts.
+func NewSessionWithDHT(cfg SessionConfig, state []byte) (*Session, error) {
 	var cs *C.char
 	if cfg != nil {
 		b, err := json.Marshal(cfg)
@@ -202,11 +210,46 @@ func NewSession(cfg SessionConfig) (*Session, error) {
 		cs = C.CString(string(b))
 		defer C.free(unsafe.Pointer(cs))
 	}
-	id := C.lt_session_new(cs)
+	if len(state) > 1<<20 {
+		return nil, ErrInvalid
+	}
+	var ptr *C.char
+	if len(state) > 0 {
+		ptr = (*C.char)(unsafe.Pointer(&state[0]))
+	}
+	id := C.lt_session_new_with_dht(cs, ptr, C.size_t(len(state)))
 	if id == 0 {
 		return nil, lastError()
 	}
-	return &Session{id: id}, nil
+	return &Session{id: id, closeDone: make(chan struct{})}, nil
+}
+
+// NormalizeDHTState validates bounded native state and strips every non-DHT field.
+func NormalizeDHTState(state []byte) ([]byte, error) {
+	if len(state) == 0 || len(state) > 1<<20 {
+		return nil, ErrInvalid
+	}
+	return cAlloc(func(n *C.size_t) *C.char {
+		return C.lt_dht_state_normalize((*C.char)(unsafe.Pointer(&state[0])), C.size_t(len(state)), n)
+	})
+}
+
+func DHTStateNodes(state []byte) (int, error) {
+	if len(state) == 0 || len(state) > 1<<20 {
+		return 0, ErrInvalid
+	}
+	n := int(C.lt_dht_state_nodes((*C.char)(unsafe.Pointer(&state[0])), C.size_t(len(state))))
+	if n < 0 {
+		return 0, codeToErr(C.int(n))
+	}
+	return n, nil
+}
+
+func (s *Session) DHTState() ([]byte, error) {
+	if s == nil || s.id == 0 || s.closed.Load() {
+		return nil, ErrInvalid
+	}
+	return cAlloc(func(n *C.size_t) *C.char { return C.lt_session_dht_state(s.id, n) })
 }
 
 // Close destroys the session and drops all torrents (without persisting).
@@ -215,14 +258,18 @@ func (s *Session) Close() error {
 	if s == nil || s.id == 0 {
 		return nil
 	}
+	if !s.closed.CompareAndSwap(false, true) {
+		<-s.closeDone // concurrent callers also join native disk/session teardown
+		return nil
+	}
+	defer close(s.closeDone)
 	rc := C.lt_session_destroy(s.id)
-	s.id = 0
 	return codeToErr(rc)
 }
 
 // ApplySettings updates a running session.
 func (s *Session) ApplySettings(cfg SessionConfig) error {
-	if s == nil || s.id == 0 {
+	if s == nil || s.id == 0 || s.closed.Load() {
 		return ErrInvalid
 	}
 	b, err := json.Marshal(cfg)
@@ -237,7 +284,7 @@ func (s *Session) ApplySettings(cfg SessionConfig) error {
 // SettingInt reads back an int settings_pack value from the live session by
 // name (e.g. "dht_max_peers"). Useful to confirm a setting was actually applied.
 func (s *Session) SettingInt(name string) (int64, error) {
-	if s == nil || s.id == 0 {
+	if s == nil || s.id == 0 || s.closed.Load() {
 		return 0, ErrInvalid
 	}
 	cName := C.CString(name)
@@ -252,7 +299,7 @@ func (s *Session) SettingInt(name string) (int64, error) {
 // SetIPFilter installs an IP filter from a P2P-format text block.
 // Pass "" to clear the filter.
 func (s *Session) SetIPFilter(p2pText string) error {
-	if s == nil || s.id == 0 {
+	if s == nil || s.id == 0 || s.closed.Load() {
 		return ErrInvalid
 	}
 	cs := C.CString(p2pText)
@@ -262,7 +309,7 @@ func (s *Session) SetIPFilter(p2pText string) error {
 
 // SetAlertMask installs the libtorrent alert_mask. Pass 0 for defaults.
 func (s *Session) SetAlertMask(mask uint32) error {
-	if s == nil || s.id == 0 {
+	if s == nil || s.id == 0 || s.closed.Load() {
 		return ErrInvalid
 	}
 	return codeToErr(C.lt_session_set_alert_mask(s.id, C.uint32_t(mask)))
@@ -280,7 +327,8 @@ type AddTorrentParams struct {
 	InfoBytes []byte
 	// Trackers is a list of announce URLs appended on top of whatever the
 	// link or metadata already carries.
-	Trackers []string
+	Trackers     []string
+	TrackerTiers [][]string
 	// SavePath is the directory libtorrent's default storage would use
 	// (ignored once the custom storage is wired in Etap 4).
 	SavePath string
@@ -290,15 +338,15 @@ type AddTorrentParams struct {
 	// are already present locally. PieceCount must be set to the number
 	// of valid bits (typically the torrent's piece count). When non-empty,
 	// libtorrent skips the post-add hash verification and treats the
-	// listed pieces as known-complete (matches the "trust file-sizes"
-	// resume policy).
+	// listed pieces as known-complete. The caller must verify exact lengths and
+	// metadata hashes first; file sizes alone never establish completeness.
 	HavePieces []byte
 	PieceCount int
 }
 
 // AddTorrent adds a torrent to the session and returns a handle.
 func (s *Session) AddTorrent(p AddTorrentParams) (*Torrent, error) {
-	if s == nil || s.id == 0 {
+	if s == nil || s.id == 0 || s.closed.Load() {
 		return nil, ErrInvalid
 	}
 	var (
@@ -312,15 +360,16 @@ func (s *Session) AddTorrent(p AddTorrentParams) (*Torrent, error) {
 		cLink = C.CString(p.Link)
 		defer C.free(unsafe.Pointer(cLink))
 	}
-	if len(p.Trackers) > 0 {
-		joined := ""
-		for i, t := range p.Trackers {
-			if i > 0 {
-				joined += ","
-			}
-			joined += t
+	if p.TrackerTiers != nil || len(p.Trackers) > 0 {
+		tiers := p.TrackerTiers
+		if tiers == nil {
+			tiers = [][]string{p.Trackers}
 		}
-		cTrackers = C.CString(joined)
+		raw, err := json.Marshal(tiers)
+		if err != nil {
+			return nil, err
+		}
+		cTrackers = C.CString(string(raw))
 		defer C.free(unsafe.Pointer(cTrackers))
 	}
 	if p.SavePath != "" {
@@ -354,17 +403,23 @@ func (s *Session) AddTorrent(p AddTorrentParams) (*Torrent, error) {
 
 // Torrent is a handle to a single torrent inside a Session.
 type Torrent struct {
-	sess *Session
-	id   C.lt_torrent
+	sess    *Session
+	id      C.lt_torrent // immutable so captured readers remain safe during Remove
+	removed atomic.Bool
 }
 
 // ID returns the opaque shim handle.
-func (t *Torrent) ID() int64 { return int64(t.id) }
+func (t *Torrent) ID() int64 {
+	if t == nil || t.removed.Load() {
+		return 0
+	}
+	return int64(t.id)
+}
 
 // Remove deletes the torrent from the session. If deleteFiles is true,
 // libtorrent also unlinks the on-disk data (currently unused — see Etap 4).
 func (t *Torrent) Remove(deleteFiles bool) error {
-	if t == nil || t.id == 0 || t.sess == nil {
+	if t == nil || t.id == 0 || t.sess == nil || !t.removed.CompareAndSwap(false, true) {
 		return ErrInvalid
 	}
 	df := C.int(0)
@@ -372,8 +427,8 @@ func (t *Torrent) Remove(deleteFiles bool) error {
 		df = 1
 	}
 	rc := C.lt_torrent_remove(t.sess.id, t.id, df)
-	if rc == C.LT_OK {
-		t.id = 0
+	if rc != C.LT_OK {
+		t.removed.Store(false)
 	}
 	return codeToErr(rc)
 }
@@ -381,6 +436,19 @@ func (t *Torrent) Remove(deleteFiles bool) error {
 func (t *Torrent) Pause() error        { return codeToErr(C.lt_torrent_pause(t.id)) }
 func (t *Torrent) Resume() error       { return codeToErr(C.lt_torrent_resume(t.id)) }
 func (t *Torrent) ForceRecheck() error { return codeToErr(C.lt_torrent_force_recheck(t.id)) }
+
+func (t *Torrent) ReplaceTrackers(tiers [][]string) error {
+	raw, err := json.Marshal(tiers)
+	if err != nil {
+		return err
+	}
+	if tiers == nil {
+		raw = []byte("[]")
+	}
+	cs := C.CString(string(raw))
+	defer C.free(unsafe.Pointer(cs))
+	return codeToErr(C.lt_torrent_replace_trackers(t.id, cs))
+}
 
 // ForceReannounce re-announces to all trackers immediately (ignoring the min
 // interval). ForceDhtAnnounce does the same for the DHT. Used at playback start
@@ -450,6 +518,10 @@ func (t *Torrent) HasPiece(piece int) bool {
 	return C.lt_torrent_have_piece(t.id, C.int(piece)) == 1
 }
 
+// CacheReconciliationSupported reports the static build's native cache API.
+// Shared distro builds may omit the required internal symbols.
+func CacheReconciliationSupported() bool { return C.lt_cache_reconciliation_supported() == 1 }
+
 // PieceLength returns the piece length in bytes (0 before metadata).
 func (t *Torrent) PieceLength() int64 { return int64(C.lt_torrent_piece_length(t.id)) }
 
@@ -508,6 +580,17 @@ func (t *Torrent) PrioritizePieces(prios []int) error {
 // a top priority (7) to re-download it now, 0 to leave it lazy.
 func (t *Torrent) WeDontHave(piece, prio int) error {
 	return codeToErr(C.lt_torrent_we_dont_have(t.id, C.int(piece), C.int(prio)))
+}
+
+// PrunePartial schedules pruning after native write/hash work has settled.
+func (t *Torrent) PrunePartial(piece int) error {
+	return codeToErr(C.lt_torrent_prune_partial(t.id, C.int(piece)))
+}
+
+// EvictPiece removes complete cache data only after native write/hash ownership
+// settles. Never call while holding a cache lock or from a storage callback.
+func (t *Torrent) EvictPiece(piece int) bool {
+	return C.lt_torrent_evict_complete(t.id, C.int(piece)) == 1
 }
 
 // SetPieceDeadline sets a soft deadline (in ms) for a piece, optionally
@@ -577,6 +660,7 @@ type Status struct {
 	PieceLength          int64   `json:"piece_length"`
 	TotalSize            int64   `json:"total_size"`
 	HasMetadata          bool    `json:"has_metadata"`
+	Private              bool    `json:"private"`
 }
 
 // Status returns the current torrent_status, decoded from the shim's JSON.
@@ -598,16 +682,22 @@ func (t *Torrent) Status() (*Status, error) {
 
 // Alert is one entry produced by the shim's alert pump.
 type Alert struct {
-	Type        string          `json:"type"`
-	Category    uint32          `json:"category"`
-	Message     string          `json:"message"`
-	Torrent     int64           `json:"torrent,omitempty"`
-	TorrentHash string          `json:"torrent_hash,omitempty"`
-	Piece       int             `json:"piece,omitempty"`
-	Block       int             `json:"block,omitempty"`
-	URL         string          `json:"url,omitempty"`
-	Peers       int             `json:"peers,omitempty"`
-	Error       string          `json:"error,omitempty"`
+	Port             int    `json:"port,omitempty"`
+	Transport        string `json:"transport,omitempty"`
+	IPv6             bool   `json:"ipv6,omitempty"`
+	Type             string `json:"type"`
+	Category         uint32 `json:"category"`
+	ErrorCode        int    `json:"error_code,omitempty"`
+	Operation        int    `json:"operation,omitempty"`
+	DisconnectReason string `json:"disconnect_reason,omitempty"`
+	Message          string `json:"message"`
+	Torrent          int64  `json:"torrent,omitempty"`
+	TorrentHash      string `json:"torrent_hash,omitempty"`
+	Piece            int    `json:"piece,omitempty"`
+	Block            int    `json:"block,omitempty"`
+	URL              string `json:"url,omitempty"`
+	Peers            int    `json:"peers,omitempty"`
+	Error            string `json:"error,omitempty"`
 	// Counters is only set on session_stats alerts: metric name → value,
 	// as serialized by the shim from lt::session_stats_metrics().
 	Counters map[string]int64 `json:"counters,omitempty"`
@@ -668,14 +758,113 @@ func (s *Session) RequestSessionStats() error {
 // ParsedTorrent is the decoded form of a magnet URI or .torrent file as
 // emitted by the shim's parsers.
 type ParsedTorrent struct {
-	InfoHash     string   `json:"info_hash"`
-	DisplayName  string   `json:"display_name"`
-	Trackers     []string `json:"trackers"`
-	HasMetadata  bool     `json:"has_metadata"`
-	MetadataSize int      `json:"metadata_size"`
-	NumPieces    int      `json:"num_pieces,omitempty"`
-	PieceLength  int64    `json:"piece_length,omitempty"`
-	TotalSize    int64    `json:"total_size,omitempty"`
+	WebSeeds     []string   `json:"web_seeds"`
+	PieceHashes  string     `json:"piece_hashes,omitempty"`
+	InfoHash     string     `json:"info_hash"`
+	DisplayName  string     `json:"display_name"`
+	Trackers     []string   `json:"trackers"`
+	TrackerTiers [][]string `json:"tracker_tiers"`
+	Private      bool       `json:"private"`
+	HasMetadata  bool       `json:"has_metadata"`
+	MetadataSize int        `json:"metadata_size"`
+	NumPieces    int        `json:"num_pieces,omitempty"`
+	PieceLength  int64      `json:"piece_length,omitempty"`
+	TotalSize    int64      `json:"total_size,omitempty"`
+}
+
+func (t *Torrent) SetURLSeed(url string, remove, allowLocal bool) error {
+	// A source update may race cleanup after activating a database-only torrent.
+	// Treat the detached snapshot as unavailable rather than dereferencing it.
+	if t == nil {
+		return ErrInvalid
+	}
+	value := C.CString(url)
+	defer C.free(unsafe.Pointer(value))
+	var removed, local C.int
+	if remove {
+		removed = 1
+	}
+	if allowLocal {
+		local = 1
+	}
+	return codeToErr(C.lt_torrent_url_seed(t.id, value, removed, local))
+}
+
+// SparseSnapshot contains aggregates only. Availability covers at most 256
+// requested pieces across eight windows and at most 512 connected peers.
+type SparseWindow struct {
+	FirstPiece        int   `json:"first_piece"`
+	Availability      []int `json:"availability"`
+	UnchokedSuppliers int   `json:"unchoked_suppliers"`
+}
+
+type SparseSnapshot struct {
+	Urgent                 []UrgentPiece  `json:"urgent"`
+	UrgentTruncated        bool           `json:"urgent_truncated"`
+	RequestAgeTruncated    bool           `json:"request_age_truncated"`
+	RequestTimeouts        uint64         `json:"request_timeouts"`
+	RequestsDropped        uint64         `json:"requests_dropped"`
+	Private                bool           `json:"private"`
+	Known                  bool           `json:"known"`
+	SampledAtMs            int64          `json:"sampled_at_ms"`
+	SampledPeers           int            `json:"sampled_peers"`
+	Truncated              bool           `json:"truncated"`
+	UsefulPeers            int            `json:"useful_peers"`
+	UsefulDownloadingPeers int            `json:"useful_downloading_peers"`
+	ChokedPeers            int            `json:"choked_peers"`
+	SnubbedPeers           int            `json:"snubbed_peers"`
+	PendingConnections     int            `json:"pending_connections"`
+	TrackerPeers           int            `json:"tracker_peers"`
+	DHTPeers               int            `json:"dht_peers"`
+	PEXPeers               int            `json:"pex_peers"`
+	IncomingPeers          int            `json:"incoming_peers"`
+	OutstandingBytes       int64          `json:"outstanding_bytes"`
+	QueuedBlocks           int64          `json:"queued_blocks"`
+	MaxQueueMs             int64          `json:"max_queue_ms"`
+	FailedBytes            int64          `json:"failed_bytes"`
+	RedundantBytes         int64          `json:"redundant_bytes"`
+	Windows                []SparseWindow `json:"windows"`
+}
+
+// UrgentPiece is a copied native frontier. Finished blocks may still await hash
+// verification; receiving blocks are a subset of requested blocks, not additive.
+// Request age uses the native send-buffer handoff; -1 means unavailable.
+type UrgentPiece struct {
+	OldestRequestAgeMs int64 `json:"oldest_request_age_ms"`
+	Piece              int   `json:"piece"`
+	Priority           int   `json:"priority"`
+	Blocks             int   `json:"blocks"`
+	Unrequested        int   `json:"unrequested"`
+	Requested          int   `json:"requested"`
+	Writing            int   `json:"writing"`
+	Finished           int   `json:"finished"`
+	DuplicateRequests  int   `json:"duplicate_requests"`
+	Verified           bool  `json:"verified"`
+	ReceivingBlocks    int   `json:"receiving_blocks"`
+	ReceivingBytes     int   `json:"receiving_bytes"`
+}
+
+// SampleSparse schedules asynchronous work; it never waits for the native
+// network thread. Only the torrent watcher calls it, never an HTTP handler.
+func (t *Torrent) SampleSparse(ranges [][2]int) (SparseSnapshot, error) {
+	encoded, err := json.Marshal(ranges)
+	if err != nil {
+		return SparseSnapshot{}, err
+	}
+	if ranges == nil {
+		encoded = []byte("[]")
+	}
+	cs := C.CString(string(encoded))
+	defer C.free(unsafe.Pointer(cs))
+	raw, err := cAlloc(func(n *C.size_t) *C.char {
+		return C.lt_torrent_sparse_json_alloc(t.id, cs, n)
+	})
+	if err != nil {
+		return SparseSnapshot{}, err
+	}
+	var snapshot SparseSnapshot
+	err = json.Unmarshal(raw, &snapshot)
+	return snapshot, err
 }
 
 // ParseMagnet parses a magnet URI and returns its info hash, display name and
@@ -758,6 +947,14 @@ type StorageCallbacks struct {
 	// Have reports whether the piece is locally complete (used in Etap 4.2
 	// resume scan).
 	Have func(storage int64, piece int) bool
+	// Prune removes an old, unprotected partial on the native network thread.
+	// It must not call back into libtorrent.
+	Prune func(storage int64, piece int) bool
+	// Evict removes an unprotected complete LRU entry on the network thread.
+	// Size records the exact torrent length at storage creation.
+	Evict      func(storage int64, piece int) bool
+	Size       func(storage int64, totalSize int64)
+	ClearPiece func(storage int64, piece int)
 }
 
 var (
@@ -780,7 +977,7 @@ func storageSnapshot() StorageCallbacks {
 // sessions keep whichever disk_io they were started with.
 func RegisterStorageCallbacks(cb StorageCallbacks) error {
 	empty := cb.Open == nil && cb.Close == nil && cb.Deleted == nil &&
-		cb.Read == nil && cb.Write == nil && cb.Have == nil
+		cb.Read == nil && cb.Write == nil && cb.Have == nil && cb.Prune == nil && cb.Evict == nil && cb.Size == nil
 	storageMu.Lock()
 	storage = cb
 	storageMu.Unlock()
@@ -870,4 +1067,37 @@ func tsl_storage_have_go(storage C.longlong, piece C.int) C.int {
 		return 1
 	}
 	return 0
+}
+
+//export tsl_storage_prune_go
+func tsl_storage_prune_go(storage C.longlong, piece C.int) C.int {
+	cb := storageSnapshot()
+	if cb.Prune != nil && cb.Prune(int64(storage), int(piece)) {
+		return 1
+	}
+	return 0
+}
+
+//export tsl_storage_evict_go
+func tsl_storage_evict_go(storage C.longlong, piece C.int) C.int {
+	cb := storageSnapshot()
+	if cb.Evict != nil && cb.Evict(int64(storage), int(piece)) {
+		return 1
+	}
+	return 0
+}
+
+//export tsl_storage_size_go
+func tsl_storage_size_go(storage C.longlong, totalSize C.longlong) {
+	cb := storageSnapshot()
+	if cb.Size != nil {
+		cb.Size(int64(storage), int64(totalSize))
+	}
+}
+
+//export tsl_storage_clear_piece_go
+func tsl_storage_clear_piece_go(storage C.longlong, piece C.int) {
+	if cb := storageSnapshot(); cb.ClearPiece != nil {
+		cb.ClearPiece(int64(storage), int(piece))
+	}
 }

@@ -19,12 +19,20 @@ describe("API contract", () => {
     });
   });
   it("does not offer a destructive defaults getter; explicit reset posts def", async () => {
-    const fetcher = vi.fn().mockResolvedValue(new Response(""));
+    const fetcher = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(new Response("")));
     vi.stubGlobal("fetch", fetcher);
     expect(settingsApi).not.toHaveProperty("getDefaults");
     await settingsApi.reset();
     expect(JSON.parse(fetcher.mock.calls[0]![1].body)).toEqual({
       action: "def",
+      revision: "",
+    });
+    await settingsApi.reset("saved-revision");
+    expect(JSON.parse(fetcher.mock.calls[1]![1].body)).toEqual({
+      action: "def",
+      revision: "saved-revision",
     });
   });
   it("uses GET shutdown and the ss stream-group key", async () => {

@@ -1,0 +1,91 @@
+name: Publish verified runtime container
+on:
+  workflow_call:
+    inputs:
+      release_channel:
+        type: string
+        required: true
+permissions:
+  contents: read
+  packages: write
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download linux binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: TorrServer-LT-linux-*
+          path: _artifacts
+          merge-multiple: true
+
+      # Name each binary `torrserver` under dist/<arch>, where <arch> is exactly
+      # buildx's $TARGETARCH$TARGETVARIANT (amd64 / arm64 / armv7), and set +x
+      # (the artifact zip drops the executable bit).
+      - name: Lay binaries out per Docker arch
+        run: |
+          set -euo pipefail
+          install -D -m755 _artifacts/TorrServer-LT-linux-amd64 dist/amd64/torrserver
+          install -D -m755 _artifacts/TorrServer-LT-linux-arm64 dist/arm64/torrserver
+          install -D -m755 _artifacts/TorrServer-LT-linux-armv7 dist/armv7/torrserver
+
+      - name: Set up QEMU            # only to run the base image's apt per arch
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Verify runtime linkage on every container architecture
+        env:
+          FLOW_VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('MatriX.145.Flow-dev-{0}', github.sha) }}
+        run: |
+          set -euo pipefail
+          for platform in linux/amd64 linux/arm64 linux/arm/v7; do
+            image="flow-runtime-check:${platform//\//-}"
+            docker buildx build --platform "$platform" --load -t "$image" -f Dockerfile.runtime .
+            actual=$(docker run --rm --platform "$platform" --entrypoint /usr/local/bin/torrserver "$image" --version)
+            FLOW_ACTUAL="$actual" python3 -c 'import os,re; assert re.search(r"(?<![A-Za-z0-9.-])"+re.escape(os.environ["FLOW_VERSION"])+r"(?![A-Za-z0-9.-])",os.environ["FLOW_ACTUAL"]), "Container identity mismatch"'
+            echo "$platform: runtime linkage and exact version verified"
+          done
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lower-case image repo
+        run: echo "REG_REPO=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Docker metadata (tags + labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ env.REG_REPO }}
+          # Channel policy is explicit; suppress automatic latest generation.
+          flavor: latest=false
+          tags: |
+            type=raw,value=master,enable=${{ github.ref == 'refs/heads/master' }}
+            type=ref,event=tag
+            type=raw,value=latest,enable=${{ inputs.release_channel == 'stable' }}
+            type=raw,value=preview,enable=${{ inputs.release_channel == 'preview' }}
+
+      - name: Build and push multi-arch image
+        id: publish
+        uses: docker/build-push-action@v6
+        env:
+          # Don't upload the `<repo>.dockerbuild` build-record artifact — it shows
+          # up in the release job's artifact set and breaks its download.
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
+        with:
+          context: .
+          file: Dockerfile.runtime
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

@@ -188,7 +188,10 @@ func remTorrent(req torrReqJS, c *gin.Context) {
 		abortWithJSONError(c, http.StatusBadRequest, errors.New("hash is empty"))
 		return
 	}
-	torr.RemTorrent(req.Hash)
+	if err := torr.RemTorrent(req.Hash); err != nil {
+		abortWithJSONError(c, http.StatusConflict, err)
+		return
+	}
 	gstreamer.Remove(req.Hash)
 	// TODO: remove
 	if set.BTsets().EnableDLNA {
@@ -238,7 +241,10 @@ func dropTorrent(req torrReqJS, c *gin.Context) {
 func wipeTorrents(c *gin.Context) {
 	torrents := torr.ListTorrent()
 	for _, t := range torrents {
-		torr.RemTorrent(t.TorrentSpec.InfoHash.HexString())
+		if err := torr.RemTorrent(t.TorrentSpec.InfoHash.HexString()); err != nil {
+			abortWithJSONError(c, http.StatusConflict, err)
+			return
+		}
 	}
 	// TODO: remove (copied todo from remTorrent())
 	if set.BTsets().EnableDLNA {

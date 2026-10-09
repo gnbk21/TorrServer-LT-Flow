@@ -20,9 +20,19 @@ trackers, WebRTC browser peers) work on every target. libdatachannel's Jamfile
 would build usrsctp/libjuice with the HOST compiler; `_deps.sh` cross-builds
 them itself and patches that Jamfile to consume the prebuilt archives.
 
+Flow also declares a narrow, non-virtual cache-refetch extension in the pinned
+libtorrent headers. Its implementation is in `server/lt/lt_shim.cpp`: it clears
+completed-state flags, corrects file progress and refreshes seed connect
+candidates when previously downloaded media has been evicted. Native source and
+installed headers receive identical declarations before compilation. Old cache
+trees rebuild libtorrent once; `.flow-cache-extension-v3` identifies the new
+recipe. The extension changes no object layout or swarm-profile settings. A
+shared distro libtorrent without the internal API retains the documented limited
+refetch fallback; use the supplied static builds for full Flow behavior.
+
 ```
 build/
-  _common.sh         paths + pinned versions (Boost 1.85.0, libtorrent v2.1.0, OpenSSL 3.5.7)
+  _common.sh         paths + pinned versions (Boost 1.85.0, libtorrent v2.1.2, OpenSSL 3.5.7)
   _fetch_sources.sh  download Boost + OpenSSL + clone libtorrent into _src/  (idempotent)
   _deps.sh           shared engine: openssl + webrtc deps + b2 install libtorrent → go_build
   _osxcross.sh       locate OSXCross wrappers/SDK (darwin targets)
@@ -95,4 +105,77 @@ sudo apt install \
 - Boost/libtorrent are built once per target and cached in `_deps/<target>/`;
   re-running a script is a fast no-op for the deps and only relinks Go.
 - Versions are pinned in `_common.sh`; override with e.g.
-  `LIBTORRENT_TAG=v2.0.11 build/linux-arm64.sh`.
+  `LIBTORRENT_TAG=<tag> LIBTORRENT_REV=<commit> build/linux-arm64.sh`.
+  The checkout must match the revision and every reviewed patch must apply.
+
+## Reviewed native fixes
+
+Libtorrent v2.1.2 is pinned to `6da363d2994f17c0b3c0450d124cf73a31a73847`.
+`native-patches/94bffc25272b-queue-time.patch` backports upstream commit
+`94bffc25272b6833108d601fc0d824c344c48bc3`, including its queue arithmetic and
+transfer simulations. That fix is not part of the release tag.
+`flow-private-tracker-tiers.patch` makes private torrents use native tier
+failover even when public torrents announce to all configured trackers.
+
+`apply_native_patches.py` checks exact source context, breaks source hardlinks,
+and accepts an already-applied patch. Its recipe digest participates in the
+installed dependency stamp and CI cache key. The `native-streaming-tests` job
+runs the upstream queue/transfer simulations before platform jobs proceed.
+The Go/CGo stamp includes the native revision and patch recipe too: a backport
+must relink the executable even when its pkg-config file is unchanged.
+`flow-web-seed-destinations.patch` bounds imported sources and rechecks native
+destination addresses, including redirects and cached resolutions.
+
+The controlled peer fixture supports partial bitfields, delayed HAVE and
+unchoke, metadata exchange, separate suppliers, rate limits, outages and
+reconnects. `python -m unittest discover -s build -p '*_test.py'` checks the
+fixture's real socket protocol independently of the production engine.
+
+For an isolated comparison, dispatch `build.yml` with
+`evaluate_sparse_baseline=true`. This opt-in job builds the original v2.1.0
+runtime, v2.1.2 without the queue patch, the exact queue backport and the current
+candidate. It repeats byte-checked generated fixtures three times in varied
+order, then characterizes Legacy/Conservative/Balanced and the disabled-by-default
+scarce-piece experiment. Its `flow-sparse-native-layers` artifact retains reports,
+fixture metadata and executable hashes. Longer native reconnect waits may fail
+a profile characterization case; those failures remain explicit in the report.
+HTTP read wait is not the player's decoded-frame or stall time.
+
+The recorded comparison and its individual failures are in
+[SPARSE_VERIFICATION.md](../SPARSE_VERIFICATION.md) and
+[SPARSE_COMPARISON.json](../SPARSE_COMPARISON.json). Rate-aware deadlines now
+require `Flow.RateAwareDeadlines=true`; `sparse_harness.py --rate-aware` exercises
+that policy separately. The default harness retains the graded ramp and includes
+a blocked seek whose required piece arrives later. It checks the actual missing
+piece diagnostic before checking the eventual Range bytes. The historical
+comparison candidate had rate-aware deadlines automatically enabled.
+
+## High transport-bitrate and certificate checks
+
+`high_bitrate_check.py` owns a real server, loopback tracker and generated MPEG-TS
+fixture. The transport includes padding; it tests byte delivery at a stated
+rate, not visual complexity or decoded frames. Public discovery is disabled.
+The peer fixture's opt-in high-throughput polling follows scheduled block times
+and allows bounded socket backpressure. A direct, byte-checked peer calibration
+must exceed 1.3 times nominal demand before a comparison runs.
+High bitrate cases advertise a BEP 10 request capacity of 512 before unchoking,
+and retain the fixture's bounded 2,048-request ceiling for cancellation headroom.
+Reports retain queue peaks and closure reasons. Earlier cases without this
+advertisement are diagnostic evidence, not clean source-capacity comparisons.
+
+```text
+python build/high_bitrate_check.py --executable <binary> --output <new-directory> --profile adaptive --mbps 90 --seconds 120 --cache-mb 512
+python build/high_bitrate_check.py --executable <other-binary> --output <another-new-directory> --fixture <first-directory>/fixture/generated.ts --profile legacy --mbps 90 --seconds 120 --cache-mb 512
+python build/upstream_tls_check.py --executable <binary> --output <new-directory>
+```
+
+Use sequential, rotated runs on the same machine and fixture. Reports include
+exact Range bytes, waits, seeks, cancellation, observed cache/RSS and process CPU
+where available. Add `--preload` to exercise the Lampa-style explicit bootstrap
+and metadata probe before the same paced Range workload. Without it, direct
+Range requests also exercise missing-metadata fallback. Keep startup mode equal
+within each comparison and record startup time separately from playback waits.
+Existing output/state is never overwritten. TLS checks cover
+invalid custom files, partial CLI pairs, a lone default key, generated HTTPS
+and read-only DB startup. They verify no fallback listener and no replacement of
+user files. Windows ACLs also have a native platform regression test.

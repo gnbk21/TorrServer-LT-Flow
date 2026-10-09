@@ -40,4 +40,26 @@ describe("Flow health presentation", () => {
     );
     expect(screen.getByText("flow.health.BUFFER_RISK")).toBeInTheDocument();
   });
+  it.each([
+    ["HIGH", "BUFFER_RISK"],
+    ["ELEVATED", "MARGINAL"],
+  ])("keeps the health heading consistent with %s risk", (level, health) => {
+    render(
+      <FlowHealthPanel
+        session={{
+          ...session,
+          playback_consumption_rate: 200,
+          sustainability_ratio: 2,
+          risk: {
+            level,
+            reason: "PIECE_WAIT",
+            score: 65,
+            confidence: "medium",
+            target_seconds: 120,
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText(`flow.health.${health}`)).toBeInTheDocument();
+  });
 });

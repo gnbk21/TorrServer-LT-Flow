@@ -12,7 +12,8 @@ set -euo pipefail
 
 # --- pinned versions -------------------------------------------------
 BOOST_VERSION=${BOOST_VERSION:-1.85.0}
-LIBTORRENT_TAG=${LIBTORRENT_TAG:-v2.1.0}
+LIBTORRENT_TAG=${LIBTORRENT_TAG:-v2.1.2}
+LIBTORRENT_REV=${LIBTORRENT_REV:-6da363d2994f17c0b3c0450d124cf73a31a73847}
 # Static OpenSSL per target: required by webtorrent=on (DTLS + wss:// trackers)
 # and gives libtorrent https tracker/web-seed support (crypto=openssl).
 # 3.5 is the LTS branch (EOL 2030-04).

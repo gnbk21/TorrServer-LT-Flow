@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -28,6 +29,8 @@ import (
 	"server/settings"
 	"server/web/msx"
 
+	"server/diagnostics"
+	"server/flow"
 	"server/log"
 	"server/lt"
 	"server/mcp"
@@ -88,8 +91,9 @@ func Start() {
 	}
 
 	route := gin.New()
-	route.Use(log.WebLogger(), waf.WAF(), gin.Recovery(), cors.New(corsCfg), location.Default())
+	route.Use(log.WebLogger(), auth.PreserveRejectedBody(), waf.WAF(), gin.Recovery(), api.ManagementPolicy(), cors.New(corsCfg), location.Default())
 	engineReady.Store(false)
+	diagnostics.MarkEngineReady(false)
 	route.Use(func(c *gin.Context) {
 		if !engineReady.Load() && c.Request.URL.Path != "/echo" && c.Request.URL.Path != "/flow/network" {
 			c.AbortWithStatus(http.StatusServiceUnavailable)
@@ -98,6 +102,21 @@ func Start() {
 		c.Next()
 	})
 	auth.SetupAuth(route)
+	route.Use(api.PlaybackPolicy())
+	route.Use(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		if path == "/flow/maintenance" || strings.HasPrefix(path, "/flow/backup") || path == "/echo" || path == "/flow/tray" || path == "/flow/network" || path == "/runtime/status" || strings.HasPrefix(path, "/shutdown") || path == "/" || strings.HasPrefix(path, "/assets/") {
+			c.Next()
+			return
+		}
+		if !flow.Maintenance.Enter() {
+			c.Header("Retry-After", "30")
+			c.AbortWithStatus(http.StatusServiceUnavailable)
+			return
+		}
+		defer flow.Maintenance.Leave()
+		c.Next()
+	})
 
 	route.GET("/echo", echo)
 
@@ -112,22 +131,23 @@ func Start() {
 
 	route.GET("/swagger/*any", swaggerHandler())
 
-	// check if https enabled
+	// Explicit HTTPS configuration fails before any listener is opened. Never
+	// replace a user's identity or silently downgrade a forced-HTTPS deployment.
 	if settings.Ssl {
-		// if no cert and key files set in db/settings, generate new self-signed cert and key files
-		if settings.BTsets().SslCert == "" || settings.BTsets().SslKey == "" {
-			settings.BTsets().SslCert, settings.BTsets().SslKey = sslcerts.MakeCertKeyFiles(ips)
-			log.TLogln("Saving path to ssl cert and key in db", settings.BTsets().SslCert, settings.BTsets().SslKey)
-			settings.SetBTSets(settings.BTsets())
-		}
-		// verify if cert and key files are valid
-		err := sslcerts.VerifyCertKeyFiles(settings.BTsets().SslCert, settings.BTsets().SslKey, settings.SslPort)
-		// if not valid, generate new self-signed cert and key files
+		cert, key, changed, err := sslcerts.EnsureCert(settings.BTsets().SslCert, settings.BTsets().SslKey, ips)
 		if err != nil {
-			log.TLogln("Error checking certificate and private key files:", err)
-			settings.BTsets().SslCert, settings.BTsets().SslKey = sslcerts.MakeCertKeyFiles(ips)
-			log.TLogln("Saving path to ssl cert and key in db", settings.BTsets().SslCert, settings.BTsets().SslKey)
-			settings.SetBTSets(settings.BTsets())
+			startupError(err)
+			return
+		}
+		if changed {
+			next := settings.CloneSettings(settings.BTsets())
+			next.SslCert, next.SslKey = cert, key
+			if settings.ReadOnly {
+				settings.StoreBTsets(next)
+			} else if err := settings.SetBTSetsChecked(next); err != nil {
+				startupError(err)
+				return
+			}
 		}
 	}
 	// Bind and serve the local API before constructing the libtorrent session.
@@ -149,11 +169,13 @@ func Start() {
 		}
 	}
 	listenersReady.Store(true)
+	diagnostics.MarkListenersReady(true)
 	if err := BTS.Connect(); err != nil {
 		startupError(err)
 		return
 	}
 	engineReady.Store(true)
+	diagnostics.MarkEngineReady(true)
 	rutor.Start()
 	if settings.BTsets().EnableDLNA {
 		dlna.Start()
@@ -180,6 +202,7 @@ func Stop() {
 	defer lifecycleMu.Unlock()
 	listenersReady.Store(false)
 	engineReady.Store(false)
+	diagnostics.MarkEngineReady(false)
 	shutdownListeners()
 	gstreamer.Stop()
 	dlna.Stop()

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"server/log"
+	"server/netpolicy"
 	"server/settings"
 )
 
@@ -41,6 +42,8 @@ var (
 	prefetchMu         sync.Mutex
 	prefetchStartedGen uint64 = ^uint64(0)
 	refreshLoopOnce    sync.Once
+	refreshLoopStop    = make(chan struct{})
+	refreshLoopDone    chan struct{}
 )
 
 // GetTrackerFromFile loads optional trackers.txt from data dir.
@@ -85,7 +88,15 @@ func GetDefTrackers() []string {
 func PrefetchTrackers() {
 	startPrefetch()
 	refreshLoopOnce.Do(func() {
-		go trackersRefreshLoop()
+		// Production owns one process-lifetime worker. Capture its immutable
+		// interval here; tests can stop and join it before replacing fixtures.
+		stop, done := refreshLoopStop, make(chan struct{})
+		interval := trackersRefreshInterval
+		refreshLoopDone = done
+		go func() {
+			defer close(done)
+			trackersRefreshLoop(stop, interval)
+		}()
 	})
 }
 
@@ -216,7 +227,7 @@ func fetchTrackersFromURLs(urls []string, local []string) ([]string, string, err
 }
 
 func fetchTrackersFromURL(url string, local []string) ([]string, error) {
-	client := &http.Client{Timeout: trackersFetchTimeout}
+	client := &http.Client{Timeout: trackersFetchTimeout, Transport: netpolicy.HTTPTransport()}
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
@@ -236,9 +247,15 @@ func fetchTrackersFromURL(url string, local []string) ([]string, error) {
 	return append(remote, local...), nil
 }
 
-func trackersRefreshLoop() {
+func trackersRefreshLoop(stop <-chan struct{}, interval time.Duration) {
 	for {
-		time.Sleep(trackersRefreshInterval)
+		timer := time.NewTimer(interval)
+		select {
+		case <-stop:
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
 		urls := configuredTrackersListURLs()
 		if len(urls) == 0 {
 			continue
@@ -246,6 +263,11 @@ func trackersRefreshLoop() {
 		gen := trackersFetchGen.Load()
 		local := configuredDefaultTrackers()
 		merged, usedURL, err := fetchTrackersFromURLs(urls, local)
+		select {
+		case <-stop:
+			return
+		default:
+		}
 		if err != nil {
 			log.TLogln("trackerslist refresh failed:", err.Error())
 			continue

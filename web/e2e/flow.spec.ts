@@ -1,5 +1,40 @@
 import { test, expect, type Page } from "@playwright/test";
+import { writeFile } from "node:fs/promises";
 import settings from "./settings.json" with { type: "json" };
+
+test("legacy zero-cache settings remain accessible for explicit repair", async ({
+  page,
+}) => {
+  await mockServer(page);
+  await page.route("**/settings", (route) => {
+    if (new URL(route.request().url()).pathname !== "/settings")
+      return route.fallback();
+    if (route.request().postDataJSON().action === "state")
+      return route.fulfill({
+        json: {
+          revision: "fixture-zero",
+          saved: { ...settings, CacheSize: 0 },
+          effective: { ...settings, CacheSize: 0 },
+          recovery: { source: "settings", schema_version: 1 },
+          data_path: "fixture-state",
+          executable: "fixture-server",
+        },
+      });
+    return route.fulfill({ json: { ...settings, CacheSize: 0 } });
+  });
+  await page.goto("/#/settings");
+  await expect(
+    page.getByRole("heading", { name: "Settings", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("spinbutton", { name: "Cache Size", exact: true }),
+  ).toHaveValue("0");
+  await expect(
+    page.getByText("The server could not complete the request.", {
+      exact: true,
+    }),
+  ).toHaveCount(0);
+});
 
 test("active playback remains visible when Flow metrics are unavailable", async ({
   page,
@@ -23,13 +58,28 @@ test("active playback remains visible when Flow metrics are unavailable", async 
 
 test("polling is deduplicated, bounded and stops when hidden", async ({
   page,
-}) => {
+}, info) => {
   test.setTimeout(45000);
   await mockServer(page, { active: true });
   await page.route("**/torrents", (route) =>
     route.fulfill({ json: [{ ...torrent, active_readers: 1 }] }),
   );
   const counts: Record<string, number> = {};
+  const bytes: Record<string, number> = {};
+  page.on("response", async (response) => {
+    const path = new URL(response.url()).pathname;
+    if (
+      path.startsWith("/flow/") ||
+      path === "/torrents" ||
+      path === "/runtime/status"
+    ) {
+      try {
+        bytes[path] = (bytes[path] || 0) + (await response.body()).length;
+      } catch {
+        /* cancelled in-flight response */
+      }
+    }
+  });
   page.on("request", (request) => {
     const path = new URL(request.url()).pathname;
     if (
@@ -47,6 +97,19 @@ test("polling is deduplicated, bounded and stops when hidden", async ({
   expect(counts["/flow/status/" + hash]).toBeGreaterThanOrEqual(8);
   expect(counts["/flow/status/" + hash]).toBeLessThanOrEqual(14);
   expect(counts["/torrents"]).toBeLessThanOrEqual(14);
+  const measurement = info.outputPath("polling-measurement.json");
+  await writeFile(
+    measurement,
+    JSON.stringify(
+      { visible_seconds: 11, counts, bytes, synthetic_payloads: true },
+      null,
+      2,
+    ),
+  );
+  await info.attach("polling-measurement", {
+    path: measurement,
+    contentType: "application/json",
+  });
   await page.evaluate(() => {
     Object.defineProperty(document, "hidden", {
       configurable: true,
@@ -71,6 +134,62 @@ test("polling is deduplicated, bounded and stops when hidden", async ({
   );
 });
 const hash = "0123456789012345678901234567890123456789";
+test("trace history is fetched only while diagnostics are open", async ({
+  page,
+}) => {
+  await mockServer(page, { active: true });
+  let compactRequests = 0;
+  let diagnosticRequests = 0;
+  await page.route("**/flow/status/*", (route) => {
+    const compact =
+      new URL(route.request().url()).searchParams.get("traces") === "false";
+    if (compact) compactRequests++;
+    else diagnosticRequests++;
+    return route.fulfill({
+      json: {
+        hash,
+        sessions: [
+          {
+            group: "phone",
+            file_index: 1,
+            state: "PLAYING",
+            active_readers: 1,
+            buffer_ahead_seconds: 40,
+            buffer_ahead_bytes: 1000,
+            playback_consumption_rate: 500,
+            download_rate: 600,
+            sustainability_ratio: 1.2,
+            piece_wait_p95_ms: 0,
+            seek_count: 0,
+            seek_recovery_ms: 0,
+            buffer_warning: false,
+            ...(compact
+              ? {}
+              : { traces: [{ classification: "diagnostic-trace-fixture" }] }),
+          },
+        ],
+      },
+    });
+  });
+  await page.goto("/");
+  await expect(page.getByText("Healthy", { exact: true })).toBeVisible();
+  expect(compactRequests).toBeGreaterThan(0);
+  expect(diagnosticRequests).toBe(0);
+  await page.getByRole("button", { name: "Diagnostics", exact: true }).click();
+  await page.getByRole("dialog").locator("summary").click();
+  await expect(
+    page.getByRole("dialog").getByText(/diagnostic-trace-fixture/),
+  ).toBeVisible();
+  expect(diagnosticRequests).toBeGreaterThan(0);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
+  await page.waitForTimeout(300);
+  const previous = diagnosticRequests;
+  await page.waitForTimeout(3500);
+  expect(diagnosticRequests).toBe(previous);
+});
 const torrent = {
   hash,
   title: "Example series",
@@ -84,6 +203,8 @@ async function mockServer(
   { status = 200, active = false }: { status?: number; active?: boolean } = {},
 ) {
   const saves: unknown[] = [];
+  let saved = settings;
+  let revision = "fixture-revision-1";
   await page.route("**/*", async (route) => {
     const path = new URL(route.request().url()).pathname;
     const json = (data: unknown, code = 200) =>
@@ -123,7 +244,11 @@ async function mockServer(
         {
           dlna_enabled: false,
           bonjour_enabled: false,
+          friendly_name: "Flow test",
           webdav_enabled: false,
+          webdav_path: "/dav",
+          fuse_path: "",
+          fuse_enabled: false,
           bt: {
             active_streams: active ? 1 : 0,
             torrent_count: 1,
@@ -135,8 +260,24 @@ async function mockServer(
       );
     if (path === "/settings") {
       const body = route.request().postDataJSON();
-      if (body.action === "get") return json(settings);
+      if (body.action === "get") return json(saved);
+      if (body.action === "state")
+        return json({
+          revision,
+          saved,
+          effective: saved,
+          applying: false,
+          recovery: { source: "settings", schema_version: 1 },
+          data_path: "fixture-state",
+          executable: "fixture-server",
+        });
+      if (body.action === "plan")
+        return json({ restart_required: false, active_work: active });
       saves.push(body);
+      if (body.action === "set") {
+        saved = body.sets;
+        revision = "fixture-revision-2";
+      }
       return route.fulfill({ body: "" });
     }
     if (path === "/torrents") {
@@ -147,6 +288,10 @@ async function mockServer(
     }
     if (path === "/viewed")
       return json([{ hash, file_index: 1, timecode: 90 }]);
+    if (path === "/flow/preparation")
+      return json({ jobs: [], quota_bytes: 67108864, reserved_bytes: 0 });
+    if (path.startsWith("/flow/sources/"))
+      return json({ private: false, sources: [] });
     if (path === "/cache")
       return json({
         Capacity: 100,
@@ -260,7 +405,11 @@ test("settings cancel is inert, apply preserves Flow and unknown fields", async 
   await page
     .getByRole("button", { name: "Apply settings", exact: true })
     .click();
-  await expect(page.getByText(/Playback is active/)).toBeVisible();
+  await expect(
+    page.getByText(
+      "These changes apply without restarting the torrent engine.",
+    ),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   expect(saves).toHaveLength(0);
   await page
@@ -276,6 +425,161 @@ test("settings cancel is inert, apply preserves Flow and unknown fields", async 
     },
   });
 });
+test("quoted disk cache paths show a correction before any settings save", async ({
+  page,
+}) => {
+  const saves = await mockServer(page);
+  let plans = 0;
+  page.on("request", (request) => {
+    if (
+      new URL(request.url()).pathname === "/settings" &&
+      request.postDataJSON()?.action === "plan"
+    )
+      plans++;
+  });
+  await page.goto("/#/settings");
+  await page.locator("#UseDisk").check();
+  const path = page.locator("#TorrentsSavePath");
+  await path.fill('"C:\\cache folder"');
+  await page
+    .getByRole("button", { name: "Apply settings", exact: true })
+    .click();
+  await expect(
+    page.getByText(
+      "Enter the folder path without surrounding quotation marks.",
+      {
+        exact: true,
+      },
+    ),
+  ).toBeVisible();
+  await expect(path).toBeFocused();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(plans).toBe(0);
+  expect(saves).toHaveLength(0);
+  await path.fill("C:\\cache folder");
+  await page
+    .getByRole("button", { name: "Apply settings", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0]).toMatchObject({
+    action: "set",
+    sets: { UseDisk: true, TorrentsSavePath: "C:\\cache folder" },
+  });
+});
+
+test("settings polling preserves draft revision and rejects conflicting save", async ({
+  page,
+}) => {
+  await mockServer(page);
+  let revision = "draft-base";
+  let submitted = "";
+  await page.route("**/settings", (route) => {
+    const body = route.request().postDataJSON();
+    if (body.action === "state")
+      return route.fulfill({
+        json: {
+          revision,
+          saved: settings,
+          effective: settings,
+          recovery: { source: "settings", schema_version: 1 },
+          data_path: "fixture-state",
+          executable: "fixture-server",
+        },
+      });
+    if (body.action === "set") {
+      submitted = body.revision;
+      return route.fulfill({
+        status: 409,
+        json: { error: "settings changed; reload before applying your draft" },
+      });
+    }
+    return route.fallback();
+  });
+  await page.goto("/#/settings");
+  await page.getByRole("button", { name: "512 MiB", exact: true }).click();
+  revision = "external-change";
+  await expect(page.getByText("external-change", { exact: true })).toHaveCount(
+    1,
+    {
+      timeout: 10000,
+    },
+  );
+  await expect(
+    page.getByRole("spinbutton", { name: "Cache Size", exact: true }),
+  ).toHaveValue("512");
+  await page
+    .getByRole("button", { name: "Apply settings", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect.poll(() => submitted).toBe("draft-base");
+  await expect(page.getByRole("dialog").getByRole("alert")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(
+    page.getByRole("spinbutton", { name: "Cache Size", exact: true }),
+  ).toHaveValue("512");
+});
+
+test("required expiring playback links preserve the playlist session", async ({
+  page,
+}) => {
+  await mockServer(page);
+  await page.route("**/settings", (route) =>
+    route.request().postDataJSON().action === "get"
+      ? route.fulfill({
+          json: {
+            ...settings,
+            Flow: { ...settings.Flow, RequirePlaybackToken: true },
+          },
+        })
+      : route.fallback(),
+  );
+  let requested: unknown;
+  await page.route("**/flow/playback-link", (route) => {
+    requested = route.request().postDataJSON();
+    return route.fulfill({
+      json: {
+        path: "/flow/play/fixture.signed",
+        expires_at: new Date(Date.now() + 3600000).toISOString(),
+      },
+    });
+  });
+  await page.goto("/#/torrents");
+  await page.getByRole("button", { name: "Files / Play" }).click();
+  await expect(
+    page.getByRole("link", { name: "Open stream", exact: true }),
+  ).toHaveAttribute("href", /\/flow\/play\/fixture\.signed\?ss=/);
+  expect(requested).toEqual({ hash, index: 1 });
+  await expect(page.getByText(/Valid until/)).toBeVisible();
+});
+
+test("deadline experiment is off by default and saves only after confirmation", async ({
+  page,
+}) => {
+  const saves = await mockServer(page);
+  await page.goto("/#/settings");
+  await page.getByRole("tab", { name: "Flow", exact: true }).click();
+  const experiment = page.getByRole("checkbox", {
+    name: "Rate-aware deadline experiment",
+    exact: true,
+  });
+  await expect(experiment).not.toBeChecked();
+  await expect(
+    page.getByText(/Off by default: repeated tests showed mixed seek results/),
+  ).toBeVisible();
+  await experiment.check();
+  expect(saves).toHaveLength(0);
+  await page
+    .getByRole("button", { name: "Apply settings", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0]).toMatchObject({
+    action: "set",
+    sets: { Flow: { RateAwareDeadlines: true } },
+  });
+});
+
 test("dirty form blocks navigation; continuing keeps edits", async ({
   page,
 }) => {
@@ -294,6 +598,65 @@ test("dirty form blocks navigation; continuing keeps edits", async ({
     page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible();
 });
+test("backup preview is inert until confirmation and support report downloads", async ({
+  page,
+}) => {
+  await mockServer(page);
+  const applies: unknown[] = [];
+  await page.route("**/flow/backup/preview", (route) =>
+    route.fulfill({
+      json: {
+        digest: "a".repeat(64),
+        library_count: 1,
+        settings_fields: ["CacheSize"],
+        credentials_excluded: true,
+        mode: "merge",
+        restart_required: true,
+      },
+    }),
+  );
+  await page.route("**/flow/backup/apply", (route) => {
+    applies.push(route.request().postDataJSON());
+    return route.fulfill({
+      json: { restored: true, recovery_backup: "before-restore-fixture.json" },
+    });
+  });
+  await page.route("**/flow/support", (route) =>
+    route.fulfill({ json: { schema_version: 1, privacy: "redacted" } }),
+  );
+  await page.goto("/#/settings");
+  await page.getByRole("tab", { name: "Advanced", exact: true }).click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download support report" }).click();
+  expect((await download).suggestedFilename()).toBe(
+    "TorrServer-Flow-support.json",
+  );
+  const file = {
+    name: "portable.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({ fixture: true })),
+  };
+  await page
+    .getByLabel("Preview backup import", { exact: true })
+    .setInputFiles(file);
+  await expect(
+    page.getByRole("dialog", { name: "Restore preview" }),
+  ).toBeVisible();
+  expect(applies).toHaveLength(0);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(applies).toHaveLength(0);
+  await page
+    .getByLabel("Preview backup import", { exact: true })
+    .setInputFiles(file);
+  await page
+    .getByRole("button", { name: "Restore backup", exact: true })
+    .click();
+  await expect(page.getByText(/Restored. Local recovery backup/)).toBeVisible();
+  expect(applies).toEqual([
+    { backup: { fixture: true }, digest: "a".repeat(64) },
+  ]);
+});
+
 test("file view retains raw name, watched timecode and browser fallback", async ({
   page,
 }) => {
@@ -309,6 +672,105 @@ test("file view retains raw name, watched timecode and browser fallback", async 
   ).toHaveAttribute("href", /index=1.*ss=/);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("episode preparation actions and readiness are visible without changing playback identity", async ({
+  page,
+}) => {
+  await mockServer(page);
+  let state = "";
+  const actions: unknown[] = [];
+  await page.route("**/flow/preparation", (route) => {
+    if (route.request().method() === "POST") {
+      const body = route.request().postDataJSON();
+      actions.push(body);
+      state = (
+        {
+          start: "downloading",
+          pause: "paused",
+          cancel: "cancelled",
+          resume: "ready",
+          remove: "",
+        } as Record<string, string>
+      )[body.action];
+    }
+    return route.fulfill({
+      json: {
+        jobs: state
+          ? [
+              {
+                id: hash + ":1",
+                hash,
+                file_index: 1,
+                state,
+                length: 12345678,
+                verified_bytes: state === "ready" ? 12345678 : 100,
+                contiguous_bytes: state === "ready" ? 12345678 : 100,
+                playback_ready: state === "ready",
+              },
+            ]
+          : [],
+        quota_bytes: 67108864,
+        reserved_bytes: state ? 12582912 : 0,
+      },
+    });
+  });
+  await page.goto("/#/torrents");
+  await page.getByRole("button", { name: "Files / Play" }).click();
+  await page.locator("summary").filter({ hasText: "Prepare episode" }).click();
+  await page
+    .getByRole("button", { name: "Prepare episode", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Pause preparation" }).click();
+  await page
+    .getByRole("button", { name: "Cancel and retain progress" })
+    .click();
+  await page.getByRole("button", { name: "Resume preparation" }).click();
+  await expect(
+    page.getByText(
+      "The entire file is verified and retained, including seek data. Use the playback links above.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Open stream", exact: true }),
+  ).toHaveAttribute("href", /index=1.*ss=/);
+  await page.getByRole("button", { name: "Remove prepared pieces" }).click();
+  expect(actions).toEqual(
+    ["start", "pause", "cancel", "resume", "remove"].map((action) => ({
+      hash,
+      file_index: 1,
+      action,
+    })),
+  );
+});
+
+test("mirror management uses explicit LAN approval and hides private-torrent additions", async ({
+  page,
+}) => {
+  await mockServer(page);
+  let privateTorrent = false;
+  const updates: unknown[] = [];
+  await page.route("**/flow/sources/*", (route) => {
+    if (route.request().method() === "POST") {
+      updates.push(route.request().postDataJSON());
+      privateTorrent = true;
+    }
+    return route.fulfill({ json: { private: privateTorrent, sources: [] } });
+  });
+  await page.goto("/#/torrents");
+  await page.getByRole("button", { name: "Files / Play" }).click();
+  await page.locator("summary").filter({ hasText: "HTTP mirrors" }).click();
+  await page
+    .getByLabel("Mirror URL", { exact: true })
+    .fill("http://192.168.1.20/episode/");
+  await page.getByLabel("Approve my LAN mirror").check();
+  await page.getByRole("button", { name: "Add mirror", exact: true }).click();
+  expect(updates).toEqual([
+    { action: "add", url: "http://192.168.1.20/episode/", allow_local: true },
+  ]);
+  await expect(
+    page.getByRole("button", { name: "Add mirror", exact: true }),
+  ).toHaveCount(0);
 });
 test("pairing avoids loopback QR and has manual input", async ({ page }) => {
   await mockServer(page);

@@ -10,6 +10,7 @@ import {
   queryClient,
 } from "../hooks/queries";
 import { FlowHealthPanel } from "../components/flow/FlowHealthPanel";
+import { ResourceStatus } from "../components/flow/ResourceStatus";
 import {
   FlowHistoricalChart,
   type TelemetrySample,
@@ -223,6 +224,7 @@ export default function Dashboard() {
         ))}
       <section className="panel space-y-4">
         <h2 className="font-semibold">{t("dashboard.server")}</h2>
+        <ResourceStatus status={runtime.data} />
         <dl className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             ["torrents", bt?.torrent_count],

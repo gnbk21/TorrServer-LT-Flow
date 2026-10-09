@@ -7,18 +7,44 @@ import (
 	"server/settings"
 )
 
+func TestCapacityExperimentExplicitAndIndependentOfProfile(t *testing.T) {
+	for _, profile := range []string{"legacy", "adaptive", "balanced", "conservative", "aggressive", "custom"} {
+		f := settings.DefaultFlowSettings()
+		f.SwarmProfile = profile
+		for _, enabled := range []bool{false, true} {
+			f.CapacityAwareRequests = enabled
+			cfg := lt.SessionConfig{}
+			applyFlowSwarmProfile(cfg, f, false)
+			value, exists := cfg["flow_capacity_aware_requests"]
+			if enabled && value != true || !enabled && exists {
+				t.Fatalf("%s enabled=%v: %v", profile, enabled, cfg)
+			}
+		}
+	}
+}
+
 func TestFlowSwarmProfilesPreserveCompatibilityAndUserSettings(t *testing.T) {
 	base := func() lt.SessionConfig {
 		return lt.SessionConfig{
 			"connection_speed": 250, "torrent_connect_boost": 100,
 			"peer_connect_timeout": 7, "strict_end_game_mode": true,
 			"active_limit": -1, "proxy_type": 2,
+			"close_redundant_connections": false,
 		}
 	}
 	legacy := base()
 	applyFlowSwarmProfile(legacy, settings.DefaultFlowSettings(), false)
 	if legacy["connection_speed"] != 250 || legacy["peer_connect_timeout"] != 7 {
 		t.Fatalf("legacy values changed: %v", legacy)
+	}
+	adaptive := base()
+	fAdaptive := settings.DefaultFlowSettings()
+	fAdaptive.SwarmProfile = "adaptive"
+	applyFlowSwarmProfile(adaptive, fAdaptive, false)
+	for key, value := range legacy {
+		if adaptive[key] != value {
+			t.Fatalf("adaptive changed native base: %s", key)
+		}
 	}
 	for _, tc := range []struct {
 		profile string
@@ -39,7 +65,7 @@ func TestFlowSwarmProfilesPreserveCompatibilityAndUserSettings(t *testing.T) {
 		if _, ok := cfg["peer_connect_timeout"]; ok {
 			t.Fatalf("%s retained shortened peer timeout", tc.profile)
 		}
-		if cfg["active_limit"] != -1 || cfg["proxy_type"] != 2 {
+		if cfg["active_limit"] != -1 || cfg["proxy_type"] != 2 || cfg["close_redundant_connections"] != false {
 			t.Fatalf("%s lost unrelated settings", tc.profile)
 		}
 	}
@@ -53,5 +79,8 @@ func TestFlowSwarmProfilesPreserveCompatibilityAndUserSettings(t *testing.T) {
 	}
 	if _, ok := cfg["torrent_connect_boost"]; ok {
 		t.Fatalf("unset custom override should use libtorrent default: %v", cfg)
+	}
+	if cfg["close_redundant_connections"] != false {
+		t.Fatal("custom profile discarded lazy/warm streaming peer retention")
 	}
 }

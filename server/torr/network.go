@@ -1,42 +1,127 @@
 package torr
 
 import (
+	"errors"
 	"net"
 	"sort"
 	"strings"
 	"time"
 
 	"server/flow"
+	"server/lt"
+	"server/netchange"
+	"server/netpolicy"
 	"server/settings"
+	"server/torr/storage/torrstor"
 )
 
 // FlowNetworkStatus reports local address readiness. ADDRESS_READY does not
 // assert that DNS, trackers or the Internet are reachable.
 type FlowNetworkStatus struct {
-	State            string    `json:"state"`
-	Connectivity     string    `json:"connectivity"`
-	Addresses        []string  `json:"addresses"`
-	CheckedAt        time.Time `json:"checked_at"`
-	ChangedAt        time.Time `json:"changed_at"`
-	NextCheckSeconds int       `json:"next_check_seconds"`
-	ReannounceCount  uint64    `json:"reannounce_count"`
-	LastTrackerReply time.Time `json:"last_tracker_reply,omitempty"`
-	LastTrackerError time.Time `json:"last_tracker_error,omitempty"`
-	LastError        string    `json:"last_error,omitempty"`
+	PeerTCPPort              int                `json:"peer_tcp_port"`
+	PeerUDPPort              int                `json:"peer_udp_port"`
+	MappedTCPPort            int                `json:"mapped_tcp_port"`
+	MappedUDPPort            int                `json:"mapped_udp_port"`
+	MappingSuccesses         uint64             `json:"mapping_successes"`
+	MappingErrors            uint64             `json:"mapping_errors"`
+	ListenerErrors           uint64             `json:"listener_errors"`
+	IncomingTCP              uint64             `json:"incoming_tcp"`
+	IncomingUTP              uint64             `json:"incoming_utp"`
+	IncomingIPv6             uint64             `json:"incoming_ipv6"`
+	MappingCheckedAt         time.Time          `json:"mapping_checked_at,omitempty"`
+	DiagnosticHistory        flow.HistoryStatus `json:"diagnostic_history"`
+	DHTStateRestored         bool               `json:"dht_state_restored"`
+	StartedAt                time.Time          `json:"started_at"`
+	AddressReadyMs           int64              `json:"address_ready_ms"`
+	TransitionCount          uint64             `json:"transition_count"`
+	RetryCount               uint64             `json:"retry_count"`
+	LastCheckDurationMs      int64              `json:"last_check_duration_ms"`
+	LastReannounceDurationMs int64              `json:"last_reannounce_duration_ms"`
+	LastAddressRecoveryMs    int64              `json:"last_address_recovery_ms"`
+	LastTrackerRecoveryMs    int64              `json:"last_tracker_recovery_ms"`
+	State                    string             `json:"state"`
+	Connectivity             string             `json:"connectivity"`
+	Addresses                []string           `json:"addresses"`
+	CheckedAt                time.Time          `json:"checked_at"`
+	ChangedAt                time.Time          `json:"changed_at"`
+	NextCheckSeconds         int                `json:"next_check_seconds"`
+	ReannounceCount          uint64             `json:"reannounce_count"`
+	LastTrackerReply         time.Time          `json:"last_tracker_reply,omitempty"`
+	LastTrackerError         time.Time          `json:"last_tracker_error,omitempty"`
+	ConnectivityLostAt       time.Time          `json:"connectivity_lost_at,omitempty"`
+	LastError                string             `json:"last_error,omitempty"`
+	NotificationCount        uint64             `json:"notification_count"`
+	RecoveryReason           string             `json:"recovery_reason,omitempty"`
+}
+
+func (bt *BTServer) recordNetworkAlert(a *lt.Alert) {
+	switch a.Type {
+	case "listen_succeeded", "listen_succeeded_alert", "listen_failed", "listen_failed_alert", "portmap", "portmap_alert", "portmap_error", "portmap_error_alert", "incoming_connection", "incoming_connection_alert":
+	default:
+		return
+	}
+	bt.networkMu.Lock()
+	defer bt.networkMu.Unlock()
+	s := &bt.networkStatus
+	switch a.Type {
+	case "listen_succeeded", "listen_succeeded_alert":
+		if a.Transport == "udp" {
+			s.PeerUDPPort = a.Port
+		} else {
+			s.PeerTCPPort = a.Port
+		}
+	case "listen_failed", "listen_failed_alert":
+		s.ListenerErrors++
+	case "portmap", "portmap_alert":
+		s.MappingSuccesses++
+		s.MappingCheckedAt = time.Now()
+		if a.Transport == "tcp" {
+			s.MappedTCPPort = a.Port
+		} else {
+			s.MappedUDPPort = a.Port
+		}
+	case "portmap_error", "portmap_error_alert":
+		s.MappingErrors++
+		s.MappingCheckedAt = time.Now()
+	case "incoming_connection", "incoming_connection_alert":
+		if a.Transport == "utp" {
+			s.IncomingUTP++
+		} else {
+			s.IncomingTCP++
+		}
+		if a.IPv6 {
+			s.IncomingIPv6++
+		}
+	}
 }
 
 type networkTracker struct {
 	fingerprint  string
 	needAnnounce bool
+	ready        bool
+}
+
+// Old tracker success is historical evidence after a route change or wake.
+// Preserve a reply that already arrived during this recovery check instead of
+// overwriting it when the lifecycle publishes its local-readiness observation.
+func (s *FlowNetworkStatus) invalidateConnectivity(at time.Time, ready bool) {
+	if ready && s.Connectivity == "ONLINE" && !s.LastTrackerReply.Before(at) {
+		return
+	}
+	s.Connectivity = "INTERNET_WAIT"
+	if s.ConnectivityLostAt.IsZero() {
+		s.ConnectivityLostAt = at
+	}
 }
 
 func (t *networkTracker) observe(addresses []string, err error) bool {
 	ready := len(addresses) > 0 && err == nil
 	fingerprint := strings.Join(addresses, ",")
-	if fingerprint != t.fingerprint {
+	if fingerprint != t.fingerprint || ready != t.ready {
 		t.fingerprint = fingerprint
 		t.needAnnounce = ready
 	}
+	t.ready = ready
 	return ready
 }
 
@@ -47,6 +132,8 @@ func (bt *BTServer) FlowNetworkStatus() FlowNetworkStatus {
 	bt.networkMu.Lock()
 	defer bt.networkMu.Unlock()
 	s := bt.networkStatus
+	s.DiagnosticHistory = bt.history.Load().Status()
+	s.DHTStateRestored = bt.dhtRestored.Load()
 	s.Addresses = append([]string(nil), s.Addresses...)
 	if s.State == "" {
 		s.State = "UNKNOWN"
@@ -72,11 +159,16 @@ func (bt *BTServer) recordTrackerConnectivity(alertType string) {
 	now := time.Now()
 	switch alertType {
 	case "tracker_reply", "tracker_reply_alert":
+		if bt.networkStatus.Connectivity != "ONLINE" && !bt.networkStatus.ConnectivityLostAt.IsZero() {
+			bt.networkStatus.LastTrackerRecoveryMs = now.Sub(bt.networkStatus.ConnectivityLostAt).Milliseconds()
+		}
 		bt.networkStatus.Connectivity = "ONLINE"
+		bt.networkStatus.ConnectivityLostAt = time.Time{}
 		bt.networkStatus.LastTrackerReply = now
 	case "tracker_error", "tracker_error_alert":
 		if bt.networkStatus.Connectivity == "ONLINE" {
 			bt.networkStatus.Connectivity = "DEGRADED"
+			bt.networkStatus.ConnectivityLostAt = now
 		}
 		bt.networkStatus.LastTrackerError = now
 	}
@@ -124,9 +216,14 @@ func localNetworkAddresses() ([]string, error) {
 	return out, nil
 }
 
-func (bt *BTServer) reannounceOnNetworkChange() (int, error) {
+func (bt *BTServer) reannounceOnNetworkChange(stop <-chan struct{}) (int, error) {
 	count := 0
 	for _, tor := range bt.ListTorrents() {
+		select {
+		case <-stop:
+			return count, nil
+		default:
+		}
 		if tor == nil {
 			continue
 		}
@@ -137,7 +234,8 @@ func (bt *BTServer) reannounceOnNetworkChange() (int, error) {
 		if err := handle.ForceReannounce(); err != nil {
 			return count, err
 		}
-		if s := settings.BTsets(); s == nil || !s.DisableDHT {
+		state, stateErr := handle.Status()
+		if s := settings.BTsets(); stateErr == nil && state.HasMetadata && !state.Private && (s == nil || !s.DisableDHT) {
 			if err := handle.ForceDhtAnnounce(); err != nil {
 				return count, err
 			}
@@ -151,15 +249,54 @@ func (bt *BTServer) reannounceOnNetworkChange() (int, error) {
 // Windows notifications. It never blocks startup on an external host.
 func (bt *BTServer) networkLifecycle(stop <-chan struct{}, done chan<- struct{}) {
 	defer close(done)
+	events, closeWatch := netchange.Watch()
+	defer closeWatch()
+	var lastCheck, lastAnnounce time.Time
+	notified := false
+	defer func() { bt.networkMu.Lock(); bt.networkStatus.State = "STOPPED"; bt.networkMu.Unlock() }()
 	var tracker networkTracker
+	var interfaceFingerprint string
 	attempt := 0
+	started := time.Now()
 	for {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+		checkStarted := time.Now()
 		addresses, err := localNetworkAddresses()
+		if policyErr := bt.reconcileInterfacePolicy(&interfaceFingerprint); policyErr != nil {
+			err = policyErr
+		}
+		if policy := netpolicy.Snapshot(); policy.Name != "" && policy.State != "BOUND" {
+			err = errors.New("selected torrent interface is unavailable")
+		}
 		now := time.Now()
+		resumed := !lastCheck.IsZero() && now.Sub(lastCheck) > 90*time.Second
+		networkTransition := notified || resumed
+		lastCheck = now
+		previousFingerprint, previouslyReady := tracker.fingerprint, tracker.ready
 		ready := tracker.observe(addresses, err)
+		storage := torrstor.Global()
+		storage.SetNetworkRecovering(!ready)
+		if ready && (notified || resumed || previousFingerprint != tracker.fingerprint || !previouslyReady) {
+			// A route change or wake can keep the same addresses. Supply measured
+			// before that transition must not describe the recovered connection.
+			storage.InvalidateNetworkEvidence()
+		}
+		if notified || resumed {
+			tracker.needAnnounce = true
+		}
 		announced := 0
-		if ready && tracker.needAnnounce {
-			announced, err = bt.reannounceOnNetworkChange()
+		var announceDuration time.Duration
+		if ready && tracker.needAnnounce && (lastAnnounce.IsZero() || now.Sub(lastAnnounce) >= 30*time.Second) {
+			announceStarted := time.Now()
+			// Space attempts, including failures; a failed transport must not
+			// turn the shorter local-readiness retry into a tracker storm.
+			lastAnnounce = now
+			announced, err = bt.reannounceOnNetworkChange(stop)
+			announceDuration = time.Since(announceStarted)
 			if err == nil {
 				tracker.needAnnounce = false
 			}
@@ -167,23 +304,48 @@ func (bt *BTServer) networkLifecycle(stop <-chan struct{}, done chan<- struct{})
 		f := settings.CurrentFlow()
 		wait := 15 * time.Second
 		if !ready || err != nil {
-			wait = flow.RetryDelay(attempt, f.NetworkRetryMinSec, f.NetworkRetryMaxSec)
+			wait = flow.RetryJitter(attempt, f.NetworkRetryMinSec, f.NetworkRetryMaxSec)
 			attempt++
 		} else {
 			attempt = 0
 		}
 		bt.networkMu.Lock()
 		status := &bt.networkStatus
+		if status.StartedAt.IsZero() {
+			status.StartedAt = started
+		}
+		if ready && status.AddressReadyMs == 0 {
+			status.AddressReadyMs = max(int64(1), now.Sub(started).Milliseconds())
+		}
+		if attempt > 0 {
+			status.RetryCount++
+		}
+		status.LastCheckDurationMs = time.Since(checkStarted).Milliseconds()
+		if notified {
+			status.NotificationCount++
+			status.RecoveryReason = "INTERFACE_OR_ROUTE_CHANGE"
+		}
+		if resumed {
+			status.RecoveryReason = "RESUME_OR_DELAYED_CHECK"
+		}
+		notified = false
+		if announceDuration > 0 {
+			status.LastReannounceDurationMs = announceDuration.Milliseconds()
+		}
 		state := "NO_ADDRESS"
 		if ready {
 			state = "ADDRESS_READY"
 		}
 		addressChanged := !sameAddresses(status.Addresses, addresses)
 		if status.State != state || addressChanged {
+			if ready && status.State == "NO_ADDRESS" && !status.ChangedAt.IsZero() {
+				status.LastAddressRecoveryMs = now.Sub(status.ChangedAt).Milliseconds()
+			}
+			status.TransitionCount++
 			status.ChangedAt = now
 		}
-		if !ready || addressChanged {
-			status.Connectivity = "INTERNET_WAIT"
+		if !ready || addressChanged || networkTransition {
+			status.invalidateConnectivity(checkStarted, ready)
 		}
 		status.State, status.Addresses, status.CheckedAt = state, addresses, now
 		status.NextCheckSeconds = int(wait / time.Second)
@@ -202,6 +364,17 @@ func (bt *BTServer) networkLifecycle(stop <-chan struct{}, done chan<- struct{})
 			bt.networkMu.Unlock()
 			return
 		case <-timer.C:
+		case <-events:
+			timer.Stop()
+			// Debounce notification bursts and never block callback cancellation.
+			debounce := time.NewTimer(750 * time.Millisecond)
+			select {
+			case <-stop:
+				debounce.Stop()
+				return
+			case <-debounce.C:
+			}
+			notified = true
 		}
 	}
 }

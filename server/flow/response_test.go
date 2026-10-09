@@ -139,3 +139,36 @@ func TestRecorderProgressBeforeResponseEnds(t *testing.T) {
 		t.Fatalf("progress = %v", got)
 	}
 }
+
+func TestRecorderDemandUsesActualHeadersBeforeBody(t *testing.T) {
+	for _, tc := range []struct {
+		name, rng, ifRange string
+		want               int64
+	}{
+		{"whole", "", "", 0},
+		{"seek", "bytes=3-5", "", 3},
+		{"suffix", "bytes=-3", "", 23},
+		{"if-range-miss", "bytes=3-5", `"old"`, 0},
+		{"multipart", "bytes=3-5,8-10", "", -1},
+		{"invalid", "bytes=100-", "", -1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := httptest.NewRequest("GET", "/", nil)
+			r.Header.Set("Range", tc.rng)
+			r.Header.Set("If-Range", tc.ifRange)
+			w := NewResponseRecorder(httptest.NewRecorder())
+			w.Header().Set("ETag", `"new"`)
+			got, calls := int64(-1), 0
+			w.OnBodyStart = func(offset int64) {
+				if w.Bytes != 0 {
+					t.Fatal("demand arrived after body")
+				}
+				got, calls = offset, calls+1
+			}
+			http.ServeContent(w, r, "movie.mkv", time.Unix(0, 0), strings.NewReader("abcdefghijklmnopqrstuvwxyz"))
+			if got != tc.want || calls > 1 {
+				t.Fatalf("demand %d (%d calls), want %d", got, calls, tc.want)
+			}
+		})
+	}
+}

@@ -1,0 +1,37 @@
+--- a/src/torrent.cpp
++++ b/src/torrent.cpp
+@@ -353,8 +353,15 @@
+ #endif
+ 		}
+ 
++		// Imported metadata is not permission to access the server's LAN.
++		// Explicit, authenticated mirror approval can add a local literal URL.
++		if (ws.size() > 16) ws.erase(ws.begin()+16, ws.end());
+ 		aux::random_shuffle(ws);
+-		for (auto& w : ws) m_web_seeds.emplace_back(std::move(w));
++		for (auto& w : ws)
++		{
++			w.no_local_ips = true;
++			m_web_seeds.emplace_back(std::move(w));
++		}
+ 
+ 		// --- TRACKERS ---
+ 
+@@ -7127,6 +7134,17 @@
+ 		// settings_pack::proxy_hostnames), "a" is an unspecified-address
+ 		// placeholder and there's no IP known here to filter against
+ 		bool const address_known = !a.address().is_unspecified();
++		// Recheck every resolved endpoint, including literal IPs, cached
++		// endpoints and redirects. A proxy-hidden address cannot be validated.
++		if (!address_known || a.address().is_multicast() || aux::is_link_local(a.address())
++			|| (web->no_local_ips && !aux::is_global(a.address())))
++		{
++			web->disabled = true;
++			if (m_ses.alerts().should_post<url_seed_alert>())
++				m_ses.alerts().emplace_alert<url_seed_alert>(get_handle()
++					, web->url, errors::ssrf_mitigation);
++			return;
++		}
+ 		if (address_known && m_ip_filter && m_ip_filter->access(a.address()) & ip_filter::blocked)
+ 		{
+ 			if (m_ses.alerts().should_post<peer_blocked_alert>())

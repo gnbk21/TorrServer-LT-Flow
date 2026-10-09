@@ -3,8 +3,19 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"server/lt"
 	"server/torr"
 )
+
+type FlowStatusResponse struct {
+	Hash      string                       `json:"hash"`
+	Startup   torr.FlowStartupStatus       `json:"startup"`
+	Sessions  []torr.FlowSessionStatus     `json:"sessions"`
+	Trackers  []torr.FlowTrackerDiagnostic `json:"trackers"`
+	Network   torr.FlowNetworkStatus       `json:"network"`
+	Sparse    lt.SparseSnapshot            `json:"sparse"`
+	StorageIO lt.StorageIO                 `json:"storage_io"`
+}
 
 // flowStatus exposes a bounded diagnostic snapshot for one live torrent.
 // It shares the existing API authentication middleware.
@@ -16,7 +27,7 @@ func flowStatus(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "torrent not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"hash": c.Param("hash"), "startup": t.FlowStartup(), "sessions": t.FlowStatus(), "trackers": t.FlowTrackers(), "network": torr.NetworkStatusSnapshot()})
+	c.JSON(http.StatusOK, FlowStatusResponse{Hash: c.Param("hash"), Startup: t.FlowStartup(), Sessions: t.FlowStatusWithTraces(c.Query("traces") != "false"), Trackers: t.FlowTrackers(), Network: torr.NetworkStatusSnapshot(), Sparse: t.SparseStatus(), StorageIO: lt.StorageIOStats()})
 }
 
 func flowNetwork(c *gin.Context) {

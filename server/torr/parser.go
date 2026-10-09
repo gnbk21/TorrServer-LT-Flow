@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"server/lt"
+	"server/netpolicy"
 	"server/torrshash"
 )
 
@@ -150,7 +151,8 @@ func parseHTTP(u string) (*TorrentSpec, error) {
 		hopCount  int
 	)
 	client := &http.Client{
-		Timeout: httpFetchTimeout,
+		Transport: netpolicy.HTTPTransport(),
+		Timeout:   httpFetchTimeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			hopCount++
 			if hopCount > 10 {
@@ -194,7 +196,9 @@ func parseHTTP(u string) (*TorrentSpec, error) {
 
 func specFromParsed(pt *lt.ParsedTorrent, info []byte) *TorrentSpec {
 	var trackers [][]string
-	if len(pt.Trackers) > 0 {
+	if len(pt.TrackerTiers) > 0 {
+		trackers = pt.TrackerTiers
+	} else if len(pt.Trackers) > 0 {
 		trackers = [][]string{append([]string(nil), pt.Trackers...)}
 	}
 	return &TorrentSpec{
