@@ -63,6 +63,8 @@ Retained GPL-3.0 attribution and original notices. Relevant upstream changes:
   its 120-second request budget covers the server's 111-second maximum, while
   closing the player cancels the query. Actual-runtime and subprocess lifecycle
   fixtures are isolated so installed discovery commands cannot replace fixtures.
+  Native FFI dereferences retain typed pointer provenance for race/checkptr
+  validation; integer handles remain opaque and are not dereferenced.
 
 Flow already protects native session lifetime and rechecks torrent addition
 under the engine lock. The helper's engine pointer now uses atomic publication.

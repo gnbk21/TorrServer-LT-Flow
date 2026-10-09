@@ -15,6 +15,10 @@ publication with the field limitations in `RELEASE_1_0_NOTES.md`.
   invalid/multipart Range, HEAD and buffered cancellation regressions pass.
 - TLS splitter: first-byte routing preserves sniffed bytes and shutdown closes
   silent pending clients; isolated Windows loopback test passes.
+- GST FFI: 17 isolated tests using the original production API/probe functions
+  pass with strict pointer checking (`-d=checkptr=2`) on Windows. Typed pointers
+  preserve provenance through errors, samples, callbacks and parsed segments;
+  full native runtime/race validation remains a separate CI gate.
 - Five-iteration 16 MiB memory/file microbenchmark: 513 source reads become 17;
   roughly 1 MiB additional transport allocation per active reader. This small
   synthetic test was slower with buffering, so it establishes call amortization,

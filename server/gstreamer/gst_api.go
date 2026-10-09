@@ -87,7 +87,7 @@ type gstAPI struct {
 	gstElementGetStaticPad  func(element uintptr, name string) uintptr
 	gstElementQueryPosition func(element uintptr, format int32, cur unsafe.Pointer) int32
 	gstEventNewSeek         func(rate float64, format int32, flags int32, startType int32, start int64, stopType int32, stop int64) uintptr
-	gstEventParseSegment    func(event uintptr, segment unsafe.Pointer)
+	gstEventParseSegment    func(event unsafe.Pointer, segment unsafe.Pointer)
 	gstPadAddProbe          func(pad uintptr, mask uint32, callback uintptr, userData uintptr, destroyData uintptr) uintptr
 	gstPadRemoveProbe       func(pad uintptr, id uintptr)
 	gstPadSendEvent         func(pad uintptr, event uintptr) int32
