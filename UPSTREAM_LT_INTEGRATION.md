@@ -14,22 +14,22 @@ recovery checks disclosed. These field checks must not be reported as passed.
 
 ## Implementation and verification checklist
 
-- [ ] Publish the engine handle safely across reconnects; regression/race checks.
-- [ ] Bounded HTTP read buffering, preserving logical playback progress,
+- [x] Publish the engine handle safely across reconnects; regression/race checks.
+- [x] Bounded HTTP read buffering, preserving logical playback progress,
   cancellation, partial availability, seeks and Range semantics; RAM/disk checks.
-- [ ] Reconcile tracker/session and DNS improvements with existing Flow fixes.
-- [ ] HTTPS certificate reload, renewal and authenticated management, preserving
+- [x] Reconcile tracker/session and DNS improvements with existing Flow fixes.
+- [x] HTTPS certificate reload, renewal and authenticated management, preserving
   private-key permissions, user-owned certificates and revisioned settings.
-- [ ] HTTPS-only / HTTP-media modes and bounded listener handling, including
+- [x] HTTPS-only / HTTP-media modes and bounded listener handling, including
   internal media URLs, redirect behavior and graceful shutdown.
-- [ ] Modern Security certificate controls and all supported translations.
-- [ ] GStreamer one-frame cue-boundary tolerance, including invalid/fractional
+- [x] Modern Security certificate controls and all supported translations.
+- [x] GStreamer one-frame cue-boundary tolerance, including invalid/fractional
   rates and parser regression checks.
-- [ ] GStreamer cold-source warmup and one retry, with cancellation, shutdown,
+- [x] GStreamer cold-source warmup and one retry, with cancellation, shutdown,
   shared probes and unavailable-runtime handling checked.
-- [ ] README, release notes, version, source/license/provenance and acceptance
+- [x] README, release notes, version, source/license/provenance and acceptance
   record reconciled with the actual implementation.
-- [ ] Automated web/native/platform/security/streaming/package gates pass.
+- [x] Automated web/native/platform/security/streaming/package gates pass.
 - [ ] Published assets, installed package and container verified; full release
   is public, not a prerelease, and returned by GitHub's latest-release endpoint.
 

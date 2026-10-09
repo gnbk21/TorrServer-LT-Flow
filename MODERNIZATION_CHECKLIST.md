@@ -11,6 +11,15 @@ and IMPROVEMENT_CHECKLIST.md.
 Unchecked means implementation or verification remains; existence of a file is
 not acceptance. Real device checks require the user's phone.
 
+## Current publication policy
+
+On 9 October 2026 the owner approved the first stable release as Latest after
+automated gates, with unfinished field checks disclosed. This changes the
+publication gate; it does not complete the unchecked device/endurance items
+below or authorize legacy removal. Current evidence and limitations are in
+[Flow 1.0 verification](RELEASE_1_0_VERIFICATION.md) and
+`RELEASE_ACCEPTANCE.json`. Earlier dated gate descriptions remain historical.
+
 - [x] Read the complete specification; inspect draft and actual Go API contracts.
 - [x] Finish prior audit CI and isolated Windows executable verification.
 - [x] 1–9, 74–75: React 19, Vite 8, strict TS 5, Tailwind 4, Radix, RHF,

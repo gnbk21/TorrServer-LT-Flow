@@ -47,7 +47,7 @@ Open `http://127.0.0.1:8090` on the PC or use its LAN address in Lampa/Just Play
 Stop the old server before replacing its executable; preserve its state and
 previous binary. Managed install/update scripts now select the stable channel.
 HTTPS deployments with CLI overrides use the documented manual upgrade path.
-See [distribution and rollback](DISTRIBUTION.md).
+See [distribution and rollback](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/DISTRIBUTION.md).
 
 Assets include eight platform ZIPs, standard and optional GST binaries,
 SHA-256 manifests, exact source identities, original dependency notices and
@@ -59,7 +59,7 @@ The stable container alias is `ghcr.io/gnbk21/torrserver-lt-flow:latest`.
 The tagged publication workflow requires native tests, race/vulnerability checks,
 web/browser tests, platform/service/update gates, controlled streaming scenarios,
 and reproducible packaging. Exact results and downloaded package/container
-verification are recorded in [the release verification record](RELEASE_1_0_VERIFICATION.md).
+verification are recorded in [the release verification record](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/RELEASE_1_0_VERIFICATION.md).
 
 **Published as Latest with the owner's approval and these disclosed limits:**
 broader physical Android/player coverage, representative public-swarm A/B
@@ -71,5 +71,5 @@ are not measurements of player-visible stutters. Source vulnerability scanning
 and stripped-binary module scanning have different precision; consult the
 verification record for any retained advisory.
 
-Upstream attribution and adaptations: [LT integration ledger](UPSTREAM_LT_INTEGRATION.md).
+Upstream attribution and adaptations: [LT integration ledger](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/UPSTREAM_LT_INTEGRATION.md).
 Flow and its retained upstream sources are GPL-3.0.

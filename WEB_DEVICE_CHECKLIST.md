@@ -1,6 +1,7 @@
 # Modern interface device acceptance
 
-Use the latest published Flow preview, recording `/echo` and its SHA-256.
+Use the published Flow release identified in [STATUS.md](STATUS.md), recording
+`/echo` and its SHA-256.
 Development verification builds are identified separately in STATUS.md. Keep
 the previous executable for rollback. Do not run two servers against one data directory.
 The checks below are not marked passed by desktop emulation or fixture tests.
@@ -46,16 +47,18 @@ timestamp and a screenshot. Share logs only after removing private URLs and
 credentials. Server delivery position and buffer estimates are not the player's
 decoded presentation position or measured time to first frame.
 
-Stable promotion and legacy removal remain gated on these results and the
-remaining core Flow acceptance checks in [STATUS.md](STATUS.md) and
-`RELEASE_ACCEPTANCE.json`.
+The owner approved stable Latest publication after automated gates with these
+unfinished field checks disclosed. Publication does not mark them passed.
+Legacy removal remains held pending device acceptance. Current evidence and
+limits are in [Flow 1.0 verification](RELEASE_1_0_VERIFICATION.md),
+[STATUS.md](STATUS.md) and `RELEASE_ACCEPTANCE.json`.
 
-## Adaptive development acceptance
+## Adaptive acceptance
 
-Use the exact development artifact identified in
-[ADAPTIVE_VERIFICATION.md](ADAPTIVE_VERIFICATION.md) to test these changes;
-published Preview 2 `.5` predates them. Record `/echo`, SHA-256, saved/effective
-settings and the test timestamp. Use a disposable state directory for failure
+The current stable release includes these adaptive changes; historical tests
+and exact development identities remain in
+[ADAPTIVE_VERIFICATION.md](ADAPTIVE_VERIFICATION.md). Record `/echo`, SHA-256,
+saved/effective settings and the test timestamp. Use a disposable state directory for failure
 injection and keep your normal playback server separate.
 
 | Check | Expected behavior | Result / evidence |
