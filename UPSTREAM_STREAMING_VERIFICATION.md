@@ -8,7 +8,9 @@ and the user's existing server executable/state are unchanged. Integration is in
 
 Reviewed upstream release [MatriX.145.LT-1.1.10](https://github.com/trinity-aml/TorrServer-LT/releases/tag/MatriX.145.LT-1.1.10), source
 `c111484d084619b3fefa8c4e61f90f81c5099253`, published 2 October 2026.
-Flow retains Go 1.26.8, libtorrent 2.1.2 and its reviewed native patches.
+The tested streaming revision used Go 1.26.8, libtorrent 2.1.2 and its reviewed
+native patches. Preview 2 `.7` upgrades Go to 1.26.9 and x/net to v0.60.0 for
+the 8 October security fixes; its tagged release gates verify those new pins.
 
 | Area | Implemented behavior |
 | --- | --- |

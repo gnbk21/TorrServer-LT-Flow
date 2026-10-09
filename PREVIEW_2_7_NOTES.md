@@ -1,4 +1,4 @@
-# TorrServer-Flow v0.2.0-preview.6
+# TorrServer-Flow v0.2.0-preview.7
 
 This preview integrates the streaming, recovery and diagnostic improvements
 developed since Preview 2 `.5`. It streams original torrent bytes through the
@@ -6,6 +6,9 @@ existing rolling cache; no paid provider or whole-episode download is required.
 
 ## Changes
 
+- Security maintenance: Go 1.26.9 and `golang.org/x/net` v0.60.0 replace the
+  vulnerable previous pins, together with required transitive module updates.
+  These versions address the 8 October Go HTTP/TLS/template disclosures.
 - Experimental **Adaptive Streaming** profile with bounded reserves based on
   qualified delivery deficits. Partial slowdowns count as well as outages.
 - Three independent, disabled-by-default experiments: peer request-capacity
@@ -40,7 +43,7 @@ not a universal playback or comparative-performance guarantee.
 ## Install and upgrade
 
 For Windows, download
-`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v0.2.0-preview.6.zip`.
+`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v0.2.0-preview.7.zip`.
 The standard executable works with stock Just Player through Lampa. Optional
 `-gst` binaries require GStreamer. Platform packages include original dependency
 notices; Windows also includes the tray and managed install/update scripts.
@@ -70,6 +73,12 @@ GitHub build provenance is separate from Windows Authenticode publisher signing.
   not protect every inherited playback route; source-interface binding is not
   verified VPN leak protection. Executables remain unsigned.
 
-See the [high bitrate guide](https://github.com/gnbk21/TorrServer-LT-Flow/blob/MatriX.145.Flow-v0.2.0-preview.6/HIGH_BITRATE_GUIDE.md),
-[verification evidence](https://github.com/gnbk21/TorrServer-LT-Flow/blob/MatriX.145.Flow-v0.2.0-preview.6/HIGH_BITRATE_IMPLEMENTATION.md)
-and [installation/rollback guide](https://github.com/gnbk21/TorrServer-LT-Flow/blob/MatriX.145.Flow-v0.2.0-preview.6/DISTRIBUTION.md).
+See the [high bitrate guide](https://github.com/gnbk21/TorrServer-LT-Flow/blob/MatriX.145.Flow-v0.2.0-preview.7/HIGH_BITRATE_GUIDE.md),
+[verification evidence](https://github.com/gnbk21/TorrServer-LT-Flow/blob/MatriX.145.Flow-v0.2.0-preview.7/HIGH_BITRATE_IMPLEMENTATION.md)
+and [installation/rollback guide](https://github.com/gnbk21/TorrServer-LT-Flow/blob/MatriX.145.Flow-v0.2.0-preview.7/DISTRIBUTION.md).
+
+The earlier `preview.6` tag failed the fresh reachable-vulnerability scan and
+was not published. Its tag is retained as failure history; this corrected
+`preview.7` is built and verified independently. Security scanning remains a
+required publication gate. See the [Go release history](https://go.dev/doc/devel/release)
+and [HTTP/2 advisory](https://pkg.go.dev/vuln/GO-2026-6617).
