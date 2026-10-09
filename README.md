@@ -2,11 +2,11 @@
 
 TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps the libtorrent engine, existing media cache and HTTP API, and adds a modern embedded web interface.
 
-> **Flow 1.0:** the first full release combines Flow's streaming and modern interface with the useful LT 1.2.1 / 1.2.2 fixes. [Download](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.0.0), [release notes](RELEASE_1_0_NOTES.md), and [verification/field limits](RELEASE_1_0_VERIFICATION.md). Legacy remains the default profile; experimental options remain off. Phone/player coverage, multi-hour resources and physical Windows recovery checks remain incomplete and are disclosed in this owner-approved release.
+> **Flow 1.0:** the first full release combines Flow's streaming and modern interface with the useful LT 1.2.1 / 1.2.2 fixes. [Download](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.0.1), [release notes](RELEASE_1_0_NOTES.md), and [verification/field limits](RELEASE_1_0_VERIFICATION.md). Legacy remains the default profile; experimental options remain off. Phone/player coverage, multi-hour resources and physical Windows recovery checks remain incomplete and are disclosed in this owner-approved release.
 
 ## Run on Windows
 
-1. Open [Flow 1.0](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.0.0), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.0.0.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
+1. Open [Flow 1.0](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.0.1), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.0.1.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
 2. In PowerShell, run the standard executable from the extracted folder, using a separate data directory for Flow:
 
    ```powershell

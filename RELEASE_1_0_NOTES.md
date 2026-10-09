@@ -4,6 +4,11 @@ The first full Flow release includes the modern interface, adaptive streaming,
 Windows service/tray, diagnostic and recovery tools, plus the useful changes
 from TorrServer-LT `MatriX.146.LT-1.2.1` and `MatriX.146.LT-1.2.2`.
 
+Published tag: `MatriX.145.Flow-v1.0.1`. The initial `v1.0.0` tag was blocked
+by a Windows CI update fixture that accepted only prerelease identities; no
+release was published. The corrected fixture exercises stable and preview
+channels without changing production validation, and this tag repeats all gates.
+
 ## New LT integrations
 
 - Safely published engine handle across reconnects and synchronized session access.

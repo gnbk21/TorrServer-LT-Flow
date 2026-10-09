@@ -31,13 +31,14 @@ function Manifest([string]$Path) {
     $version=$Matches[1]; $identity=$Commit
     if ($version -match '^MatriX\.145\.Flow-dev-([a-f0-9]{40})') { $identity=$Matches[1] }
     if ($identity -notmatch '^[a-f0-9]{40}$') { throw 'Supply the verified CI commit for release binaries.' }
-    [pscustomobject]@{schema_version=1;repository='gnbk21/TorrServer-LT-Flow';channel='preview';Version=$version;commit=$identity;files=[pscustomobject]@{'TorrServer-LT-windows-amd64.exe'=[pscustomobject]@{url="https://github.com/gnbk21/TorrServer-LT-Flow/releases/download/$version/TorrServer-LT-windows-amd64.exe";sha256=(Get-FileHash -LiteralPath $Path).Hash.ToLowerInvariant();size=(Get-Item -LiteralPath $Path).Length}}}
+    $channel = 'stable'
+    if ($version -cmatch '^MatriX\.145\.Flow-(v[0-9]+\.[0-9]+\.[0-9]+-(preview|alpha|beta|rc)\.[0-9]+|preview\.[0-9]+)\z') { $channel = 'preview' }
+    elseif ($version -cnotmatch '^MatriX\.145\.Flow-v[0-9]+\.[0-9]+\.[0-9]+\z') { throw 'Update transport fixtures require valid stable or prerelease identities; development artifacts are deliberately not releases.' }
+    [pscustomobject]@{schema_version=1;repository='gnbk21/TorrServer-LT-Flow';channel=$channel;Version=$version;commit=$identity;files=[pscustomobject]@{'TorrServer-LT-windows-amd64.exe'=[pscustomobject]@{url="https://github.com/gnbk21/TorrServer-LT-Flow/releases/download/$version/TorrServer-LT-windows-amd64.exe";sha256=(Get-FileHash -LiteralPath $Path).Hash.ToLowerInvariant();size=(Get-Item -LiteralPath $Path).Length}}}
 }
 $oldManifest = Manifest $baselinePath
 $newManifest = Manifest $candidatePath
 if ($oldManifest.Version -eq $newManifest.Version) { throw 'Test binaries must have different build identities.' }
-$previewTag = '^MatriX\.145\.Flow-(v[0-9]+\.[0-9]+\.[0-9]+-(preview|alpha|beta|rc)\.[0-9]+|preview\.[0-9]+)$'
-if ($oldManifest.Version -cnotmatch $previewTag -or $newManifest.Version -cnotmatch $previewTag) { throw 'Update transport fixtures require valid prerelease identities; development artifacts are deliberately not releases.' }
 $global:flowUpdateTestfixtureManifest=$oldManifest
 $global:flowUpdateTestfixtureBinary=$baselinePath
 $global:flowUpdateTestcorrupt=$false
@@ -50,7 +51,7 @@ $global:flowUpdateTeststartArguments=@()
 function Invoke-RestMethod {
     [CmdletBinding()]param([string]$Uri,[hashtable]$Headers,[int]$TimeoutSec,[string]$Method,[string]$ContentType,$Body)
     if ($Uri -eq 'https://api.github.com/repos/gnbk21/TorrServer-LT-Flow/releases?per_page=100') {
-        Write-Output -NoEnumerate @([pscustomobject]@{draft=$false;prerelease=$true;tag_name=$global:flowUpdateTestfixtureManifest.Version;assets=@([pscustomobject]@{name='release.json';browser_download_url="https://github.com/gnbk21/TorrServer-LT-Flow/releases/download/$($global:flowUpdateTestfixtureManifest.Version)/release.json"})})
+        Write-Output -NoEnumerate @([pscustomobject]@{draft=$false;prerelease=($global:flowUpdateTestfixtureManifest.channel -eq 'preview');tag_name=$global:flowUpdateTestfixtureManifest.Version;assets=@([pscustomobject]@{name='release.json';browser_download_url="https://github.com/gnbk21/TorrServer-LT-Flow/releases/download/$($global:flowUpdateTestfixtureManifest.Version)/release.json"})})
         return
     }
     if ($Uri -eq "https://github.com/gnbk21/TorrServer-LT-Flow/releases/download/$($global:flowUpdateTestfixtureManifest.Version)/release.json") { return $global:flowUpdateTestfixtureManifest }
@@ -104,7 +105,7 @@ function CheckState {
     if (-not $record.http_auth -or @($record.listen_addresses).Count -ne 1 -or $record.listen_addresses[0] -ne '127.0.0.1') { throw 'Authentication/listener configuration was lost.' }
 }
 try {
-    & (Join-Path $root 'distribution/Install-Flow.ps1') -Channel preview -InstallDirectory $install -StateDirectory $state -Port $port -HttpAuth -ListenAddress '127.0.0.1' -AsService:$AsService
+    & (Join-Path $root 'distribution/Install-Flow.ps1') -Channel $oldManifest.channel -InstallDirectory $install -StateDirectory $state -Port $port -HttpAuth -ListenAddress '127.0.0.1' -AsService:$AsService
     $arguments='--path "'+$state+'" --port '+$port+' --ip 127.0.0.1 --httpauth'
     if ($AsService) {
         & $exe --service start
@@ -119,22 +120,22 @@ try {
     $global:flowUpdateTestfixtureManifest=$newManifest; $global:flowUpdateTestfixtureBinary=$candidatePath
     $lease=Microsoft.PowerShell.Utility\Invoke-RestMethod -Uri "$baseUri/flow/maintenance" -Method Post -Body '{"enabled":true}' -ContentType 'application/json' -Headers $headers
     $busyRejected=$false
-    try { & (Join-Path $root 'distribution/Update-Flow.ps1') -InstallDirectory $install -Channel preview -Credential $credential } catch { $busyRejected=$true }
+    try { & (Join-Path $root 'distribution/Update-Flow.ps1') -InstallDirectory $install -Channel $global:flowUpdateTestfixtureManifest.channel -Credential $credential } catch { $busyRejected=$true }
     if (-not $busyRejected) { throw 'Updater ignored another maintenance owner.' }
     Microsoft.PowerShell.Utility\Invoke-RestMethod -Uri "$baseUri/flow/maintenance" -Method Post -Body (@{enabled=$false;token=$lease.token}|ConvertTo-Json -Compress) -ContentType 'application/json' -Headers $headers | Out-Null
     Health $oldManifest.Version
     $global:flowUpdateTestcorrupt=$true
     $rejected=$false
-    try { & (Join-Path $root 'distribution/Update-Flow.ps1') -InstallDirectory $install -Channel preview -Credential $credential } catch { $rejected=$_.Exception.Message -match 'integrity' }
+    try { & (Join-Path $root 'distribution/Update-Flow.ps1') -InstallDirectory $install -Channel $global:flowUpdateTestfixtureManifest.channel -Credential $credential } catch { $rejected=$_.Exception.Message -match 'integrity' }
     if (-not $rejected) { throw 'Corrupted download was accepted.' }
     Health $oldManifest.Version
     $global:flowUpdateTestcorrupt=$false
-    & (Join-Path $root 'distribution/Update-Flow.ps1') -InstallDirectory $install -Channel preview -Credential $credential
+    & (Join-Path $root 'distribution/Update-Flow.ps1') -InstallDirectory $install -Channel $global:flowUpdateTestfixtureManifest.channel -Credential $credential
     Health $newManifest.Version
     CheckState
     $global:flowUpdateTestfixtureManifest=$oldManifest; $global:flowUpdateTestfixtureBinary=$baselinePath; $global:flowUpdateTestfailNextStart=$true
     $rolledBack=$false
-    try { & (Join-Path $root 'distribution/Update-Flow.ps1') -InstallDirectory $install -Channel preview -Credential $credential } catch { $rolledBack=$true; $rollbackError=$_.Exception.Message }
+    try { & (Join-Path $root 'distribution/Update-Flow.ps1') -InstallDirectory $install -Channel $global:flowUpdateTestfixtureManifest.channel -Credential $credential } catch { $rolledBack=$true; $rollbackError=$_.Exception.Message }
     if (-not $rolledBack) { throw 'Injected startup failure did not trigger rollback.' }
     if ($global:flowUpdateTestfailNextStart) { throw 'Candidate migration failure was not exercised.' }
     Health $newManifest.Version

@@ -7,7 +7,7 @@ package version
 // it — e.g. it only shows the PreloadCache field (and hides the dead legacy
 // PreloadBuffer switch) when that number is > 131. Keep the first number >= 132
 // so the client unlocks the modern controls; "145" tracks upstream MatriX
-// feature parity (and is that first digit run), ".Flow-v1.0.0" marks the fork and
+// feature parity (and is that first digit run), ".Flow-v1.0.1" marks the fork and
 // carries its own semantic version. Release tags must keep this shape
 // (MatriX.145.Flow-vX.Y.Z) so the gate stays satisfied.
-var Version = "MatriX.145.Flow-v1.0.0"
+var Version = "MatriX.145.Flow-v1.0.1"
