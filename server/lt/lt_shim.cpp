@@ -935,7 +935,7 @@ static lt::add_torrent_params parse_torrent_or_info(
     char const* buf, int len, lt::error_code& ec)
 {
     ec.clear();
-    auto atp=lt::load_torrent_buffer(lt::span<char const>{buf,len},ec);
+    auto atp=lt::load_torrent_buffer(lt::span<char const>{buf,len},ec,lt::load_torrent_limits{});
     if (!ec && atp.ti) return atp;
     std::string wrapped;
     wrapped.reserve(static_cast<size_t>(len) + 8);
@@ -943,7 +943,7 @@ static lt::add_torrent_params parse_torrent_or_info(
     wrapped.append(buf, static_cast<size_t>(len));
     wrapped += 'e';
     lt::error_code ec2;
-    auto wrapped_atp=lt::load_torrent_buffer(lt::span<char const>{wrapped.data(),static_cast<int>(wrapped.size())},ec2);
+    auto wrapped_atp=lt::load_torrent_buffer(lt::span<char const>{wrapped.data(),static_cast<int>(wrapped.size())},ec2,lt::load_torrent_limits{});
     if (!ec2 && wrapped_atp.ti) { ec.clear(); return wrapped_atp; }
     return {};
 }
