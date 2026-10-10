@@ -454,3 +454,19 @@ peers retain native connections and in-flight partial cache pieces.
   artifact's real inventory also passed: 125 components and 125 graph vertices.
   Inventory validity does not replace the remaining source/license coverage
   audit or final-source native/package gates.
+
+## Controlled IPv6 enforcement fixture
+
+- The earlier Windows runner had no public IPv6 route. CI now creates an owned,
+  temporary documentation-address source and one `/128` on-link route on a
+  non-loopback adapter. The probe explicitly binds that source; SkipAsSource
+  prevents automatic source selection/DNS registration. No default route or
+  system DNS setting is changed. This only runs behind the disposable-runner
+  installation gate, never on the owner's workstation or through installers.
+- The acceptance gate now requires exact-app kernel TCP/UDP drops and actual
+  loopback delivery for both families. Cleanup removes only owned address/route
+  entries, verifies their disappearance and restores any changed IPv6 DHCP
+  setting. Portable mock-cmdlet tests passed workstation refusal before any
+  network access, ordinary cleanup, partial address/route failures and preservation
+  of an existing route. These mock tests do not establish real IPv6 enforcement;
+  actual corrected CI execution remains pending, as do physical VPN/DNS checks.

@@ -5,6 +5,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
+. (Join-Path $PSScriptRoot 'guard_ipv6_fixture.ps1')
 $output = [IO.Path]::GetFullPath((Join-Path $repoRoot $OutputDirectory))
 if (!$output.StartsWith($repoRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Test output must be inside the checkout' }
 New-Item -ItemType Directory -Path $output -Force | Out-Null
@@ -17,6 +18,7 @@ function Invoke-Guard([string[]]$Arguments) {
 $loopback = [Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | Where-Object NetworkInterfaceType -EQ Loopback | Select-Object -First 1
 if (!$loopback) { throw 'Loopback fixture interface is unavailable' }
 $index = $loopback.GetIPProperties().GetIPv4Properties().Index
+$script:guardLoopbackIndex = $index
 $preview = Invoke-Guard -Arguments @('preview','--exe',$guardPath,'--interface-index',"$index")
 if ($preview.changes_applied -or $preview.planned_filters -ne 30 -or $preview.dns_verified -or $preview.leak_protection_verified) { throw 'Preview modified policy or claimed unverified protection' }
 $report = [ordered]@{ preview=$preview; installation_tested=$false; scope='Isolated generated fixture executable only; no system DNS rules'; protocols=@{} }
@@ -34,8 +36,12 @@ if ($InstallFixture) {
   foreach ($app in @($fixture,$second)) {
     if ((Invoke-Guard -Arguments @('status','--exe',$app)).installed) { throw 'Fresh fixture unexpectedly has installed filters' }
   }
+  $ipv6Fixture = $null
   try {
-    $baseline = & $fixture | ConvertFrom-Json
+    $ipv6Fixture = New-GuardIPv6Fixture
+    $fixtureArguments = @('--ipv6-source', $ipv6Fixture.Address)
+    $report.ipv6_fixture = 'Owned ActiveStore documentation-address source and /128 on-link route; no default-route or DNS changes'
+    $baseline = & $fixture @fixtureArguments | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0) { throw 'Baseline fixture failed' }
     foreach ($app in @($fixture,$second)) {
       $installed = Invoke-Guard -Arguments @('install','--exe',$app,'--interface-index',"$index")
@@ -44,33 +50,33 @@ if ($InstallFixture) {
     $repeated = Invoke-Guard -Arguments @('install','--exe',$fixture,'--interface-index',"$index")
     if ($repeated.filter_count -ne 30) { throw 'Repeated install duplicated filters' }
     $startedAt = [DateTime]::UtcNow.ToFileTimeUtc()
-    $protected = & $fixture | ConvertFrom-Json
+    $protected = & $fixture @fixtureArguments | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0) { throw 'Installed fixture failed' }
     $drops = $null
     for ($attempt = 0; $attempt -lt 10; $attempt++) {
       Start-Sleep -Milliseconds 200
       $drops = & $dropProbe $fixture "$startedAt" | ConvertFrom-Json
       if ($LASTEXITCODE -ne 0) { throw 'Scoped kernel drop evidence is unavailable' }
-      if ($drops.tcp4 -gt 0 -and $drops.udp4 -gt 0) { break }
+      if ($drops.tcp4 -gt 0 -and $drops.udp4 -gt 0 -and $drops.tcp6 -gt 0 -and $drops.udp6 -gt 0) { break }
     }
     foreach ($protocol in @('tcp4','udp4','tcp6','udp6')) {
       $local = "lan_$protocol"
       $remote = "public_$protocol"
-      if ($baseline.$local.success -and !$protected.$local.success) { throw "LAN $protocol regressed" }
+      if (!$baseline.$local.success -or !$protected.$local.success) { throw "LAN $protocol was not verified" }
       $eligible = !$baseline.$remote.access_denied -and !$baseline.$remote.unavailable
       # UDP Write may report queued success even when WFP drops the first packet.
       # Require kernel evidence from this exact app and an owned Flow block rule.
       $verified = $eligible -and $drops.$protocol -gt 0
       $report.protocols[$protocol] = @{ verified=$verified; owned_classify_drops=$drops.$protocol; evidence='Exact fixture/app/time/destination and owned WFP block rule'; baseline=$baseline.$remote; installed=$protected.$remote; lan=$protected.$local }
-      if ($protocol.EndsWith('4') -and !$verified) { throw "IPv4 $protocol fallback enforcement was not verified" }
-      if ($eligible -and !$verified) { throw "$protocol fallback enforcement failed" }
+      if (!$verified) { throw "$protocol fallback enforcement was not verified" }
     }
     Invoke-Guard -Arguments @('remove','--exe',$fixture) | Out-Null
     if ((Invoke-Guard -Arguments @('status','--exe',$fixture)).installed) { throw 'Removal retained fixture policy' }
     if (!(Invoke-Guard -Arguments @('status','--exe',$second)).configuration_complete) { throw 'Removal affected another executable' }
-    $restored = & $fixture | ConvertFrom-Json
-    foreach ($protocol in @('tcp4','udp4')) {
-      if ($restored."public_$protocol".access_denied) { throw "Removal did not restore $protocol routing" }
+    $restored = & $fixture @fixtureArguments | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0) { throw 'Restored fixture failed' }
+    foreach ($protocol in @('tcp4','udp4','tcp6','udp6')) {
+      if ($restored."public_$protocol".access_denied -or $restored."public_$protocol".unavailable) { throw "Removal did not restore $protocol routing" }
     }
     $report.installation_tested = $true
     $report.removal_restored_routing = $true
@@ -84,6 +90,8 @@ if ($InstallFixture) {
       try { Invoke-Guard -Arguments @('remove','--exe',$app) | Out-Null }
       catch { $cleanupErrors += 'An owned fixture policy could not be removed' }
     }
+    try { Remove-GuardIPv6Fixture $ipv6Fixture }
+    catch { $cleanupErrors += 'An owned IPv6 fixture could not be completely removed' }
     $report.cleanup_errors = $cleanupErrors
     $report | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $output 'report.json') -Encoding utf8
     if ($cleanupErrors.Count) { throw ($cleanupErrors -join '; ') }

@@ -67,9 +67,16 @@ Local MSVC/Windows SDK compilation and preview checks:
 The `-InstallFixture` test switch installs filters for generated probe binaries
 only. CI runs it on a disposable Windows runner, verifies loopback playback
 connections, blocked public fallback, repeated installation, removal and
-isolation between two executable paths. IPv6 without a usable route remains
-explicitly unverified. Do not run that switch on a normal workstation merely
-to view a preview. It is never invoked by the server or installer.
+isolation between two executable paths. The disposable runner receives an owned
+ActiveStore documentation-address IPv6 source and a single `/128` on-link test
+route, allowing classification without public IPv6 service. Only the probe
+explicitly binds that source; `SkipAsSource` prevents automatic selection and
+DNS registration. Cleanup removes only owned entries and restores any changed
+IPv6 DHCP setting. Both IPv4 and IPv6 TCP/UDP drop evidence and loopback delivery
+are required; an unavailable family fails this controlled check. Real VPN/adapter
+loss, public IPv6 service and system DNS protection remain separate checks.
+Do not run that switch on a normal workstation merely to view a preview. It is
+never invoked by the server or installer.
 
 Installation fixtures require explicit GitHub-hosted CI environment gates.
 The unpublished Windows SDK drop probe reads only the fixture's recent WFP

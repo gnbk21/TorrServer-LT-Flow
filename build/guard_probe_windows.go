@@ -6,6 +6,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"flag"
 	"net"
 	"os"
 	"syscall"
@@ -66,8 +67,16 @@ func localUDP(network, address string) result {
 	}
 	return observation(err)
 }
-func public(network, address string) result {
-	connection, err := net.DialTimeout(network, address, 500*time.Millisecond)
+func public(network, address string, ipv6Source net.IP) result {
+	dialer := net.Dialer{Timeout: 500 * time.Millisecond}
+	if ipv6Source != nil {
+		if network == "tcp6" {
+			dialer.LocalAddr = &net.TCPAddr{IP: ipv6Source}
+		} else if network == "udp6" {
+			dialer.LocalAddr = &net.UDPAddr{IP: ipv6Source}
+		}
+	}
+	connection, err := dialer.Dial(network, address)
 	if err == nil {
 		defer connection.Close()
 		if network == "udp4" || network == "udp6" {
@@ -77,15 +86,24 @@ func public(network, address string) result {
 	return observation(err)
 }
 func main() {
+	source := flag.String("ipv6-source", "", "Owned disposable IPv6 fixture source")
+	flag.Parse()
+	var ipv6Source net.IP
+	if *source != "" {
+		ipv6Source = net.ParseIP(*source)
+		if ipv6Source == nil || ipv6Source.To4() != nil || flag.NArg() != 0 {
+			os.Exit(2)
+		}
+	}
 	data := map[string]result{
 		"lan_tcp4":    localTCP("tcp4", "127.0.0.1:0"),
 		"lan_udp4":    localUDP("udp4", "127.0.0.1:0"),
 		"lan_tcp6":    localTCP("tcp6", "[::1]:0"),
 		"lan_udp6":    localUDP("udp6", "[::1]:0"),
-		"public_tcp4": public("tcp4", "192.0.2.1:49191"),
-		"public_udp4": public("udp4", "192.0.2.1:49191"),
-		"public_tcp6": public("tcp6", "[2001:db8::1]:49191"),
-		"public_udp6": public("udp6", "[2001:db8::1]:49191"),
+		"public_tcp4": public("tcp4", "192.0.2.1:49191", nil),
+		"public_udp4": public("udp4", "192.0.2.1:49191", nil),
+		"public_tcp6": public("tcp6", "[2001:db8::1]:49191", ipv6Source),
+		"public_udp6": public("udp6", "[2001:db8::1]:49191", ipv6Source),
 	}
 	if json.NewEncoder(os.Stdout).Encode(data) != nil {
 		os.Exit(1)

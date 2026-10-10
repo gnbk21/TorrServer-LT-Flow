@@ -86,6 +86,9 @@ jobs:
       - name: Verify installer channel selection
         shell: pwsh
         run: ./build/test-release-channels.ps1
+      - name: Verify disposable IPv6 fixture admission and rollback without network changes
+        shell: pwsh
+        run: ./build/test-guard-ipv6-fixture.ps1
   web:
     if: github.event_name == 'push'
     uses: ./.github/workflows/build-web.yml
