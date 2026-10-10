@@ -177,6 +177,12 @@ func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Requ
 		return "UNKNOWN", hint, 0
 	}
 	internal := group == torrstor.ProbeReaderGroup
+	if !internal && req.Method == http.MethodGet {
+		purpose := flow.Classify(req.Method, false, hint, file.Length, 0, false)
+		if purpose != "HEAD_PROBE" && purpose != "TAIL_INDEX" {
+			t.nextEpisodeFileChanged(fileID)
+		}
+	}
 	if !internal && req.Method == http.MethodGet && settings.CurrentFlow().Enabled {
 		if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
 			cache.ClearWarmReserve()

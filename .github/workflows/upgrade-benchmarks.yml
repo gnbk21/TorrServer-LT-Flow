@@ -1,5 +1,13 @@
 name: Flow upgrade matched measurements
 on:
+  workflow_call:
+    inputs:
+      candidate_run_id:
+        required: true
+        type: string
+      comparison:
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       candidate_run_id:
@@ -31,7 +39,9 @@ jobs:
         run: |
           [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
           actual=$(gh run view "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --json headSha --jq '.headSha')
-          [[ "$actual" == "$(git rev-parse HEAD)" ]]
+          # PR checkouts use the reviewed merge commit; headSha identifies the
+          # source branch and github.sha stamps the candidate build metadata.
+          [[ "$actual" == "${{ github.event.pull_request.head.sha || github.sha }}" ]]
       - uses: actions/download-artifact@v4
         with:
           name: TorrServer-LT-linux-amd64

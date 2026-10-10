@@ -86,6 +86,7 @@ func SetupRoute(route gin.IRouter) {
 	// Structured server status (integration flags + BT stats + raw /stat text).
 	authorized.GET("/runtime/status", runtimeStatus)
 	authorized.GET("/flow/status/:hash", flowStatus)
+	authorized.POST("/flow/warmup/:hash", nextEpisodeWarmup)
 	authorized.GET("/flow/library", flowLibrary)
 	authorized.GET("/flow/active", flowActive)
 	authorized.GET("/flow/network", flowNetwork)

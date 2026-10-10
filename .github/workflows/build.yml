@@ -42,6 +42,26 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  upgrade-profile-comparison:
+    if: github.event_name == 'pull_request' && github.head_ref == 'feature/flow-upgrade'
+    needs: [cross]
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/upgrade-benchmarks.yml
+    with:
+      candidate_run_id: ${{ format('{0}', github.run_id) }}
+      comparison: profiles
+  upgrade-transport-comparison:
+    if: github.event_name == 'pull_request' && github.head_ref == 'feature/flow-upgrade'
+    needs: [cross]
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/upgrade-benchmarks.yml
+    with:
+      candidate_run_id: ${{ format('{0}', github.run_id) }}
+      comparison: transport
   windows-network-notifications:
     runs-on: windows-latest
     steps:

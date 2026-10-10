@@ -96,6 +96,7 @@ def run(args):
             if 'released_allocation' not in report: raise AssertionError('Reader/reservation release did not converge')
             report['convergence'] = convergence(report['samples'])
             if report['convergence']['known'] and not report['convergence']['passed']: raise AssertionError('Resource growth exceeded the declared convergence allowance')
+            if args.hours >= 8 and not report['convergence']['known']: raise AssertionError('Eight-hour acceptance requires known resource convergence')
             report['swarm'] = swarm.status()
             report['passed'] = True
             report['eight_hour_acceptance'] = args.hours >= 8 and time.monotonic()-started >= 8*3600 and report['convergence']['known']

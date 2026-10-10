@@ -51,6 +51,7 @@ export interface FlowSettings {
   AdaptiveUrgentHorizon?: boolean;
   ContainerBurstHints?: boolean;
   StreamTransportBufferKiB?: number;
+  NextEpisodeWarmup?: boolean;
 }
 
 export interface TMDBSettings {

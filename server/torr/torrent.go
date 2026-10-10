@@ -35,8 +35,16 @@ type Torrent struct {
 	Timestamp int64
 	Size      int64
 
-	bt *BTServer
-	lh atomic.Pointer[lt.Torrent] // nil for DB-only or closed torrents
+	bt                    *BTServer
+	lh                    atomic.Pointer[lt.Torrent]   // nil for DB-only or closed torrents
+	filesSnapshot         atomic.Pointer[torrentFiles] // immutable after metadata arrives
+	filesMu               sync.Mutex
+	nextEpisodeMu         sync.Mutex
+	nextEpisodeCurrent    int
+	nextEpisodeManual     int
+	nextEpisodeTarget     int
+	nextEpisodeAutomatic  bool
+	nextEpisodeSuppressed bool
 
 	mu       sync.Mutex
 	sourceMu sync.Mutex
@@ -516,6 +524,7 @@ func (t *Torrent) progressTick() {
 	t.mu.Unlock()
 	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
 		cache.SetFlowDownloadRate(rate, FlowIsPaused())
+		t.tickNextEpisode(cache)
 	}
 	count := 0
 	if st.PieceLength > 0 && st.TotalSize > 0 {
@@ -558,6 +567,9 @@ func (t *Torrent) Close() bool {
 }
 
 func (t *Torrent) markClosed() {
+	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+		cache.ClearNextEpisodeWarmup()
+	}
 	t.closeOnce.Do(func() {
 		if t.closeCh != nil {
 			close(t.closeCh)
@@ -608,6 +620,35 @@ func (t *Torrent) Length() int64 {
 
 // Files returns the file list once metadata is known.
 func (t *Torrent) Files() []*File {
+	snapshot := t.fileSnapshot()
+	if snapshot == nil {
+		return nil
+	}
+	out := make([]*File, 0, len(snapshot.sorted))
+	for _, file := range snapshot.sorted {
+		copy := *file
+		out = append(out, &copy)
+	}
+	return out
+}
+
+type torrentFiles struct {
+	sorted []*File
+	byID   map[int]*File
+}
+
+func (t *Torrent) fileSnapshot() *torrentFiles {
+	if t == nil || t.LTHandle() == nil {
+		return nil
+	}
+	if snapshot := t.filesSnapshot.Load(); snapshot != nil {
+		return snapshot
+	}
+	t.filesMu.Lock()
+	defer t.filesMu.Unlock()
+	if snapshot := t.filesSnapshot.Load(); snapshot != nil {
+		return snapshot
+	}
 	handle := t.LTHandle()
 	if handle == nil {
 		return nil
@@ -627,7 +668,12 @@ func (t *Torrent) Files() []*File {
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return utils2.CompareStrings(out[i].Path, out[j].Path) })
-	return out
+	snapshot := &torrentFiles{sorted: out, byID: make(map[int]*File, len(out))}
+	for _, f := range out {
+		snapshot.byID[f.Index+1] = f
+	}
+	t.filesSnapshot.Store(snapshot)
+	return snapshot
 }
 
 // LTHandle returns the underlying libtorrent handle for callers that

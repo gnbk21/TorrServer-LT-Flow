@@ -207,6 +207,93 @@ test("polling is deduplicated, bounded and stops when hidden", async ({
   );
 });
 const hash = "0123456789012345678901234567890123456789";
+test("next episode warmup requires a chosen file and handles rejected changes", async ({
+  page,
+}) => {
+  await mockServer(page, { active: true });
+  await page.route("**/flow/status/*", (route) =>
+    route.fulfill({
+      json: {
+        hash,
+        sessions: [
+          {
+            group: "phone",
+            file_index: 1,
+            state: "PLAYING",
+            active_readers: 1,
+            buffer_ahead_seconds: 40,
+            buffer_ahead_bytes: 1000,
+            playback_consumption_rate: 500,
+            download_rate: 600,
+            sustainability_ratio: 1.2,
+            piece_wait_p95_ms: 0,
+            seek_count: 0,
+            seek_recovery_ms: 0,
+            buffer_warning: false,
+          },
+        ],
+        next_episode_warmup: {
+          enabled: true,
+          current_file_index: 1,
+          file_index: 0,
+          automatic: false,
+          state: "idle",
+          reason: "MANUAL_SELECTION_REQUIRED",
+          budget_bytes: 0,
+          verified_bytes: 0,
+        },
+      },
+    }),
+  );
+  await page.route("**/torrents", (route) =>
+    route.request().postDataJSON().action === "get"
+      ? route.fulfill({
+          json: {
+            ...torrent,
+            file_stats: [
+              ...torrent.file_stats,
+              { id: 2, path: "Season 01/Show.S01E02.mkv", length: 1000 },
+              { id: 3, path: "readme.txt", length: 20 },
+            ],
+          },
+        })
+      : route.fallback(),
+  );
+  const actions: unknown[] = [];
+  await page.route("**/flow/warmup/*", (route) => {
+    actions.push(route.request().postDataJSON());
+    return route.fulfill({
+      status: 409,
+      json: { error: "fixture rejected change" },
+    });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Diagnostics", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByRole("heading", { name: "Next episode warmup", exact: true }),
+  ).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "Choose file", exact: true })
+    .click();
+  const choice = dialog.getByRole("combobox", {
+    name: "Choose file",
+    exact: true,
+  });
+  await expect(choice.locator("option")).toHaveCount(2);
+  await choice.selectOption("2");
+  await dialog
+    .getByRole("button", { name: "Warm selected file", exact: true })
+    .click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  expect(actions).toEqual([{ file_index: 2, action: "select" }]);
+  await dialog
+    .getByRole("button", { name: "Cancel warmup", exact: true })
+    .click();
+  await expect.poll(() => actions.length).toBe(2);
+  expect(actions[1]).toEqual({ file_index: 0, action: "cancel" });
+});
+
 test("incident timeline and explicit player import preserve unknown evidence", async ({
   page,
 }) => {
@@ -288,27 +375,23 @@ test("incident timeline and explicit player import preserve unknown evidence", a
       },
     ],
   };
-  await dialog
-    .getByLabel("Import player JSON report")
-    .setInputFiles({
-      name: "report.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(report)),
-    });
+  await dialog.getByLabel("Import player JSON report").setInputFiles({
+    name: "report.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(report)),
+  });
   await expect(
     dialog.getByText("Report matches an observed session.", { exact: true }),
   ).toBeVisible();
   await expect(dialog.locator("dd").filter({ hasText: /^—$/ })).toHaveCount(1);
   await dialog.getByRole("button", { name: "Clear imported report" }).click();
-  await dialog
-    .getByLabel("Import player JSON report")
-    .setInputFiles({
-      name: "invalid.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(
-        JSON.stringify({ ...report, url: "https://private.invalid/token" }),
-      ),
-    });
+  await dialog.getByLabel("Import player JSON report").setInputFiles({
+    name: "invalid.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(
+      JSON.stringify({ ...report, url: "https://private.invalid/token" }),
+    ),
+  });
   await expect(dialog.getByText(/private.invalid/)).toHaveCount(0);
   await expect(
     dialog.getByText("Invalid or oversized player report.", { exact: true }),

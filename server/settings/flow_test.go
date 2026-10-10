@@ -113,6 +113,9 @@ func TestFlowHistoryAndDHTMigration(t *testing.T) {
 	if migrated.DiagnosticHistory || !migrated.DHTStatePersistence {
 		t.Fatal("incorrect new-field defaults")
 	}
+	if migrated.NextEpisodeWarmup {
+		t.Fatal("warmup must migrate disabled")
+	}
 	var explicit FlowSettings
 	if err := json.Unmarshal([]byte(`{"DiagnosticHistory":true,"DHTStatePersistence":false}`), &explicit); err != nil {
 		t.Fatal(err)

@@ -40,6 +40,7 @@ type FlowSettings struct {
 	AdaptiveUrgentHorizon    bool // demand-sized urgent subset, opt-in
 	ContainerBurstHints      bool // resident index estimates only, opt-in
 	StreamTransportBufferKiB int  // 0/direct, 64, 256 or 1024; existing 1024 KiB default
+	NextEpisodeWarmup        bool // opt-in header/index only, <=32 MiB in existing spare cache
 	GlobalCacheBudgetMB      int  // aggregate RAM eviction budget; zero chooses bounded auto policy
 	WarmCacheBudgetMB        int
 	PreparationConcurrency   int

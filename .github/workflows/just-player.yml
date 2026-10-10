@@ -47,7 +47,7 @@ jobs:
           sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;29.0.14206865'
           chmod +x gradlew
           ./gradlew --no-daemon assembleLatestUniversalDebug
-          ./gradlew --no-daemon --init-script ../build/just-player/inventory.gradle :app:flowInventory
+          ./gradlew --no-daemon --no-configuration-cache --init-script ../build/just-player/inventory.gradle :app:flowInventory
       - name: Preserve source and license
         run: |
           mkdir -p _out/player-source

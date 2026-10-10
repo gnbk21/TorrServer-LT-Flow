@@ -281,6 +281,7 @@ export default function Settings() {
           "Flow.AdaptiveUrgentHorizon": t("settings.highBitrateExperimentHelp"),
           "Flow.ContainerBurstHints": t("settings.highBitrateExperimentHelp"),
           "Flow.StreamTransportBufferKiB": t("settings.transportHelp"),
+          "Flow.NextEpisodeWarmup": t("flow.warmupHint"),
         } as Record<string, string>
       )[key] || "",
     ]

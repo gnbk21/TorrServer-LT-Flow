@@ -653,6 +653,37 @@
       "buffered_ms": "Buffered time (ms)",
       "dropped_frames": "Dropped frames",
       "paused_ms": "Paused time (ms)"
+    },
+    "warmupTitle": "Next episode warmup",
+    "warmupHint": "Optional: warms one episode header/index, up to 32 MiB in the existing spare cache. Yields to playback waits and pressure. It does not prepare the whole episode. Enable it in Flow settings.",
+    "warmupDisabled": "Disabled",
+    "warmupChoose": "Choose file",
+    "warmupAuto": "Automatic choice",
+    "warmupCancel": "Cancel warmup",
+    "warmupStart": "Warm selected file",
+    "warmupFile": "File {{index}}",
+    "warmupStates": {
+      "idle": "Idle",
+      "waiting": "Waiting for spare capacity",
+      "warming": "Warming header/index",
+      "ready": "Verified and resident",
+      "evicted": "Cache reused; warmup not repeated",
+      "unavailable": "Unavailable"
+    },
+    "warmupReasons": {
+      "PLAYBACK_RESERVE": "Playback needs its reserve first.",
+      "PLAYBACK_WAIT": "Another playback is waiting for bytes.",
+      "RESOURCE_PRESSURE": "Cache pressure takes priority.",
+      "NO_SPARE_CACHE": "No spare cache space.",
+      "OTHER_WARMUP": "Another episode warmup owns the single slot.",
+      "PIECE_BUDGET": "Piece size exceeds the warmup budget.",
+      "MANUAL_SELECTION_REQUIRED": "Select a file: the next episode is uncertain.",
+      "CANCELLED": "Cancelled until the playback file changes.",
+      "SPARE_CAPACITY": "Warmup uses spare capacity.",
+      "VERIFIED": "Header/index bytes are verified.",
+      "CACHE_REUSED": "Unprotected bytes were evicted for playback.",
+      "DISABLED_OR_EXPIRED": "Warmup is disabled or expired.",
+      "MULTIPLE_FILES": "Several playback files are active."
     }
   },
   "torrent": {
@@ -875,7 +906,8 @@
         "AdaptiveUrgentHorizon": "Adaptive urgent horizon (experiment)",
         "ContainerBurstHints": "Resident container burst hints (experiment)",
         "MSXAllowLAN": "Allow MSX proxy access to LAN",
-        "StreamTransportBufferKiB": "Transport buffer (controlled experiment)"
+        "StreamTransportBufferKiB": "Transport buffer (controlled experiment)",
+        "NextEpisodeWarmup": "Next episode header/index warmup"
       }
     },
     "maintenance": {

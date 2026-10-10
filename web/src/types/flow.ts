@@ -171,6 +171,16 @@ export interface FlowStatusResponse {
     }[];
   };
   storage_io?: StorageIO;
+  next_episode_warmup?: {
+    enabled: boolean;
+    current_file_index: number;
+    file_index: number;
+    automatic: boolean;
+    state: "idle" | "waiting" | "warming" | "ready" | "evicted" | "unavailable";
+    reason: string;
+    budget_bytes: number;
+    verified_bytes: number;
+  };
   sparse?: SparseSnapshot;
   hash: string;
   startup?: FlowStartup;

@@ -192,7 +192,7 @@ func NeedsEngineRestart(old, next *BTSets) bool {
 	b.SslCert, b.SslKey = a.SslCert, a.SslKey
 	if a.Flow != nil && b.Flow != nil {
 		av, bv := reflect.ValueOf(a.Flow).Elem(), reflect.ValueOf(b.Flow).Elem()
-		for _, name := range []string{"AdaptiveStartup", "BootstrapHeadMB", "ProbeGraceMs", "StartupBufferSeconds", "StartupBufferMinMB", "StartupBufferMaxMB", "StartupSafetyFactorPct", "AdaptiveReadAhead", "TargetBufferSeconds", "MaxBufferSeconds", "WarmSessionTimeoutSec", "NetworkRetryMinSec", "NetworkRetryMaxSec", "RangeTraceEnabled", "RangeClassification", "MetricsEnabled", "DebugFlow", "PreparationQuotaMB", "ScarcePieceHints", "RateAwareDeadlines", "GlobalCacheBudgetMB", "WarmCacheBudgetMB", "PreparationConcurrency", "ManagementOrigins", "ManagementRateLimit", "SecurityProfile", "RequirePlaybackToken", "PlaybackTokenTTL", "MSXAllowLAN", "StreamTransportBufferKiB"} {
+		for _, name := range []string{"AdaptiveStartup", "BootstrapHeadMB", "ProbeGraceMs", "StartupBufferSeconds", "StartupBufferMinMB", "StartupBufferMaxMB", "StartupSafetyFactorPct", "AdaptiveReadAhead", "TargetBufferSeconds", "MaxBufferSeconds", "WarmSessionTimeoutSec", "NetworkRetryMinSec", "NetworkRetryMaxSec", "RangeTraceEnabled", "RangeClassification", "MetricsEnabled", "DebugFlow", "PreparationQuotaMB", "ScarcePieceHints", "RateAwareDeadlines", "GlobalCacheBudgetMB", "WarmCacheBudgetMB", "PreparationConcurrency", "ManagementOrigins", "ManagementRateLimit", "SecurityProfile", "RequirePlaybackToken", "PlaybackTokenTTL", "MSXAllowLAN", "StreamTransportBufferKiB", "NextEpisodeWarmup"} {
 			bv.FieldByName(name).Set(av.FieldByName(name))
 		}
 	}

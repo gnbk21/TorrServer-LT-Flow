@@ -743,6 +743,37 @@
       "buffered_ms": "Durée en tampon (ms)",
       "dropped_frames": "Images perdues",
       "paused_ms": "Pause (ms)"
+    },
+    "warmupTitle": "Préchauffage du prochain épisode",
+    "warmupHint": "Facultatif : charge l’en-tête/index d’un seul épisode, jusqu’à 32 Mio dans le cache existant libre. Cède aux attentes et à la pression de lecture. Ne prépare pas tout l’épisode. Activez-le dans les réglages Flow.",
+    "warmupDisabled": "Désactivé",
+    "warmupChoose": "Choisir un fichier",
+    "warmupAuto": "Choix automatique",
+    "warmupCancel": "Annuler",
+    "warmupStart": "Préchauffer le fichier choisi",
+    "warmupFile": "Fichier {{index}}",
+    "warmupStates": {
+      "idle": "Inactif",
+      "waiting": "En attente de capacité libre",
+      "warming": "Chargement de l’en-tête/index",
+      "ready": "Vérifié et présent en cache",
+      "evicted": "Cache réutilisé ; sans nouveau préchauffage",
+      "unavailable": "Indisponible"
+    },
+    "warmupReasons": {
+      "PLAYBACK_RESERVE": "La lecture a besoin de sa réserve en priorité.",
+      "PLAYBACK_WAIT": "Une autre lecture attend des octets.",
+      "RESOURCE_PRESSURE": "La pression du cache est prioritaire.",
+      "NO_SPARE_CACHE": "Aucune place libre dans le cache.",
+      "OTHER_WARMUP": "Un autre épisode occupe l’unique emplacement.",
+      "PIECE_BUDGET": "La taille des pièces dépasse le budget.",
+      "MANUAL_SELECTION_REQUIRED": "Choisissez un fichier : le prochain épisode est incertain.",
+      "CANCELLED": "Annulé jusqu’au changement de fichier lu.",
+      "SPARE_CAPACITY": "Utilise la capacité libre.",
+      "VERIFIED": "L’en-tête/index est vérifié.",
+      "CACHE_REUSED": "Octets non protégés évincés pour la lecture.",
+      "DISABLED_OR_EXPIRED": "Préchauffage désactivé ou expiré.",
+      "MULTIPLE_FILES": "Plusieurs fichiers sont en lecture."
     }
   },
   "search": {
@@ -889,7 +920,8 @@
         "AdaptiveUrgentHorizon": "Horizon urgent adaptatif (expérience)",
         "ContainerBurstHints": "Indications de pics par index résident (expérience)",
         "MSXAllowLAN": "Autoriser le proxy MSX sur le réseau local",
-        "StreamTransportBufferKiB": "Tampon de transport (expérience contrôlée)"
+        "StreamTransportBufferKiB": "Tampon de transport (expérience contrôlée)",
+        "NextEpisodeWarmup": "Préchauffage de l’en-tête/index du prochain épisode"
       }
     },
     "maintenance": {

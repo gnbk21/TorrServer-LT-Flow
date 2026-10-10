@@ -737,6 +737,37 @@
       "buffered_ms": "Timp în buffer (ms)",
       "dropped_frames": "Cadre pierdute",
       "paused_ms": "Pauză (ms)"
+    },
+    "warmupTitle": "Încălzirea episodului următor",
+    "warmupHint": "Opțional: încarcă antetul/indexul unui episod, până la 32 MiB în memoria cache existentă liberă. Cedează în timpul așteptărilor și presiunii de redare. Nu pregătește întregul episod. Activați din setările Flow.",
+    "warmupDisabled": "Dezactivat",
+    "warmupChoose": "Alege fișierul",
+    "warmupAuto": "Alegere automată",
+    "warmupCancel": "Anulează",
+    "warmupStart": "Încălzește fișierul ales",
+    "warmupFile": "Fișier {{index}}",
+    "warmupStates": {
+      "idle": "Inactiv",
+      "waiting": "Așteaptă capacitate liberă",
+      "warming": "Încarcă antetul/indexul",
+      "ready": "Verificat și prezent în cache",
+      "evicted": "Cache reutilizat; fără reîncălzire",
+      "unavailable": "Indisponibil"
+    },
+    "warmupReasons": {
+      "PLAYBACK_RESERVE": "Redarea are nevoie mai întâi de rezerva sa.",
+      "PLAYBACK_WAIT": "O altă redare așteaptă date.",
+      "RESOURCE_PRESSURE": "Presiunea asupra cache-ului are prioritate.",
+      "NO_SPARE_CACHE": "Nu există spațiu liber în cache.",
+      "OTHER_WARMUP": "Un alt episod ocupă singurul loc.",
+      "PIECE_BUDGET": "Dimensiunea piesei depășește bugetul.",
+      "MANUAL_SELECTION_REQUIRED": "Alegeți un fișier: episodul următor este incert.",
+      "CANCELLED": "Anulat până la schimbarea fișierului redat.",
+      "SPARE_CAPACITY": "Folosește capacitatea liberă.",
+      "VERIFIED": "Antetul/indexul sunt verificate.",
+      "CACHE_REUSED": "Datele neprotejate au fost eliminate pentru redare.",
+      "DISABLED_OR_EXPIRED": "Încălzirea este dezactivată sau expirată.",
+      "MULTIPLE_FILES": "Sunt redate mai multe fișiere."
     }
   },
   "search": {
@@ -883,7 +914,8 @@
         "AdaptiveUrgentHorizon": "Orizont urgent adaptiv (experiment)",
         "ContainerBurstHints": "Indicii de vârf din indexul rezident (experiment)",
         "MSXAllowLAN": "Permite accesul proxy-ului MSX la rețeaua locală",
-        "StreamTransportBufferKiB": "Buffer de transport (experiment controlat)"
+        "StreamTransportBufferKiB": "Buffer de transport (experiment controlat)",
+        "NextEpisodeWarmup": "Încălzirea antetului/indexului episodului următor"
       }
     },
     "maintenance": {

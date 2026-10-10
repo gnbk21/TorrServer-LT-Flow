@@ -743,6 +743,37 @@
       "buffered_ms": "缓冲时长（毫秒）",
       "dropped_frames": "丢帧数",
       "paused_ms": "暂停时间（毫秒）"
+    },
+    "warmupTitle": "下一集预热",
+    "warmupHint": "可选：在现有缓存的空闲空间内预热一集的文件头/索引，最多 32 MiB。播放等待或资源紧张时让步，不会准备整集。请在 Flow 设置中启用。",
+    "warmupDisabled": "已禁用",
+    "warmupChoose": "选择文件",
+    "warmupAuto": "自动选择",
+    "warmupCancel": "取消预热",
+    "warmupStart": "预热所选文件",
+    "warmupFile": "文件 {{index}}",
+    "warmupStates": {
+      "idle": "空闲",
+      "waiting": "等待空闲空间",
+      "warming": "正在预热文件头/索引",
+      "ready": "已校验并驻留缓存",
+      "evicted": "缓存已重用；不重复预热",
+      "unavailable": "不可用"
+    },
+    "warmupReasons": {
+      "PLAYBACK_RESERVE": "优先保障当前播放的缓冲。",
+      "PLAYBACK_WAIT": "其他播放正在等待数据。",
+      "RESOURCE_PRESSURE": "缓存压力优先。",
+      "NO_SPARE_CACHE": "没有空闲缓存空间。",
+      "OTHER_WARMUP": "另一集占用唯一预热名额。",
+      "PIECE_BUDGET": "分片大小超出预热预算。",
+      "MANUAL_SELECTION_REQUIRED": "请选择文件：无法确定下一集。",
+      "CANCELLED": "已取消，直到播放文件改变。",
+      "SPARE_CAPACITY": "使用空闲缓存空间。",
+      "VERIFIED": "文件头/索引已校验。",
+      "CACHE_REUSED": "未保护的数据已为播放腾出空间。",
+      "DISABLED_OR_EXPIRED": "预热已禁用或过期。",
+      "MULTIPLE_FILES": "多个文件正在播放。"
     }
   },
   "search": {
@@ -889,7 +920,8 @@
         "AdaptiveUrgentHorizon": "自适应紧急分片范围（实验）",
         "ContainerBurstHints": "已缓存容器索引的峰值提示（实验）",
         "MSXAllowLAN": "允许 MSX 代理访问局域网",
-        "StreamTransportBufferKiB": "传输缓冲区（受控实验）"
+        "StreamTransportBufferKiB": "传输缓冲区（受控实验）",
+        "NextEpisodeWarmup": "预热下一集文件头/索引"
       }
     },
     "maintenance": {

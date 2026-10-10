@@ -30,6 +30,9 @@ type Storage struct {
 	preparations      map[[20]byte]PreparationStorage
 	verifiedReads     map[[20]byte]bool
 	networkRecovering atomic.Bool
+	nextMu            sync.Mutex
+	nextOwner         *Cache
+	nextUntil         time.Time
 }
 
 type verifiedResume struct {

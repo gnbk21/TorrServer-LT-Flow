@@ -34,6 +34,7 @@ export const settingsSchema = z
         CapacityAwareRequests: z.boolean().optional(),
         AdaptiveUrgentHorizon: z.boolean().optional(),
         ContainerBurstHints: z.boolean().optional(),
+        NextEpisodeWarmup: z.boolean().optional(),
         StreamTransportBufferKiB: z
           .union([z.literal(0), z.literal(64), z.literal(256), z.literal(1024)])
           .optional(),
@@ -106,6 +107,33 @@ export const flowSessionSchema = z
   .passthrough();
 export const flowSchema = z
   .object({
+    next_episode_warmup: z
+      .object({
+        enabled: z.boolean(),
+        current_file_index: z.number().int().nonnegative(),
+        file_index: z.number().int().nonnegative(),
+        automatic: z.boolean(),
+        state: z.enum([
+          "idle",
+          "waiting",
+          "warming",
+          "ready",
+          "evicted",
+          "unavailable",
+        ]),
+        reason: z.string(),
+        budget_bytes: z
+          .number()
+          .int()
+          .min(0)
+          .max(32 * 1024 * 1024),
+        verified_bytes: z
+          .number()
+          .int()
+          .min(0)
+          .max(32 * 1024 * 1024),
+      })
+      .optional(),
     sampled_at: z.string().datetime({ offset: true }).optional(),
     timeline: z
       .object({
