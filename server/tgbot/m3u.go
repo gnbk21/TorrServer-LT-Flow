@@ -21,7 +21,7 @@ func callbackM3u(c tele.Context, hash string) error {
 }
 
 func cmdM3u(c tele.Context) error {
-	args := c.Args()
+	args := callbackArgs(c)
 	arg := ""
 	if len(args) > 0 {
 		arg = args[0]

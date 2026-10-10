@@ -57,7 +57,7 @@ func extractHashFromReply(c tele.Context) string {
 const hashPageSize = 10
 
 func cmdHash(c tele.Context) error {
-	args := c.Args()
+	args := callbackArgs(c)
 	torrents := torr.ListTorrent()
 	if len(torrents) == 0 {
 		return c.Send(tr(c.Sender().ID, "no_torrents"))

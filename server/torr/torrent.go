@@ -408,7 +408,7 @@ func (t *Torrent) signalGotInfo() {
 		t.flowStartup.WaitReason = ""
 		t.flowStartup.State = "IDLE"
 		t.mu.Unlock()
-		t.historyEvent(flow.HistoryEvent{Type: "metadata", ElapsedMs: time.Since(t.flowAddedAt).Milliseconds()})
+		t.historyEvent(flow.HistoryEvent{Type: "metadata", OperationMeasured: true, ElapsedMs: time.Since(t.flowAddedAt).Milliseconds()})
 		// Switch to lazy/streaming mode: download nothing until a Reader's
 		// window or Preload bumps the specific pieces it needs.
 		_ = lh.SetAllPiecesPriority(0)

@@ -163,7 +163,7 @@ export interface FlowStatusResponse {
     events: {
       time: string;
       elapsed_ms: number;
-      operation_ms: number;
+      operation_ms: number | null;
       type: string;
       stage?: string;
       file?: number;

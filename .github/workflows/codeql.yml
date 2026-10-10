@@ -81,12 +81,12 @@ jobs:
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
         run: |
           g++ -std=c++17 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer build/test_disk_upload.cpp -o _out/test-disk-upload -L"$PWD/_deps/linux-amd64/lib" $(pkg-config --cflags --libs libtorrent-rasterbar) -pthread
-          _out/test-disk-upload
+          env -u LD_PRELOAD _out/test-disk-upload
           clang++ -std=c++17 -O1 -g -fsanitize=fuzzer,address,undefined -fno-omit-frame-pointer build/test_torrent_parser_fuzz.cpp server/lt/lt_shim.cpp server/lt/lt_disk_io.cpp -o _out/test-torrent-parser-fuzz -L"$PWD/_deps/linux-amd64/lib" $(pkg-config --cflags --libs libtorrent-rasterbar) -pthread
           mkdir -p _out/parser-corpus
           printf 'd4:infod6:lengthi100e4:name4:test12:piece lengthi16384e6:pieces20:00000000000000000000ee' > _out/parser-corpus/v1
           printf 'magnet:?xt=urn:btmh:1220abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd' > _out/parser-corpus/v2-magnet
-          _out/test-torrent-parser-fuzz _out/parser-corpus -max_total_time=15 -timeout=3 -max_len=65536 -rss_limit_mb=2048
+          env -u LD_PRELOAD _out/test-torrent-parser-fuzz _out/parser-corpus -max_total_time=15 -timeout=3 -max_len=65536 -rss_limit_mb=2048
           cd server
           go test -count=1 -timeout 180s ./lt ./flow ./settings ./torr ./torr/storage/torrstor ./web/api ./mcp ./tgbot
           go test ./flow -run '^$' -fuzz '^FuzzInfoHash$' -fuzztime=10s -parallel=2

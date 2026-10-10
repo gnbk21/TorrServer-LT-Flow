@@ -13,7 +13,7 @@ import (
 const listPageSize = 5
 
 func list(c tele.Context) error {
-	args := c.Args()
+	args := callbackArgs(c)
 	compact := len(args) > 0 && strings.ToLower(args[0]) == "compact"
 	return sendListPage(c, 0, compact)
 }
@@ -45,22 +45,22 @@ func sendListPage(c tele.Context, page int, compact bool) error {
 		if compact {
 			rows = [][]tele.InlineButton{
 				{
-					tele.InlineButton{Text: tr(uid, "btn_files"), Unique: "files", Data: hash},
-					tele.InlineButton{Text: tr(uid, "btn_status"), Unique: "fstatus", Data: hash},
-					tele.InlineButton{Text: tr(uid, "btn_delete"), Unique: "delete", Data: hash},
+					tele.InlineButton{Text: tr(uid, "btn_files"), Unique: "files", Data: callbackHash(hash)},
+					tele.InlineButton{Text: tr(uid, "btn_status"), Unique: "fstatus", Data: callbackHash(hash)},
+					tele.InlineButton{Text: tr(uid, "btn_delete"), Unique: "delete", Data: callbackHash(hash)},
 				},
 			}
 		} else {
 			rows = [][]tele.InlineButton{
 				{
-					tele.InlineButton{Text: tr(uid, "btn_files"), Unique: "files", Data: hash},
-					tele.InlineButton{Text: tr(uid, "btn_delete"), Unique: "delete", Data: hash},
-					tele.InlineButton{Text: tr(uid, "btn_status"), Unique: "fstatus", Data: hash},
-					tele.InlineButton{Text: tr(uid, "btn_m3u"), Unique: "fm3u", Data: hash},
+					tele.InlineButton{Text: tr(uid, "btn_files"), Unique: "files", Data: callbackHash(hash)},
+					tele.InlineButton{Text: tr(uid, "btn_delete"), Unique: "delete", Data: callbackHash(hash)},
+					tele.InlineButton{Text: tr(uid, "btn_status"), Unique: "fstatus", Data: callbackHash(hash)},
+					tele.InlineButton{Text: tr(uid, "btn_m3u"), Unique: "fm3u", Data: callbackHash(hash)},
 				},
 				{
-					tele.InlineButton{Text: tr(uid, "btn_link"), Unique: "flink", Data: hash},
-					tele.InlineButton{Text: tr(uid, "btn_drop"), Unique: "fdrop", Data: hash},
+					tele.InlineButton{Text: tr(uid, "btn_link"), Unique: "flink", Data: callbackHash(hash)},
+					tele.InlineButton{Text: tr(uid, "btn_drop"), Unique: "fdrop", Data: callbackHash(hash)},
 				},
 			}
 		}

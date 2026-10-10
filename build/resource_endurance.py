@@ -6,7 +6,7 @@ run is recorded as such only after eight hours actually elapsed. This measures
 server resources and byte correctness, not a decoder or Android playback.
 """
 import argparse
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 import datetime
 import hashlib
 import json
@@ -54,7 +54,8 @@ def run(args):
               'cycles':0,'samples':[],'passed':False,'eight_hour_acceptance':False}
     server = OwnedServer(args.executable,args.output/'state',extra_settings={
         'CacheSize':64*MIB,'UseDisk':args.disk,'TorrentsSavePath':str((args.output/'rolling-cache').resolve()) if args.disk else '',
-        'Flow':{'SwarmProfile':'adaptive','WarmSessionTimeoutSec':30,'GlobalCacheBudgetMB':64,'WarmCacheBudgetMB':16,'DiagnosticHistory':False}})
+        'Flow':{'SwarmProfile':'adaptive','WarmSessionTimeoutSec':30,'GlobalCacheBudgetMB':64,'WarmCacheBudgetMB':16,'DiagnosticHistory':True,'RangeTraceEnabled':True}})
+    swarm = None
     def record():
         elapsed = time.monotonic()-started
         report['elapsed_seconds'] = elapsed
@@ -76,7 +77,22 @@ def run(args):
                         source = swarm.data[offsets[index]:offsets[index]+file['length']]
                         start = (report['cycles']*7*MIB)%max(1,len(source)-2*MIB)
                         tasks.append(workers.submit(range_read,server,info_hash,file['id'],source,start,start+MIB-1,report['cycles']%7==0))
-                    for task in tasks: task.result(timeout=90)
+                    pending = set(tasks)
+                    range_started = time.monotonic()
+                    captured = False
+                    while pending:
+                        _, pending = wait(pending, timeout=1)
+                        if pending and time.monotonic()-range_started > 10 and not captured:
+                            report.setdefault('slow_cycles', []).append({
+                                'cycle':report['cycles'], 'elapsed_seconds':time.monotonic()-started,
+                                'swarm':swarm.status(), 'runtime':server.json('/runtime/status'),
+                                'flow':server.json('/flow/status/'+info_hash)})
+                            report['slow_cycles'] = report['slow_cycles'][-8:]
+                            captured = True
+                            record()
+                        if time.monotonic()-range_started > 130:
+                            raise TimeoutError('Controlled Range requests did not finish within 130 seconds')
+                    for task in tasks: task.result()
                     runtime = server.json('/runtime/status')
                     report['samples'].append({'elapsed_seconds':time.monotonic()-started,'memory':runtime['memory'],
                         'allocation':runtime.get('cache_allocation'),'resources':runtime.get('resources')})
@@ -101,6 +117,12 @@ def run(args):
             report['passed'] = True
             report['eight_hour_acceptance'] = args.hours >= 8 and time.monotonic()-started >= 8*3600 and report['convergence']['known']
     except Exception as error:
+        if swarm is not None: report['swarm'] = swarm.status()
+        try:
+            report['failure_runtime'] = server.json('/runtime/status')
+            report['failure_flow'] = server.json('/flow/status/'+info_hash)
+        except Exception as capture_error:
+            report['capture_failure_type'] = type(capture_error).__name__
         report['failure_type'] = type(error).__name__
         report['failure'] = str(error)
         raise

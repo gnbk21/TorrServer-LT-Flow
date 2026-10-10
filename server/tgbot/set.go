@@ -9,7 +9,7 @@ import (
 )
 
 func cmdSet(c tele.Context) error {
-	args := c.Args()
+	args := callbackArgs(c)
 	if len(args) < 2 {
 		return c.Send(tr(c.Sender().ID, "set_usage"))
 	}

@@ -7,7 +7,7 @@ func handleCallback(c tele.Context) error {
 	if c.Sender() == nil {
 		return nil
 	}
-	args := c.Args()
+	args := callbackArgs(c)
 	if len(args) == 0 {
 		return c.Respond(&tele.CallbackResponse{Text: tr(c.Sender().ID, "callback_unknown")})
 	}

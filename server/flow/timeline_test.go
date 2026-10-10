@@ -1,7 +1,7 @@
 package flow
 
 import (
-	"fmt"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -16,9 +16,9 @@ func TestTimelinePreservesStartupAndBoundsRecentTail(t *testing.T) {
 	if len(out.Events) != 128 || out.Dropped != 872 || out.Events[0].File != 0 || out.Events[31].File != 31 || out.Events[32].File != 904 || out.Events[127].File != 999 {
 		t.Fatal("timeline retention failed")
 	}
-	before := fmt.Sprint(out)
+	before := timeline.Snapshot()
 	timeline.Record(HistoryEvent{Type: "https://secret.example"}, time.Second)
-	if fmt.Sprint(timeline.Snapshot()) != before {
+	if !reflect.DeepEqual(timeline.Snapshot(), before) {
 		t.Fatal("arbitrary string recorded")
 	}
 	out.Events[0].File = -1
@@ -42,5 +42,20 @@ func TestTimelineConcurrentProducers(t *testing.T) {
 	workers.Wait()
 	if len(timeline.Snapshot().Events) != TimelineEvents {
 		t.Fatal("incorrect event bound")
+	}
+}
+
+func TestTimelinePreservesUnknownAndMeasuredZero(t *testing.T) {
+	var timeline Timeline
+	timeline.Record(HistoryEvent{Type: "seek"}, time.Second)
+	timeline.Record(HistoryEvent{Type: "first_byte", OperationMeasured: true}, time.Second)
+	timeline.Record(HistoryEvent{Type: "recovery", OperationMeasured: true, ElapsedMs: 12}, time.Second)
+	rows := timeline.Snapshot().Events
+	if rows[0].OperationMs != nil || rows[1].OperationMs == nil || *rows[1].OperationMs != 0 || rows[2].OperationMs == nil || *rows[2].OperationMs != 12 {
+		t.Fatal("unknown duration became measured or measured zero was lost")
+	}
+	*rows[2].OperationMs = 99
+	if *timeline.Snapshot().Events[2].OperationMs != 12 {
+		t.Fatal("duration pointer aliases internal evidence")
 	}
 }

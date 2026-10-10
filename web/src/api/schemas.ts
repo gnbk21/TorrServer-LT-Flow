@@ -144,7 +144,7 @@ export const flowSchema = z
             z.object({
               time: z.string().datetime({ offset: true }),
               elapsed_ms: z.number().int().nonnegative(),
-              operation_ms: z.number().int(),
+              operation_ms: z.number().int().nonnegative().nullable(),
               type: z.string(),
               stage: z.string().optional(),
               file: z.number().int().optional(),

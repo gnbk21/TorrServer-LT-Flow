@@ -33,7 +33,7 @@ func truncateBtnText(s string) string {
 }
 
 func files(c tele.Context) error {
-	args := c.Args()
+	args := callbackArgs(c)
 	if len(args) < 2 {
 		return c.Respond(&tele.CallbackResponse{Text: tr(c.Sender().ID, "callback_unknown")})
 	}
@@ -139,28 +139,28 @@ func buildFilesListView(t *torr.Torrent, host string, uid int64, page int) (stri
 		idStr := strconv.Itoa(f.Id)
 		streamURL := host + "/stream/" + filepath.Base(f.Path) + "?link=" + hex + "&index=" + idStr + "&play"
 		rows = append(rows, m.Row(
-			m.Data(fileLabel, "upload", ti.Hash, idStr),
+			m.Data(fileLabel, "upload", callbackHash(ti.Hash), idStr),
 			m.URL(tr(uid, "files_link"), streamURL),
-			m.Data("⏳", "fpreload", ti.Hash, idStr),
+			m.Data("⏳", "fpreload", callbackHash(ti.Hash), idStr),
 		))
 	}
 
 	if totalPages > 1 {
 		var nav []tele.Btn
 		if page > 0 {
-			nav = append(nav, m.Data("◀️", "fitems", strconv.Itoa(page-1), ti.Hash))
+			nav = append(nav, m.Data("◀️", "fitems", strconv.Itoa(page-1), callbackHash(ti.Hash)))
 		}
 		nav = append(nav, m.Data(strconv.Itoa(page+1)+"/"+strconv.Itoa(totalPages), "fnop"))
 		if page < totalPages-1 {
-			nav = append(nav, m.Data("▶️", "fitems", strconv.Itoa(page+1), ti.Hash))
+			nav = append(nav, m.Data("▶️", "fitems", strconv.Itoa(page+1), callbackHash(ti.Hash)))
 		}
-		nav = append(nav, m.Data("🔄", "fifresh", strconv.Itoa(page), ti.Hash))
+		nav = append(nav, m.Data("🔄", "fifresh", strconv.Itoa(page), callbackHash(ti.Hash)))
 		rows = append(rows, m.Row(nav...))
 	} else {
-		rows = append(rows, m.Row(m.Data("🔄", "fifresh", strconv.Itoa(page), ti.Hash)))
+		rows = append(rows, m.Row(m.Data("🔄", "fifresh", strconv.Itoa(page), callbackHash(ti.Hash))))
 	}
 	if n > 1 {
-		rows = append(rows, m.Row(m.Data(tr(uid, "files_download_all"), "fall", "all", ti.Hash)))
+		rows = append(rows, m.Row(m.Data(tr(uid, "files_download_all"), "fall", "all", callbackHash(ti.Hash))))
 	}
 	m.Inline(rows...)
 	return txt, m

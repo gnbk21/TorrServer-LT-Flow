@@ -39,7 +39,7 @@ var (
 
 func cmdStatus(c tele.Context) error {
 	arg := ""
-	if args := c.Args(); len(args) > 0 {
+	if args := callbackArgs(c); len(args) > 0 {
 		arg = args[0]
 	}
 	hash := resolveHash(c, arg)
@@ -179,13 +179,13 @@ func statusKeyboard(uid int64, hash string, active bool) *tele.ReplyMarkup {
 	if active {
 		return &tele.ReplyMarkup{InlineKeyboard: [][]tele.InlineButton{
 			{
-				{Text: "🔄", Unique: "fstatusrefresh", Data: hash},
-				{Text: tr(uid, "status_stop_btn"), Unique: "fstatusstop", Data: hash},
+				{Text: "🔄", Unique: "fstatusrefresh", Data: callbackHash(hash)},
+				{Text: tr(uid, "status_stop_btn"), Unique: "fstatusstop", Data: callbackHash(hash)},
 			},
 		}}
 	}
 	return &tele.ReplyMarkup{InlineKeyboard: [][]tele.InlineButton{
-		{{Text: tr(uid, "status_refresh_btn"), Unique: "fstatusrefresh", Data: hash}},
+		{{Text: tr(uid, "status_refresh_btn"), Unique: "fstatusrefresh", Data: callbackHash(hash)}},
 	}}
 }
 

@@ -46,8 +46,11 @@ func NewField(tag Tag, value string) *Field {
 
 func ReadField(reader io.Reader) (*Field, error) {
 	tagb := make([]byte, 1)
-	if _, err := reader.Read(tagb); err == io.EOF {
-		return nil, nil
+	if _, err := io.ReadFull(reader, tagb); err != nil {
+		if err == io.EOF {
+			return nil, nil
+		}
+		return nil, err
 	}
 	tag := Tag(tagb[0])
 
@@ -87,6 +90,9 @@ func (f *Field) write(writer io.Writer) error {
 	}
 	if isBinary(f.Tag) && value == "0" {
 		return nil
+	}
+	if f.Tag < 0 || f.Tag > 255 || (!isBinary(f.Tag) && len(value) > 65535) {
+		return fmt.Errorf("invalid torrent token field")
 	}
 
 	_, err := writer.Write([]byte{byte(f.Tag)})

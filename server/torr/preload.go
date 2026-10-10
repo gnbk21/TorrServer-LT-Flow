@@ -551,7 +551,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 			if got > 0 && !firstBlock {
 				t.flowStartup.FirstUsefulBlockMs = time.Since(t.flowStartupStarted).Milliseconds()
 				firstBlock = true
-				t.historyEvent(flow.HistoryEvent{Type: "first_block", File: index, ElapsedMs: t.flowStartup.FirstUsefulBlockMs, Bytes: got})
+				t.historyEvent(flow.HistoryEvent{Type: "first_block", File: index, OperationMeasured: true, ElapsedMs: t.flowStartup.FirstUsefulBlockMs, Bytes: got})
 			}
 			t.mu.Unlock()
 			if !firstBlock {
@@ -873,7 +873,7 @@ func (t *Torrent) probeMediaInfo(index int) {
 			if success {
 				stage = "READY"
 			}
-			t.historyEvent(flow.HistoryEvent{Type: "probe", Stage: stage, File: index, ElapsedMs: time.Since(probeBegan).Milliseconds()})
+			t.historyEvent(flow.HistoryEvent{Type: "probe", Stage: stage, File: index, OperationMeasured: true, ElapsedMs: time.Since(probeBegan).Milliseconds()})
 		}
 	}()
 	defer func() {

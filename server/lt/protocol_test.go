@@ -70,21 +70,51 @@ func TestNativeFullV2AndHybridIdentities(t *testing.T) {
 	}
 }
 
-func TestNativeV2MagnetsKeepDistinctFullDigests(t *testing.T) {
+func TestNativeV2PrefixCollisionFailsClosed(t *testing.T) {
 	s := newSession(t)
-	var ids []int64
-	for _, hash := range []string{strings.Repeat("ab", 32), strings.Repeat("ab", 20) + strings.Repeat("cd", 12)} {
-		h, err := s.AddTorrent(AddTorrentParams{Link: "magnet:?xt=urn:btmh:1220" + hash, SavePath: t.TempDir(), Paused: true})
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = h.Remove(false) })
-		if h.InfoHash() != hash {
-			t.Fatal("truncated v2 info hash")
-		}
-		ids = append(ids, h.ID())
+	hash := strings.Repeat("ab", 32)
+	h, err := s.AddTorrent(AddTorrentParams{Link: "magnet:?xt=urn:btmh:1220" + hash, SavePath: t.TempDir(), Paused: true})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if ids[0] == ids[1] {
-		t.Fatal("distinct v2 hashes with identical SHA-1-sized prefix were aliased")
+	t.Cleanup(func() { _ = h.Remove(false) })
+	if h.InfoHash() != hash {
+		t.Fatalf("full v2 hash: got %q want %q", h.InfoHash(), hash)
 	}
+	collision := strings.Repeat("ab", 20) + strings.Repeat("cd", 12)
+	other, err := s.AddTorrent(AddTorrentParams{Link: "magnet:?xt=urn:btmh:1220" + collision, SavePath: t.TempDir(), Paused: true})
+	if err == nil || other != nil {
+		t.Fatal("native prefix collision silently aliased distinct full identities")
+	}
+	if h.InfoHash() != hash {
+		t.Fatal("collision damaged existing torrent")
+	}
+}
+
+func TestSameTorrentInSeparateNativeSessionsHasSeparateHandles(t *testing.T) {
+	first, second := newSession(t), newSession(t)
+	a, err := first.AddTorrent(AddTorrentParams{Link: validMagnet, SavePath: t.TempDir(), Paused: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := second.AddTorrent(AddTorrentParams{Link: validMagnet, SavePath: t.TempDir(), Paused: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.ID() == b.ID() {
+		t.Fatal("cross-session identity collision")
+	}
+	if err := a.Remove(false); err != nil {
+		t.Fatal(err)
+	}
+	if b.InfoHash() != validHashHex {
+		t.Fatal("removing one session invalidated the other")
+	}
+	if err := first.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if b.InfoHash() != validHashHex {
+		t.Fatal("closing one session cleared another session handles")
+	}
+	_ = b.Remove(false)
 }

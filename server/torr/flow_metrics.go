@@ -107,7 +107,7 @@ func (t *Torrent) startupStage(stage string) {
 	file := t.flowStartup.FileIndex
 	loaded := t.PreloadedBytes
 	t.mu.Unlock()
-	t.historyEvent(flow.HistoryEvent{Type: "startup", Stage: stage, File: file, ElapsedMs: elapsed, Bytes: loaded})
+	t.historyEvent(flow.HistoryEvent{Type: "startup", Stage: stage, File: file, OperationMeasured: true, ElapsedMs: elapsed, Bytes: loaded})
 }
 
 type FlowSessionStatus struct {
@@ -379,12 +379,12 @@ func (t *Torrent) flowFirstByte(fileID int, group string, seq uint64, started ti
 		t.flowStartup.TimeToFirstByteMs = started.Sub(t.flowStartupStarted).Milliseconds() + ttfb.Milliseconds()
 	}
 	t.mu.Unlock()
-	t.historyEvent(flow.HistoryEvent{Type: "first_byte", File: fileID, ElapsedMs: ttfb.Milliseconds()})
+	t.historyEvent(flow.HistoryEvent{Type: "first_byte", File: fileID, OperationMeasured: true, ElapsedMs: ttfb.Milliseconds()})
 	t.flowMu.Lock()
 	if s := t.flowSessions[fmt.Sprintf("%d/%s", fileID, group)]; s != nil {
 		if seq == s.lastSeekSeq {
 			s.SeekRecoveryMs = ttfb.Milliseconds()
-			t.historyEvent(flow.HistoryEvent{Type: "recovery", File: fileID, ElapsedMs: ttfb.Milliseconds()})
+			t.historyEvent(flow.HistoryEvent{Type: "recovery", File: fileID, OperationMeasured: true, ElapsedMs: ttfb.Milliseconds()})
 		}
 		if seq == s.lastWarmSeq {
 			s.WarmReconnectTTFBMs = ttfb.Milliseconds()

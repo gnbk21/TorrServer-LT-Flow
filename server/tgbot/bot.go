@@ -226,12 +226,12 @@ func Start(token string) error {
 						continue
 					}
 					if idx := strings.Index(btn.Data, "all|"); idx >= 0 {
-						h := btn.Data[idx+4:]
+						h := expandCallbackData(btn.Data[idx+4:])
 						if isHash(h) {
 							hash = h
 						}
-					} else if isHash(btn.Data) {
-						hash = btn.Data
+					} else if h := expandCallbackData(btn.Data); isHash(h) {
+						hash = h
 					}
 					if hash != "" {
 						break
@@ -258,7 +258,7 @@ func Start(token string) error {
 	b.Handle(tele.OnQuery, handleInlineQuery)
 
 	b.Handle(tele.OnCallback, func(c tele.Context) error {
-		args := c.Args()
+		args := callbackArgs(c)
 		if len(args) > 0 {
 			cbInfo := strings.TrimPrefix(args[0], "\f")
 			if len(args) >= 2 {

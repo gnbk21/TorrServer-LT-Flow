@@ -22,18 +22,19 @@ const HistoryArchives = 3 // Four files total, at most 4 MiB.
 // request headers or arbitrary metadata. Strings are checked against enums.
 // Torrent is a process-local sequence, not a persistent media identity.
 type HistoryEvent struct {
-	Sparse    *SparseHistory `json:"sparse,omitempty"`
-	Time      time.Time      `json:"time"`
-	Run       string         `json:"run"`
-	Type      string         `json:"type"`
-	Stage     string         `json:"stage,omitempty"`
-	Torrent   uint64         `json:"torrent,omitempty"`
-	File      int            `json:"file,omitempty"`
-	ElapsedMs int64          `json:"elapsed_ms"`
-	Bytes     int64          `json:"bytes,omitempty"`
-	Code      int            `json:"code,omitempty"`
-	Operation int            `json:"operation,omitempty"`
-	Dropped   uint64         `json:"dropped,omitempty"`
+	Sparse            *SparseHistory `json:"sparse,omitempty"`
+	Time              time.Time      `json:"time"`
+	Run               string         `json:"run"`
+	Type              string         `json:"type"`
+	Stage             string         `json:"stage,omitempty"`
+	Torrent           uint64         `json:"torrent,omitempty"`
+	File              int            `json:"file,omitempty"`
+	ElapsedMs         int64          `json:"elapsed_ms"`
+	OperationMeasured bool           `json:"operation_measured,omitempty"`
+	Bytes             int64          `json:"bytes,omitempty"`
+	Code              int            `json:"code,omitempty"`
+	Operation         int            `json:"operation,omitempty"`
+	Dropped           uint64         `json:"dropped,omitempty"`
 }
 
 type SparseHistory struct {

@@ -112,7 +112,7 @@ func addTorrentFromDocument(c tele.Context, doc *tele.Document) error {
 
 func cmdAdd(c tele.Context) error {
 	uid := c.Sender().ID
-	args := c.Args()
+	args := callbackArgs(c)
 	if len(args) == 0 {
 		return c.Send(tr(uid, "add_usage"))
 	}

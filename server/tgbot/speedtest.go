@@ -9,7 +9,7 @@ import (
 )
 
 func cmdSpeedtest(c tele.Context) error {
-	args := c.Args()
+	args := callbackArgs(c)
 	size := 10
 	if len(args) > 0 {
 		if s, err := strconv.Atoi(strings.TrimSpace(args[0])); err == nil && s > 0 && s <= 100 {

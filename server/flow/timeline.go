@@ -11,7 +11,7 @@ const TimelineInitialEvents = 32
 type TimelineEvent struct {
 	Time        time.Time `json:"time"`
 	ElapsedMs   int64     `json:"elapsed_ms"`
-	OperationMs int64     `json:"operation_ms"`
+	OperationMs *int64    `json:"operation_ms"`
 	Type        string    `json:"type"`
 	Stage       string    `json:"stage,omitempty"`
 	File        int       `json:"file,omitempty"`
@@ -35,7 +35,11 @@ func (t *Timeline) Record(e HistoryEvent, elapsed time.Duration) {
 	if !validHistoryEvent(e) || e.Type == "sparse" || e.Type == "dht" || elapsed < 0 {
 		return
 	}
-	row := TimelineEvent{Time: time.Now().UTC(), ElapsedMs: elapsed.Milliseconds(), OperationMs: e.ElapsedMs, Type: e.Type, Stage: e.Stage, File: e.File, Bytes: e.Bytes}
+	row := TimelineEvent{Time: time.Now().UTC(), ElapsedMs: elapsed.Milliseconds(), Type: e.Type, Stage: e.Stage, File: e.File, Bytes: e.Bytes}
+	if e.OperationMeasured && e.ElapsedMs >= 0 {
+		duration := e.ElapsedMs
+		row.OperationMs = &duration
+	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if len(t.events) == TimelineEvents {
@@ -49,5 +53,12 @@ func (t *Timeline) Record(e HistoryEvent, elapsed time.Duration) {
 func (t *Timeline) Snapshot() TimelineSnapshot {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return TimelineSnapshot{Events: append([]TimelineEvent{}, t.events...), Dropped: t.dropped, Source: "server"}
+	events := append([]TimelineEvent{}, t.events...)
+	for i := range events {
+		if events[i].OperationMs != nil {
+			value := *events[i].OperationMs
+			events[i].OperationMs = &value
+		}
+	}
+	return TimelineSnapshot{Events: events, Dropped: t.dropped, Source: "server"}
 }

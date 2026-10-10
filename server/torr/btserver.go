@@ -398,7 +398,7 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 			t.mu.Lock()
 			if t.flowStartup.FirstDHTPeerMs < 0 {
 				t.flowStartup.FirstDHTPeerMs = time.Since(t.flowAddedAt).Milliseconds()
-				t.historyEvent(flow.HistoryEvent{Type: "dht_peer", ElapsedMs: t.flowStartup.FirstDHTPeerMs, Code: a.Peers})
+				t.historyEvent(flow.HistoryEvent{Type: "dht_peer", OperationMeasured: true, ElapsedMs: t.flowStartup.FirstDHTPeerMs, Code: a.Peers})
 			}
 			t.mu.Unlock()
 		}

@@ -33,7 +33,7 @@ func callbackLink(c tele.Context, data string) error {
 			var rows [][]tele.InlineButton
 			for i := 0; i < maxFiles; i++ {
 				f := st.FileStats[i]
-				btn := tele.InlineButton{Text: fmt.Sprintf("#%d", f.Id), Unique: "flink", Data: hash + "|" + strconv.Itoa(f.Id)}
+				btn := tele.InlineButton{Text: fmt.Sprintf("#%d", f.Id), Unique: "flink", Data: callbackHash(hash) + "|" + strconv.Itoa(f.Id)}
 				rows = append(rows, []tele.InlineButton{btn})
 			}
 			kbd := &tele.ReplyMarkup{InlineKeyboard: rows}
@@ -48,7 +48,7 @@ func callbackLink(c tele.Context, data string) error {
 }
 
 func cmdLink(c tele.Context) error {
-	args := c.Args()
+	args := callbackArgs(c)
 	arg := ""
 	if len(args) > 0 {
 		arg = args[0]

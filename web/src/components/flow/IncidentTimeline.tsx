@@ -42,7 +42,7 @@ export function IncidentTimeline({ status }: { status: FlowStatusResponse }) {
                     defaultValue: t("status.unknown"),
                   })}
             </span>
-            {event.operation_ms >= 0 && (
+            {event.operation_ms !== null && (
               <span className="text-slate-400">{event.operation_ms} ms</span>
             )}
           </li>

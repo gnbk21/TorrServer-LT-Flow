@@ -9,7 +9,7 @@ import (
 
 func cmdRemove(c tele.Context) error {
 	arg := ""
-	if args := c.Args(); len(args) > 0 {
+	if args := callbackArgs(c); len(args) > 0 {
 		arg = args[0]
 	}
 	hash := resolveHash(c, arg)

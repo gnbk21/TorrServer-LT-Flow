@@ -69,6 +69,9 @@ func ListTorrent() []*TorrentDB {
 	defer mu.Unlock()
 
 	var list []*TorrentDB
+	if tdb == nil {
+		return list
+	}
 	for _, key := range tdb.List("Torrents") {
 		buf := tdb.Get("Torrents", key)
 		if len(buf) == 0 {
@@ -94,6 +97,9 @@ func GetTorrent(hashHex string) *TorrentDB {
 	mu.Lock()
 	defer mu.Unlock()
 
+	if tdb == nil {
+		return nil
+	}
 	buf := tdb.Get("Torrents", hashHex)
 	if len(buf) == 0 {
 		return nil
