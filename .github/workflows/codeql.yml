@@ -62,15 +62,6 @@ jobs:
           path: server/web/pages/template
       - name: Prepare pinned native dependencies
         run: bash build/linux-amd64.sh
-      - uses: github/codeql-action/init@v4
-        with:
-          languages: go,cpp
-          build-mode: manual
-          queries: security-extended
-      - name: Extract Go and the real native bridge
-        env:
-          GOCACHE: ${{ runner.temp }}/flow-codeql-go-cache
-        run: bash build/linux-amd64.sh
       - name: Native protocol and cache regressions
         env:
           CGO_ENABLED: '1'
@@ -90,6 +81,15 @@ jobs:
           cd server
           go test -count=1 -timeout 180s ./lt ./flow ./settings ./torr ./torr/storage/torrstor ./web/api ./mcp ./tgbot
           go test ./flow -run '^$' -fuzz '^FuzzInfoHash$' -fuzztime=10s -parallel=2
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: go,cpp
+          build-mode: manual
+          queries: security-extended
+      - name: Extract Go and the real native bridge
+        env:
+          GOCACHE: ${{ runner.temp }}/flow-codeql-go-cache
+        run: bash build/linux-amd64.sh
       - uses: github/codeql-action/analyze@v4
         with:
           category: /native-go-cpp
