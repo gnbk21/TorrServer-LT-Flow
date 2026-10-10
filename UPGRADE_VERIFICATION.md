@@ -432,3 +432,25 @@ peers retain native connections and in-flight partial cache pieces.
   regressions cover no-progress rechecking, 64 concurrent callers, single-worker
   ownership and exactly one coalesced follow-up. Native/race execution is pending
   the corrected source's CI gate; the failing PGO run is not accepted evidence.
+
+## Official inventory schema and closed dependency graph
+
+- Vendored the unmodified official CycloneDX 1.6 JSON/SPDX/signature schemas
+  from commit `55343ba19dee1785acf1ce9191540d5fd7b590db`, with their Apache-2.0
+  license and SHA-256 verification. Git preserves those bytes on Windows.
+  Validation is offline; pinned build-only Ajv and international-format support
+  do not enter the served application. Unsupported specification versions,
+  invalid SPDX/hash fields, unknown properties, duplicate component/vertex
+  identities, dangling references and missing leaf vertices are rejected.
+- A separate CI gate checks the official schema and actual Python-generated
+  server/helper/Android fixtures. Native CI also inventories its exact downloaded
+  cross-platform binaries, verifies their build/source version and helper
+  identity, and records the included binary names. Final release packaging
+  checks the complete package inventory before attestation/publication; optional
+  player publication checks its actual Gradle-resolved inventory.
+- Local schema regressions and all 31 Python build-tool tests passed, with the
+  schema fixture gate explicitly enabled. Frozen/offline Yarn installation,
+  TypeScript, ESLint and actionlint passed. The existing `212334fc` Android CI
+  artifact's real inventory also passed: 125 components and 125 graph vertices.
+  Inventory validity does not replace the remaining source/license coverage
+  audit or final-source native/package gates.

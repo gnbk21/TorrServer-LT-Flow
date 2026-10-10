@@ -42,6 +42,51 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  release-inventory:
+    needs: [cross, sources, web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+      - working-directory: web
+        run: yarn install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: _src
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
+      - run: bash build/_fetch_sources.sh
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: TorrServer-LT-*
+          path: inventory-binaries
+      - uses: actions/download-artifact@v4
+        with:
+          name: flow-interface-guard-windows
+          path: inventory-binaries/interface-guard
+      - uses: actions/download-artifact@v4
+        with:
+          name: flow-web-cross
+          path: server/web/pages/template
+      - name: Validate actual cross-platform binary and dependency inventory
+        env:
+          FLOW_VERSION: ${{ inputs.version || format('MatriX.145.Flow-dev-{0}', github.sha) }}
+        run: |
+          python3 build/sbom.py --artifacts inventory-binaries --native-sources _src --output inventory/SBOM.cdx.json --tag "$FLOW_VERSION" --commit "$GITHUB_SHA"
+          node build/validate_sbom.cjs inventory/SBOM.cdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flow-cross-inventory
+          path: inventory/SBOM.cdx.json
+          if-no-files-found: error
   upgrade-profile-comparison:
     if: github.event_name == 'pull_request' && github.head_ref == 'feature/flow-upgrade'
     needs: [cross]

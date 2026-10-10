@@ -4,6 +4,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 from sbom import generate
+from sbom_schema_check import check_generated_inventory
 
 
 class Inventory(unittest.TestCase):
@@ -27,6 +28,8 @@ class Inventory(unittest.TestCase):
                     dict(executable_sha256='e'*64,compiler=dict(version='14.2.0'),
                          runtime_archives=[dict(name='libstdc++.a',sha256='f'*64)]))
             self.assertEqual(first,second)
+            check_generated_inventory(first)
+            check_generated_inventory(guarded)
             self.assertEqual(first['bomFormat'],'CycloneDX')
             self.assertEqual({c['name'] for c in first['components']}, {'golang/go', 'example.org/module', 'boost', 'openssl', 'libtorrent-rasterbar', 'react', 'deps/libdatachannel'})
             refs = {c['bom-ref'] for c in first['components']} | {first['metadata']['component']['bom-ref']}

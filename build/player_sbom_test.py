@@ -6,6 +6,7 @@ import unittest
 import zipfile
 
 from player_sbom import generate
+from sbom_schema_check import check_generated_inventory
 
 
 class PlayerInventoryTests(unittest.TestCase):
@@ -24,6 +25,7 @@ class PlayerInventoryTests(unittest.TestCase):
                 'artifacts': [], 'bundled': [{'name': archive.name, 'file': str(archive),
                                              'sha256': hashlib.sha256(archive.read_bytes()).hexdigest()}]}
             report = generate(inventory)
+            check_generated_inventory(report)
             self.assertEqual(report, generate(inventory))
             refs = {item['bom-ref'] for item in report['components']}
             refs.add(report['metadata']['component']['bom-ref'])

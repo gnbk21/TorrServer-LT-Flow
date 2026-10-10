@@ -1,5 +1,8 @@
 """Reproducible CycloneDX inventory from exact release binaries and build inputs."""
 import json
+import argparse
+import datetime
+from pathlib import Path
 import re
 import subprocess
 from urllib.parse import quote
@@ -88,3 +91,38 @@ def generate(root, binaries, tag, commit, timestamp, native_root, guard=None):
                 'properties': [{'name': 'flow:inventory-scope', 'value': 'Exact Go modules and runtime, pinned native libraries and recursive source revisions, and resolved production web graph. Static toolchain notices remain in NATIVE_AND_GO_NOTICES.txt. Optional Flow Player has a separate resolved Android inventory.'}]},
             'components': [components[key] for key in sorted(components)],
             'dependencies': [{'ref': key, 'dependsOn': dependencies[key]} for key in sorted(dependencies)]}
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--artifacts', type=Path, required=True)
+    parser.add_argument('--native-sources', type=Path, required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--tag', required=True)
+    parser.add_argument('--commit', required=True)
+    args = parser.parse_args()
+    # Imports here keep release.py's existing generation import acyclic.
+    from release import binary_identity_matches, find_binary, validate_guard
+    root = Path(__file__).resolve().parent.parent
+    actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
+    if not re.fullmatch(r'[a-f0-9]{40}', args.commit) or args.commit != actual:
+        raise ValueError('Inventory source identity does not match the checkout')
+    binaries = sorted(p for p in args.artifacts.rglob('TorrServer-LT-*') if p.is_file())
+    if not binaries or len({p.name for p in binaries}) != len(binaries):
+        raise ValueError('Inventory binaries are missing or duplicated')
+    for binary in binaries:
+        info = subprocess.check_output(['go', 'version', '-m', str(binary)], text=True)
+        if not binary_identity_matches(info, args.tag, args.commit):
+            raise ValueError('Inventory binary/source version mismatch')
+    helper = find_binary(args.artifacts, 'FlowNetworkGuard-windows-amd64.exe')
+    guard = json.loads(find_binary(args.artifacts, 'FlowNetworkGuard-build.json').read_text(encoding='utf-8'))
+    validate_guard(helper, guard, root, args.commit)
+    epoch = int(subprocess.check_output(['git', 'show', '-s', '--format=%ct', args.commit], cwd=root, text=True))
+    timestamp = datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
+    result = generate(root, binaries, args.tag, args.commit, timestamp, args.native_sources, guard)
+    # Development CI may have only cross-built targets; record that scope rather
+    # than claiming all platform packages were inventoried. Releases use package().
+    result['metadata']['properties'].append({'name': 'flow:inventory-binaries',
+                                            'value': ','.join(p.name for p in binaries)})
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(result, indent=2)+'\n', encoding='utf-8')

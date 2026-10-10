@@ -50,6 +50,13 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+      - working-directory: web
+        run: yarn install --frozen-lockfile
       - uses: actions/setup-go@v5
         with:
           go-version-file: server/go.mod
@@ -89,6 +96,8 @@ jobs:
         run: |
           python3 build/release.py --tag "$FLOW_TAG" --commit "$FLOW_COMMIT" --artifacts artifacts --native-sources _src --output reproducibility-check
           cmp dist/SHA256SUMS reproducibility-check/SHA256SUMS
+      - name: Validate exact packaged CycloneDX inventory
+        run: node build/validate_sbom.cjs dist/SBOM.cdx.json
       - name: Attest release artifacts
         uses: actions/attest-build-provenance@v2
         with:

@@ -52,7 +52,9 @@
     "typescript-eslint": "^8.0.0",
     "eslint-plugin-react-hooks": "^7.0.0",
     "@testing-library/dom": "^10.0.0",
-    "prettier": "^3.0.0"
+    "prettier": "^3.0.0",
+    "ajv": "6.15.0",
+    "ajv-formats-draft2019": "1.6.1"
   },
   "engines": {
     "node": ">=22.12.0"

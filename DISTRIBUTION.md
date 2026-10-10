@@ -9,6 +9,16 @@ Windows MinGW/GCC and Android NDK static runtime notices are collected from
 the toolchains used in CI; their digests are recorded in `BUILDINFO.json` and
 their original text is included in `NATIVE_AND_GO_NOTICES.txt`.
 
+`SBOM.cdx.json` records exact Go modules/runtime, pinned native sources, resolved
+production web dependencies and the optional Windows helper's runtime archives.
+Release and experimental-player workflows validate the generated inventory
+against hash-checked, unmodified official CycloneDX 1.6 schemas and reject
+duplicate identities, dangling dependencies or missing graph vertices before
+publication. Source inventory does not imply every source component is linked.
+For a local packaging check, install `web` build dependencies with
+`yarn install --frozen-lockfile`, then run
+`node build/validate_sbom.cjs <package-directory>/SBOM.cdx.json`.
+
 ## Channels
 
 - `MatriX.145.Flow-vX.Y.Z`: stable, after acceptance evidence is recorded in

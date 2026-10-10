@@ -7,6 +7,28 @@ on:
 permissions:
   contents: read
 jobs:
+  inventory-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+      - working-directory: web
+        run: yarn install --frozen-lockfile
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Official schema, graph integrity and generated inventories
+        env:
+          FLOW_SBOM_SCHEMA_CHECK: '1'
+        run: |
+          node --test build/validate_sbom_test.cjs
+          python build/sbom_test.py
+          python -m unittest discover -s build -p 'player_sbom_test.py'
   windows-interface-guard:
     runs-on: windows-latest
     timeout-minutes: 10

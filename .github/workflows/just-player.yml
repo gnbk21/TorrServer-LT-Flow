@@ -7,6 +7,10 @@ on:
       - 'build/prepare_just_player.py'
       - 'build/player_patch_check.py'
       - 'build/player_sbom.py'
+      - 'build/validate_sbom*'
+      - 'build/schema/**'
+      - 'web/package.json'
+      - 'web/yarn.lock'
       - '.github/workflows/just-player.yml'
   workflow_dispatch:
 permissions:
@@ -17,6 +21,13 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+      - working-directory: web
+        run: yarn install --frozen-lockfile
       - uses: actions/checkout@v4
         with:
           repository: moneytoo/Player
@@ -58,6 +69,8 @@ jobs:
           python3 build/player_sbom.py _player/flow-resolved-dependencies.json _out/player-source/SBOM.cdx.json
           cp _player/LICENSE _out/player-source/UPSTREAM_LICENSE.txt
           sha256sum _player/app/build/outputs/apk/latestUniversal/debug/*.apk > _out/player-source/SHA256SUMS.txt
+      - name: Validate exact resolved Android CycloneDX inventory
+        run: node build/validate_sbom.cjs _out/player-source/SBOM.cdx.json
       - uses: actions/upload-artifact@v4
         with:
           name: Flow-Player-experimental
