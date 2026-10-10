@@ -27,6 +27,7 @@ def run(executable, output):
     try:
         server.ready()
         expect_status(server,"/flow/support",401,headers={"Authorization":"Basic invalid"})
+        expect_status(server,"/flow/library/export",401,headers={"Authorization":"Basic invalid"})
         support = server.json("/flow/support")
         text = json.dumps(support)
         if "fixture-secret-key" in text or "private-token" in text or "local-fixture-only" in text:
@@ -48,6 +49,14 @@ def run(executable, output):
         payload.write_bytes(bytes(range(256))*16384)
         with LocalSwarm([payload],16384,0,0) as swarm:
             status=upload(server,swarm)
+            expect_status(server,"/torrents",200,{"action":"set","hash":status['hash'],
+                "title":"Portable episode","category":"series","poster":"https://example.test/?token=export-secret",
+                "data":'{"password":"export-secret","path":"/private-client-path"}'})
+            exported=server.json("/flow/library/export")
+            if len(exported)!=1 or exported[0]['hash']!=status['hash'] or exported[0]['title']!='Portable episode':
+                raise AssertionError("Portable library export lost torrent identity or labels")
+            if set(exported[0])-{'hash','title','category','torrs_hash'} or any(secret in json.dumps(exported) for secret in ('export-secret','private-client-path')):
+                raise AssertionError("Portable library export retained nonportable fields")
             connection=http.client.HTTPConnection("127.0.0.1",server.port,timeout=30)
             try:
                 connection.request("GET",f"/play/{status['hash']}/1?play",headers={"Range":"bytes=0-4194303"})
@@ -81,7 +90,7 @@ def run(executable, output):
             raise AssertionError("Doctor missed occupied listener")
         if "fixture-secret-key" in doctor.stdout.decode() or "local-fixture-only" in doctor.stdout.decode():
             raise AssertionError("Doctor leaked credentials")
-        result = {"passed":True,"authenticated":True,"maintenance_exclusive":True,"active_playback_rejected":True,"restore_recovery":True,"doctor_busy_listener":True,"support_bytes":len(json.dumps(support))}
+        result = {"passed":True,"authenticated":True,"maintenance_exclusive":True,"active_playback_rejected":True,"restore_recovery":True,"doctor_busy_listener":True,"library_export_allowlist":True,"library_export_authenticated":True,"support_bytes":len(json.dumps(support))}
         (output / "report.json").write_text(json.dumps(result,indent=2)+"\n",encoding="utf-8")
         print(json.dumps(result))
     finally:

@@ -70,6 +70,12 @@ retains local credentials. The library renders 50 cards per page while searching
 all entries. See [distribution guidance](DISTRIBUTION.md) and
 [measurements](MEASUREMENTS.md) for usage and verification limits.
 
+On the upgrade branch, library exports retain JSON, magnet and compact-link
+formats while excluding credentials, private trackers, posters and custom client
+data. Private torrents still need their original tracker configuration. v2
+torrents and older servers use magnets in compact-link exports. Full local
+metadata remains available through the existing API; export does not alter it.
+
 Flow settings are in the web interface's **Flow** tab and under `BitTorr.Flow` in `settings.json`. Flow is enabled by default. Flow 1.0 applies safe runtime changes immediately and offers **Apply when idle** for changes requiring an engine restart. `GET /flow/status/<torrent-hash>` exposes per-torrent diagnostics; `/flow/network` reports network readiness. Both follow the server's HTTP authentication setting. See [FLOW.md](FLOW.md) for defaults, endpoint behavior, and the comparison procedure.
 
 ## Adaptive reliability

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestDiskWriteFailureDoesNotAdvertiseDataAndRecovers(t *testing.T) {
@@ -45,6 +46,88 @@ func TestDiskWriteFailureDoesNotAdvertiseDataAndRecovers(t *testing.T) {
 	got := make([]byte, len(payload))
 	if n, err := s.callbackRead(1, 0, 0, got); n != len(got) || err != nil || !bytes.Equal(got, payload) {
 		t.Fatalf("recovered original bytes: n=%d error=%v", n, err)
+	}
+}
+
+// Hold the real backing-file lock to model delayed storage without introducing
+// a production IO hook. Other pieces must still progress, and the completed
+// operation must produce measured, bounded evidence rather than a guessed cause.
+func TestSlowBackingFileKeepsOtherPiecesResponsiveAndRecordsDuration(t *testing.T) {
+	withDiskCache(t, 0)
+	s := NewStorage()
+	s.callbackOpen(1, mkHash(0x74), 2, 2*pieceBlockSize)
+	s.callbackSize(1, 4*pieceBlockSize)
+	t.Cleanup(func() { s.callbackClose(1) })
+	payload := bytes.Repeat([]byte{0x74}, pieceBlockSize)
+	if _, err := s.callbackWrite(1, 0, 0, payload); err != nil {
+		t.Fatal(err)
+	}
+	c := s.lookup(1)
+	c.mu.RLock()
+	piece := c.pieces[0]
+	c.mu.RUnlock()
+	c.DrainStorageEvidence()
+	piece.disk.mu.Lock()
+	locked := true
+	defer func() {
+		if locked {
+			piece.disk.mu.Unlock()
+		}
+	}()
+	done := make(chan error, 1)
+	go func() {
+		_, err := s.callbackWrite(1, 0, pieceBlockSize, payload)
+		done <- err
+	}()
+	deadline := time.Now().Add(time.Second)
+	for piece.mu.TryLock() {
+		piece.mu.Unlock()
+		if time.Now().After(deadline) {
+			t.Fatal("delayed writer never reached the backing file")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	other := make(chan error, 1)
+	go func() {
+		_, err := s.callbackWrite(1, 1, 0, payload)
+		other <- err
+	}()
+	select {
+	case err := <-other:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("one delayed backing file blocked another piece")
+	}
+	time.Sleep(60 * time.Millisecond)
+	piece.disk.mu.Unlock()
+	locked = false
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("delayed writer did not recover")
+	}
+	if c.Have(0) {
+		t.Fatal("writing all blocks bypassed native verification")
+	}
+	events, dropped := c.DrainStorageEvidence()
+	observed := false
+	for _, event := range events {
+		if event.Stage == "CACHE_WRITE_SLOW" && event.OperationMeasured && event.ElapsedMs >= 50 && event.Bytes == pieceBlockSize {
+			observed = true
+		}
+	}
+	if !observed || dropped != 0 {
+		t.Fatal("slow storage duration was not captured", events, dropped)
+	}
+	c.SignalPieceComplete(0)
+	got := make([]byte, 2*pieceBlockSize)
+	if n, err := s.callbackRead(1, 0, 0, got); n != len(got) || err != nil || !bytes.Equal(got, bytes.Repeat([]byte{0x74}, len(got))) {
+		t.Fatal("recovery changed original bytes", n, err)
 	}
 }
 

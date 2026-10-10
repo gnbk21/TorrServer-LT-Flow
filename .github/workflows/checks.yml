@@ -20,6 +20,9 @@ jobs:
           cache-dependency-path: server/go.sum
       - working-directory: server
         run: go test ./console ./flow ./diagnostics ./web/pages/template
+      - name: Portable library export privacy and format checks
+        working-directory: server
+        run: go test ./web/api/library_export_projection.go ./web/api/library_export_projection_test.go
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'

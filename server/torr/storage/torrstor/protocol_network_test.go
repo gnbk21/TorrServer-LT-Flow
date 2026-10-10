@@ -51,142 +51,159 @@ func networkProtocolFixture(hybrid bool) ([]byte, map[string][]byte) {
 }
 
 func TestNativeV2AndHybridNetworkTransferIntoVerifiedStreamingCache(t *testing.T) {
-	for _, hybrid := range []bool{false, true} {
-		t.Run(fmt.Sprintf("hybrid=%t", hybrid), func(t *testing.T) {
-			payload, content := networkProtocolFixture(hybrid)
-			metadata, err := lt.ParseTorrentBytes(payload)
-			if err != nil {
-				t.Fatal("fixture metadata", err)
-			}
-			if len(metadata.V2Files) != 2 || !metadata.CompletePieceLayers() || metadata.NumPieces != 3 {
-				t.Fatal("incomplete native geometry", metadata.NumPieces)
-			}
-			old := settings.BTsets()
-			settings.StoreBTsets(&settings.BTSets{CacheSize: 4 << 20, Flow: settings.DefaultFlowSettings()})
-			t.Cleanup(func() { settings.StoreBTsets(old) })
-			storage := NewStorage()
-			if err := storage.Uninstall(); err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() { _ = storage.Uninstall() })
-			cfg := lt.SessionConfig{"enable_dht": false, "enable_lsd": false, "enable_upnp": false, "enable_natpmp": false, "listen_interfaces": "127.0.0.1:0", "alert_mask": 0x7fffffff, "enable_outgoing_utp": false, "enable_incoming_utp": false}
-			seed, err := lt.NewSession(cfg)
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() { _ = seed.Close() })
-			seedDir := t.TempDir()
-			if err := os.Mkdir(filepath.Join(seedDir, "series"), 0700); err != nil {
-				t.Fatal(err)
-			}
-			for name, data := range content {
-				if err := os.WriteFile(filepath.Join(seedDir, "series", name), data, 0600); err != nil {
+	for _, transport := range []string{"tcp", "utp"} {
+		for _, hybrid := range []bool{false, true} {
+			t.Run(fmt.Sprintf("hybrid=%t/transport=%s", hybrid, transport), func(t *testing.T) {
+				payload, content := networkProtocolFixture(hybrid)
+				metadata, err := lt.ParseTorrentBytes(payload)
+				if err != nil {
+					t.Fatal("fixture metadata", err)
+				}
+				if len(metadata.V2Files) != 2 || !metadata.CompletePieceLayers() || metadata.NumPieces != 3 {
+					t.Fatal("incomplete native geometry", metadata.NumPieces)
+				}
+				old := settings.BTsets()
+				settings.StoreBTsets(&settings.BTSets{CacheSize: 4 << 20, Flow: settings.DefaultFlowSettings()})
+				t.Cleanup(func() { settings.StoreBTsets(old) })
+				storage := NewStorage()
+				if err := storage.Uninstall(); err != nil {
 					t.Fatal(err)
 				}
-			}
-			seedTorrent, err := seed.AddTorrent(lt.AddTorrentParams{InfoBytes: payload, SavePath: seedDir})
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() { _ = seedTorrent.Remove(false) })
-			seedPort := 0
-			seedReady := false
-			deadline := time.Now().Add(15 * time.Second)
-			for time.Now().Before(deadline) {
-				alerts, err := seed.PopAlerts()
+				t.Cleanup(func() { _ = storage.Uninstall() })
+				cfg := lt.SessionConfig{"enable_dht": false, "enable_lsd": false, "enable_upnp": false, "enable_natpmp": false, "listen_interfaces": "127.0.0.1:0", "alert_mask": 0x7fffffff, "enable_outgoing_utp": transport == "utp", "enable_incoming_utp": transport == "utp", "enable_outgoing_tcp": transport == "tcp", "enable_incoming_tcp": transport == "tcp"}
+				seed, err := lt.NewSession(cfg)
 				if err != nil {
 					t.Fatal(err)
 				}
-				for _, alert := range alerts {
-					if alert.Type == "listen_succeeded" && alert.Transport == "tcp" && !alert.IPv6 {
-						seedPort = alert.Port
+				t.Cleanup(func() { _ = seed.Close() })
+				seedDir := t.TempDir()
+				if err := os.Mkdir(filepath.Join(seedDir, "series"), 0700); err != nil {
+					t.Fatal(err)
+				}
+				for name, data := range content {
+					if err := os.WriteFile(filepath.Join(seedDir, "series", name), data, 0600); err != nil {
+						t.Fatal(err)
 					}
-					if alert.Type == "torrent_error" || alert.Type == "file_error" {
-						t.Fatal("seed storage error", alert.ErrorCode)
-					}
 				}
-				seedReady = true
-				for piece := 0; piece < metadata.NumPieces; piece++ {
-					seedReady = seedReady && seedTorrent.HasPiece(piece)
-				}
-				if seedReady && seedPort > 0 {
-					break
-				}
-				time.Sleep(20 * time.Millisecond)
-			}
-			if !seedReady || seedPort == 0 {
-				t.Fatal("native seed did not hash its real files or bind loopback")
-			}
-			if err := storage.Install(); err != nil {
-				t.Fatal(err)
-			}
-			hash := flow.ParseInfoHash(metadata.InfoHash)
-			storage.RequireVerifiedReads(hash)
-			receiver, err := lt.NewSession(cfg)
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() { _ = receiver.Close() })
-			h, err := receiver.AddTorrent(lt.AddTorrentParams{InfoBytes: payload, SavePath: t.TempDir()})
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() { _ = h.Remove(false) })
-			if err := h.RestorePeerHints([]flow.PeerHint{{IP: "127.0.0.1", Port: seedPort}}); err != nil {
-				t.Fatal(err)
-			}
-			var cache *Cache
-			complete := false
-			deadline = time.Now().Add(20 * time.Second)
-			for time.Now().Before(deadline) {
-				alerts, err := receiver.PopAlerts()
+				seedTorrent, err := seed.AddTorrent(lt.AddTorrentParams{InfoBytes: payload, SavePath: seedDir})
 				if err != nil {
 					t.Fatal(err)
 				}
-				cache = storage.CacheByHash(hash)
-				for _, alert := range alerts {
-					if alert.Type == "torrent_error" || alert.Type == "file_error" || alert.Type == "hash_failed" {
-						t.Fatal("native transfer/hash failure", alert.Type, alert.ErrorCode)
+				t.Cleanup(func() { _ = seedTorrent.Remove(false) })
+				seedPort := 0
+				seedReady := false
+				deadline := time.Now().Add(15 * time.Second)
+				for time.Now().Before(deadline) {
+					alerts, err := seed.PopAlerts()
+					if err != nil {
+						t.Fatal(err)
 					}
-					if alert.Type == "piece_finished" && cache != nil {
-						cache.SignalPieceComplete(alert.Piece)
+					for _, alert := range alerts {
+						if alert.Type == "listen_succeeded" && alert.Transport == map[string]string{"tcp": "tcp", "utp": "udp"}[transport] && !alert.IPv6 {
+							seedPort = alert.Port
+						}
+						if alert.Type == "torrent_error" || alert.Type == "file_error" {
+							t.Fatal("seed storage error", alert.ErrorCode)
+						}
+					}
+					seedReady = true
+					for piece := 0; piece < metadata.NumPieces; piece++ {
+						seedReady = seedReady && seedTorrent.HasPiece(piece)
+					}
+					if seedReady && seedPort > 0 {
+						break
+					}
+					time.Sleep(20 * time.Millisecond)
+				}
+				if !seedReady || seedPort == 0 {
+					t.Fatal("native seed did not hash its real files or bind loopback")
+				}
+				if err := storage.Install(); err != nil {
+					t.Fatal(err)
+				}
+				hash := flow.ParseInfoHash(metadata.InfoHash)
+				storage.RequireVerifiedReads(hash)
+				receiver, err := lt.NewSession(cfg)
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { _ = receiver.Close() })
+				h, err := receiver.AddTorrent(lt.AddTorrentParams{InfoBytes: payload, SavePath: t.TempDir()})
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { _ = h.Remove(false) })
+				if err := h.RestorePeerHints([]flow.PeerHint{{IP: "127.0.0.1", Port: seedPort}}); err != nil {
+					t.Fatal(err)
+				}
+				var cache *Cache
+				complete := false
+				deadline = time.Now().Add(20 * time.Second)
+				for time.Now().Before(deadline) {
+					alerts, err := receiver.PopAlerts()
+					if err != nil {
+						t.Fatal(err)
+					}
+					cache = storage.CacheByHash(hash)
+					for _, alert := range alerts {
+						if alert.Type == "torrent_error" || alert.Type == "file_error" || alert.Type == "hash_failed" {
+							t.Fatal("native transfer/hash failure", alert.Type, alert.ErrorCode)
+						}
+						if alert.Type == "piece_finished" && cache != nil {
+							cache.SignalPieceComplete(alert.Piece)
+						}
+					}
+					complete = cache != nil
+					for piece := 0; piece < metadata.NumPieces; piece++ {
+						complete = complete && cache != nil && cache.Have(piece)
+					}
+					if complete {
+						break
+					}
+					time.Sleep(20 * time.Millisecond)
+				}
+				if !complete {
+					st, _ := h.Status()
+					t.Fatal("native transfer never verified every piece", st.NumPieces, st.NumPeers, st.TotalPayloadDownload)
+				}
+				st, err := h.Status()
+				if err != nil || st.TotalPayloadDownload < int64(len(content["a.mkv"])+len(content["b.mkv"])) {
+					t.Fatal("test bypassed real network payload", err, st.TotalPayloadDownload)
+				}
+				files, err := h.Files()
+				if err != nil || len(files) != 2 {
+					t.Fatal("padding leaked into file selection", err, len(files))
+				}
+				for _, file := range files {
+					want := content[filepath.Base(file.Path)]
+					if want == nil {
+						t.Fatal("unexpected selected file")
+					}
+					r := NewReader(cache, h, FileInfo{Index: file.Index, Path: file.Path, Offset: file.Offset, Length: file.Size})
+					got, readErr := io.ReadAll(r)
+					_ = r.Close()
+					if readErr != nil || !bytes.Equal(got, want) {
+						t.Fatal("verified streaming bytes changed", file.Index, readErr, len(got), len(want))
 					}
 				}
-				complete = cache != nil
-				for piece := 0; piece < metadata.NumPieces; piece++ {
-					complete = complete && cache != nil && cache.Have(piece)
+				// Both sides disable the other peer protocol; an actual incoming
+				// transport alert additionally guards against an unnoticed TCP fallback.
+				seedAlerts, err := seed.PopAlerts()
+				if err != nil {
+					t.Fatal(err)
 				}
-				if complete {
-					break
+				observedTransport := false
+				for _, alert := range seedAlerts {
+					if alert.Type == "incoming_connection" && alert.Transport == transport {
+						observedTransport = true
+					}
 				}
-				time.Sleep(20 * time.Millisecond)
-			}
-			if !complete {
-				st, _ := h.Status()
-				t.Fatal("native transfer never verified every piece", st.NumPieces, st.NumPeers, st.TotalPayloadDownload)
-			}
-			st, err := h.Status()
-			if err != nil || st.TotalPayloadDownload < int64(len(content["a.mkv"])+len(content["b.mkv"])) {
-				t.Fatal("test bypassed real network payload", err, st.TotalPayloadDownload)
-			}
-			files, err := h.Files()
-			if err != nil || len(files) != 2 {
-				t.Fatal("padding leaked into file selection", err, len(files))
-			}
-			for _, file := range files {
-				want := content[filepath.Base(file.Path)]
-				if want == nil {
-					t.Fatal("unexpected selected file")
+				if !observedTransport {
+					t.Fatal("selected peer transport was not observed", transport)
 				}
-				r := NewReader(cache, h, FileInfo{Index: file.Index, Path: file.Path, Offset: file.Offset, Length: file.Size})
-				got, readErr := io.ReadAll(r)
-				_ = r.Close()
-				if readErr != nil || !bytes.Equal(got, want) {
-					t.Fatal("verified streaming bytes changed", file.Index, readErr, len(got), len(want))
-				}
-			}
-			verifyNativeReuse(t, storage, receiver, cache, metadata, payload, content)
-		})
+				verifyNativeReuse(t, storage, receiver, cache, metadata, payload, content)
+			})
+		}
 	}
 }
 

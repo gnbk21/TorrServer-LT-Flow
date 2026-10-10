@@ -454,7 +454,9 @@
     "view": "Vue",
     "cards": "Cartes",
     "list": "Liste",
-    "importProgress": "Traitement de {{done}} / {{total}} sources"
+    "importProgress": "Traitement de {{done}} / {{total}} sources",
+    "exportPrivacy": "Les exports contiennent les identifiants et libellés des torrents, sans identifiants de connexion, trackers privés, affiches ni données personnalisées du client. Les torrents privés nécessitent leur configuration de tracker originale. Les torrents v2 et les anciens serveurs utilisent des liens magnet dans les exports de liens compacts.",
+    "exportTooLarge": "L’export de la bibliothèque dépasse 16 Mio."
   },
   "runtime": {
     "torrents": "Torrents",

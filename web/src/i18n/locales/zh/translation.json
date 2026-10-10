@@ -454,7 +454,9 @@
     "view": "视图",
     "cards": "卡片",
     "list": "列表",
-    "importProgress": "正在处理来源：{{done}} / {{total}}"
+    "importProgress": "正在处理来源：{{done}} / {{total}}",
+    "exportPrivacy": "导出包含种子标识和名称，但不包含凭据、私有 tracker、海报和客户端自定义数据。私有种子需要原始 tracker 配置。v2 种子和旧版服务器在紧凑链接导出中使用磁力链接。",
+    "exportTooLarge": "媒体库导出超过 16 MiB。"
   },
   "runtime": {
     "torrents": "种子",

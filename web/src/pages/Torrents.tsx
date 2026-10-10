@@ -9,6 +9,11 @@ import {
 } from "../hooks/queries";
 import { usePreference, isString, isPage } from "../hooks/preferences";
 import { useLibraryScroll } from "../hooks/libraryScroll";
+import {
+  loadLibraryExport,
+  formatLibraryExport,
+  type LibraryExportFormat,
+} from "../lib/libraryExport";
 import { torrentsApi } from "../api/torrents";
 import type { Torrent } from "../types/torrent";
 import {
@@ -150,20 +155,8 @@ export default function Torrents() {
       },
       false,
     );
-  const exportData = async (format: string) => {
-    const list = await torrentsApi.list();
-    const body =
-      format === "json"
-        ? JSON.stringify(list, null, 2)
-        : list
-            .map((row) =>
-              format === "magnets"
-                ? torrentMagnet(row.hash, row.title)
-                : row.torrs_hash
-                  ? `torrs://${row.torrs_hash}`
-                  : torrentMagnet(row.hash, row.title),
-            )
-            .join("\n");
+  const exportData = async (format: LibraryExportFormat) => {
+    const body = formatLibraryExport(await loadLibraryExport(), format);
     const url = URL.createObjectURL(
       new Blob([body], {
         type: format === "json" ? "application/json" : "text/plain",
@@ -184,8 +177,11 @@ export default function Torrents() {
         </Button>
         <details>
           <summary>{t("ExportLibrary")}</summary>
+          <p className="text-sm text-slate-400 max-w-xl">
+            {t("torrent.exportPrivacy")}
+          </p>
           <div className="actions">
-            {["json", "magnets", "torrs"].map((format) => (
+            {(["json", "magnets", "torrs"] as const).map((format) => (
               <Button
                 disabled={busy.has("export")}
                 key={format}

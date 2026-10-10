@@ -319,3 +319,33 @@ remaining ledger requirements are not complete.
 - Corrected-source `2caccb12` macOS builds passed for both architectures.
   Windows cross-compilation now passed; actual WFP enforcement still awaits the
   service job. Full Linux/native and other acceptance gates are still running.
+
+## Export privacy and protocol coverage follow-up
+
+- `2caccb12` native unit/race and bounded fuzz steps passed on Linux; its
+  complete CodeQL run passed. Real v2/hybrid transfers and authenticated byte
+  reuse are now verified by those native tests. The full build is still running
+  its controlled playback scenarios, so downstream WFP/service gates remain open.
+- `8db1c093` macOS arm64 unit tests passed, including the 128 native
+  retirement/revival cycles. Both macOS architectures built and passed version
+  probes; the amd64 job does not run the unit suite. Linux race verification and
+  final-source endurance still need to establish the retirement fix's coverage.
+- Library exports now use an authenticated, bounded allowlist projection.
+  Compact v1 tokens are rebuilt without trackers or poster URLs. v2 and older
+  servers use credential-free magnets for the compact-link fallback. JSON
+  retains identities and labels while excluding arbitrary client data, unknown
+  DTO fields, file paths and existing opaque tokens. The seven-language export
+  note explains exclusions and the need for original private-tracker settings.
+- Local verification: 96 web tests passed, one native DTO contract skipped;
+  TypeScript/ESLint passed. Five export regressions, seven locale checks, two Go
+  export projection tests and two actual browser download tests passed. All 31
+  Python build-tool tests passed after using the permitted loopback/runtime
+  environment; the sandbox had blocked socket and Git Bash operations.
+- Added an authenticated real-server export check to the maintenance harness,
+  forced TCP/uTP variants of the native v2/hybrid transfer-and-reuse fixture, and
+  a delayed backing-file regression checking progress on another piece and
+  measured storage duration. These new native checks await CI; forced transport
+  tests do not establish interface-disconnect or DNS protection.
+- Retrieved and reconciled all eight `0b9635b3` comparison reports: 160/160
+  integrity trials passed. Results remain mixed and predate later changes;
+  UPGRADE_MEASUREMENTS.md records exact hashes, medians and unchanged defaults.

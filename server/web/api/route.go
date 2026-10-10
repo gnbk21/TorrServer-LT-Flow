@@ -88,6 +88,7 @@ func SetupRoute(route gin.IRouter) {
 	authorized.GET("/flow/status/:hash", flowStatus)
 	authorized.POST("/flow/warmup/:hash", nextEpisodeWarmup)
 	authorized.GET("/flow/library", flowLibrary)
+	authorized.GET("/flow/library/export", flowLibraryExport)
 	authorized.GET("/flow/active", flowActive)
 	authorized.GET("/flow/network", flowNetwork)
 	authorized.GET("/flow/lan-test", flowLANTest)

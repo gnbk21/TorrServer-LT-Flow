@@ -767,7 +767,9 @@
     "view": "View",
     "cards": "Cards",
     "list": "List",
-    "importProgress": "Processing {{done}} / {{total}} sources"
+    "importProgress": "Processing {{done}} / {{total}} sources",
+    "exportPrivacy": "Exports include torrent identities and labels, but omit credentials, private trackers, posters and custom client data. Private torrents need their original tracker configuration. v2 torrents and older servers use magnets in compact-link exports.",
+    "exportTooLarge": "The library export exceeds 16 MiB."
   },
   "pairing": {
     "title": "Connect your phone",

@@ -46,9 +46,13 @@ tracked separately. Baseline: stable 1.0.1 / source 55c16dc3; integration c3dfe7
 - [ ] Authoritative release metadata; stable/preview transitions, source/notices/provenance.
 
 ## Protocol milestone
-- [ ] v2/hybrid parsing/identities/native callbacks/storage/resume/database/API validation.
-- [ ] Actual SHA-256/Merkle/native async_hash2 verification; preserved v1 identifiers.
-- [ ] Bounded verified identical-byte reuse, compatible mapping; private reuse disabled.
+- [x] v2/hybrid parsing/identities/native callbacks/storage/resume/database/API validation.
+- [x] Actual SHA-256/Merkle/native async_hash2 verification; preserved v1 identifiers.
+- [x] Bounded verified identical-byte reuse, compatible mapping; private reuse disabled.
+
+These protocol items passed the corrected `2caccb12` Linux native unit/race
+and CodeQL regression gates, plus macOS arm64 unit tests. Additional forced
+TCP/uTP cases, final-source full gates and physical acceptance remain separate.
 
 ## Acceptance
 - [ ] Existing web/contracts/native/race/sanitizer/package/update rollback gates.

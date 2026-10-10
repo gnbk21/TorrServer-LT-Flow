@@ -448,7 +448,9 @@
     "view": "Vizualizare",
     "cards": "Carduri",
     "list": "Listă",
-    "importProgress": "Procesare surse: {{done}} / {{total}}"
+    "importProgress": "Procesare surse: {{done}} / {{total}}",
+    "exportPrivacy": "Exporturile conțin identificatorii și etichetele torrentelor, fără credențiale, trackere private, postere sau date personalizate ale clientului. Torrentele private necesită configurația originală a trackerului. Torrentele v2 și serverele vechi folosesc linkuri magnet în exporturile de linkuri compacte.",
+    "exportTooLarge": "Exportul bibliotecii depășește 16 MiB."
   },
   "runtime": {
     "torrents": "Torrente",
