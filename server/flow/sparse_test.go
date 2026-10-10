@@ -25,5 +25,12 @@ func TestSparseReasonDoesNotOverstateAvailability(t *testing.T) {
 		if got := SparseReason(test.input); got != test.want {
 			t.Fatalf("%+v: %s, want %s", test.input, got, test.want)
 		}
+		explanation := ExplainSparse(test.input)
+		if explanation.Reason != test.want || len(explanation.Actions) > 3 {
+			t.Fatal("explanation diverged from measured wait state", explanation)
+		}
+		if test.want == "UNKNOWN" && explanation.Confidence != "unknown" {
+			t.Fatal("missing or truncated evidence became confident")
+		}
 	}
 }

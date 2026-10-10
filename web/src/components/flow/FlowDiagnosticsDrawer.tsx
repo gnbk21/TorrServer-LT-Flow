@@ -22,6 +22,10 @@ export function FlowDiagnosticsDrawer({
   const { t } = useTranslation();
   const diagnostics = useFlowDiagnostics(summary?.hash, isOpen);
   const status = diagnostics.data ?? summary;
+  const sampledAt = status?.sampled_at ? Date.parse(status.sampled_at) : NaN;
+  const sampleAge = Date.now() - sampledAt;
+  const fresh =
+    Number.isFinite(sampleAge) && sampleAge >= 0 && sampleAge < 10_000;
   return (
     <Modal
       isOpen={isOpen}
@@ -214,11 +218,36 @@ export function FlowDiagnosticsDrawer({
               <p className="mt-2 text-sm text-slate-400">
                 {t("flow.reserveHint")}
               </p>
+              {s.wait_explanation && !fresh && (
+                <p className="mt-3 text-sm">{t("flow.sparseUnknown")}</p>
+              )}
+              {s.wait_explanation && fresh && (
+                <div className="mt-3 space-y-2 text-sm">
+                  <p>
+                    {t(`flow.sparseReasons.${s.wait_explanation.reason}`, {
+                      defaultValue: t("flow.sparseUnknown"),
+                    })}
+                  </p>
+                  <p>
+                    {t("flow.waitConfidence", {
+                      confidence: t(
+                        `flow.confidence.${s.wait_explanation.confidence}`,
+                      ),
+                    })}
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {s.wait_explanation.actions.map((action) => (
+                      <li key={action}>{t(`flow.waitActions.${action}`)}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
                 {Object.entries(s)
                   .filter(
                     ([k]) =>
                       k !== "traces" &&
+                      k !== "wait_explanation" &&
                       k !== "file_index" &&
                       k !== "required_piece_suppliers",
                   )

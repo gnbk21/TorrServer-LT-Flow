@@ -42,7 +42,7 @@ func TestTokenDecompressionAndFieldBounds(t *testing.T) {
 	if _, err := UnpackBytes(compressed.Bytes()); err == nil {
 		t.Fatal("unbounded fields accepted")
 	}
-	if _, err := Unpack(strings.Repeat("a", maxTokenBytes+1)); err == nil {
+	if _, err := Unpack(strings.Repeat("a", maxEncodedTokenBytes+1)); err == nil {
 		t.Fatal("oversized encoded input accepted")
 	}
 	if _, err := ReadField(brokenReader{}); !errors.Is(err, errBroken) {

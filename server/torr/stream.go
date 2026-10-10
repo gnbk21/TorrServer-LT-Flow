@@ -42,6 +42,11 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		http.Error(resp, "no torrent", http.StatusInternalServerError)
 		return errors.New("torr.Stream: nil torrent")
 	}
+	if !t.beginStream() {
+		http.Error(resp, "torrent is closing; retry playback", http.StatusServiceUnavailable)
+		return errors.New("torr.Stream: torrent closing")
+	}
+	defer t.endStream()
 	if !t.GotInfo() {
 		http.NotFound(resp, req)
 		return errors.New("torr.Stream: torrent has no metadata")

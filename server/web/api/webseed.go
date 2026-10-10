@@ -9,7 +9,7 @@ import (
 func webSeedStatus(c *gin.Context) {
 	status, err := torr.TorrentWebSeeds(c.Param("hash"))
 	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"error": errorMessage(err)})
 		return
 	}
 	c.JSON(http.StatusOK, status)
@@ -27,12 +27,12 @@ func webSeedControl(c *gin.Context) {
 		return
 	}
 	if err := torr.UpdateTorrentWebSeed(c.Param("hash"), req.Action, req.URL, req.ID, req.AllowLocal); err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"error": errorMessage(err)})
 		return
 	}
 	status, err := torr.TorrentWebSeeds(c.Param("hash"))
 	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"error": errorMessage(err)})
 		return
 	}
 	c.JSON(http.StatusAccepted, status)

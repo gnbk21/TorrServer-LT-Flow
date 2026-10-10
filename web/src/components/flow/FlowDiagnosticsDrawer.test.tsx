@@ -108,4 +108,40 @@ describe("startup explanation", () => {
     expect(screen.getByText("—")).toBeInTheDocument();
     expect(screen.getByText("flow.startupTimingHint")).toBeInTheDocument();
   });
+
+  it("shows localized wait actions only while the server observation is fresh", () => {
+    const status = {
+      hash: "fixture",
+      sampled_at: new Date().toISOString(),
+      sessions: [
+        {
+          group: "fixture",
+          file_index: 1,
+          wait_explanation: {
+            reason: "MISSING_CONNECTED",
+            confidence: "high",
+            actions: ["WAIT_SUPPLIERS", "CHECK_DISCOVERY"],
+          },
+        },
+      ],
+    } as FlowStatusResponse;
+    const { rerender } = render(
+      <FlowDiagnosticsDrawer isOpen onClose={() => {}} status={status} />,
+    );
+    expect(
+      screen.getByText("flow.waitActions.WAIT_SUPPLIERS"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("flow.waitConfidence")).toBeInTheDocument();
+    rerender(
+      <FlowDiagnosticsDrawer
+        isOpen
+        onClose={() => {}}
+        status={{ ...status, sampled_at: "2000-01-01T00:00:00Z" }}
+      />,
+    );
+    expect(
+      screen.queryByText("flow.waitActions.WAIT_SUPPLIERS"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("flow.sparseUnknown")).toBeInTheDocument();
+  });
 });

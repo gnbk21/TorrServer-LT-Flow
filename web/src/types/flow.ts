@@ -63,6 +63,11 @@ export interface FlowSession {
     exhaustion_seconds?: number;
   };
   wait_reason?: string;
+  wait_explanation?: {
+    reason: string;
+    confidence: "unknown" | "medium" | "high";
+    actions: string[];
+  };
   required_piece_suppliers?: number;
   recent_window_seconds?: number;
   recent_cache_hit_bytes?: number;

@@ -111,12 +111,13 @@ func (t *Torrent) startupStage(stage string) {
 }
 
 type FlowSessionStatus struct {
-	BurstHintSource         string   `json:"burst_hint_source"`
-	ReadableContiguousBytes int64    `json:"readable_contiguous_bytes"`
-	VerifiedContiguousBytes int64    `json:"verified_contiguous_bytes"`
-	FrontierGrowthRate      *float64 `json:"frontier_growth_rate,omitempty"`
-	WaitReason              string   `json:"wait_reason"`
-	RequiredPieceSuppliers  *int     `json:"required_piece_suppliers,omitempty"`
+	BurstHintSource         string                `json:"burst_hint_source"`
+	ReadableContiguousBytes int64                 `json:"readable_contiguous_bytes"`
+	VerifiedContiguousBytes int64                 `json:"verified_contiguous_bytes"`
+	FrontierGrowthRate      *float64              `json:"frontier_growth_rate,omitempty"`
+	WaitReason              string                `json:"wait_reason"`
+	WaitExplanation         *flow.WaitExplanation `json:"wait_explanation,omitempty"`
+	RequiredPieceSuppliers  *int                  `json:"required_piece_suppliers,omitempty"`
 	flow.CounterSnapshot
 	Group                     string                `json:"group"`
 	SessionID                 string                `json:"session_id,omitempty"`
@@ -494,7 +495,9 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 		if !s.SupplyQualified {
 			evidence.ConsumptionRate = 0
 		}
-		s.WaitReason = flow.SparseReason(evidence)
+		explanation := flow.ExplainSparse(evidence)
+		s.WaitExplanation = &explanation
+		s.WaitReason = explanation.Reason
 		if evidence.Fresh && evidence.HasWindow {
 			suppliers := evidence.Suppliers
 			s.RequiredPieceSuppliers = &suppliers

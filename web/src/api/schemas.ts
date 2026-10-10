@@ -84,6 +84,27 @@ export const flowSessionSchema = z
       })
       .optional(),
     wait_reason: z.string().optional(),
+    wait_explanation: z
+      .object({
+        reason: z.string(),
+        confidence: z.enum(["unknown", "medium", "high"]),
+        actions: z
+          .array(
+            z.enum([
+              "CAPTURE_DIAGNOSTICS",
+              "WAIT_METADATA",
+              "CHECK_DISCOVERY",
+              "CHECK_NETWORK",
+              "BUILD_RESERVE",
+              "WAIT_CONNECTION",
+              "WAIT_SUPPLIERS",
+              "WAIT_UNCHOKE",
+              "WAIT_BLOCK",
+            ]),
+          )
+          .max(3),
+      })
+      .optional(),
     required_piece_suppliers: z.number().int().nonnegative().optional(),
     recent_window_seconds: z.number().int().nonnegative().optional(),
     recent_piece_wait_p95_ms: z.number().nonnegative().optional(),

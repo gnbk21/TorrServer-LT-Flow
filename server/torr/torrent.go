@@ -111,9 +111,11 @@ type Torrent struct {
 	trackerMu        sync.Mutex
 	trackers         map[string]FlowTrackerDiagnostic
 
-	expiredTime     time.Time
-	preparationHold atomic.Bool
-	warmIdleSince   time.Time
+	expiredTime       time.Time
+	streamAdmissions  int
+	expirationClaimed bool
+	preparationHold   atomic.Bool
+	warmIdleSince     time.Time
 
 	gotInfoCh   chan struct{}
 	gotInfoOnce sync.Once
@@ -518,14 +520,49 @@ func (t *Torrent) AddExpiredTime(d time.Duration) {
 // status polls and preload all push expiredTime forward, so an in-use torrent
 // is never seen as expired. Used by BTServer.expireWatch.
 func (t *Torrent) expired(now time.Time) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.expiredLocked(now)
+}
+
+// Admission and expiry share the same lock so a new HTTP request cannot be
+// removed between the timer's decision and creation of its cache reader.
+func (t *Torrent) beginStream() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.Stat == state.TorrentClosed || t.expirationClaimed {
+		return false
+	}
+	t.streamAdmissions++
+	return true
+}
+
+func (t *Torrent) endStream() {
+	t.mu.Lock()
+	t.streamAdmissions--
+	t.mu.Unlock()
+}
+
+func (t *Torrent) claimExpiration(now time.Time) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.expirationClaimed || !t.expiredLocked(now) {
+		return false
+	}
+	t.expirationClaimed = true
+	return true
+}
+
+func (t *Torrent) expiredLocked(now time.Time) bool {
 	if t.preparationHold.Load() {
 		return false
 	}
-	t.mu.Lock()
 	stat := t.Stat
 	deadline := t.expiredTime
 	warmIdleSince := t.warmIdleSince
-	t.mu.Unlock()
+	if t.streamAdmissions > 0 {
+		return false
+	}
 	switch stat {
 	case state.TorrentClosed, state.TorrentGettingInfo, state.TorrentPreload, state.TorrentInDB:
 		return false

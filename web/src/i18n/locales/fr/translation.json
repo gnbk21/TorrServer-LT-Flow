@@ -774,6 +774,18 @@
       "CACHE_REUSED": "Octets non protégés évincés pour la lecture.",
       "DISABLED_OR_EXPIRED": "Préchauffage désactivé ou expiré.",
       "MULTIPLE_FILES": "Plusieurs fichiers sont en lecture."
+    },
+    "waitConfidence": "Confiance dans cette observation du serveur : {{confidence}}",
+    "waitActions": {
+      "CAPTURE_DIAGNOSTICS": "Gardez l’historique de diagnostic activé pour réessayer ; comparez les attentes du serveur aux données du lecteur.",
+      "WAIT_METADATA": "Attendez les métadonnées : les pièces vidéo ne peuvent pas être sélectionnées avant leur réception.",
+      "CHECK_DISCOVERY": "Vérifiez les trackers et la découverte des pairs dans ce diagnostic.",
+      "CHECK_NETWORK": "Vérifiez l’interface réseau sélectionnée et la connexion ; cette observation ne prouve pas une restriction du fournisseur d’accès.",
+      "BUILD_RESERVE": "Mettez brièvement le lecteur en pause pour constituer une réserve vérifiée. Le débit soutenu doit toujours couvrir la consommation de lecture.",
+      "WAIT_CONNECTION": "Attendez la connexion des pairs découverts ; un candidat ne fournit pas encore de données.",
+      "WAIT_SUPPLIERS": "Attendez un pair possédant la pièce requise. Cet échantillon décrit les pairs connectés, pas tout l’essaim.",
+      "WAIT_UNCHOKE": "Attendez que les fournisseurs autorisent le transfert ; être connecté ne signifie pas être prêt à envoyer.",
+      "WAIT_BLOCK": "Attendez le bloc requis et sa vérification ; conservez le diagnostic si l’attente persiste."
     }
   },
   "search": {

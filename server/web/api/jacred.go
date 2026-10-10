@@ -50,7 +50,7 @@ func jacredTest(c *gin.Context) {
 	}
 
 	if err := jacred.Test(c.Request.Context(), req.Host, req.Key); err != nil {
-		c.JSON(200, gin.H{"success": false, "error": err.Error()})
+		c.JSON(200, gin.H{"success": false, "error": errorMessage(err)})
 		return
 	}
 	c.JSON(200, gin.H{"success": true})

@@ -774,6 +774,18 @@
       "CACHE_REUSED": "未保护的数据已为播放腾出空间。",
       "DISABLED_OR_EXPIRED": "预热已禁用或过期。",
       "MULTIPLE_FILES": "多个文件正在播放。"
+    },
+    "waitConfidence": "对此服务器观测的可信度：{{confidence}}",
+    "waitActions": {
+      "CAPTURE_DIAGNOSTICS": "重试时保持诊断历史开启，并将服务器等待与播放器数据进行比较。",
+      "WAIT_METADATA": "等待元数据获取完成；收到元数据前无法选择视频分片。",
+      "CHECK_DISCOVERY": "在诊断中检查 Tracker 和节点发现状态。",
+      "CHECK_NETWORK": "检查所选网络接口和连接；此观测不能证明网络服务商限制了连接。",
+      "BUILD_RESERVE": "暂时暂停播放器以积累已验证的缓冲。持续下载速度仍须满足播放消耗。",
+      "WAIT_CONNECTION": "等待已发现节点完成连接；候选节点尚未提供数据。",
+      "WAIT_SUPPLIERS": "等待拥有所需分片的节点。此样本仅描述已连接节点，而非整个节点群。",
+      "WAIT_UNCHOKE": "等待数据提供节点允许传输；已连接并不代表当前愿意发送数据。",
+      "WAIT_BLOCK": "等待所需数据块及其验证；若持续等待，请保留诊断。"
     }
   },
   "search": {

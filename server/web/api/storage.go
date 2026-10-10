@@ -66,7 +66,7 @@ func UpdateStorageSettings(c *gin.Context) {
 	} else {
 		// Handle JSON (default)
 		if err := c.ShouldBindJSON(&prefs); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": errorMessage(err)})
 			return
 		}
 	}
@@ -93,7 +93,7 @@ func UpdateStorageSettings(c *gin.Context) {
 	}
 
 	if err := sets.SetStoragePreferences(prefs); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errorMessage(err)})
 		return
 	}
 

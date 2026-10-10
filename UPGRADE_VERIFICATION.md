@@ -120,3 +120,24 @@ remaining ledger requirements are not complete.
 - Focused local Flow/log/token tests, TypeScript checking, lint and all 74 web
   tests passed (one existing native fixture skipped). Native regressions remain
   required before promoting these changes.
+
+## Diagnostic and request-lifecycle refinement
+
+- Both macOS native build/test jobs passed for `4a99a058` in run 38074018798.
+  This confirms the native protocol/storage test checkpoint on those targets;
+  it does not replace Windows, Linux sanitizer or endurance acceptance.
+- Wait explanations reuse existing per-session sparse evidence, preserving
+  unknown/truncated availability. Their confidence describes a server
+  observation, not the entire swarm or the player's decoder. Bounded suggested
+  actions are localized in seven languages; stale snapshots suppress them.
+- Closed/background diagnostic drawers now abort in-flight requests and stop
+  polling, with regression checks for close/background/resume.
+- New streaming admission is synchronized with idle expiry before a native
+  reader exists. The timer rechecks registry ownership and atomically claims
+  expiry. The 200-race regression awaits native CI; the original long-run
+  symptom remains under investigation until a fresh artifact reproduces or
+  passes the full duration.
+- Existing API error responses now use the shared secret redactor and a
+  4 KiB detail bound without changing their HTTP status/response shape.
+- Local sparse, token, Telegram and API-error checks passed. Web type/lint checks
+  and 76 tests passed; the additional stale-action test passed separately.

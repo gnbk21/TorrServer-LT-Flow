@@ -768,6 +768,18 @@
       "CACHE_REUSED": "Datele neprotejate au fost eliminate pentru redare.",
       "DISABLED_OR_EXPIRED": "Încălzirea este dezactivată sau expirată.",
       "MULTIPLE_FILES": "Sunt redate mai multe fișiere."
+    },
+    "waitConfidence": "Încredere în această observație a serverului: {{confidence}}",
+    "waitActions": {
+      "CAPTURE_DIAGNOSTICS": "Păstrați istoricul de diagnostic activ pentru o nouă încercare; comparați așteptările serverului cu datele playerului.",
+      "WAIT_METADATA": "Așteptați metadatele; piesele video nu pot fi selectate înainte de primirea lor.",
+      "CHECK_DISCOVERY": "Verificați starea trackerelor și descoperirea peerilor în diagnostic.",
+      "CHECK_NETWORK": "Verificați interfața de rețea selectată și conexiunea; această observație nu dovedește o restricție a furnizorului de internet.",
+      "BUILD_RESERVE": "Puneți playerul pe pauză pentru scurt timp pentru a acumula o rezervă verificată. Debitul susținut trebuie în continuare să acopere consumul redării.",
+      "WAIT_CONNECTION": "Așteptați conectarea peerilor descoperiți; un candidat nu furnizează încă date.",
+      "WAIT_SUPPLIERS": "Așteptați un peer cu piesa necesară. Eșantionul descrie peerii conectați, nu întregul roi.",
+      "WAIT_UNCHOKE": "Așteptați ca furnizorii să permită transferul; conectarea nu înseamnă disponibilitate pentru trimitere.",
+      "WAIT_BLOCK": "Așteptați blocul necesar și verificarea lui; salvați diagnosticul dacă așteptarea persistă."
     }
   },
   "search": {

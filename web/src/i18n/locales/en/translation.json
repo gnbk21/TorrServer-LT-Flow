@@ -684,6 +684,18 @@
       "CACHE_REUSED": "Unprotected bytes were evicted for playback.",
       "DISABLED_OR_EXPIRED": "Warmup is disabled or expired.",
       "MULTIPLE_FILES": "Several playback files are active."
+    },
+    "waitConfidence": "Confidence in this server observation: {{confidence}}",
+    "waitActions": {
+      "CAPTURE_DIAGNOSTICS": "Keep diagnostic history enabled for a retry; compare server waits with player evidence.",
+      "WAIT_METADATA": "Allow metadata retrieval to finish; no media pieces can be selected before metadata arrives.",
+      "CHECK_DISCOVERY": "Check tracker and peer-discovery status in these diagnostics.",
+      "CHECK_NETWORK": "Check the selected network interface and connection; this observation does not identify an ISP restriction.",
+      "BUILD_RESERVE": "Pause in the player briefly to build a verified reserve. Sustained supply must still cover playback consumption.",
+      "WAIT_CONNECTION": "Allow discovered peer connections to complete; a candidate is not yet a supplier.",
+      "WAIT_SUPPLIERS": "Wait for a peer with the required piece. This sample describes connected peers, not the entire swarm.",
+      "WAIT_UNCHOKE": "Allow suppliers to unchoke the connection; connected does not mean currently willing to send.",
+      "WAIT_BLOCK": "Wait for the required block and its verification; capture diagnostics if the wait persists."
     }
   },
   "torrent": {

@@ -339,8 +339,17 @@ func (bt *BTServer) expireWatch(stop <-chan struct{}) {
 				if t == nil || !t.expired(now) {
 					continue
 				}
-				log.Println("torr: auto-drop idle torrent", t.Hash().HexString())
-				bt.RemoveTorrent(t.Hash())
+				bt.mu.Lock()
+				current := bt.findTorrentLocked(t.Hash())
+				claimed := current == t && t.claimExpiration(now)
+				if claimed {
+					delete(bt.torrents, t.Hash())
+				}
+				bt.mu.Unlock()
+				if claimed {
+					log.Println("torr: auto-drop idle torrent", t.Hash().HexString())
+					t.Close()
+				}
 			}
 		}
 	}

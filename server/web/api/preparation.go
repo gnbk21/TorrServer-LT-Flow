@@ -19,7 +19,7 @@ func preparationControl(c *gin.Context) {
 		return
 	}
 	if err := torr.PrepareEpisode(req.Hash, req.FileIndex, req.Action); err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"error": errorMessage(err)})
 		return
 	}
 	c.JSON(http.StatusAccepted, torr.PreparationSnapshot())

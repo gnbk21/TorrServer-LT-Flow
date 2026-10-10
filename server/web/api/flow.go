@@ -53,7 +53,7 @@ func nextEpisodeWarmup(c *gin.Context) {
 		return
 	}
 	if err := t.SelectNextEpisodeWarmup(request.FileIndex, request.Action); err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"error": errorMessage(err)})
 		return
 	}
 	c.JSON(http.StatusAccepted, t.NextEpisodeWarmupStatus())
@@ -72,7 +72,7 @@ func flowControl(c *gin.Context) {
 		Action string `json:"action"`
 	}
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": errorMessage(err)})
 		return
 	}
 	var paused bool
@@ -86,7 +86,7 @@ func flowControl(c *gin.Context) {
 		return
 	}
 	if err := torr.SetFlowPaused(paused); err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": errorMessage(err)})
 		return
 	}
 	c.JSON(http.StatusOK, torr.SnapshotFlowTray())

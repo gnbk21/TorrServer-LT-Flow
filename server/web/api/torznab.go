@@ -125,7 +125,7 @@ func torznabCaps(c *gin.Context) {
 
 	caps, err := torznab.FetchCaps(c.Request.Context(), config.Host, config.Key)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errorMessage(err)})
 		return
 	}
 
@@ -151,7 +151,7 @@ func torznabTest(c *gin.Context) {
 	}
 
 	if err := torznab.Test(c.Request.Context(), req.Host, req.Key); err != nil {
-		c.JSON(200, gin.H{"success": false, "error": err.Error()})
+		c.JSON(200, gin.H{"success": false, "error": errorMessage(err)})
 		return
 	}
 	c.JSON(200, gin.H{"success": true})

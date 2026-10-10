@@ -11,6 +11,8 @@ import (
 
 const maxTokenBytes = 1 << 20
 const maxTokenFields = 256
+const maxEncodedTokenBytes = 24 << 10
+const maxCompressedTokenBytes = 16 << 10
 
 func Pack(hash *TorrsHash) (string, error) {
 	data, err := pack(hash)
@@ -26,7 +28,7 @@ func PackBytes(hash *TorrsHash) ([]byte, error) {
 
 func Unpack(token string) (*TorrsHash, error) {
 	token = strings.TrimSpace(token)
-	if len(token) > maxTokenBytes || !IsBase62(token) {
+	if len(token) > maxEncodedTokenBytes || !IsBase62(token) {
 		return nil, errors.New("invalid or oversized torrent token")
 	}
 	data := Decode62(token)
@@ -74,11 +76,14 @@ func pack(t *TorrsHash) ([]byte, error) {
 	}
 
 	err = zw.Close()
+	if buf.Len() > maxCompressedTokenBytes {
+		return nil, errors.New("compressed torrent token exceeds limit")
+	}
 	return buf.Bytes(), err
 }
 
 func unpack(data []byte) (*TorrsHash, error) {
-	if len(data) > maxTokenBytes {
+	if len(data) > maxCompressedTokenBytes {
 		return nil, errors.New("torrent token exceeds limit")
 	}
 	zr, err := zlib.NewReader(bytes.NewReader(data))

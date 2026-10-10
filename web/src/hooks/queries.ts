@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { useQuery, useQueries, QueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useQueries,
+  useQueryClient,
+  QueryClient,
+} from "@tanstack/react-query";
 import { api, ApiError } from "../api/client";
 import { torrentsApi } from "../api/torrents";
 import { flowApi } from "../api/flow";
@@ -113,10 +118,22 @@ export function useFlows(hashes: string[]) {
 }
 export function useFlowDiagnostics(hash: string | undefined, enabled: boolean) {
   const visible = useVisible();
+  const client = useQueryClient();
+  useEffect(() => {
+    if (!hash) return;
+    const cancel = () => {
+      void client.cancelQueries({
+        queryKey: ["flow-diagnostics", hash],
+        exact: true,
+      });
+    };
+    if (!enabled || !visible) cancel();
+    return cancel;
+  }, [client, hash, enabled, visible]);
   return useQuery({
     queryKey: ["flow-diagnostics", hash],
     queryFn: ({ signal }) => flowApi.getStatus(hash!, signal, true),
-    enabled: enabled && !!hash,
+    enabled: enabled && visible && !!hash,
     refetchInterval: enabled && visible ? 3000 : false,
   });
 }
