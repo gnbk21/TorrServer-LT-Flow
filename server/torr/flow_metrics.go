@@ -1,6 +1,7 @@
 package torr
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"server/flow"
 	"server/log"
 	"server/settings"
+	"server/torr/state"
 	"server/torr/storage/torrstor"
 )
 
@@ -66,12 +68,20 @@ func (t *Torrent) FlowStartup() FlowStartupStatus {
 }
 
 func (t *Torrent) historyEvent(e flow.HistoryEvent) {
-	if t == nil || t.bt == nil {
+	if t == nil {
+		return
+	}
+	if !t.flowAddedAt.IsZero() {
+		t.timeline.Record(e, time.Since(t.flowAddedAt))
+	}
+	if t.bt == nil {
 		return
 	}
 	e.Torrent = t.diagnosticID
 	t.bt.history.Load().Record(e)
 }
+
+func (t *Torrent) FlowTimeline() flow.TimelineSnapshot { return t.timeline.Snapshot() }
 
 func (t *Torrent) startupStage(stage string) {
 	if t == nil {
@@ -109,6 +119,7 @@ type FlowSessionStatus struct {
 	RequiredPieceSuppliers  *int     `json:"required_piece_suppliers,omitempty"`
 	flow.CounterSnapshot
 	Group                     string                `json:"group"`
+	SessionID                 string                `json:"session_id,omitempty"`
 	FileIndex                 int                   `json:"file_index"`
 	FileSize                  int64                 `json:"file_size"`
 	State                     string                `json:"state"`
@@ -166,6 +177,12 @@ func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Requ
 		return "UNKNOWN", hint, 0
 	}
 	internal := group == torrstor.ProbeReaderGroup
+	if !internal && req.Method == http.MethodGet {
+		purpose := flow.Classify(req.Method, false, hint, file.Length, 0, false)
+		if purpose != "HEAD_PROBE" && purpose != "TAIL_INDEX" {
+			t.nextEpisodeFileChanged(fileID)
+		}
+	}
 	if !internal && req.Method == http.MethodGet && settings.CurrentFlow().Enabled {
 		if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
 			cache.ClearWarmReserve()
@@ -200,7 +217,7 @@ func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Requ
 	}
 	s := t.flowSessions[key]
 	if s == nil {
-		s = &flowSession{FlowSessionStatus: FlowSessionStatus{Group: group, FileIndex: fileID, FileSize: file.Length, State: "NEW"}, fileOffset: file.Offset}
+		s = &flowSession{FlowSessionStatus: FlowSessionStatus{Group: group, SessionID: rand.Text(), FileIndex: fileID, FileSize: file.Length, State: "NEW"}, fileOffset: file.Offset}
 		t.flowSessions[key] = s
 	}
 	purpose := flow.Classify(req.Method, internal, hint, file.Length, s.PlaybackOffsetBytes, s.RangeRequestCount > 0)
@@ -214,6 +231,7 @@ func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Requ
 			s.lastWarmSeq = s.RangeRequestCount + 1
 		}
 		if purpose == "SEEK" {
+			t.historyEvent(flow.HistoryEvent{Type: "seek", File: fileID})
 			if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
 				cache.ResetFlowWindow(group, file.Index)
 			}
@@ -233,6 +251,15 @@ func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Requ
 	s.LastClassification = classification
 	s.lastSeen = time.Now()
 	return classification, hint, seq
+}
+
+func (t *Torrent) FlowSessionID(fileID int, group string) string {
+	t.flowMu.Lock()
+	defer t.flowMu.Unlock()
+	if session := t.flowSessions[fmt.Sprintf("%d/%s", fileID, group)]; session != nil {
+		return session.SessionID
+	}
+	return ""
 }
 
 func (t *Torrent) flowReaderClosed(file *File, offset int64) {
@@ -357,6 +384,7 @@ func (t *Torrent) flowFirstByte(fileID int, group string, seq uint64, started ti
 	if s := t.flowSessions[fmt.Sprintf("%d/%s", fileID, group)]; s != nil {
 		if seq == s.lastSeekSeq {
 			s.SeekRecoveryMs = ttfb.Milliseconds()
+			t.historyEvent(flow.HistoryEvent{Type: "recovery", File: fileID, ElapsedMs: ttfb.Milliseconds()})
 		}
 		if seq == s.lastWarmSeq {
 			s.WarmReconnectTTFBMs = ttfb.Milliseconds()
@@ -396,7 +424,13 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 	}
 	t.flowMu.Unlock()
 	cache := torrstor.Global().CacheByHash([20]byte(t.Hash()))
-	status := t.Status()
+	var status *state.TorrentStatus
+	if includeTraces {
+		status = t.Status()
+	} else {
+		summary := t.LibrarySummary()
+		status = &summary
+	}
 	sparse := t.SparseStatus()
 	for i := range out {
 		s := &out[i]

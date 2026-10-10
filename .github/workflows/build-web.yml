@@ -46,6 +46,18 @@ jobs:
         timeout-minutes: 10
         working-directory: web
         run: yarn test:e2e
+      - name: Production interface lab
+        working-directory: web
+        run: yarn test:lab
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ inputs.artifact-name }}-interface-evidence
+          path: |
+            web/lab-results/**/measurement.json
+            web/test-results/**/library-measurement.json
+            web/test-results/**/*.png
+          if-no-files-found: warn
       - name: Generate embedded assets
         run: |
           go test gen_web.go gen_web_test.go

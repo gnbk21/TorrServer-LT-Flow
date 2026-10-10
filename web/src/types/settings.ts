@@ -19,6 +19,7 @@ export interface FlowSettings {
   PlaybackTokenTTL?: number;
   TorrentInterface?: string;
   RequireTorrentInterface?: boolean;
+  MSXAllowLAN?: boolean;
   Enabled: boolean;
   AdaptiveStartup: boolean;
   BootstrapHeadMB: number;
@@ -49,6 +50,8 @@ export interface FlowSettings {
   CapacityAwareRequests?: boolean;
   AdaptiveUrgentHorizon?: boolean;
   ContainerBurstHints?: boolean;
+  StreamTransportBufferKiB?: number;
+  NextEpisodeWarmup?: boolean;
 }
 
 export interface TMDBSettings {

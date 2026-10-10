@@ -214,7 +214,8 @@
     "DefaultTrackers": "默认 Tracker",
     "DefaultTrackersHint": "本地 announce URL，每行一个。当所有远程获取失败时单独使用，或在远程列表成功加载后合并。",
     "ShowQuickVLCButton": "Show VLC button on torrent cards",
-    "ShowQuickVLCButtonHint": "Optional shortcut for single-video torrents. VLC must also be enabled."
+    "ShowQuickVLCButtonHint": "Optional shortcut for single-video torrents. VLC must also be enabled.",
+    "MSXAllowLAN": "允许 MSX 代理访问局域网"
   },
   "Size": "大小",
   "SpeedTest": "速度测试",
@@ -449,7 +450,10 @@
     "pageCount": "第 {{page}} 页，共 {{pages}} 页",
     "expiringLink": "创建或续期限时链接",
     "linkExpires": "有效期至 {{time}}；服务器重启后链接失效。",
-    "linkFailed": "无法创建链接，请检查身份验证和文件元数据。"
+    "linkFailed": "无法创建链接，请检查身份验证和文件元数据。",
+    "view": "视图",
+    "cards": "卡片",
+    "list": "列表"
   },
   "runtime": {
     "torrents": "种子",
@@ -529,7 +533,15 @@
   "app": {
     "error": "无法显示此页面。",
     "reload": "重新加载",
-    "install": "可以将此页面添加到主屏幕。安装功能因浏览器而异；普通局域网 HTTP 也支持流式播放。"
+    "install": "可以将此页面添加到主屏幕。安装功能因浏览器而异；普通局域网 HTTP 也支持流式播放。",
+    "appearance": "外观",
+    "theme": "主题",
+    "dark": "深色",
+    "light": "浅色",
+    "system": "跟随系统",
+    "density": "密度",
+    "comfortable": "舒适",
+    "compact": "紧凑"
   },
   "flow": {
     "title": "Flow 播放",
@@ -692,7 +704,77 @@
       "callback_max_us": "最大回调（微秒）"
     },
     "urgentAge": "最早未完成请求：{{ms}} 毫秒",
-    "reserveHint": "HTTP 传输与索引字节/时间斜率只是估计，并非手机解码器时钟。空洞之后的已验证分片不计入连续储备。"
+    "reserveHint": "HTTP 传输与索引字节/时间斜率只是估计，并非手机解码器时钟。空洞之后的已验证分片不计入连续储备。",
+    "observedPlayback": "观察到的流",
+    "warm": "保留缓冲",
+    "serverObservation": "服务器观察结果；未测量播放器的实际播放情况。",
+    "timelineTitle": "事件时间线",
+    "timelineHint": "服务器观察结果使用同一条种子时间轴。事件旁的数值表示测得的操作耗时。缺失事件仍视为未知；此处并未测量播放器卡顿。",
+    "sampledAt": "快照时间",
+    "timelineTruncated": "已省略较早的事件：{{count}}",
+    "timelineEvents": {
+      "engine_started": "引擎已启动",
+      "engine_stopped": "引擎已停止",
+      "metadata": "元数据就绪",
+      "startup": "启动阶段",
+      "first_byte": "首个 HTTP 字节",
+      "first_block": "首个有效数据块",
+      "probe": "媒体分析",
+      "dht_peer": "DHT 节点",
+      "peer_disconnected": "节点已断开",
+      "seek": "已请求跳转",
+      "recovery": "跳转响应恢复"
+    },
+    "playerEvidence": "播放器测量",
+    "playerEvidenceHint": "可选的 Flow Player 报告。导入数据仅保留在此打开的对话框中，不会上传到服务器或更改设置。",
+    "playerImport": "导入播放器 JSON 报告",
+    "playerMatched": "报告与观察到的会话匹配。",
+    "playerUnmatched": "无法匹配会话；测量结果单独显示。",
+    "playerClockUnknown": "播放器时钟同步情况未知；请勿推断事件完全重合。",
+    "clearPlayerReport": "清除导入报告",
+    "playerUnknown": "没有播放器测量结果。服务器等待不能证明播放器卡顿。",
+    "playerReportInvalid": "播放器报告无效或过大。",
+    "playerMetrics": {
+      "startup_ms": "启动（毫秒）",
+      "rebuffer_events": "重新缓冲次数",
+      "rebuffer_ms": "重新缓冲时间（毫秒）",
+      "seek_events": "跳转次数",
+      "seek_buffer_ms": "跳转缓冲时间（毫秒）",
+      "buffered_ms": "缓冲时长（毫秒）",
+      "dropped_frames": "丢帧数",
+      "paused_ms": "暂停时间（毫秒）"
+    },
+    "warmupTitle": "下一集预热",
+    "warmupHint": "可选：在现有缓存的空闲空间内预热一集的文件头/索引，最多 32 MiB。播放等待或资源紧张时让步，不会准备整集。请在 Flow 设置中启用。",
+    "warmupDisabled": "已禁用",
+    "warmupChoose": "选择文件",
+    "warmupAuto": "自动选择",
+    "warmupCancel": "取消预热",
+    "warmupStart": "预热所选文件",
+    "warmupFile": "文件 {{index}}",
+    "warmupStates": {
+      "idle": "空闲",
+      "waiting": "等待空闲空间",
+      "warming": "正在预热文件头/索引",
+      "ready": "已校验并驻留缓存",
+      "evicted": "缓存已重用；不重复预热",
+      "unavailable": "不可用"
+    },
+    "warmupReasons": {
+      "PLAYBACK_RESERVE": "优先保障当前播放的缓冲。",
+      "PLAYBACK_WAIT": "其他播放正在等待数据。",
+      "RESOURCE_PRESSURE": "缓存压力优先。",
+      "NO_SPARE_CACHE": "没有空闲缓存空间。",
+      "OTHER_WARMUP": "另一集占用唯一预热名额。",
+      "PIECE_BUDGET": "分片大小超出预热预算。",
+      "MANUAL_SELECTION_REQUIRED": "请选择文件：无法确定下一集。",
+      "CANCELLED": "已取消，直到播放文件改变。",
+      "SPARE_CAPACITY": "使用空闲缓存空间。",
+      "VERIFIED": "文件头/索引已校验。",
+      "CACHE_REUSED": "未保护的数据已为播放腾出空间。",
+      "DISABLED_OR_EXPIRED": "预热已禁用或过期。",
+      "MULTIPLE_FILES": "多个文件正在播放。"
+    }
   },
   "search": {
     "source": "来源",
@@ -836,7 +918,10 @@
         "RequireTorrentInterface": "要求明确选择种子网卡",
         "CapacityAwareRequests": "遵守对端请求容量（实验）",
         "AdaptiveUrgentHorizon": "自适应紧急分片范围（实验）",
-        "ContainerBurstHints": "已缓存容器索引的峰值提示（实验）"
+        "ContainerBurstHints": "已缓存容器索引的峰值提示（实验）",
+        "MSXAllowLAN": "允许 MSX 代理访问局域网",
+        "StreamTransportBufferKiB": "传输缓冲区（受控实验）",
+        "NextEpisodeWarmup": "预热下一集文件头/索引"
       }
     },
     "maintenance": {
@@ -923,7 +1008,12 @@
         "user": "服务器文件"
       },
       "plainHttp": "此页面使用 HTTP。在此上传私钥会以未加密方式传输。请先打开 HTTPS 再上传。"
-    }
+    },
+    "search": "搜索所有设置",
+    "changedFields": "已更改的字段：{{count}}",
+    "effectiveValue": "当前生效：{{value}}",
+    "transportDirect": "直接读取缓存",
+    "transportHelp": "使用相同测试文件和预留量比较缓冲大小。当前默认值为 1024 KiB。更改仅影响新的 HTTP 请求。"
   },
   "preparation": {
     "title": "准备剧集",
@@ -964,5 +1054,8 @@
     "help": "镜像必须提供与种子完全相同的字节。原生引擎处理 Range 请求、哈希校验、有限重试和节点回退。仅显示来源域；路径、签名参数和凭据不进入诊断。无需提供商账号。",
     "local": "批准我的局域网镜像",
     "localHelp": "批准要求使用明确的私有或回环 IP，且不包含凭据或查询参数。其他镜像必须使用全球地址；DNS 结果和重定向由原生引擎检查。代理隐藏的目标会被阻止。"
+  },
+  "flowHelp": {
+    "MSXAllowLAN": "默认关闭。仅允许明确指定的私有或回环 IP 地址。解析到局域网的域名和链路本地元数据服务仍被阻止。"
   }
 }

@@ -1,0 +1,76 @@
+name: Flow CodeQL
+on:
+  pull_request:
+    branches: [develop, master]
+  push:
+    branches: [develop, master]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  web:
+    uses: ./.github/workflows/build-web.yml
+    with:
+      artifact-name: flow-web-codeql
+  interpreted:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}
+  native:
+    needs: web
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - uses: actions/cache@v4
+        with:
+          path: _src
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
+      - uses: actions/cache@v4
+        with:
+          path: _deps/linux-amd64
+          key: codeql-native-${{ runner.os }}-${{ hashFiles('build/_common.sh', 'build/_deps.sh', 'build/native-patches/**') }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: flow-web-codeql
+          path: server/web/pages/template
+      - name: Prepare pinned native dependencies
+        run: bash build/linux-amd64.sh
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: go,cpp
+          build-mode: manual
+          queries: security-extended
+      - name: Extract Go and the real native bridge
+        env:
+          GOCACHE: ${{ runner.temp }}/flow-codeql-go-cache
+        run: bash build/linux-amd64.sh
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /native-go-cpp

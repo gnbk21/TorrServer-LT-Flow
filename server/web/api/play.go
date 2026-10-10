@@ -36,7 +36,7 @@ func play(c *gin.Context) {
 		return
 	}
 
-	spec, err := utils.ParseLink(hash)
+	spec, err := utils.ParseLinkContext(c.Request.Context(), hash)
 	if err != nil {
 		abortWithJSONError(c, http.StatusInternalServerError, err)
 		return

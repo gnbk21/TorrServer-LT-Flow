@@ -36,6 +36,9 @@ struct tsl_storage_callbacks {
     void (*size)   (int64_t storage_id, int64_t total_size);
     // Native hash-failure fence; keep the backend but clear readable state.
     void (*clear_piece)(int64_t storage_id, int piece);
+    // Immutable pairs [piece index, actual file bytes], excluding alignment
+    // padding in BEP 52 file-ending pieces. Installed before writes start.
+    void (*geometry)(int64_t storage_id, const int64_t* pairs, int count);
 };
 
 // Install / clear the Go callbacks. Pass NULL to revert to default

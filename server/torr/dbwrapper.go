@@ -39,29 +39,30 @@ func AddTorrentDB(torr *Torrent) {
 	t := new(settings.TorrentDB)
 	torr.mu.Lock()
 	t.TorrentSpec = settingsSpec(torr.TorrentSpec)
-	torr.mu.Unlock()
 	t.Title = torr.Title
 	t.Category = torr.Category
-	if torr.Data == "" {
+	t.Data, t.Poster, t.Size, t.Timestamp = torr.Data, torr.Poster, torr.Size, torr.Timestamp
+	torr.mu.Unlock()
+	if t.Data == "" {
 		var f tsFiles
 		f.TorrServer.Files = torr.Status().FileStats
 		if buf, err := json.Marshal(&f); err == nil {
-			t.Data = string(buf)
-			torr.Data = t.Data
+			torr.mu.Lock()
+			if torr.Data == "" {
+				torr.Data = string(buf)
+			}
+			t.Data = torr.Data
+			torr.mu.Unlock()
 		}
-	} else {
-		t.Data = torr.Data
 	}
 	previousPoster := ""
 	if existing := settings.GetTorrent(torr.Hash().HexString()); existing != nil {
 		previousPoster = existing.Poster
 	}
-	t.Poster = utils.SelectPoster(torr.Poster, previousPoster)
-	t.Size = torr.Size
+	t.Poster = utils.SelectPoster(t.Poster, previousPoster)
 	if t.Size == 0 {
 		t.Size = torr.Length()
 	}
-	t.Timestamp = torr.Timestamp
 	settings.AddTorrent(t)
 }
 

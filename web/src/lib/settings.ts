@@ -1,5 +1,6 @@
 import type { BTSettings } from "../types/settings";
 export const flowBounds: Record<string, readonly [number, number]> = {
+  StreamTransportBufferKiB: [0, 1024],
   GlobalCacheBudgetMB: [0, 1048576],
   WarmCacheBudgetMB: [0, 65536],
   PreparationConcurrency: [1, 16],
@@ -74,6 +75,13 @@ export function validateSettings(
   values: Record<string, SettingsValue>,
 ): Record<string, string> {
   const errors: Record<string, string> = {};
+  if (
+    values["Flow.StreamTransportBufferKiB"] !== undefined &&
+    ![0, 64, 256, 1024].includes(
+      Number(values["Flow.StreamTransportBufferKiB"]),
+    )
+  )
+    errors["Flow.StreamTransportBufferKiB"] = "0 / 64 / 256 / 1024 KiB";
   for (const [name, [min, max]] of Object.entries(flowBounds)) {
     const key = `Flow.${name}`;
     const value = values[key];

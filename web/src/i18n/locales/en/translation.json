@@ -242,7 +242,8 @@
     "DefaultTrackers": "Default trackers",
     "DefaultTrackersHint": "Local announce URLs, one per line. Used alone when all remote fetches fail, or merged after a successful remote fetch.",
     "ShowQuickVLCButton": "Show VLC button on torrent cards",
-    "ShowQuickVLCButtonHint": "Optional shortcut for single-video torrents. VLC must also be enabled."
+    "ShowQuickVLCButtonHint": "Optional shortcut for single-video torrents. VLC must also be enabled.",
+    "MSXAllowLAN": "Allow MSX proxy access to LAN"
   },
   "Size": "Size",
   "SpeedTest": "Speed Test",
@@ -613,7 +614,77 @@
       "callback_max_us": "Callback maximum (µs)"
     },
     "urgentAge": "Oldest outstanding request: {{ms}} ms",
-    "reserveHint": "HTTP delivery and indexed byte/time slopes are estimates, not the phone decoder clock. Verified pieces beyond a hole are excluded from contiguous reserve."
+    "reserveHint": "HTTP delivery and indexed byte/time slopes are estimates, not the phone decoder clock. Verified pieces beyond a hole are excluded from contiguous reserve.",
+    "observedPlayback": "Observed stream",
+    "warm": "Warm buffer",
+    "serverObservation": "Server observations; player playback is not measured.",
+    "timelineTitle": "Incident timeline",
+    "timelineHint": "Server observations on one torrent clock. Values beside events describe their measured operation. Missing events remain unknown; this does not measure player stutters.",
+    "sampledAt": "Snapshot at",
+    "timelineTruncated": "Older recent events omitted: {{count}}",
+    "timelineEvents": {
+      "engine_started": "Engine started",
+      "engine_stopped": "Engine stopped",
+      "metadata": "Metadata ready",
+      "startup": "Startup phase",
+      "first_byte": "HTTP first byte",
+      "first_block": "First useful block",
+      "probe": "Media probe",
+      "dht_peer": "DHT peer",
+      "peer_disconnected": "Peer disconnected",
+      "seek": "Seek requested",
+      "recovery": "Seek response recovered"
+    },
+    "playerEvidence": "Player measurements",
+    "playerEvidenceHint": "Optional Flow Player report. Import stays in this open dialog; it is not uploaded or applied as a server setting.",
+    "playerImport": "Import player JSON report",
+    "playerMatched": "Report matches an observed session.",
+    "playerUnmatched": "Session could not be matched; measurements remain separate.",
+    "playerClockUnknown": "Player clock alignment is unknown; do not infer exact event overlap.",
+    "clearPlayerReport": "Clear imported report",
+    "playerUnknown": "No player measurements available. Server waits do not establish player stutters.",
+    "playerReportInvalid": "Invalid or oversized player report.",
+    "playerMetrics": {
+      "startup_ms": "Startup (ms)",
+      "rebuffer_events": "Rebuffer events",
+      "rebuffer_ms": "Rebuffer time (ms)",
+      "seek_events": "Seeks",
+      "seek_buffer_ms": "Seek buffering (ms)",
+      "buffered_ms": "Buffered time (ms)",
+      "dropped_frames": "Dropped frames",
+      "paused_ms": "Paused time (ms)"
+    },
+    "warmupTitle": "Next episode warmup",
+    "warmupHint": "Optional: warms one episode header/index, up to 32 MiB in the existing spare cache. Yields to playback waits and pressure. It does not prepare the whole episode. Enable it in Flow settings.",
+    "warmupDisabled": "Disabled",
+    "warmupChoose": "Choose file",
+    "warmupAuto": "Automatic choice",
+    "warmupCancel": "Cancel warmup",
+    "warmupStart": "Warm selected file",
+    "warmupFile": "File {{index}}",
+    "warmupStates": {
+      "idle": "Idle",
+      "waiting": "Waiting for spare capacity",
+      "warming": "Warming header/index",
+      "ready": "Verified and resident",
+      "evicted": "Cache reused; warmup not repeated",
+      "unavailable": "Unavailable"
+    },
+    "warmupReasons": {
+      "PLAYBACK_RESERVE": "Playback needs its reserve first.",
+      "PLAYBACK_WAIT": "Another playback is waiting for bytes.",
+      "RESOURCE_PRESSURE": "Cache pressure takes priority.",
+      "NO_SPARE_CACHE": "No spare cache space.",
+      "OTHER_WARMUP": "Another episode warmup owns the single slot.",
+      "PIECE_BUDGET": "Piece size exceeds the warmup budget.",
+      "MANUAL_SELECTION_REQUIRED": "Select a file: the next episode is uncertain.",
+      "CANCELLED": "Cancelled until the playback file changes.",
+      "SPARE_CAPACITY": "Warmup uses spare capacity.",
+      "VERIFIED": "Header/index bytes are verified.",
+      "CACHE_REUSED": "Unprotected bytes were evicted for playback.",
+      "DISABLED_OR_EXPIRED": "Warmup is disabled or expired.",
+      "MULTIPLE_FILES": "Several playback files are active."
+    }
   },
   "torrent": {
     "justPlayer": "Play in Just Player",
@@ -672,7 +743,10 @@
     "pageCount": "Page {{page}} of {{pages}}",
     "expiringLink": "Create / renew expiring link",
     "linkExpires": "Valid until {{time}}; server restart revokes this link.",
-    "linkFailed": "Could not create a link. Check authentication and file metadata."
+    "linkFailed": "Could not create a link. Check authentication and file metadata.",
+    "view": "View",
+    "cards": "Cards",
+    "list": "List"
   },
   "pairing": {
     "title": "Connect your phone",
@@ -830,7 +904,10 @@
         "RequireTorrentInterface": "Require an explicitly selected torrent adapter",
         "CapacityAwareRequests": "Respect peer request capacity (experiment)",
         "AdaptiveUrgentHorizon": "Adaptive urgent horizon (experiment)",
-        "ContainerBurstHints": "Resident container burst hints (experiment)"
+        "ContainerBurstHints": "Resident container burst hints (experiment)",
+        "MSXAllowLAN": "Allow MSX proxy access to LAN",
+        "StreamTransportBufferKiB": "Transport buffer (controlled experiment)",
+        "NextEpisodeWarmup": "Next episode header/index warmup"
       }
     },
     "maintenance": {
@@ -917,7 +994,12 @@
         "user": "Server files"
       },
       "plainHttp": "This page uses plain HTTP. Uploading a private key here sends it unencrypted. Open HTTPS before uploading."
-    }
+    },
+    "search": "Search all settings",
+    "changedFields": "Changed fields: {{count}}",
+    "effectiveValue": "Effective: {{value}}",
+    "transportDirect": "Direct cache reads",
+    "transportHelp": "Compare transport sizes with the same fixture and reserves. Existing default: 1024 KiB. Changes apply to new HTTP requests."
   },
   "runtime": {
     "torrents": "Torrents",
@@ -950,7 +1032,15 @@
   "app": {
     "error": "Unable to display this page.",
     "reload": "Reload",
-    "install": "You can add this page to your home screen. Installation features vary by browser; streaming works over ordinary LAN HTTP."
+    "install": "You can add this page to your home screen. Installation features vary by browser; streaming works over ordinary LAN HTTP.",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "dark": "Dark",
+    "light": "Light",
+    "system": "System",
+    "density": "Density",
+    "comfortable": "Comfortable",
+    "compact": "Compact"
   },
   "Loading": "Loading…",
   "Language": "Language",
@@ -994,5 +1084,8 @@
     "help": "A mirror must supply exactly the torrent’s bytes. Native Range requests, hash checks, retry limits and peer fallback apply. Origins are shown; paths, signed queries and credentials stay out of diagnostics. No provider account is needed.",
     "local": "Approve my LAN mirror",
     "localHelp": "LAN approval permits a literal private or loopback IP without credentials or query arguments. Imported mirrors otherwise require global addresses; DNS results and redirects are checked natively. Proxy-hidden destinations fail closed."
+  },
+  "flowHelp": {
+    "MSXAllowLAN": "Off by default. Allows explicitly requested private or loopback IP addresses. Hostnames resolving to LAN and link-local metadata services remain blocked."
   }
 }

@@ -34,6 +34,7 @@ export interface FlowStartup {
 }
 
 export interface FlowSession {
+  session_id?: string;
   readable_contiguous_bytes?: number;
   verified_contiguous_bytes?: number;
   frontier_growth_rate?: number;
@@ -155,7 +156,31 @@ export interface FlowTrackerSummary {
   last_at: string;
 }
 export interface FlowStatusResponse {
+  sampled_at?: string;
+  timeline?: {
+    source: "server";
+    dropped: number;
+    events: {
+      time: string;
+      elapsed_ms: number;
+      operation_ms: number;
+      type: string;
+      stage?: string;
+      file?: number;
+      bytes?: number;
+    }[];
+  };
   storage_io?: StorageIO;
+  next_episode_warmup?: {
+    enabled: boolean;
+    current_file_index: number;
+    file_index: number;
+    automatic: boolean;
+    state: "idle" | "waiting" | "warming" | "ready" | "evicted" | "unavailable";
+    reason: string;
+    budget_bytes: number;
+    verified_bytes: number;
+  };
   sparse?: SparseSnapshot;
   hash: string;
   startup?: FlowStartup;

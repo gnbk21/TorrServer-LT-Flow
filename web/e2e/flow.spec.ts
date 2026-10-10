@@ -207,6 +207,216 @@ test("polling is deduplicated, bounded and stops when hidden", async ({
   );
 });
 const hash = "0123456789012345678901234567890123456789";
+test("next episode warmup requires a chosen file and handles rejected changes", async ({
+  page,
+}) => {
+  await mockServer(page, { active: true });
+  await page.route("**/flow/status/*", (route) =>
+    route.fulfill({
+      json: {
+        hash,
+        sessions: [
+          {
+            group: "phone",
+            file_index: 1,
+            state: "PLAYING",
+            active_readers: 1,
+            buffer_ahead_seconds: 40,
+            buffer_ahead_bytes: 1000,
+            playback_consumption_rate: 500,
+            download_rate: 600,
+            sustainability_ratio: 1.2,
+            piece_wait_p95_ms: 0,
+            seek_count: 0,
+            seek_recovery_ms: 0,
+            buffer_warning: false,
+          },
+        ],
+        next_episode_warmup: {
+          enabled: true,
+          current_file_index: 1,
+          file_index: 0,
+          automatic: false,
+          state: "idle",
+          reason: "MANUAL_SELECTION_REQUIRED",
+          budget_bytes: 0,
+          verified_bytes: 0,
+        },
+      },
+    }),
+  );
+  await page.route("**/torrents", (route) =>
+    route.request().postDataJSON().action === "get"
+      ? route.fulfill({
+          json: {
+            ...torrent,
+            file_stats: [
+              ...torrent.file_stats,
+              { id: 2, path: "Season 01/Show.S01E02.mkv", length: 1000 },
+              { id: 3, path: "readme.txt", length: 20 },
+            ],
+          },
+        })
+      : route.fallback(),
+  );
+  const actions: unknown[] = [];
+  await page.route("**/flow/warmup/*", (route) => {
+    actions.push(route.request().postDataJSON());
+    return route.fulfill({
+      status: 409,
+      json: { error: "fixture rejected change" },
+    });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Diagnostics", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByRole("heading", { name: "Next episode warmup", exact: true }),
+  ).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "Choose file", exact: true })
+    .click();
+  const choice = dialog.getByRole("combobox", {
+    name: "Choose file",
+    exact: true,
+  });
+  await expect(choice.locator("option")).toHaveCount(2);
+  await choice.selectOption("2");
+  await dialog
+    .getByRole("button", { name: "Warm selected file", exact: true })
+    .click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  expect(actions).toEqual([{ file_index: 2, action: "select" }]);
+  await dialog
+    .getByRole("button", { name: "Cancel warmup", exact: true })
+    .click();
+  await expect.poll(() => actions.length).toBe(2);
+  expect(actions[1]).toEqual({ file_index: 0, action: "cancel" });
+});
+
+test("incident timeline and explicit player import preserve unknown evidence", async ({
+  page,
+}) => {
+  await mockServer(page, { active: true });
+  const session = "ABCDEFGHIJKLMNOPQRSTUV";
+  let uploads = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().includes("/flow/"))
+      uploads++;
+  });
+  await page.route("**/flow/status/*", (route) =>
+    route.fulfill({
+      json: {
+        hash,
+        sampled_at: "2026-10-10T00:00:00Z",
+        sessions: [
+          {
+            group: "phone",
+            session_id: session,
+            file_index: 1,
+            state: "PLAYING",
+            active_readers: 1,
+            buffer_ahead_seconds: 40,
+            buffer_ahead_bytes: 1000,
+            playback_consumption_rate: 500,
+            download_rate: 600,
+            sustainability_ratio: 1.2,
+            piece_wait_p95_ms: 0,
+            seek_count: 0,
+            seek_recovery_ms: 0,
+            buffer_warning: false,
+          },
+        ],
+        timeline: {
+          source: "server",
+          dropped: 12,
+          events: [
+            {
+              type: "seek",
+              elapsed_ms: 1000,
+              operation_ms: 250,
+              file: 1,
+              time: "2026-10-10T00:00:00Z",
+            },
+          ],
+        },
+      },
+    }),
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "Diagnostics", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByRole("heading", { name: "Incident timeline" }),
+  ).toBeVisible();
+  await expect(dialog.getByText("+1.00 s", { exact: true })).toBeVisible();
+  await dialog.getByText("Player measurements", { exact: true }).click();
+  const report = {
+    schema_version: 1,
+    source: "flow-player-media3",
+    clock: "player-elapsed-and-wall; server-clock-alignment-unknown",
+    samples: [
+      {
+        elapsed_ms: 3000,
+        recorded_at_ms: 1791590400000,
+        startup_ms: null,
+        rebuffer_events: 2,
+        rebuffer_ms: 1200,
+        seek_events: 1,
+        seek_buffer_ms: 250,
+        paused_ms: 5000,
+        play_ms: 2000,
+        buffered_ms: 10000,
+        dropped_frames: 0,
+        bandwidth_bps: 1000000,
+        state: 3,
+        playing: true,
+        session_id: session,
+      },
+    ],
+  };
+  await dialog.getByLabel("Import player JSON report").setInputFiles({
+    name: "report.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(report)),
+  });
+  await expect(
+    dialog.getByText("Report matches an observed session.", { exact: true }),
+  ).toBeVisible();
+  await expect(dialog.locator("dd").filter({ hasText: /^—$/ })).toHaveCount(1);
+  await dialog.getByRole("button", { name: "Clear imported report" }).click();
+  await dialog.getByLabel("Import player JSON report").setInputFiles({
+    name: "invalid.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(
+      JSON.stringify({ ...report, url: "https://private.invalid/token" }),
+    ),
+  });
+  await expect(dialog.getByText(/private.invalid/)).toHaveCount(0);
+  await expect(
+    dialog.getByText("Invalid or oversized player report.", { exact: true }),
+  ).toBeVisible();
+  expect(uploads).toBe(0);
+});
+
+test("settings search can navigate to a field group without discarding drafts", async ({
+  page,
+}) => {
+  await mockServer(page);
+  await page.goto("/#/settings");
+  await page
+    .getByRole("spinbutton", { name: "Cache Size", exact: true })
+    .fill("128");
+  await page.getByRole("searchbox").fill("Cache Size");
+  await page.getByRole("button", { name: "General", exact: true }).click();
+  await expect(page.getByRole("searchbox")).toHaveValue("");
+  await expect(
+    page.getByRole("spinbutton", { name: "Cache Size", exact: true }),
+  ).toBeFocused();
+  await expect(
+    page.getByRole("spinbutton", { name: "Cache Size", exact: true }),
+  ).toHaveValue("128");
+});
 test("trace history is fetched only while diagnostics are open", async ({
   page,
 }) => {
@@ -249,7 +459,10 @@ test("trace history is fetched only while diagnostics are open", async ({
   expect(compactRequests).toBeGreaterThan(0);
   expect(diagnosticRequests).toBe(0);
   await page.getByRole("button", { name: "Diagnostics", exact: true }).click();
-  await page.getByRole("dialog").locator("summary").click();
+  await page
+    .getByRole("dialog")
+    .getByText("Range request traces", { exact: true })
+    .click();
   await expect(
     page.getByRole("dialog").getByText(/diagnostic-trace-fixture/),
   ).toBeVisible();
@@ -288,6 +501,13 @@ async function mockServer(
       });
     if (path === "/echo")
       return route.fulfill({ body: "MatriX.145.Flow-test" });
+    // Existing scenarios deliberately exercise the legacy-server fallback.
+    // Projection-specific scenarios override these routes with real new DTOs.
+    if (path === "/flow/active" || path === "/flow/library")
+      return json(
+        { error: "endpoint unavailable on legacy fixture" },
+        status === 200 ? 404 : status,
+      );
     if (path === "/mediabase")
       return json({ base: new URL(route.request().url()).origin });
     if (path === "/ssl/status")

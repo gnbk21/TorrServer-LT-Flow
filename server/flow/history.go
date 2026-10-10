@@ -111,7 +111,7 @@ func NewHistory(dir string) (*History, error) {
 
 func validHistoryEvent(e HistoryEvent) bool {
 	switch e.Type {
-	case "engine_started", "engine_stopped", "metadata", "startup", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht", "sparse":
+	case "engine_started", "engine_stopped", "metadata", "startup", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht", "sparse", "seek", "recovery":
 	default:
 		return false
 	}

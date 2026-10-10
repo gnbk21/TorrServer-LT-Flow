@@ -214,7 +214,8 @@
     "DefaultTrackers": "Trackers par défaut",
     "DefaultTrackersHint": "URL d'announce locales, une par ligne. Utilisées seules si tous les téléchargements distants échouent, ou ajoutées après un téléchargement distant réussi.",
     "ShowQuickVLCButton": "Afficher le bouton VLC sur les cartes de torrent",
-    "ShowQuickVLCButtonHint": "Raccourci facultatif pour les torrents à vidéo unique. VLC doit également être activé."
+    "ShowQuickVLCButtonHint": "Raccourci facultatif pour les torrents à vidéo unique. VLC doit également être activé.",
+    "MSXAllowLAN": "Autoriser le proxy MSX sur le réseau local"
   },
   "Size": "Taille",
   "SpeedTest": "Test de vitesse",
@@ -449,7 +450,10 @@
     "pageCount": "Page {{page}} sur {{pages}}",
     "expiringLink": "Créer / renouveler le lien temporaire",
     "linkExpires": "Valable jusqu’au {{time}} ; le redémarrage du serveur révoque le lien.",
-    "linkFailed": "Impossible de créer le lien. Vérifiez l’authentification et les métadonnées."
+    "linkFailed": "Impossible de créer le lien. Vérifiez l’authentification et les métadonnées.",
+    "view": "Vue",
+    "cards": "Cartes",
+    "list": "Liste"
   },
   "runtime": {
     "torrents": "Torrents",
@@ -529,7 +533,15 @@
   "app": {
     "error": "Impossible d’afficher cette page.",
     "reload": "Recharger",
-    "install": "Vous pouvez ajouter cette page à l’écran d’accueil. Les fonctions d’installation varient selon le navigateur ; la lecture fonctionne en HTTP sur le réseau local."
+    "install": "Vous pouvez ajouter cette page à l’écran d’accueil. Les fonctions d’installation varient selon le navigateur ; la lecture fonctionne en HTTP sur le réseau local.",
+    "appearance": "Apparence",
+    "theme": "Thème",
+    "dark": "Sombre",
+    "light": "Clair",
+    "system": "Système",
+    "density": "Densité",
+    "comfortable": "Confortable",
+    "compact": "Compacte"
   },
   "flow": {
     "title": "Lecture Flow",
@@ -692,7 +704,77 @@
       "callback_max_us": "Appel maximal (µs)"
     },
     "urgentAge": "Requête en attente la plus ancienne : {{ms}} ms",
-    "reserveHint": "Le débit HTTP et les estimations octets/temps ne sont pas l’horloge du décodeur du téléphone. Les pièces vérifiées après un trou sont exclues de la réserve contiguë."
+    "reserveHint": "Le débit HTTP et les estimations octets/temps ne sont pas l’horloge du décodeur du téléphone. Les pièces vérifiées après un trou sont exclues de la réserve contiguë.",
+    "observedPlayback": "Flux observé",
+    "warm": "Tampon conservé",
+    "serverObservation": "Observations du serveur ; la lecture du lecteur n’est pas mesurée.",
+    "timelineTitle": "Chronologie des incidents",
+    "timelineHint": "Observations du serveur sur une même horloge du torrent. Les valeurs à côté des événements décrivent l’opération mesurée. Les événements absents restent inconnus ; ceci ne mesure pas les interruptions du lecteur.",
+    "sampledAt": "Instantané à",
+    "timelineTruncated": "Événements anciens omis : {{count}}",
+    "timelineEvents": {
+      "engine_started": "Moteur démarré",
+      "engine_stopped": "Moteur arrêté",
+      "metadata": "Métadonnées prêtes",
+      "startup": "Phase de démarrage",
+      "first_byte": "Premier octet HTTP",
+      "first_block": "Premier bloc utile",
+      "probe": "Analyse du média",
+      "dht_peer": "Pair DHT",
+      "peer_disconnected": "Pair déconnecté",
+      "seek": "Recherche demandée",
+      "recovery": "Réponse après recherche"
+    },
+    "playerEvidence": "Mesures du lecteur",
+    "playerEvidenceHint": "Rapport Flow Player facultatif. L’import reste dans cette boîte de dialogue ouverte ; il n’est ni envoyé au serveur ni appliqué aux paramètres.",
+    "playerImport": "Importer le rapport JSON",
+    "playerMatched": "Le rapport correspond à une session observée.",
+    "playerUnmatched": "Session non identifiée ; les mesures restent séparées.",
+    "playerClockUnknown": "Synchronisation de l’horloge inconnue ; ne déduisez pas de coïncidence exacte.",
+    "clearPlayerReport": "Effacer le rapport importé",
+    "playerUnknown": "Aucune mesure du lecteur. Les attentes du serveur ne prouvent pas des interruptions du lecteur.",
+    "playerReportInvalid": "Rapport invalide ou trop volumineux.",
+    "playerMetrics": {
+      "startup_ms": "Démarrage (ms)",
+      "rebuffer_events": "Événements de remise en mémoire tampon",
+      "rebuffer_ms": "Temps de remise en mémoire tampon (ms)",
+      "seek_events": "Recherches",
+      "seek_buffer_ms": "Attente après recherche (ms)",
+      "buffered_ms": "Durée en tampon (ms)",
+      "dropped_frames": "Images perdues",
+      "paused_ms": "Pause (ms)"
+    },
+    "warmupTitle": "Préchauffage du prochain épisode",
+    "warmupHint": "Facultatif : charge l’en-tête/index d’un seul épisode, jusqu’à 32 Mio dans le cache existant libre. Cède aux attentes et à la pression de lecture. Ne prépare pas tout l’épisode. Activez-le dans les réglages Flow.",
+    "warmupDisabled": "Désactivé",
+    "warmupChoose": "Choisir un fichier",
+    "warmupAuto": "Choix automatique",
+    "warmupCancel": "Annuler",
+    "warmupStart": "Préchauffer le fichier choisi",
+    "warmupFile": "Fichier {{index}}",
+    "warmupStates": {
+      "idle": "Inactif",
+      "waiting": "En attente de capacité libre",
+      "warming": "Chargement de l’en-tête/index",
+      "ready": "Vérifié et présent en cache",
+      "evicted": "Cache réutilisé ; sans nouveau préchauffage",
+      "unavailable": "Indisponible"
+    },
+    "warmupReasons": {
+      "PLAYBACK_RESERVE": "La lecture a besoin de sa réserve en priorité.",
+      "PLAYBACK_WAIT": "Une autre lecture attend des octets.",
+      "RESOURCE_PRESSURE": "La pression du cache est prioritaire.",
+      "NO_SPARE_CACHE": "Aucune place libre dans le cache.",
+      "OTHER_WARMUP": "Un autre épisode occupe l’unique emplacement.",
+      "PIECE_BUDGET": "La taille des pièces dépasse le budget.",
+      "MANUAL_SELECTION_REQUIRED": "Choisissez un fichier : le prochain épisode est incertain.",
+      "CANCELLED": "Annulé jusqu’au changement de fichier lu.",
+      "SPARE_CAPACITY": "Utilise la capacité libre.",
+      "VERIFIED": "L’en-tête/index est vérifié.",
+      "CACHE_REUSED": "Octets non protégés évincés pour la lecture.",
+      "DISABLED_OR_EXPIRED": "Préchauffage désactivé ou expiré.",
+      "MULTIPLE_FILES": "Plusieurs fichiers sont en lecture."
+    }
   },
   "search": {
     "source": "Source",
@@ -836,7 +918,10 @@
         "RequireTorrentInterface": "Exiger un adaptateur torrent explicitement choisi",
         "CapacityAwareRequests": "Respecter la capacité de requêtes du pair (expérience)",
         "AdaptiveUrgentHorizon": "Horizon urgent adaptatif (expérience)",
-        "ContainerBurstHints": "Indications de pics par index résident (expérience)"
+        "ContainerBurstHints": "Indications de pics par index résident (expérience)",
+        "MSXAllowLAN": "Autoriser le proxy MSX sur le réseau local",
+        "StreamTransportBufferKiB": "Tampon de transport (expérience contrôlée)",
+        "NextEpisodeWarmup": "Préchauffage de l’en-tête/index du prochain épisode"
       }
     },
     "maintenance": {
@@ -923,7 +1008,12 @@
         "user": "Fichiers du serveur"
       },
       "plainHttp": "Cette page utilise HTTP. Envoyer une clé privée ici la transmet sans chiffrement. Ouvrez HTTPS avant cet envoi."
-    }
+    },
+    "search": "Rechercher dans tous les paramètres",
+    "changedFields": "Champs modifiés : {{count}}",
+    "effectiveValue": "Effectif : {{value}}",
+    "transportDirect": "Lecture directe du cache",
+    "transportHelp": "Comparez les tailles avec le même fichier et les mêmes réserves. Valeur actuelle par défaut : 1024 Kio. Les changements concernent les nouvelles requêtes HTTP."
   },
   "preparation": {
     "title": "Préparer cet épisode",
@@ -964,5 +1054,8 @@
     "help": "Un miroir doit fournir exactement les octets du torrent. Requêtes Range, vérification des hachages, reprises limitées et repli vers les pairs utilisent le moteur natif. Seules les origines sont affichées ; chemins, signatures et identifiants sont exclus des diagnostics. Aucun compte fournisseur requis.",
     "local": "Autoriser mon miroir local",
     "localHelp": "L’autorisation exige une adresse IP privée ou de bouclage explicite, sans identifiants ni paramètres. Les autres miroirs exigent des adresses globales ; DNS et redirections sont vérifiés nativement. Les destinations masquées par un proxy sont bloquées."
+  },
+  "flowHelp": {
+    "MSXAllowLAN": "Désactivé par défaut. Autorise les adresses IP privées ou de boucle locale explicitement indiquées. Les noms résolus vers le réseau local et les services link-local restent bloqués."
   }
 }

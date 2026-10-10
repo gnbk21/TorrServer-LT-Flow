@@ -1,9 +1,12 @@
 package torr
 
+import "server/flow"
+
 type SupportTorrent struct {
-	Startup       FlowStartupStatus   `json:"startup"`
-	Sessions      []FlowSessionStatus `json:"sessions"`
-	TrackerStates map[string]int      `json:"tracker_states"`
+	Startup       FlowStartupStatus     `json:"startup"`
+	Sessions      []FlowSessionStatus   `json:"sessions"`
+	TrackerStates map[string]int        `json:"tracker_states"`
+	Timeline      flow.TimelineSnapshot `json:"timeline"`
 }
 
 // Use live instances only. Do not activate saved torrents to generate a report.
@@ -23,7 +26,7 @@ func SupportPlayback() ([]SupportTorrent, bool) {
 			truncated = true
 			break
 		}
-		row := SupportTorrent{Startup: tor.FlowStartup(), Sessions: []FlowSessionStatus{}, TrackerStates: map[string]int{}}
+		row := SupportTorrent{Startup: tor.FlowStartup(), Sessions: []FlowSessionStatus{}, TrackerStates: map[string]int{}, Timeline: tor.FlowTimeline()}
 		for _, session := range tor.FlowStatus() {
 			if remaining == 0 {
 				truncated = true

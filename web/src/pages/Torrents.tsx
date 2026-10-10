@@ -1,6 +1,7 @@
-import { useState, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
-import { useLibrary, refreshLibrary } from "../hooks/queries";
+import { useLibraryPage, useActive, refreshLibrary } from "../hooks/queries";
+import { usePreference, isString, isPage } from "../hooks/preferences";
 import { torrentsApi } from "../api/torrents";
 import type { Torrent } from "../types/torrent";
 import { TorrentCard } from "../components/torrent/TorrentCard";
@@ -21,7 +22,6 @@ const Diagnostics = lazy(() =>
     default: m.FlowDiagnosticsDrawer,
   })),
 );
-const emptyLibrary: Torrent[] = [];
 function DiagnosticsView({
   torrent,
   onClose,
@@ -44,62 +44,121 @@ function DiagnosticsView({
 }
 export default function Torrents() {
   const { t } = useTranslation();
-  const query = useLibrary();
-  const [filter, setFilter] = useState("");
-  const [category, setCategory] = useState("");
-  const [sort, setSort] = useState("recent");
-  const [page, setPage] = useState(1);
+  const [filter, setFilter] = usePreference("library.filter", "", isString);
+  const [category, setCategory] = usePreference(
+    "library.category",
+    "",
+    isString,
+  );
+  const [sort, setSort] = usePreference(
+    "library.sort",
+    "recent",
+    (v): v is string =>
+      typeof v === "string" && ["recent", "title", "size"].includes(v),
+  );
+  const [page, setPage] = usePreference("library.page", 1, isPage);
+  const [mode, setMode] = usePreference(
+    "library.mode",
+    "cards",
+    (v): v is string => v === "cards" || v === "list",
+  );
+  const [search, setSearch] = useState(filter);
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(filter), 250);
+    return () => clearTimeout(timer);
+  }, [filter]);
+  const query = useLibraryPage({ q: search, category, sort, page, limit: 50 });
+  const activity = useActive();
+  const restoredScroll = useRef(false);
+  useEffect(() => {
+    if (!query.data || restoredScroll.current) return;
+    restoredScroll.current = true;
+    let offset = 0;
+    try {
+      offset = Number(sessionStorage.getItem("flow.library.scroll")) || 0;
+    } catch {
+      /* optional local preference */
+    }
+    const frame = requestAnimationFrame(() =>
+      window.scrollTo(
+        0,
+        Math.max(0, Math.min(offset, document.documentElement.scrollHeight)),
+      ),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [query.data]);
+  useEffect(() => {
+    const save = () => {
+      try {
+        sessionStorage.setItem("flow.library.scroll", String(window.scrollY));
+      } catch {
+        /* optional local preference */
+      }
+    };
+    window.addEventListener("scroll", save, { passive: true });
+    return () => window.removeEventListener("scroll", save);
+  }, []);
   const [add, setAdd] = useState(false);
   const [files, setFiles] = useState<Torrent>();
   const [diagnostic, setDiagnostic] = useState<Torrent>();
   const [edit, setEdit] = useState<Torrent>();
   const [error, setError] = useState<unknown>();
   const [notice, setNotice] = useState("");
-  const [busy, setBusy] = useState(false);
-  const list = query.data ?? emptyLibrary;
-  const shown = useMemo(
-    () =>
-      list
-        .filter(
-          (row) =>
-            (!category ||
-              (category === "uncategorized"
-                ? !row.category
-                : `category:${row.category}` === category)) &&
-            `${row.title} ${row.name || ""}`
-              .toLowerCase()
-              .includes(filter.toLowerCase()),
-        )
-        .sort((a, b) =>
-          sort === "title"
-            ? a.title.localeCompare(b.title)
-            : sort === "size"
-              ? (b.torrent_size || 0) - (a.torrent_size || 0)
-              : (b.timestamp || 0) - (a.timestamp || 0),
-        ),
-    [list, category, filter, sort],
-  );
-  const pages = Math.max(1, Math.ceil(shown.length / 50));
-  const currentPage = Math.min(page, pages);
-  const visibleRows = shown.slice((currentPage - 1) * 50, currentPage * 50);
-  const act = async (fn: () => Promise<unknown>) => {
+  const [busy, setBusy] = useState<Set<string>>(new Set());
+  const pages = Math.max(1, Math.ceil((query.data?.total || 0) / 50));
+  const currentPage = query.data?.page || page;
+  const visibleRows = (query.data?.items || []).map((row) => {
+    const live = activity.data?.items.find(
+      (item) => item.torrent.hash === row.hash,
+    );
+    return live
+      ? {
+          ...row,
+          ...live.torrent,
+          flow_playback: (live.status.sessions || [])
+            .filter((s) => s.active_readers > 0)
+            .map((s) => ({
+              file_index: s.file_index,
+              buffer_seconds:
+                s.playback_consumption_rate > 0 ? s.buffer_ahead_seconds : null,
+              sustainability:
+                s.playback_consumption_rate > 0 ? s.sustainability_ratio : null,
+              buffer_warning: s.buffer_warning,
+            })),
+        }
+      : row;
+  });
+  const act = async (
+    key: string,
+    fn: () => Promise<unknown>,
+    refresh = true,
+  ) => {
     setError(undefined);
-    setBusy(true);
+    setBusy((previous) => new Set(previous).add(key));
     try {
       await fn();
-      await refreshLibrary();
+      if (refresh) await refreshLibrary();
     } catch (e) {
       setError(e);
     } finally {
-      setBusy(false);
+      setBusy((previous) => {
+        const next = new Set(previous);
+        next.delete(key);
+        return next;
+      });
     }
   };
   const copy = (value: string) =>
-    act(async () => {
-      await copyText(value);
-      setNotice(t("torrent.copied"));
-    });
-  const exportData = (format: string) => {
+    act(
+      "clipboard",
+      async () => {
+        await copyText(value);
+        setNotice(t("torrent.copied"));
+      },
+      false,
+    );
+  const exportData = async (format: string) => {
+    const list = await torrentsApi.list();
     const body =
       format === "json"
         ? JSON.stringify(list, null, 2)
@@ -132,18 +191,32 @@ export default function Torrents() {
           <summary>{t("ExportLibrary")}</summary>
           <div className="actions">
             {["json", "magnets", "torrs"].map((format) => (
-              <Button key={format} onClick={() => exportData(format)}>
+              <Button
+                disabled={busy.has("export")}
+                key={format}
+                onClick={() =>
+                  void act("export", () => exportData(format), false)
+                }
+              >
                 {format}
               </Button>
             ))}
           </div>
         </details>
       </div>
+      <label className="field max-w-xs">
+        {t("torrent.view")}
+        <select value={mode} onChange={(e) => setMode(e.target.value)}>
+          <option value="cards">{t("torrent.cards")}</option>
+          <option value="list">{t("torrent.list")}</option>
+        </select>
+      </label>
       <div className="grid sm:grid-cols-3 gap-3">
         <label className="field">
           {t("Search")}
           <input
             value={filter}
+            maxLength={256}
             onChange={(e) => {
               setFilter(e.target.value);
               setPage(1);
@@ -161,13 +234,11 @@ export default function Torrents() {
           >
             <option value="">{t("All")}</option>
             <option value="uncategorized">{t("Uncategorized")}</option>
-            {[...new Set(list.map((row) => row.category).filter(Boolean))].map(
-              (value) => (
-                <option key={value} value={`category:${value}`}>
-                  {value}
-                </option>
-              ),
-            )}
+            {(query.data?.categories || []).map((value) => (
+              <option key={value} value={`category:${value}`}>
+                {value}
+              </option>
+            ))}
           </select>
         </label>
         <label className="field">
@@ -197,23 +268,36 @@ export default function Torrents() {
       )}{" "}
       {!!error && <RequestError error={error} />}{" "}
       {notice && <p role="status">{notice}</p>}
-      {!query.isPending && !query.error && !shown.length && (
+      {!query.isPending && !query.error && !visibleRows.length && (
         <div className="panel">
-          {t(list.length ? "torrent.noMatches" : "torrent.empty")}
+          {t(query.data?.library_total ? "torrent.noMatches" : "torrent.empty")}
         </div>
       )}
-      <div className="grid xl:grid-cols-2 gap-4" aria-busy={busy}>
+      <div
+        className={mode === "cards" ? "grid xl:grid-cols-2 gap-4" : "space-y-3"}
+      >
         {visibleRows.map((row) => (
           <TorrentCard
-            busy={busy}
+            busy={busy.has(row.hash)}
+            compact={mode === "list"}
             key={row.hash}
             torrent={row}
             isActiveStream={(row.active_readers ?? 0) > 0}
             onOpenFiles={() => setFiles(row)}
             onOpenDiagnostics={() => setDiagnostic(row)}
-            onEdit={() => setEdit({ ...row })}
-            onDelete={() => act(() => torrentsApi.remove(row.hash))}
-            onDropCache={() => act(() => torrentsApi.drop(row.hash))}
+            onEdit={() =>
+              void act(
+                row.hash,
+                async () => setEdit(await torrentsApi.get(row.hash)),
+                false,
+              )
+            }
+            onDelete={() =>
+              void act(row.hash, () => torrentsApi.remove(row.hash))
+            }
+            onDropCache={() =>
+              void act(row.hash, () => torrentsApi.drop(row.hash))
+            }
             onCopyMagnet={() => copy(`magnet:?xt=urn:btih:${row.hash}`)}
             onCopyPlaylist={() => copy(torrentsApi.getPlaylistUrl(row.hash))}
           />
@@ -268,7 +352,7 @@ export default function Torrents() {
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
-              void act(async () => {
+              void act(edit.hash, async () => {
                 await torrentsApi.set({
                   hash: edit.hash,
                   title: edit.title,
@@ -295,7 +379,7 @@ export default function Torrents() {
                 onSelect={(poster) => setEdit({ ...edit, poster })}
               />
             </Suspense>
-            <Button type="submit" disabled={busy}>
+            <Button type="submit" disabled={busy.has(edit.hash)}>
               {t("Save")}
             </Button>
           </form>

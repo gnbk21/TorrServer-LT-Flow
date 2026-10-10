@@ -1,0 +1,88 @@
+name: Flow upgrade matched measurements
+on:
+  workflow_call:
+    inputs:
+      candidate_run_id:
+        required: true
+        type: string
+      comparison:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: 'Build run containing the exact checked-out candidate binary'
+        required: true
+        type: string
+      comparison:
+        description: 'Measure stable profiles, candidate transport sizes, or opt-in experiments separately'
+        type: choice
+        options: [profiles, transport, experiments]
+        default: profiles
+permissions:
+  contents: read
+  actions: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [healthy, outages, mixed-peers, bursts]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate immutable candidate build identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.candidate_run_id }}
+        run: |
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
+          actual=$(gh run view "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --json headSha --jq '.headSha')
+          # PR checkouts use the reviewed merge commit; headSha identifies the
+          # source branch and github.sha stamps the candidate build metadata.
+          [[ "$actual" == "${{ github.event.pull_request.head.sha || github.sha }}" ]]
+      - uses: actions/download-artifact@v4
+        with:
+          name: TorrServer-LT-linux-amd64
+          path: _out/candidate
+          run-id: ${{ inputs.candidate_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify the pinned published stable baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p _out/stable
+          gh release download MatriX.145.Flow-v1.0.1 --repo "$GITHUB_REPOSITORY" --dir _out/stable --pattern TorrServer-LT-linux-amd64 --pattern SHA256SUMS --pattern BUILDINFO.json
+          (cd _out/stable && sha256sum --check --ignore-missing SHA256SUMS)
+          gh attestation verify _out/stable/TorrServer-LT-linux-amd64 --repo "$GITHUB_REPOSITORY"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          metadata=json.loads(Path('_out/stable/BUILDINFO.json').read_text())
+          assert metadata['source_commit']=='55c16dc399b8f9b14bd5ae76b62450af027c6b81'
+          assert metadata['version']=='MatriX.145.Flow-v1.0.1'
+          PY
+      - name: Five rotated original-byte comparisons
+        env:
+          MODE: ${{ inputs.comparison }}
+          SCENARIO: ${{ matrix.scenario }}
+        run: |
+          chmod +x _out/candidate/TorrServer-LT-linux-amd64 _out/stable/TorrServer-LT-linux-amd64
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          options=()
+          case "$MODE" in
+            profiles) options+=(--baseline _out/stable/TorrServer-LT-linux-amd64) ;;
+            transport) options+=(--transport-comparison) ;;
+            experiments) options+=(--experiments) ;;
+          esac
+          python3 build/high_bitrate_matrix.py --executable _out/candidate/TorrServer-LT-linux-amd64 --output _out/measurements --mbps 120 --seconds 60 --rotations 5 --cases "$SCENARIO" "${options[@]}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: upgrade-${{ inputs.comparison }}-${{ matrix.scenario }}
+          path: |
+            _out/measurements/**/report.json
+            _out/measurements/**/server-output.log
+          if-no-files-found: error

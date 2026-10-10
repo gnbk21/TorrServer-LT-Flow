@@ -50,8 +50,10 @@ rutor.ls
 # Modern build outputs
 /web/node_modules/
 /web/build/
+/web/*.tsbuildinfo
 /web/playwright-report/
 /web/test-results/
+/web/lab-results/
 /web-legacy/node_modules/
 /web-legacy/build/
 # Python verification outputs

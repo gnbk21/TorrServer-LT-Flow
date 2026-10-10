@@ -7,6 +7,8 @@ import {
   torrentSchema,
   runtimeSchema,
   networkSchema,
+  librarySchema,
+  activeSchema,
 } from "./schemas";
 import { validateSettings } from "../lib/settings";
 import { preparationSchema } from "./preparation";
@@ -112,6 +114,8 @@ test.skipIf(!input)(
       network: networkSchema,
       preparation: preparationSchema,
       sources: sourcesSchema,
+      library: librarySchema,
+      active: activeSchema,
     };
     const requiredFields = {
       flow: "hash",
@@ -121,6 +125,8 @@ test.skipIf(!input)(
       network: "state",
       preparation: "jobs",
       sources: "sources",
+      library: "items",
+      active: "items",
     };
     expect(cases.length).toBeGreaterThanOrEqual(7);
     for (const { kind, payload } of cases) {

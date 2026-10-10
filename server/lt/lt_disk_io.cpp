@@ -27,6 +27,9 @@
 #include <libtorrent/version.hpp>
 
 #include <atomic>
+#include <array>
+#include <algorithm>
+#include <stdexcept>
 #include <condition_variable>
 #include <cstdlib>
 #include <cstring>
@@ -274,6 +277,20 @@ public:
         cb_.open(idx, reinterpret_cast<uint8_t const*>(raw.data()),
                  ss->num_pieces, ss->piece_length);
         if (cb_.size) cb_.size(idx, p.files.total_size());
+        // BEP 52 file tails may be short in the middle of the torrent. Publish
+        // their actual resident size before any native write can be queued.
+        if (p.files.v2() && cb_.geometry) {
+            std::vector<int64_t> tails;
+            for (auto file : p.files.file_range()) {
+                if (p.files.pad_file_at(file) || p.files.file_size(file)<=0) continue;
+                auto piece=lt::piece_index_t(int((p.files.file_offset(file)+p.files.file_size(file)-1)/ss->piece_length));
+                int const size=p.files.piece_size2(piece);
+                if (size!=p.files.piece_size(piece)) {
+                    tails.push_back(int(piece));tails.push_back(size);
+                }
+            }
+            if (!tails.empty()) cb_.geometry(idx,tails.data(),int(tails.size()/2));
+        }
 
         auto storage_idx = lt::storage_index_t(static_cast<int>(idx));
         return lt::storage_holder(storage_idx, *this);
@@ -359,7 +376,7 @@ public:
     }
 
     void async_hash(lt::storage_index_t s, lt::piece_index_t piece,
-                    lt::span<lt::sha256_hash> /*v2*/, lt::disk_job_flags_t /*flags*/,
+                    lt::span<lt::sha256_hash> v2, lt::disk_job_flags_t flags,
                     std::function<void(lt::piece_index_t, lt::sha1_hash const&, lt::storage_error const&)> handler) override
     {
         auto state = storage(s);
@@ -368,39 +385,72 @@ public:
         // Stream SHA-1 through a fixed buffer instead of allocating an entire
         // potentially very large piece on each of four workers.
         if (!state || !work_.submit(storage_id_of(s), int(piece), 64*1024,
-                [this, state, piece, h] {
+                [this, state, piece, v2, flags, h] {
             lt::storage_error err;
             lt::sha1_hash digest;
             try {
-                int const length = int(state->files->piece_size(piece));
+                if (int(piece)<0 || int(piece)>=state->num_pieces)
+                    throw std::out_of_range("piece hash");
+                bool const want_v1 = bool(flags & lt::disk_interface::v1_hash);
+                int const data_length = state->files->v2()
+                    ? state->files->piece_size2(piece) : state->files->piece_size(piece);
+                int const length = want_v1 ? state->files->piece_size(piece) : data_length;
+                int const blocks = (data_length+lt::default_block_size-1)/lt::default_block_size;
+                if (!v2.empty() && v2.size()<blocks) throw std::out_of_range("block hash span");
+                for (auto& block_hash : v2) block_hash.clear();
                 std::array<char, 64*1024> data;
                 lt::hasher hash;
                 for (int offset = 0; offset < length; ) {
                     int const count = std::min(int(data.size()), length-offset);
-                    if (cb_.read(state->id, int(piece), offset,
-                            reinterpret_cast<uint8_t*>(data.data()), count) != count) {
+                    int const actual = std::min(count, std::max(0,data_length-offset));
+                    // Hybrid SHA-1 includes the known alignment pad, while BEP
+                    // 52 hashes only actual file bytes (including short blocks).
+                    std::fill(data.begin(), data.begin()+count, 0);
+                    if (actual>0 && cb_.read(state->id, int(piece), offset,
+                            reinterpret_cast<uint8_t*>(data.data()), actual) != actual) {
                         err = make_io_error("hash:short-read"); break;
                     }
-                    hash.update(lt::span<char const>(data.data(), count));
+                    if (want_v1) hash.update(lt::span<char const>(data.data(), count));
+                    if (!v2.empty()) {
+                        for (int local=0; local<actual;local+=lt::default_block_size) {
+                            int const bytes=std::min(lt::default_block_size,actual-local);
+                            v2[(offset+local)/lt::default_block_size] = lt::hasher256(lt::span<char const>(data.data()+local,bytes)).final();
+                        }
+                    }
                     offset += count;
                 }
-                if (!err.ec) digest = hash.final();
+                if (!err.ec && want_v1) digest = hash.final();
             } catch (...) { err = make_io_error("hash"); }
             lt::post(io_, [h, state, piece, digest, err] { (*h)(piece, digest, err); });
         }, throttle)) lt::post(io_, [h, piece] { (*h)(piece, lt::sha1_hash{}, make_io_error("hash:queue-full")); });
     }
 
-    void async_hash2(lt::storage_index_t,
+    void async_hash2(lt::storage_index_t s,
                      lt::piece_index_t piece,
-                     int /*offset*/,
+                     int offset,
                      lt::disk_job_flags_t,
                      std::function<void(lt::piece_index_t, lt::sha256_hash const&, lt::storage_error const&)> handler) override
     {
-        lt::storage_error se;
-        se.ec = boost::system::errc::make_error_code(boost::system::errc::function_not_supported);
-        lt::post(io_, [h = std::move(handler), piece, se]() mutable {
-            h(piece, lt::sha256_hash{}, se);
-        });
+        auto state = storage(s);
+        auto h = std::make_shared<decltype(handler)>(std::move(handler));
+        bool throttle = false;
+        if (!state || !work_.submit(storage_id_of(s), int(piece), lt::default_block_size,
+                [this,state,piece,offset,h] {
+            lt::storage_error err;
+            lt::sha256_hash digest;
+            try {
+                if (int(piece)<0 || int(piece)>=state->num_pieces || offset<0
+                        || offset%lt::default_block_size!=0) throw std::out_of_range("block offset");
+                int const size=state->files->piece_size2(piece);
+                if (offset>=size) throw std::out_of_range("block beyond file");
+                int const length=std::min(lt::default_block_size,size-offset);
+                std::array<char,lt::default_block_size> data;
+                if (cb_.read(state->id,int(piece),offset,reinterpret_cast<uint8_t*>(data.data()),length)!=length)
+                    err=make_io_error("hash2:short-read");
+                else digest=lt::hasher256(lt::span<char const>(data.data(),length)).final();
+            } catch (...) { err=make_io_error("hash2"); }
+            lt::post(io_,[h,state,piece,digest,err] {(*h)(piece,digest,err);});
+        },throttle)) lt::post(io_,[h,piece] {(*h)(piece,lt::sha256_hash{},make_io_error("hash2:queue-full"));});
     }
 
     // ----- async maintenance ----- (handlers posted to io_, see async_read)

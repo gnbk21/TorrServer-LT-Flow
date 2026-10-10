@@ -5,6 +5,8 @@ import { torrentsApi } from "../api/torrents";
 import { flowApi } from "../api/flow";
 import { runtimeApi } from "../api/runtime";
 import { settingsApi } from "../api/settings";
+import { libraryApi } from "../api/library";
+import type { LibraryFilter } from "../types/library";
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -45,6 +47,25 @@ export function useLibrary() {
               )
             ? 1000
             : 5000,
+  });
+}
+export function useLibraryPage(filter: LibraryFilter) {
+  const visible = useVisible();
+  return useQuery({
+    queryKey: ["library", filter],
+    queryFn: ({ signal }) => libraryApi.page(filter, signal),
+    enabled: visible,
+    refetchInterval: visible ? 5000 : false,
+  });
+}
+export function useActive() {
+  const visible = useVisible();
+  return useQuery({
+    queryKey: ["active"],
+    queryFn: ({ signal }) => libraryApi.active(signal),
+    enabled: visible,
+    refetchInterval: (query) =>
+      !visible ? false : query.state.data?.items.length ? 1000 : 5000,
   });
 }
 export function useRuntime() {
@@ -138,6 +159,9 @@ export function useCache(hash: string, enabled: boolean) {
   });
 }
 export async function refreshLibrary() {
-  await queryClient.invalidateQueries({ queryKey: ["torrents"] });
-  await queryClient.invalidateQueries({ queryKey: ["runtime"] });
+  await Promise.all(
+    ["torrents", "library", "active", "runtime"].map((key) =>
+      queryClient.invalidateQueries({ queryKey: [key] }),
+    ),
+  );
 }

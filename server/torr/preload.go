@@ -1159,25 +1159,13 @@ func waitBounded(reqCtx context.Context, done <-chan struct{}) {
 	}
 }
 
-// fileByID resolves the 1-based API file id (FileStats.Id) to its *File, the
-// same two-step mapping Stream and Preload use (id -> path -> file).
+// fileByID resolves the legacy one-based native index from immutable metadata.
+// Live metrics need one file, not a full native status/tree reconstruction.
 func (t *Torrent) fileByID(index int) *File {
-	if t == nil {
-		return nil
-	}
-	var path string
-	for _, fs := range t.Status().FileStats {
-		if fs.Id == index {
-			path = fs.Path
-			break
-		}
-	}
-	if path == "" {
-		return nil
-	}
-	for _, ff := range t.Files() {
-		if ff.Path == path {
-			return ff
+	if snapshot := t.fileSnapshot(); snapshot != nil {
+		if file := snapshot.byID[index]; file != nil {
+			copy := *file
+			return &copy
 		}
 	}
 	return nil

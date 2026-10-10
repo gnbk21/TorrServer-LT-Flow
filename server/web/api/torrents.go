@@ -116,7 +116,7 @@ func addTorrent(req torrReqJS, c *gin.Context) {
 			req.Category = torrsHash.Category()
 		}
 	} else {
-		torrSpec, err = utils.ParseLink(req.Link)
+		torrSpec, err = utils.ParseLinkContext(c.Request.Context(), req.Link)
 		if err != nil {
 			log.TLogln("error parse link:", err)
 			abortWithJSONError(c, http.StatusBadRequest, err)

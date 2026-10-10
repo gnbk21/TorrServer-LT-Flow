@@ -7,6 +7,17 @@ import {
 } from "../types/flow";
 
 export const flowApi = {
+  warmup: (
+    hash: string,
+    file_index: number,
+    action: "select" | "cancel" | "auto",
+    signal?: AbortSignal,
+  ) =>
+    api.post<object, NonNullable<FlowStatusResponse["next_episode_warmup"]>>(
+      `/flow/warmup/${encodeURIComponent(hash)}`,
+      { file_index, action },
+      signal,
+    ),
   playbackLink: async (hash: string, index: number, signal?: AbortSignal) => {
     const data = await api.post<object, { path: string; expires_at: string }>(
       "/flow/playback-link",

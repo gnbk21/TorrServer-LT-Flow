@@ -93,12 +93,15 @@ type Cache struct {
 	indexWorkers      sync.WaitGroup
 	resourceBudget    atomic.Int64 // zero means not yet coordinated
 	backgroundLimited atomic.Bool
+	nextMu            sync.Mutex
+	nextWarmup        nextEpisodeWarmup
 
 	StorageID   int64
 	InfoHash    [20]byte
 	NumPieces   int
 	totalSize   atomic.Int64 // exact metadata length; zero for legacy test callers
 	PieceLength int64
+	pieceSizes  atomic.Pointer[map[int]int64] // immutable BEP 52 short file tails
 
 	mu          sync.RWMutex
 	pieces      map[int]*Piece
@@ -1183,6 +1186,13 @@ func (c *Cache) applyStreamPriorities() {
 			refetch[i] = struct{}{}
 		}
 	}
+	// Optional header/index work never receives deadlines or a cache reservation.
+	for _, i := range c.nextEpisodeDemand(len(blocked) > 0) {
+		raise(i, 1)
+		if !c.Have(i) && h.HasPiece(i) {
+			refetch[i] = struct{}{}
+		}
+	}
 	for _, r := range rs {
 		ph, ok := anchors[r.group]
 		if !ok {
@@ -1626,6 +1636,7 @@ const maxTailPinPieces = 6
 // close drops the in-memory state for every piece but leaves on-disk
 // files in place — they're the source of truth for the next resume.
 func (c *Cache) close() {
+	c.ClearNextEpisodeWarmup()
 	c.stopBurstIndexes()
 	// Drop any leftover preload reservation (e.g. a preview that never streamed)
 	// so a dropped torrent doesn't carry a stale reserve into its next resume.
@@ -1644,6 +1655,7 @@ func (c *Cache) close() {
 // on-disk file (if any). Triggered when libtorrent asks us to delete
 // the storage (e.g. RemTorrent with delete=true).
 func (c *Cache) wipe() {
+	c.ClearNextEpisodeWarmup()
 	c.stopBurstIndexes()
 	c.mu.Lock()
 	for _, p := range c.pieces {

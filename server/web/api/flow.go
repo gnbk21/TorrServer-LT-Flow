@@ -3,18 +3,23 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"server/flow"
 	"server/lt"
 	"server/torr"
+	"time"
 )
 
 type FlowStatusResponse struct {
-	Hash      string                       `json:"hash"`
-	Startup   torr.FlowStartupStatus       `json:"startup"`
-	Sessions  []torr.FlowSessionStatus     `json:"sessions"`
-	Trackers  []torr.FlowTrackerDiagnostic `json:"trackers"`
-	Network   torr.FlowNetworkStatus       `json:"network"`
-	Sparse    lt.SparseSnapshot            `json:"sparse"`
-	StorageIO lt.StorageIO                 `json:"storage_io"`
+	Hash              string                       `json:"hash"`
+	Startup           torr.FlowStartupStatus       `json:"startup"`
+	Sessions          []torr.FlowSessionStatus     `json:"sessions"`
+	Trackers          []torr.FlowTrackerDiagnostic `json:"trackers"`
+	Network           torr.FlowNetworkStatus       `json:"network"`
+	Sparse            lt.SparseSnapshot            `json:"sparse"`
+	StorageIO         lt.StorageIO                 `json:"storage_io"`
+	Timeline          *flow.TimelineSnapshot       `json:"timeline,omitempty"`
+	SampledAt         string                       `json:"sampled_at,omitempty"`
+	NextEpisodeWarmup *torr.NextEpisodeStatus      `json:"next_episode_warmup,omitempty"`
 }
 
 // flowStatus exposes a bounded diagnostic snapshot for one live torrent.
@@ -27,7 +32,31 @@ func flowStatus(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "torrent not found"})
 		return
 	}
-	c.JSON(http.StatusOK, FlowStatusResponse{Hash: c.Param("hash"), Startup: t.FlowStartup(), Sessions: t.FlowStatusWithTraces(c.Query("traces") != "false"), Trackers: t.FlowTrackers(), Network: torr.NetworkStatusSnapshot(), Sparse: t.SparseStatus(), StorageIO: lt.StorageIOStats()})
+	timeline := t.FlowTimeline()
+	warmup := t.NextEpisodeWarmupStatus()
+	c.JSON(http.StatusOK, FlowStatusResponse{Hash: c.Param("hash"), Startup: t.FlowStartup(), Sessions: t.FlowStatusWithTraces(c.Query("traces") != "false"), Trackers: t.FlowTrackers(), Network: torr.NetworkStatusSnapshot(), Sparse: t.SparseStatus(), StorageIO: lt.StorageIOStats(), Timeline: &timeline, SampledAt: time.Now().UTC().Format(time.RFC3339Nano), NextEpisodeWarmup: &warmup})
+}
+
+func nextEpisodeWarmup(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
+	var request struct {
+		FileIndex int    `json:"file_index"`
+		Action    string `json:"action"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid warmup request"})
+		return
+	}
+	t := torr.GetTorrentInfo(c.Param("hash"))
+	if t == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "torrent not found"})
+		return
+	}
+	if err := t.SelectNextEpisodeWarmup(request.FileIndex, request.Action); err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusAccepted, t.NextEpisodeWarmupStatus())
 }
 
 func flowNetwork(c *gin.Context) {

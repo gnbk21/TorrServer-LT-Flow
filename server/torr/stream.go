@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -117,6 +118,11 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 	// playback position.
 	reader.SetContext(req.Context())
 	classification, hint, flowSeq := t.flowStart(fileID, file, group, req)
+	if group != torrstor.ProbeReaderGroup {
+		if sessionID := t.FlowSessionID(fileID, group); sessionID != "" {
+			resp.Header().Set("X-Flow-Session", sessionID)
+		}
+	}
 	started := time.Now()
 	var recorder *flow.ResponseRecorder
 	if sets.CurrentFlow().MetricsEnabled {
@@ -181,9 +187,13 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		)
 	}
 
-	buffered := newBufferedStreamReader(reader, streamBufferSize)
-	buffered.ctx = req.Context()
-	http.ServeContent(resp, req, file.Path, time.Unix(t.Timestamp, 0), buffered)
+	var transport io.ReadSeeker = reader
+	if size := sets.CurrentFlow().StreamTransportBufferKiB << 10; size > 0 {
+		buffered := newBufferedStreamReader(reader, size)
+		buffered.ctx = req.Context()
+		transport = buffered
+	}
+	http.ServeContent(resp, req, file.Path, time.Unix(t.Timestamp, 0), transport)
 
 	if sets.BTsets() != nil && sets.BTsets().EnableDebug {
 		log.TLogln("torr.Stream: disconnect", "id=", streamID, "remote=", req.RemoteAddr)

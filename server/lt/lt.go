@@ -955,6 +955,12 @@ type StorageCallbacks struct {
 	Evict      func(storage int64, piece int) bool
 	Size       func(storage int64, totalSize int64)
 	ClearPiece func(storage int64, piece int)
+	Geometry   func(storage int64, sizes []PieceSize)
+}
+
+type PieceSize struct {
+	Piece int
+	Size  int64
 }
 
 var (
@@ -1100,4 +1106,18 @@ func tsl_storage_clear_piece_go(storage C.longlong, piece C.int) {
 	if cb := storageSnapshot(); cb.ClearPiece != nil {
 		cb.ClearPiece(int64(storage), int(piece))
 	}
+}
+
+//export tsl_storage_geometry_go
+func tsl_storage_geometry_go(storage C.longlong, pairs *C.longlong, count C.int) {
+	cb := storageSnapshot()
+	if cb.Geometry == nil || count <= 0 || count > 1<<20 || pairs == nil {
+		return
+	}
+	raw := unsafe.Slice(pairs, int(count)*2)
+	sizes := make([]PieceSize, int(count))
+	for i := range sizes {
+		sizes[i] = PieceSize{Piece: int(raw[i*2]), Size: int64(raw[i*2+1])}
+	}
+	cb.Geometry(int64(storage), sizes)
 }

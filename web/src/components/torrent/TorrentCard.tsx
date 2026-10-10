@@ -6,6 +6,7 @@ import { Button } from "../common/Button";
 export interface TorrentCardProps {
   torrent: Torrent;
   busy?: boolean;
+  compact?: boolean;
   isActiveStream?: boolean;
   onOpenFiles: () => void;
   onOpenDiagnostics?: () => void;
@@ -18,6 +19,7 @@ export interface TorrentCardProps {
 export function TorrentCard({
   torrent,
   busy,
+  compact,
   isActiveStream,
   onOpenFiles,
   onOpenDiagnostics,
@@ -35,7 +37,9 @@ export function TorrentCard({
       className={`panel space-y-4 ${isActiveStream ? "border-blue-400" : ""}`}
     >
       <div className="flex gap-4">
-        <div className="w-20 aspect-[2/3] shrink-0 rounded-lg bg-slate-800 overflow-hidden flex items-center justify-center">
+        <div
+          className={`${compact ? "w-12" : "w-20"} aspect-[2/3] shrink-0 rounded-lg bg-slate-800 overflow-hidden flex items-center justify-center`}
+        >
           {torrent.poster && torrent.poster !== broken ? (
             <img
               src={torrent.poster}

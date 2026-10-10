@@ -55,16 +55,21 @@ func LoadTorrent(tor *Torrent) *Torrent {
 	if !out.WaitInfo() {
 		return nil
 	}
-	out.Title = tor.Title
-	out.Poster = tor.Poster
-	out.Data = tor.Data
-	out.Category = tor.Category
-	if tor.Timestamp != 0 {
-		out.Timestamp = tor.Timestamp
+	tor.mu.Lock()
+	title, poster, data, category, timestamp, size := tor.Title, tor.Poster, tor.Data, tor.Category, tor.Timestamp, tor.Size
+	tor.mu.Unlock()
+	out.mu.Lock()
+	out.Title = title
+	out.Poster = poster
+	out.Data = data
+	out.Category = category
+	if timestamp != 0 {
+		out.Timestamp = timestamp
 	}
-	if tor.Size > 0 {
-		out.Size = tor.Size
+	if size > 0 {
+		out.Size = size
 	}
+	out.mu.Unlock()
 	// A magnet-only DB record just produced its info-dict (backfilled into the
 	// spec by signalGotInfo): persist it so the next server start serves this
 	// torrent instantly instead of re-fetching metadata from the swarm.
@@ -93,6 +98,7 @@ func AddTorrent(spec *TorrentSpec, title, poster, data, category string) (*Torre
 		return nil, err
 	}
 
+	t.mu.Lock()
 	if t.Title == "" {
 		t.Title = title
 		if title == "" && dbt != nil {
@@ -120,6 +126,7 @@ func AddTorrent(spec *TorrentSpec, title, poster, data, category string) (*Torre
 			t.Data = dbt.Data
 		}
 	}
+	t.mu.Unlock()
 	return t, nil
 }
 
@@ -211,12 +218,14 @@ func SetTorrent(hashHex, title, poster, category, data string) *Torrent {
 		if title == "" && tor.LTHandle() != nil {
 			title = tor.Name()
 		}
+		tor.mu.Lock()
 		tor.Title = title
 		tor.Poster = poster
 		tor.Category = category
 		if data != "" {
 			tor.Data = data
 		}
+		tor.mu.Unlock()
 	}
 	if dbt != nil {
 		dbt.Title = title

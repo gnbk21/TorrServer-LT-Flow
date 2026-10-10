@@ -220,7 +220,8 @@
     "DefaultTrackers": "Trackere implicite",
     "DefaultTrackersHint": "URL-uri de anunțare locale, câte unul pe linie. Sunt folosite singure când toate descărcările de la distanță eșuează sau sunt adăugate după o descărcare reușită de la distanță.",
     "ShowQuickVLCButton": "Show VLC button on torrent cards",
-    "ShowQuickVLCButtonHint": "Optional shortcut for single-video torrents. VLC must also be enabled."
+    "ShowQuickVLCButtonHint": "Optional shortcut for single-video torrents. VLC must also be enabled.",
+    "MSXAllowLAN": "Permite accesul proxy-ului MSX la rețeaua locală"
   },
   "Size": "Mărime",
   "SpeedTest": "Test de viteză",
@@ -443,7 +444,10 @@
     "pageCount": "Pagina {{page}} din {{pages}}",
     "expiringLink": "Creează / reînnoiește link temporar",
     "linkExpires": "Valabil până la {{time}}; repornirea serverului revocă linkul.",
-    "linkFailed": "Linkul nu a putut fi creat. Verificați autentificarea și metadatele fișierului."
+    "linkFailed": "Linkul nu a putut fi creat. Verificați autentificarea și metadatele fișierului.",
+    "view": "Vizualizare",
+    "cards": "Carduri",
+    "list": "Listă"
   },
   "runtime": {
     "torrents": "Torrente",
@@ -523,7 +527,15 @@
   "app": {
     "error": "Pagina nu poate fi afișată.",
     "reload": "Reîncarcă",
-    "install": "Poți adăuga pagina pe ecranul principal. Instalarea depinde de browser; redarea funcționează prin HTTP obișnuit în rețeaua locală."
+    "install": "Poți adăuga pagina pe ecranul principal. Instalarea depinde de browser; redarea funcționează prin HTTP obișnuit în rețeaua locală.",
+    "appearance": "Aspect",
+    "theme": "Temă",
+    "dark": "Întunecată",
+    "light": "Luminoasă",
+    "system": "Sistem",
+    "density": "Densitate",
+    "comfortable": "Confortabilă",
+    "compact": "Compactă"
   },
   "flow": {
     "title": "Redare Flow",
@@ -686,7 +698,77 @@
       "callback_max_us": "Apel maxim (µs)"
     },
     "urgentAge": "Cea mai veche cerere în așteptare: {{ms}} ms",
-    "reserveHint": "Livrarea HTTP și estimările octeți/timp nu reprezintă ceasul decodorului telefonului. Piesele verificate după un gol sunt excluse din rezerva continuă."
+    "reserveHint": "Livrarea HTTP și estimările octeți/timp nu reprezintă ceasul decodorului telefonului. Piesele verificate după un gol sunt excluse din rezerva continuă.",
+    "observedPlayback": "Flux observat",
+    "warm": "Buffer păstrat",
+    "serverObservation": "Observații ale serverului; redarea în player nu este măsurată.",
+    "timelineTitle": "Cronologia incidentelor",
+    "timelineHint": "Observații ale serverului pe aceeași scară de timp a torrentului. Valorile de lângă evenimente descriu operația măsurată. Evenimentele absente rămân necunoscute; aceasta nu măsoară întreruperile playerului.",
+    "sampledAt": "Instantaneu la",
+    "timelineTruncated": "Evenimente vechi omise: {{count}}",
+    "timelineEvents": {
+      "engine_started": "Motor pornit",
+      "engine_stopped": "Motor oprit",
+      "metadata": "Metadate disponibile",
+      "startup": "Etapă de pornire",
+      "first_byte": "Primul octet HTTP",
+      "first_block": "Primul bloc util",
+      "probe": "Analiză media",
+      "dht_peer": "Peer DHT",
+      "peer_disconnected": "Peer deconectat",
+      "seek": "Salt solicitat",
+      "recovery": "Răspuns după salt"
+    },
+    "playerEvidence": "Măsurători ale playerului",
+    "playerEvidenceHint": "Raport Flow Player opțional. Importul rămâne în acest dialog deschis; nu este încărcat pe server și nu modifică setările.",
+    "playerImport": "Importă raportul JSON",
+    "playerMatched": "Raportul corespunde unei sesiuni observate.",
+    "playerUnmatched": "Sesiunea nu a fost identificată; măsurătorile rămân separate.",
+    "playerClockUnknown": "Sincronizarea ceasului este necunoscută; nu deduce suprapunerea exactă a evenimentelor.",
+    "clearPlayerReport": "Șterge raportul importat",
+    "playerUnknown": "Nu există măsurători ale playerului. Așteptările serverului nu dovedesc întreruperi în player.",
+    "playerReportInvalid": "Raport invalid sau prea mare.",
+    "playerMetrics": {
+      "startup_ms": "Pornire (ms)",
+      "rebuffer_events": "Evenimente de rebuffering",
+      "rebuffer_ms": "Rebuffering (ms)",
+      "seek_events": "Salturi",
+      "seek_buffer_ms": "Buffering după salt (ms)",
+      "buffered_ms": "Timp în buffer (ms)",
+      "dropped_frames": "Cadre pierdute",
+      "paused_ms": "Pauză (ms)"
+    },
+    "warmupTitle": "Încălzirea episodului următor",
+    "warmupHint": "Opțional: încarcă antetul/indexul unui episod, până la 32 MiB în memoria cache existentă liberă. Cedează în timpul așteptărilor și presiunii de redare. Nu pregătește întregul episod. Activați din setările Flow.",
+    "warmupDisabled": "Dezactivat",
+    "warmupChoose": "Alege fișierul",
+    "warmupAuto": "Alegere automată",
+    "warmupCancel": "Anulează",
+    "warmupStart": "Încălzește fișierul ales",
+    "warmupFile": "Fișier {{index}}",
+    "warmupStates": {
+      "idle": "Inactiv",
+      "waiting": "Așteaptă capacitate liberă",
+      "warming": "Încarcă antetul/indexul",
+      "ready": "Verificat și prezent în cache",
+      "evicted": "Cache reutilizat; fără reîncălzire",
+      "unavailable": "Indisponibil"
+    },
+    "warmupReasons": {
+      "PLAYBACK_RESERVE": "Redarea are nevoie mai întâi de rezerva sa.",
+      "PLAYBACK_WAIT": "O altă redare așteaptă date.",
+      "RESOURCE_PRESSURE": "Presiunea asupra cache-ului are prioritate.",
+      "NO_SPARE_CACHE": "Nu există spațiu liber în cache.",
+      "OTHER_WARMUP": "Un alt episod ocupă singurul loc.",
+      "PIECE_BUDGET": "Dimensiunea piesei depășește bugetul.",
+      "MANUAL_SELECTION_REQUIRED": "Alegeți un fișier: episodul următor este incert.",
+      "CANCELLED": "Anulat până la schimbarea fișierului redat.",
+      "SPARE_CAPACITY": "Folosește capacitatea liberă.",
+      "VERIFIED": "Antetul/indexul sunt verificate.",
+      "CACHE_REUSED": "Datele neprotejate au fost eliminate pentru redare.",
+      "DISABLED_OR_EXPIRED": "Încălzirea este dezactivată sau expirată.",
+      "MULTIPLE_FILES": "Sunt redate mai multe fișiere."
+    }
   },
   "search": {
     "source": "Sursă",
@@ -830,7 +912,10 @@
         "RequireTorrentInterface": "Solicită un adaptor torrent selectat explicit",
         "CapacityAwareRequests": "Respectă limita cererilor peerului (experiment)",
         "AdaptiveUrgentHorizon": "Orizont urgent adaptiv (experiment)",
-        "ContainerBurstHints": "Indicii de vârf din indexul rezident (experiment)"
+        "ContainerBurstHints": "Indicii de vârf din indexul rezident (experiment)",
+        "MSXAllowLAN": "Permite accesul proxy-ului MSX la rețeaua locală",
+        "StreamTransportBufferKiB": "Buffer de transport (experiment controlat)",
+        "NextEpisodeWarmup": "Încălzirea antetului/indexului episodului următor"
       }
     },
     "maintenance": {
@@ -917,7 +1002,12 @@
         "user": "Fișierele serverului"
       },
       "plainHttp": "Această pagină folosește HTTP. Încărcarea unei chei private aici o transmite necriptat. Deschideți HTTPS înainte de încărcare."
-    }
+    },
+    "search": "Caută în toate setările",
+    "changedFields": "Câmpuri modificate: {{count}}",
+    "effectiveValue": "Aplicat: {{value}}",
+    "transportDirect": "Citire directă din cache",
+    "transportHelp": "Comparați dimensiunile cu același fișier și aceleași rezerve. Valoare implicită: 1024 KiB. Modificările se aplică cererilor HTTP noi."
   },
   "preparation": {
     "title": "Pregătește episodul",
@@ -958,5 +1048,8 @@
     "help": "Oglinda trebuie să furnizeze exact octeții torrentului. Motorul nativ gestionează Range, verificarea hashurilor, reîncercările limitate și revenirea la peers. Sunt afișate doar originile; căile, semnăturile și acreditările sunt excluse din diagnostic. Nu este necesar un cont.",
     "local": "Aprobă oglinda mea LAN",
     "localHelp": "Aprobarea necesită un IP privat sau loopback explicit, fără acreditări și parametri. Alte oglinzi necesită adrese globale; DNS și redirecționările sunt verificate nativ. Destinațiile ascunse de proxy sunt blocate."
+  },
+  "flowHelp": {
+    "MSXAllowLAN": "Dezactivat implicit. Permite adrese IP private sau loopback indicate explicit. Numele rezolvate către rețeaua locală și serviciile link-local rămân blocate."
   }
 }

@@ -34,6 +34,10 @@ export const settingsSchema = z
         CapacityAwareRequests: z.boolean().optional(),
         AdaptiveUrgentHorizon: z.boolean().optional(),
         ContainerBurstHints: z.boolean().optional(),
+        NextEpisodeWarmup: z.boolean().optional(),
+        StreamTransportBufferKiB: z
+          .union([z.literal(0), z.literal(64), z.literal(256), z.literal(1024)])
+          .optional(),
         SwarmCustom: z.record(z.string(), z.unknown()),
       })
       .passthrough()
@@ -43,6 +47,10 @@ export const settingsSchema = z
   .passthrough();
 export const flowSessionSchema = z
   .object({
+    session_id: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{16,64}$/)
+      .optional(),
     supply_qualified: z.boolean().optional(),
     readable_contiguous_bytes: z.number().int().nonnegative().optional(),
     verified_contiguous_bytes: z.number().int().nonnegative().optional(),
@@ -99,6 +107,53 @@ export const flowSessionSchema = z
   .passthrough();
 export const flowSchema = z
   .object({
+    next_episode_warmup: z
+      .object({
+        enabled: z.boolean(),
+        current_file_index: z.number().int().nonnegative(),
+        file_index: z.number().int().nonnegative(),
+        automatic: z.boolean(),
+        state: z.enum([
+          "idle",
+          "waiting",
+          "warming",
+          "ready",
+          "evicted",
+          "unavailable",
+        ]),
+        reason: z.string(),
+        budget_bytes: z
+          .number()
+          .int()
+          .min(0)
+          .max(32 * 1024 * 1024),
+        verified_bytes: z
+          .number()
+          .int()
+          .min(0)
+          .max(32 * 1024 * 1024),
+      })
+      .optional(),
+    sampled_at: z.string().datetime({ offset: true }).optional(),
+    timeline: z
+      .object({
+        source: z.literal("server"),
+        dropped: z.number().int().nonnegative(),
+        events: z
+          .array(
+            z.object({
+              time: z.string().datetime({ offset: true }),
+              elapsed_ms: z.number().int().nonnegative(),
+              operation_ms: z.number().int(),
+              type: z.string(),
+              stage: z.string().optional(),
+              file: z.number().int().optional(),
+              bytes: z.number().int().optional(),
+            }),
+          )
+          .max(128),
+      })
+      .optional(),
     storage_io: z
       .object({
         queued_bytes: z.number().int().nonnegative(),
@@ -207,6 +262,20 @@ export const networkSchema = z
     reannounce_count: z.number(),
   })
   .passthrough();
+
+export const librarySchema = z.object({
+  items: torrentSchema.array(),
+  total: z.number().int().nonnegative(),
+  library_total: z.number().int().nonnegative(),
+  page: z.number().int().positive(),
+  limit: z.number().int().min(1).max(100),
+  categories: z.array(z.string()),
+  sampled_at: z.string().datetime({ offset: true }),
+});
+export const activeSchema = z.object({
+  items: z.array(z.object({ torrent: torrentSchema, status: flowSchema })),
+  sampled_at: z.string().datetime({ offset: true }),
+});
 
 export const runtimeSchema = z
   .object({
