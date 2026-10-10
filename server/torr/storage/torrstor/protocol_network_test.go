@@ -2,6 +2,7 @@ package torrstor
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"crypto/sha256"
 	"fmt"
@@ -106,8 +107,7 @@ func TestNativeV2AndHybridNetworkTransferIntoVerifiedStreamingCache(t *testing.T
 				}
 				seedReady = true
 				for piece := 0; piece < metadata.NumPieces; piece++ {
-					have, err := seedTorrent.HavePiece(piece)
-					seedReady = seedReady && err == nil && have
+					seedReady = seedReady && seedTorrent.HasPiece(piece)
 				}
 				if seedReady && seedPort > 0 {
 					break
@@ -185,6 +185,114 @@ func TestNativeV2AndHybridNetworkTransferIntoVerifiedStreamingCache(t *testing.T
 					t.Fatal("verified streaming bytes changed", file.Index, readErr, len(got), len(want))
 				}
 			}
+			verifyNativeReuse(t, storage, receiver, cache, metadata, payload, content)
 		})
+	}
+}
+
+func verifyNativeReuse(t *testing.T, storage *Storage, session *lt.Session, source *Cache, metadata *lt.ParsedTorrent, payload []byte, content map[string][]byte) {
+	t.Helper()
+	if !storage.SetReuseMetadata(source, metadata) {
+		t.Fatal("verified source metadata was not indexed")
+	}
+	targetPayload := bytes.Replace(payload, []byte("4:name6:series"), []byte("4:name6:copy00"), 1)
+	targetMetadata, err := lt.ParseTorrentBytes(targetPayload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, err := session.AddTorrent(lt.AddTorrentParams{InfoBytes: targetPayload, SavePath: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = h.Remove(false) })
+	_ = h.SetAllPiecesPriority(0)
+	targetHash := flow.ParseInfoHash(targetMetadata.InfoHash)
+	var target *Cache
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		target = storage.CacheByHash(targetHash)
+		st, _ := h.Status()
+		if target != nil && st != nil && st.State != "checking_files" && st.State != "checking_resume_data" {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if target == nil || !storage.SetReuseMetadata(target, targetMetadata) {
+		t.Fatal("distinct target metadata was not indexed")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	// Simulate changed backing bytes despite a previously verified source bit.
+	// Reuse must rehash rather than trust that old completion flag.
+	source.mu.RLock()
+	sourcePiece := source.pieces[0]
+	source.mu.RUnlock()
+	if _, err := sourcePiece.WriteAt([]byte{0xff}, 0); err != nil {
+		t.Fatal(err)
+	}
+	if !target.tryReusePiece(ctx, nil, h, 0) {
+		t.Fatal("corruption check was not scheduled")
+	}
+	for reuseWorker.Load() && ctx.Err() == nil {
+		time.Sleep(time.Millisecond)
+	}
+	if ctx.Err() != nil || target.Have(0) || target.Filled() != 0 {
+		t.Fatal("corrupt source bytes reached the target")
+	}
+	if _, err := sourcePiece.WriteAt(content["a.mkv"][:1], 0); err != nil {
+		t.Fatal(err)
+	}
+	for piece := 0; piece < targetMetadata.NumPieces; piece++ {
+		for !target.Have(piece) && ctx.Err() == nil {
+			target.tryReusePiece(ctx, nil, h, piece)
+			time.Sleep(20 * time.Millisecond)
+			alerts, err := session.PopAlerts()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, alert := range alerts {
+				if alert.TorrentHash != targetHash.HexString() {
+					continue
+				}
+				if alert.Type == "hash_failed" || alert.Type == "file_error" || alert.Type == "torrent_error" {
+					t.Fatal("reused bytes failed native hashing", alert.Type, alert.ErrorCode)
+				}
+				if alert.Type == "piece_finished" {
+					target.SignalPieceComplete(alert.Piece)
+				}
+			}
+			if !target.Have(piece) && target.readableAt(piece, 0) > 0 {
+				t.Fatal("reuse exposed bytes before native verification")
+			}
+		}
+		if !target.Have(piece) {
+			t.Fatal("native reuse did not complete", piece, ctx.Err())
+		}
+	}
+	st, err := h.Status()
+	if err != nil || st.TotalPayloadDownload != 0 || st.NumPeers != 0 {
+		t.Fatal("reuse accidentally downloaded from another swarm", err)
+	}
+	files, err := h.Files()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		r := NewReader(target, h, FileInfo{Index: file.Index, Path: file.Path, Offset: file.Offset, Length: file.Size})
+		got, err := io.ReadAll(r)
+		_ = r.Close()
+		if err != nil || !bytes.Equal(got, content[filepath.Base(file.Path)]) {
+			t.Fatal("reused stream bytes changed", err)
+		}
+	}
+	storage.reuseMu.Lock()
+	before := len(storage.reuseEntries)
+	storage.reuseMu.Unlock()
+	target.clearReuse()
+	storage.reuseMu.Lock()
+	after := len(storage.reuseEntries)
+	storage.reuseMu.Unlock()
+	if after >= before {
+		t.Fatal("closed owner retained reuse descriptors")
 	}
 }

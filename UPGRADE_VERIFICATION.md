@@ -243,3 +243,38 @@ remaining ledger requirements are not complete.
   or verified protection and never invokes/elevates it. Secret redaction now
   covers SOCKS/WebSocket credentials and standalone player, bot and session
   tokens without masking harmless field-name suffixes.
+
+## Native reuse and source-binding follow-up
+
+- The complete `0b9635b3` build and macOS gates passed, including repeated
+  streaming comparisons; their measurements still predate newer changes.
+  `b9814034` security checks passed including actual Windows helper extraction.
+- Public MSX HTTP fetches now use the selected interface with no unbound
+  fallback. Explicitly approved literal LAN destinations remain reachable;
+  hostnames gain no LAN exemption. Old pooled sockets are closed before a new
+  interface generation can reuse them. Response cancellation and source-family
+  mismatch regressions are wired into native/race CI. OS DNS remains unverified.
+- Added real loopback native v2/hybrid transfers into the custom streaming
+  cache, with two differently sized files, virtual padding and acquired piece
+  layers. A first macOS run caught a wrong test accessor (`HavePiece` instead of
+  the existing `HasPiece`); corrected before adding the reuse scenarios.
+- Reuse matches full authenticated file roots, exact lengths and compatible
+  piece geometry. Its shared index permits at most 512 file descriptors and
+  2 MiB of digest layers. Private or unknown metadata is excluded. Sources are
+  already resident verified cache bytes; copied bytes are rehashed immediately,
+  then independently verified by native SHA-256/Merkle and hybrid SHA-1.
+- At most one Go copy and one native submission are admitted. Each piece is
+  capped at 8 MiB; Go/native/queued IO staging is at most 24 MiB of payload,
+  below the 32 MiB plan bound. No second cache, pin, protected reservation or
+  background swarm download is created. Pressure, disconnects, other waiting
+  readers, cancellation and owner cleanup suppress admission. Native shutdown
+  discards the admission lease without leaving a stuck global busy flag.
+- Startup preload and real reader misses both invoke reuse. Per-piece serving
+  waits for native verification; raw read-piece alerts no longer establish
+  completion. Tests include corrupt source bytes, private metadata, different
+  native offsets, descriptor limits, resource yielding and zero-network-payload
+  reuse. Portable Merkle tests and a real MSVC syntax check of the new native
+  submission against pinned headers passed; complete native runs remain pending.
+- Three production dashboard repeats measured 200350 gzip bytes of initial JS,
+  LCP 1044-1116 ms, CLS 0.004754 and first-repeat input-to-paint 80.1 ms under the
+  documented lab conditions. These are lab results, not physical-phone INP.

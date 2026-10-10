@@ -72,6 +72,8 @@ type Cache struct {
 	storage           *Storage
 	flowCounters      flow.Counters
 	storageEvidence   flow.StorageObservations
+	reuseVerified     map[int]bool // guarded by mu; only these pieces wait for native hashes
+	reuseClosed       atomic.Bool
 	flowMu            sync.Mutex
 	verifiedReads     atomic.Bool
 	flowScarce        map[int]bool // at most 256 bounded diagnostic entries
@@ -398,6 +400,11 @@ func (c *Cache) SignalPieceComplete(piece int) {
 		if p.markVerifiedComplete() {
 			c.observeVerifiedForward(piece, p.expectedSize())
 		}
+		if p.Complete() {
+			c.mu.Lock()
+			delete(c.reuseVerified, piece)
+			c.mu.Unlock()
+		}
 	}
 	c.signalPieceProgress(piece)
 }
@@ -508,11 +515,12 @@ func (c *Cache) waitForBytes(ctx context.Context, piece int, off int64, reconcil
 func (c *Cache) readableAt(piece int, off int64) int64 {
 	c.mu.RLock()
 	p := c.pieces[piece]
+	reuse := c.reuseVerified[piece]
 	c.mu.RUnlock()
 	if p == nil {
 		return 0
 	}
-	if c.verifiedReads.Load() && !p.Complete() {
+	if (c.verifiedReads.Load() || reuse) && !p.Complete() {
 		return 0
 	}
 	return p.availableFrom(off)
@@ -538,7 +546,7 @@ func (c *Cache) readResidentPiece(piece int, off int64, dst []byte, verified boo
 	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	if (verified || c.verifiedReads.Load()) && !p.complete {
+	if (verified || c.verifiedReads.Load() || c.reuseVerified[piece]) && !p.complete {
 		return 0, io.EOF
 	}
 	n := p.availableFromLocked(off)
@@ -1638,6 +1646,7 @@ const maxTailPinPieces = 6
 // close drops the in-memory state for every piece but leaves on-disk
 // files in place — they're the source of truth for the next resume.
 func (c *Cache) close() {
+	c.clearReuse()
 	c.SetWarmupPlaybackRisk(false)
 	c.ClearNextEpisodeWarmup()
 	c.stopBurstIndexes()
@@ -1651,6 +1660,7 @@ func (c *Cache) close() {
 		p.release()
 	}
 	c.pieces = nil
+	c.reuseVerified = nil
 	c.mu.Unlock()
 }
 
@@ -1658,6 +1668,7 @@ func (c *Cache) close() {
 // on-disk file (if any). Triggered when libtorrent asks us to delete
 // the storage (e.g. RemTorrent with delete=true).
 func (c *Cache) wipe() {
+	c.clearReuse()
 	c.SetWarmupPlaybackRisk(false)
 	c.ClearNextEpisodeWarmup()
 	c.stopBurstIndexes()
@@ -1666,6 +1677,7 @@ func (c *Cache) wipe() {
 		p.wipe()
 	}
 	c.pieces = map[int]*Piece{}
+	c.reuseVerified = nil
 	c.mu.Unlock()
 }
 

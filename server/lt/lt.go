@@ -550,6 +550,19 @@ func (t *Torrent) InfoHash() string {
 	}, 65)
 }
 
+// TryReusePiece submits authenticated actual file bytes for independent native
+// hashing. Acceptance is asynchronous; callers must wait for piece_finished.
+func (t *Torrent) TryReusePiece(piece int, data []byte) (bool, error) {
+	if t == nil || piece < 0 || len(data) == 0 || len(data) > 8<<20 {
+		return false, ErrInvalid
+	}
+	rc := C.lt_torrent_reuse_piece(t.id, C.int(piece), (*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)))
+	if rc < 0 {
+		return false, codeToErr(rc)
+	}
+	return rc == 1, nil
+}
+
 // SetPiecePriority sets the per-piece download priority (0..7).
 func (t *Torrent) SetPiecePriority(piece, prio int) error {
 	return codeToErr(C.lt_torrent_set_piece_priority(t.id, C.int(piece), C.int(prio)))

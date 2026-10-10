@@ -474,6 +474,13 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 	if !fresh {
 		r.ensuredPiece = piece
 		r.ensuredAtMs = nowMs
+		parent := r.ctx
+		if parent == nil {
+			parent = context.Background()
+		}
+		if !r.internal {
+			r.cache.tryReusePiece(parent, r.stopTicker, r.handle, piece)
+		}
 		if r.handle != nil {
 			// On-demand have/cache reconciliation: if libtorrent thinks it already has
 			// this piece but our cache doesn't (we evicted it, or a seek landed in an

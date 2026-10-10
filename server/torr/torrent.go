@@ -42,6 +42,8 @@ type Torrent struct {
 	filesMu                   sync.Mutex
 	v2MetadataComplete        atomic.Bool
 	v2MetadataAttempt         atomic.Int64
+	reuseMetadataOwner        atomic.Pointer[torrstor.Cache]
+	reuseMetadataAttempt      atomic.Int64
 	nextEpisodeMu             sync.Mutex
 	nextEpisodeCurrent        int
 	nextEpisodeManual         int
@@ -619,6 +621,7 @@ func (t *Torrent) progressTick() {
 	rate := t.DownloadSpeed
 	t.mu.Unlock()
 	if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
+		t.registerReuseMetadata(cache)
 		cache.SetFlowDownloadRate(rate, FlowIsPaused())
 		events, dropped := cache.DrainStorageEvidence()
 		t.timeline.AddDropped(dropped)
@@ -633,6 +636,38 @@ func (t *Torrent) progressTick() {
 	}
 	t.sampleSparse(handle, st.HasMetadata, st.PieceLength, count)
 	t.checkpointV2Metadata(handle)
+}
+
+func (t *Torrent) registerReuseMetadata(cache *torrstor.Cache) {
+	if t.reuseMetadataOwner.Load() == cache || !settings.CurrentFlow().Enabled {
+		return
+	}
+	t.mu.Lock()
+	var data []byte
+	if t.TorrentSpec != nil && t.Stat != state.TorrentClosed {
+		data = t.InfoBytes
+	}
+	t.mu.Unlock()
+	if len(data) == 0 || len(data) > 64<<20 {
+		return
+	}
+	now := time.Now().UnixMilli()
+	last := t.reuseMetadataAttempt.Load()
+	if now-last < 30_000 || !t.reuseMetadataAttempt.CompareAndSwap(last, now) {
+		return
+	}
+	parsed, err := lt.ParseTorrentBytes(data)
+	if err != nil {
+		return
+	}
+	if parsed.InfoHashV2 != "" && !parsed.CompletePieceLayers() {
+		return
+	}
+	// Unsupported/private metadata is a completed decision for this owner.
+	// Acquired v2 layers reset this decision through the existing checkpoint.
+	if torrstor.Global().SetReuseMetadata(cache, parsed) || parsed.Private || parsed.InfoHashV2 == "" {
+		t.reuseMetadataOwner.Store(cache)
+	}
 }
 
 // Persist acquired Merkle layers once, so a v2 magnet can resume verified disk
@@ -665,6 +700,8 @@ func (t *Torrent) checkpointV2Metadata(handle *lt.Torrent) {
 	t.InfoHashV2 = parsed.InfoHashV2
 	t.mu.Unlock()
 	t.v2MetadataComplete.Store(true)
+	t.reuseMetadataOwner.Store(nil)
+	t.reuseMetadataAttempt.Store(0)
 	if GetTorrentDB(t.Hash()) != nil {
 		AddTorrentDB(t)
 	}

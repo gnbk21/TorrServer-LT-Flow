@@ -133,6 +133,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	if cache == nil || cache.PieceLength <= 0 {
 		return
 	}
+	t.registerReuseMetadata(cache)
 	plen := cache.PieceLength
 
 	headBytes := size
@@ -508,6 +509,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	defer tick.Stop()
 	var startupSupply flow.DeliveryMeter
 	startupSeen := make(map[int]bool)
+	reuseCursor := 0
 	for {
 		snap := cache.PiecesSnapshot()
 		var newHeadBytes int64
@@ -526,6 +528,15 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 		}
 		var got int64
 		done := 0
+		// Bound lookup work per tick and keep the ordinary swarm priorities.
+		// Reuse is limited to this preload's actual missing head/index demand.
+		for checked := 0; checked < min(8, len(gatePieces)); checked++ {
+			piece := gatePieces[reuseCursor%len(gatePieces)]
+			reuseCursor++
+			if !cache.Have(piece) && cache.TryReusePiece(ctx, lh, piece) {
+				break
+			}
+		}
 		for _, p := range gatePieces {
 			st, ok := snap[p]
 			if !ok {

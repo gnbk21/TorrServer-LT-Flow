@@ -1587,6 +1587,57 @@ size_t lt_torrent_info_hash_hex(lt_torrent tid, char* buf, size_t cap) {
 
 // ----- priorities & streaming -----
 
+int lt_torrent_reuse_piece(lt_torrent tid, int piece_idx, const uint8_t* data, size_t length) {
+    WRAP_BEGIN
+#ifdef TSL_HAVE_LT_INTERNALS
+    auto h = get_torrent(tid);
+    if (!h.is_valid()) return set_err(LT_ERR_NOT_FOUND, "torrent not found");
+    auto ti = h.torrent_file();
+    if (!ti || ti->priv() || !ti->v2() || !data || length == 0 || length > (8u<<20)
+        || piece_idx < 0 || piece_idx >= ti->num_pieces()
+        || length != std::size_t(ti->files().piece_size2(lt::piece_index_t{piece_idx}))
+        || ti->piece_size_for_req(lt::piece_index_t{piece_idx}) > (8<<20))
+        return set_err(LT_ERR_INVALID, "public v2 metadata and exact piece bytes required");
+    // Capacity is retained until the vector was consumed on the network thread
+    // AND custom IO queues drained. An abandoned upload cannot release it early.
+    static std::mutex reuse_mu;
+    static std::weak_ptr<char> pending;
+    std::lock_guard<std::mutex> lock(reuse_mu);
+    tsl_io_stats io{};
+    lt_storage_io_stats(&io);
+    if (!pending.expired()) return 0;
+    if (io.queued_bytes != 0 || io.queued_jobs != 0) return 0;
+    auto tor = h.native_handle();
+    if (!tor) return set_err(LT_ERR_NOT_FOUND, "no native handle");
+    auto lease = std::make_shared<char>(0);
+    std::vector<char> bytes(std::size_t(ti->piece_size_for_req(lt::piece_index_t{piece_idx})), 0);
+    std::memcpy(bytes.data(), data, length);
+    pending = lease;
+    try {
+        lt::post(tor->session().get_context(), [tor, piece_idx, bytes=std::move(bytes), lease]() mutable {
+            (void)lease; // Releases admission even when shutdown discards the handler.
+            try {
+                if (!tor->is_aborted() && tor->valid_metadata()
+                    && !tor->is_deleted() && !tor->is_paused()
+                    && tor->state() != lt::torrent_status::checking_files
+                    && tor->state() != lt::torrent_status::checking_resume_data) {
+                    // Default flags preserve received blocks and always run the
+                    // native SHA-256/Merkle and hybrid SHA-1 checks. Never Have.
+                    bytes.resize(std::size_t(tor->piece_size_for_req(lt::piece_index_t{piece_idx})));
+                    tor->add_piece_async(lt::piece_index_t{piece_idx}, std::move(bytes), {});
+                }
+            } catch (...) {}
+            std::vector<char>().swap(bytes);
+        });
+    } catch (...) { pending.reset(); throw; }
+    return 1;
+#else
+    (void)tid; (void)piece_idx; (void)data; (void)length;
+    return set_err(LT_ERR_NOT_IMPL, "verified reuse requires the pinned native build");
+#endif
+    WRAP_END(LT_ERR_INTERNAL)
+}
+
 int lt_torrent_set_piece_priority(lt_torrent tid, int piece_idx, int prio) {
     WRAP_BEGIN
     auto h = get_torrent(tid);

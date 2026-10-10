@@ -34,6 +34,9 @@ type Storage struct {
 	nextMu            sync.Mutex
 	nextOwner         *Cache
 	nextUntil         time.Time
+	reuseMu           sync.Mutex
+	reuseEntries      []reuseEntry
+	reuseLayerBytes   int
 }
 
 type verifiedResume struct {

@@ -427,7 +427,7 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 		t.signalGotInfo()
 	case "torrent_error", "file_error":
 		log.Printf("torr: torrent error for %s: %s", a.TorrentHash, a.Error)
-	case "piece_finished", "piece_finished_alert", "read_piece":
+	case "piece_finished", "piece_finished_alert":
 		// Wake any Reader blocked on the piece. The actual byte data
 		// is already on the disk side (libtorrent wrote it through
 		// our cb_write before posting this alert).
