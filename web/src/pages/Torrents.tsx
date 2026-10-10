@@ -1,5 +1,5 @@
 import { torrentMagnet } from "../lib/torrentLink";
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import {
   useLibraryPage,
@@ -8,6 +8,7 @@ import {
   refreshLibrary,
 } from "../hooks/queries";
 import { usePreference, isString, isPage } from "../hooks/preferences";
+import { useLibraryScroll } from "../hooks/libraryScroll";
 import { torrentsApi } from "../api/torrents";
 import type { Torrent } from "../types/torrent";
 import {
@@ -109,35 +110,7 @@ export default function Torrents() {
   }, [filter]);
   const query = useLibraryPage({ q: search, category, sort, page, limit: 50 });
   const activity = useActive(selectNoActivityData);
-  const restoredScroll = useRef(false);
-  useEffect(() => {
-    if (!query.data || restoredScroll.current) return;
-    restoredScroll.current = true;
-    let offset = 0;
-    try {
-      offset = Number(sessionStorage.getItem("flow.library.scroll")) || 0;
-    } catch {
-      /* optional local preference */
-    }
-    const frame = requestAnimationFrame(() =>
-      window.scrollTo(
-        0,
-        Math.max(0, Math.min(offset, document.documentElement.scrollHeight)),
-      ),
-    );
-    return () => cancelAnimationFrame(frame);
-  }, [query.data]);
-  useEffect(() => {
-    const save = () => {
-      try {
-        sessionStorage.setItem("flow.library.scroll", String(window.scrollY));
-      } catch {
-        /* optional local preference */
-      }
-    };
-    window.addEventListener("scroll", save, { passive: true });
-    return () => window.removeEventListener("scroll", save);
-  }, []);
+  useLibraryScroll(!!query.data);
   const [add, setAdd] = useState(false);
   const [files, setFiles] = useState<Torrent>();
   const [diagnostic, setDiagnostic] = useState<Torrent>();

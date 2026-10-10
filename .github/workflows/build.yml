@@ -138,6 +138,7 @@ jobs:
         run: bash build/_fetch_sources.sh
 
   native-streaming-tests:
+    name: Native queue and deadline simulations
     needs: sources
     runs-on: ubuntu-latest
     timeout-minutes: 45

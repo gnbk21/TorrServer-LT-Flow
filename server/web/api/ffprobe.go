@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"server/ffprobe"
-	"server/log"
 	sets "server/settings"
 	"server/torr"
 
@@ -62,7 +61,7 @@ func ffp(c *gin.Context) {
 
 	data, err := ffprobe.ProbeURLContext(c.Request.Context(), torr.InternalMediaURL(link, true))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": log.RedactInternalMediaKey(fmt.Sprintf("error getting data: %v", err))})
+		abortWithJSONError(c, http.StatusBadRequest, fmt.Errorf("error getting data: %w", err))
 		return
 	}
 

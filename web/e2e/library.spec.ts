@@ -26,11 +26,16 @@ for (const total of [1, 200, 1000, 5000])
       if (path === "/flow/library") {
         libraryRequests++;
         const query = url.searchParams.get("q") || "";
+        const sort = url.searchParams.get("sort") || "recent";
         const matched = library
           .filter((row) =>
             row.title.toLowerCase().includes(query.toLowerCase()),
           )
-          .sort((a, b) => b.timestamp - a.timestamp);
+          .sort((a, b) =>
+            sort === "title"
+              ? a.title.localeCompare(b.title)
+              : b.timestamp - a.timestamp,
+          );
         const pageIndex = Math.max(
           1,
           Math.min(
@@ -108,6 +113,61 @@ for (const total of [1, 200, 1000, 5000])
         }),
       ).toBeVisible();
       await expect(page.getByRole("article")).toHaveCount(50);
+    }
+    if (total === 200 && !process.env.FLOW_LIBRARY_BASELINE) {
+      await page
+        .getByRole("combobox", { name: "View", exact: true })
+        .selectOption("list");
+      await page
+        .getByRole("combobox", { name: "Category", exact: true })
+        .selectOption("category:Fixtures");
+      await page
+        .getByRole("combobox", { name: "Sort by", exact: true })
+        .selectOption("title");
+      await expect(
+        page.getByRole("heading", { name: "Fixture 0000", exact: true }),
+      ).toBeVisible();
+      await page
+        .getByRole("button", { name: "Next page", exact: true })
+        .click();
+      await expect(
+        page.getByRole("heading", { name: "Fixture 0050", exact: true }),
+      ).toBeVisible();
+      await page.evaluate(() => window.scrollTo(0, 900));
+      await expect
+        .poll(() =>
+          page.evaluate(() => sessionStorage.getItem("flow.library.scroll")),
+        )
+        .toBe("900");
+      await page.reload();
+      await expect(page.getByRole("article")).toHaveCount(50);
+      await expect(
+        page.getByRole("combobox", { name: "View", exact: true }),
+      ).toHaveValue("list");
+      await expect(
+        page.getByRole("combobox", { name: "Category", exact: true }),
+      ).toHaveValue("category:Fixtures");
+      await expect(
+        page.getByRole("combobox", { name: "Sort by", exact: true }),
+      ).toHaveValue("title");
+      await expect(
+        page.getByRole("heading", { name: "Fixture 0050", exact: true }),
+      ).toBeAttached();
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(900);
+      await page
+        .getByRole("textbox", { name: "Search", exact: true })
+        .fill("Fixture 0060");
+      await expect(page.getByRole("article")).toHaveCount(1);
+      await page.reload();
+      await expect(
+        page.getByRole("textbox", { name: "Search", exact: true }),
+      ).toHaveValue("Fixture 0060");
+      await expect(
+        page.getByRole("heading", { name: "Fixture 0060", exact: true }),
+      ).toBeVisible();
+      // The restored view makes extra intentional requests; keep the following
+      // polling bound relative to the next search rather than those interactions.
+      libraryRequests = 0;
     }
     await page
       .getByRole("textbox", { name: "Search", exact: true })

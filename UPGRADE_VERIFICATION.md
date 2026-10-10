@@ -274,7 +274,29 @@ remaining ledger requirements are not complete.
   completion. Tests include corrupt source bytes, private metadata, different
   native offsets, descriptor limits, resource yielding and zero-network-payload
   reuse. Portable Merkle tests and a real MSVC syntax check of the new native
-  submission against pinned headers passed; complete native runs remain pending.
+  submission against pinned headers passed. The first full native run rejected
+  the new fixture: its file-tree dictionary closed one level too early. Fixed
+  the bencoding; native transfer/reuse acceptance remains pending a passing run.
 - Three production dashboard repeats measured 200350 gzip bytes of initial JS,
   LCP 1044-1116 ms, CLS 0.004754 and first-repeat input-to-paint 80.1 ms under the
   documented lab conditions. These are lab results, not physical-phone INP.
+
+## Native gate and library restoration corrections
+
+- Full build `38082141295` failed at `c885bb60`: Linux rejected malformed test
+  metainfo, and older MinGW headers omitted WFP identifiers and flags. Upstream
+  queue/deadline simulations had passed, but do not establish native reuse
+  acceptance. The workflow now gives that job an explicit descriptive name.
+- Corrected file-tree nesting. The WFP helper uses the same public identifiers
+  from Windows SDK 10.0.26100.0 on MinGW, keeping native SDK declarations for
+  MSVC and unsigned comparisons for WFP result codes. Actual MSVC compilation
+  and non-mutating preview passed; cross-compilation and enforcement still
+  require the corrected CI run. No filters were installed on the workstation.
+- Shared bounded API error redaction now also covers ffprobe failures.
+- Library scroll restoration now completes after its animation frame, preserves
+  the saved position while loading, and survives cancelled/StrictMode setups.
+  Two unit regressions passed. A real browser test passed for restoring list
+  mode, category, sort, second page, search and 900-pixel scroll after reload.
+- Complete local web suite: 91 passed, one native-exported contract skipped;
+  TypeScript and ESLint passed. PGO run `38082696428` was cancelled after the
+  known native fixture failure; it will be rerun against corrected source.

@@ -18,6 +18,64 @@
 #include <string>
 #include <vector>
 
+// Older MinGW-w64 fwpmu/fwpmtypes headers expose the API structures but omit
+// these public identifiers and flags. Values match the Windows 10 SDK
+// 10.0.26100.0 fwpmu.h/fwpmtypes.h; the native SDK build uses its declarations.
+#ifdef __MINGW32__
+namespace flow_wfp {
+constexpr GUID connect4 = {0xc38d57d1,
+                           0x05a7,
+                           0x4c33,
+                           {0x90, 0x4f, 0x7f, 0xbc, 0xee, 0xe6, 0x0e, 0x82}};
+constexpr GUID connect6 = {0x4a72393b,
+                           0x319f,
+                           0x44bc,
+                           {0x84, 0xc3, 0xba, 0x54, 0xdc, 0xb3, 0xb6, 0xb4}};
+constexpr GUID accept4 = {0xe1cd9fe7,
+                          0xf4b5,
+                          0x4273,
+                          {0x96, 0xc0, 0x59, 0x2e, 0x48, 0x7b, 0x86, 0x50}};
+constexpr GUID accept6 = {0xa3b42c97,
+                          0x9f04,
+                          0x4672,
+                          {0xb8, 0x7e, 0xce, 0xe9, 0xc4, 0x83, 0x25, 0x7f}};
+constexpr GUID app = {0xd78e1e87,
+                      0x8644,
+                      0x4ea5,
+                      {0x94, 0x37, 0xd8, 0x09, 0xec, 0xef, 0xc9, 0x71}};
+constexpr GUID localInterface = {0x4cd62a49,
+                            0x59c3,
+                            0x4969,
+                            {0xb7, 0xf3, 0xbd, 0xa5, 0xd3, 0x28, 0x90, 0xa4}};
+constexpr GUID remote = {0xb235ae9a,
+                         0x1d64,
+                         0x49b8,
+                         {0xa4, 0x4c, 0x5f, 0xf3, 0xd9, 0x09, 0x50, 0x45}};
+} // namespace flow_wfp
+#else
+namespace flow_wfp {
+const GUID &connect4 = FWPM_LAYER_ALE_AUTH_CONNECT_V4;
+const GUID &connect6 = FWPM_LAYER_ALE_AUTH_CONNECT_V6;
+const GUID &accept4 = FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4;
+const GUID &accept6 = FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V6;
+const GUID &app = FWPM_CONDITION_ALE_APP_ID;
+const GUID &localInterface = FWPM_CONDITION_IP_LOCAL_INTERFACE;
+const GUID &remote = FWPM_CONDITION_IP_REMOTE_ADDRESS;
+} // namespace flow_wfp
+#endif
+#ifndef FWPM_FILTER_FLAG_PERSISTENT
+#define FWPM_FILTER_FLAG_PERSISTENT 0x00000001
+#endif
+#ifndef FWPM_FILTER_FLAG_DISABLED
+#define FWPM_FILTER_FLAG_DISABLED 0x00000020
+#endif
+#ifndef FWPM_PROVIDER_FLAG_PERSISTENT
+#define FWPM_PROVIDER_FLAG_PERSISTENT 0x00000001
+#endif
+#ifndef FWPM_SUBLAYER_FLAG_PERSISTENT
+#define FWPM_SUBLAYER_FLAG_PERSISTENT 0x00000001
+#endif
+
 static GUID providerKey = {0x4b6555c1,
                            0xf72b,
                            0x4824,
@@ -28,8 +86,8 @@ static GUID sublayerKey = {0x8d1e07d5,
                            {0x86, 0xe2, 0xd4, 0xa1, 0xbe, 0x93, 0xf7, 0x1d}};
 constexpr unsigned ruleCount = 30;
 static const std::array<GUID, 4> layers = {
-    FWPM_LAYER_ALE_AUTH_CONNECT_V4, FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4,
-    FWPM_LAYER_ALE_AUTH_CONNECT_V6, FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V6};
+    flow_wfp::connect4, flow_wfp::accept4, flow_wfp::connect6,
+    flow_wfp::accept6};
 static const std::array<FWP_V4_ADDR_AND_MASK, 7> lan4 = {
     {{0x0a000000, 0xff000000},
      {0xac100000, 0xfff00000},
@@ -120,7 +178,7 @@ static bool sameApp(const FWPM_FILTER0 &filter, const FWP_BYTE_BLOB *app) {
     return true; // Only the explicit remove-all-owned command uses this.
   for (UINT32 i = 0; i < filter.numFilterConditions; i++) {
     const auto &condition = filter.filterCondition[i];
-    if (condition.fieldKey == FWPM_CONDITION_ALE_APP_ID &&
+    if (condition.fieldKey == flow_wfp::app &&
         condition.matchType == FWP_MATCH_EQUAL &&
         condition.conditionValue.type == FWP_BYTE_BLOB_TYPE) {
       const auto *blob = condition.conditionValue.byteBlob;
@@ -153,16 +211,15 @@ static bool intact(const FWPM_FILTER0 &filter, const Tag &tag) {
     return true;
   const FWPM_FILTER_CONDITION0 *extra = nullptr;
   for (UINT32 i = 0; i < filter.numFilterConditions; i++)
-    if (filter.filterCondition[i].fieldKey != FWPM_CONDITION_ALE_APP_ID)
+    if (filter.filterCondition[i].fieldKey != flow_wfp::app)
       extra = &filter.filterCondition[i];
   if (!extra || extra->matchType != FWP_MATCH_EQUAL)
     return false;
   const auto &value = extra->conditionValue;
   if (offset == 0)
-    return extra->fieldKey == FWPM_CONDITION_IP_LOCAL_INTERFACE &&
-           value.type == FWP_UINT64 && value.uint64 &&
-           *value.uint64 == tag.luid;
-  if (extra->fieldKey != FWPM_CONDITION_IP_REMOTE_ADDRESS)
+    return extra->fieldKey == flow_wfp::localInterface && value.type == FWP_UINT64 &&
+           value.uint64 && *value.uint64 == tag.luid;
+  if (extra->fieldKey != flow_wfp::remote)
     return false;
   if (layer < 2)
     return value.type == FWP_V4_ADDR_MASK && value.v4AddrMask &&
@@ -191,7 +248,7 @@ static std::vector<Found> enumerate(Engine &engine, const FWP_BYTE_BLOB *app) {
     HANDLE enumeration = nullptr;
     auto error =
         FwpmFilterCreateEnumHandle0(engine.handle, &query, &enumeration);
-    if (error == FWP_E_NEVER_MATCH)
+    if (error == static_cast<DWORD>(FWP_E_NEVER_MATCH))
       continue;
     check(error);
     try {
@@ -229,7 +286,7 @@ static void ensureProvider(Engine &engine) {
       const_cast<wchar_t *>(L"TorrServer-Flow interface guard");
   provider.flags = FWPM_PROVIDER_FLAG_PERSISTENT;
   auto error = FwpmProviderAdd0(engine.handle, &provider, nullptr);
-  if (error != FWP_E_ALREADY_EXISTS)
+  if (error != static_cast<DWORD>(FWP_E_ALREADY_EXISTS))
     check(error);
   FWPM_SUBLAYER0 sublayer{};
   sublayer.subLayerKey = sublayerKey;
@@ -238,7 +295,7 @@ static void ensureProvider(Engine &engine) {
   sublayer.flags = FWPM_SUBLAYER_FLAG_PERSISTENT;
   sublayer.weight = 0x5000;
   error = FwpmSubLayerAdd0(engine.handle, &sublayer, nullptr);
-  if (error != FWP_E_ALREADY_EXISTS)
+  if (error != static_cast<DWORD>(FWP_E_ALREADY_EXISTS))
     check(error);
 }
 static void add(Engine &engine, const App &app, const GUID &layer, UINT64 luid,
@@ -246,7 +303,7 @@ static void add(Engine &engine, const App &app, const GUID &layer, UINT64 luid,
                 const GUID *field) {
   Tag tag = makeTag(rule, luid);
   std::array<FWPM_FILTER_CONDITION0, 2> conditions{};
-  conditions[0].fieldKey = FWPM_CONDITION_ALE_APP_ID;
+  conditions[0].fieldKey = flow_wfp::app;
   conditions[0].matchType = FWP_MATCH_EQUAL;
   conditions[0].conditionValue.type = FWP_BYTE_BLOB_TYPE;
   conditions[0].conditionValue.byteBlob = app.blob;
@@ -284,23 +341,20 @@ static void install(Engine &engine, const App &app, UINT64 luid) {
     FWP_CONDITION_VALUE0 selected{};
     selected.type = FWP_UINT64;
     selected.uint64 = &luid;
-    add(engine, app, layers[i], luid, rule++, &selected,
-        &FWPM_CONDITION_IP_LOCAL_INTERFACE);
+    add(engine, app, layers[i], luid, rule++, &selected, &flow_wfp::localInterface);
     if (i < 2) {
       for (auto range : lan4) {
         FWP_CONDITION_VALUE0 value{};
         value.type = FWP_V4_ADDR_MASK;
         value.v4AddrMask = &range;
-        add(engine, app, layers[i], luid, rule++, &value,
-            &FWPM_CONDITION_IP_REMOTE_ADDRESS);
+        add(engine, app, layers[i], luid, rule++, &value, &flow_wfp::remote);
       }
     } else {
       for (auto range : lan6) {
         FWP_CONDITION_VALUE0 value{};
         value.type = FWP_V6_ADDR_MASK;
         value.v6AddrMask = &range;
-        add(engine, app, layers[i], luid, rule++, &value,
-            &FWPM_CONDITION_IP_REMOTE_ADDRESS);
+        add(engine, app, layers[i], luid, rule++, &value, &flow_wfp::remote);
       }
     }
     add(engine, app, layers[i], luid, rule++, nullptr, nullptr);

@@ -31,7 +31,7 @@ func networkProtocolFixture(hybrid bool) ([]byte, map[string][]byte) {
 	firstB := pair(sha256.Sum256(b[:16384]), sha256.Sum256(b[16384:32768]))
 	lastB := pair(sha256.Sum256(b[32768:]), [32]byte{})
 	rootB := pair(firstB, lastB)
-	info := fmt.Sprintf("d9:file treed5:a.mkvd0:d6:lengthi17001e11:pieces root32:%seee5:b.mkvd0:d6:lengthi33017e11:pieces root32:%seeee", string(rootA[:]), string(rootB[:]))
+	info := fmt.Sprintf("d9:file treed5:a.mkvd0:d6:lengthi17001e11:pieces root32:%see5:b.mkvd0:d6:lengthi33017e11:pieces root32:%seee", string(rootA[:]), string(rootB[:]))
 	if hybrid {
 		// Canonical hybrid layout includes virtual alignment padding between files.
 		info += "5:filesld6:lengthi17001e4:pathl5:a.mkveed4:attr1:p6:lengthi15767e4:pathl4:.pad5:15767eed6:lengthi33017e4:pathl5:b.mkveee"
