@@ -333,6 +333,12 @@ go_build() {
     log "go build ($TARGET)"
     # Opt-in only: native libtorrent work is not optimized by Go PGO.
     local pgo_args=(-pgo=off)
+    local strip_flags='-s -w'
+    case "${TS_PROFILE_SYMBOLS:-0}" in
+        0) : ;;
+        1) strip_flags='' ;;
+        *) log 'TS_PROFILE_SYMBOLS must be 0 or 1'; exit 1 ;;
+    esac
     if [[ -n "${TS_PGO_PROFILE:-}" ]]; then
         [[ -f "$TS_PGO_PROFILE" ]] || { log "TS_PGO_PROFILE is not a readable CPU profile"; exit 1; }
         pgo_args=("-pgo=$TS_PGO_PROFILE")
@@ -356,7 +362,7 @@ go_build() {
             go build \
             "${pgo_args[@]}" \
             "$@" \
-            -ldflags "-s -w ${EXTRA_GO_LDFLAGS:-} -X server/version.Version=${TS_VERSION}" \
+            -ldflags "$strip_flags ${EXTRA_GO_LDFLAGS:-} -X server/version.Version=${TS_VERSION}" \
             -o "$target_out" \
             ./cmd
         file "$target_out"

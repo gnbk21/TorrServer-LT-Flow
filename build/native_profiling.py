@@ -1,0 +1,127 @@
+"""Opt-in native CPU evidence on disposable CI runners, never the user's host."""
+import csv
+import hashlib
+import io
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+import uuid
+import xml.etree.ElementTree as ET
+
+LIMIT = 128 * 1024 * 1024
+
+
+def validate(kind):
+    if kind not in ('etw', 'perfetto'):
+        raise ValueError('Unknown native profiler')
+    if os.environ.get('GITHUB_ACTIONS') != 'true' or os.environ.get('FLOW_ISOLATED_PROFILING') != 'github-hosted':
+        raise ValueError('Native capture requires an explicitly isolated GitHub-hosted runner')
+    if (kind == 'etw') != (os.name == 'nt'):
+        raise ValueError('Native profiler does not match this platform')
+
+
+def evidence(path):
+    size = path.stat().st_size
+    if not 0 < size <= LIMIT:
+        raise ValueError('Native trace is empty or exceeds 128 MiB')
+    with path.open('rb') as data:
+        digest = hashlib.file_digest(data, 'sha256').hexdigest()
+    return {'name': path.name, 'bytes': size, 'sha256': digest}
+
+
+def command(arguments, log, timeout=45):
+    with log.open('ab') as output:
+        subprocess.run(arguments, stdout=output, stderr=subprocess.STDOUT, check=True, timeout=timeout)
+
+
+def capture(server, kind, seconds, tools=None):
+    validate(kind)
+    if not 1 <= seconds <= 30 or server.process.poll() is not None or server.process.pid <= 0:
+        raise ValueError('Native capture needs a live owned process and a duration of 1..30 seconds')
+    report = {'schema_version': 1, 'kind': kind, 'owned_pid': server.process.pid,
+              'duration_seconds': seconds, 'isolated_runner': True,
+              'profiling_affects_measurement': True, 'passed': False}
+    log = server.state / 'native-profiler.log'
+    try:
+        if kind == 'etw':
+            # CPU profiling is system-scoped. Restrict it to a disposable runner
+            # executing synthetic fixtures; never start/stop a workstation WPR.
+            wpr = Path(os.environ['SystemRoot']) / 'System32/wpr.exe'
+            tracerpt = wpr.with_name('tracerpt.exe')
+            trace = server.state / 'native-cpu.etl'
+            instance = ['-instancename', 'FlowSynthetic-'+str(server.process.pid)+'-'+uuid.uuid4().hex[:12]]
+            started = False
+            try:
+                try:
+                    command([str(wpr), '-start', 'CPU', '-filemode', *instance], log)
+                except subprocess.TimeoutExpired:
+                    # The start command may have created a session before its
+                    # timeout. Cancel only our unique instance, never a default.
+                    command([str(wpr), '-cancel', *instance], log)
+                    raise
+                started = True
+                deadline = time.monotonic() + seconds
+                while time.monotonic() < deadline:
+                    if server.process.poll() is not None:
+                        raise RuntimeError('Owned process exited during ETW capture')
+                    time.sleep(max(0, min(.1, deadline-time.monotonic())))
+            finally:
+                if started:
+                    try:
+                        command([str(wpr), '-stop', str(trace), '-skipPdbGen', *instance], log, timeout=60)
+                    except Exception:
+                        command([str(wpr), '-cancel', *instance], log)
+                        raise
+            report['trace'] = evidence(trace)
+            summary = server.state / 'etw-summary.xml'
+            command([str(tracerpt), str(trace), '-summary', str(summary), '-o', 'NUL', '-y'], log)
+            evidence(summary)
+            ET.parse(summary)  # A saved file alone is not a decodable ETW trace.
+            report.update(scope='System CPU on disposable synthetic CI; filter owned PID in WPA',
+                          decoder_validated=True, native_attribution_known=False)
+        else:
+            tools = Path(tools).resolve()
+            tracebox, processor = tools / 'tracebox', tools / 'trace_processor_shell'
+            for tool in (tracebox, processor):
+                if not tool.is_file():
+                    raise ValueError('Pinned Perfetto tools are missing')
+            trace = server.state / 'native-cpu.perfetto-trace'
+            config = server.state / 'native-cpu.pbtxt'
+            config.write_text(f'''duration_ms: {seconds*1000}
+max_file_size_bytes: {64*1024*1024}
+buffers {{ size_kb: 32768 fill_policy: DISCARD }}
+data_sources {{ config {{ name: "linux.perf" perf_event_config {{
+timebase {{ counter: SW_CPU_CLOCK frequency: 99 timestamp_clock: PERF_CLOCK_MONOTONIC }}
+callstack_sampling {{ scope {{ target_pid: {server.process.pid} }} kernel_frames: true }}
+}} }} }}
+''', encoding='utf-8')
+            command(['sudo', '-n', '--', str(tracebox), '--txt', '-c', str(config), '-o', str(trace)],
+                    log, timeout=seconds+45)
+            report['trace'] = evidence(trace)
+            query = f'''SELECT count(*) AS samples, count(s.callsite_id) AS stacks,
+count(CASE WHEN p.pid != {server.process.pid} OR p.pid IS NULL THEN 1 END) AS outside_samples
+FROM perf_sample s LEFT JOIN thread t ON t.utid=s.utid LEFT JOIN process p ON p.upid=t.upid;'''
+            result = server.state / 'native-samples.csv'
+            with result.open('wb') as output, log.open('ab') as errors:
+                subprocess.run([str(processor), '-Q', query, str(trace)], stdout=output, stderr=errors,
+                               check=True, timeout=30)
+            evidence(result)
+            rows = list(csv.DictReader(io.StringIO(result.read_text(encoding='utf-8'))))
+            if len(rows) != 1:
+                raise ValueError('Native sample query returned an invalid result')
+            samples = {key: int(rows[0][key]) for key in ('samples', 'stacks', 'outside_samples')}
+            if samples['samples'] <= 0 or samples['stacks'] <= 0 or samples['outside_samples'] != 0:
+                raise ValueError('Native capture is empty, lacks stacks or includes another process')
+            report.update(scope='Owned process only; no system scheduling, logs or process scan',
+                          decoder_validated=True, samples=samples,
+                          tools={tool.name: evidence(tool)['sha256'] for tool in (tracebox, processor)},
+                          native_attribution_known=False)
+        report['passed'] = True
+        return report
+    except Exception as error:
+        report['failure_type'] = type(error).__name__
+        raise
+    finally:
+        (server.state / 'native-cpu.report.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')

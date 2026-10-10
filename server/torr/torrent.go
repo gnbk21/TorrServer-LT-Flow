@@ -716,16 +716,11 @@ func (t *Torrent) Close() bool {
 		return false
 	}
 	t.mu.Lock()
-	if t.Stat == state.TorrentClosed {
-		t.mu.Unlock()
-		t.markClosed()
-		return true
-	}
 	t.Stat = state.TorrentClosed
+	handle := t.lh.Swap(nil)
 	t.mu.Unlock()
 	t.markClosed()
 	hash := t.Hash()
-	handle := t.lh.Swap(nil)
 	if handle != nil && t.bt != nil {
 		// Only remove the libtorrent torrent if no OTHER live instance owns
 		// it. A duplicate Torrent that lost an add race (or any stale copy)
@@ -733,9 +728,14 @@ func (t *Torrent) Close() bool {
 		// removing it here would kill an active stream. The registry entry
 		// is either us or already deleted (RemoveTorrent deletes before
 		// closing) — both mean we own the removal.
-		if cur := t.bt.GetTorrent(hash); cur == nil || cur == t {
+		// Keep ownership and native removal atomic with NewTorrent's add.
+		// Checking through GetTorrent and removing after it unlocked allowed a
+		// fresh add to reuse this native handle just before we removed it.
+		t.bt.mu.Lock()
+		if cur := t.bt.findTorrentLocked(hash); cur == nil || cur == t {
 			_ = handle.Remove(false)
 		}
+		t.bt.mu.Unlock()
 	}
 	return true
 }

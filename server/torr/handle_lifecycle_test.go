@@ -1,9 +1,15 @@
 package torr
 
 import (
+	"bytes"
+	"crypto/sha1"
+	"runtime"
 	"server/lt"
+	"server/settings"
+	"server/torr/storage/torrstor"
 	"sync"
 	"testing"
+	"time"
 )
 
 // Metadata/preload callers can retain a snapshot while cleanup detaches it.
@@ -35,5 +41,63 @@ func TestCloseDetachesHandleWhileCallersSnapshot(t *testing.T) {
 		if torrent.LTHandle() != nil {
 			t.Fatal("closed torrent retained its published handle")
 		}
+	}
+}
+
+// Exercise real native identity and cache lifetime, rather than a zero-valued
+// handle. A retirement racing revival must not invalidate the fresh instance.
+func TestNativeRetirementCannotRemoveRevivedHandle(t *testing.T) {
+	old := settings.BTsets()
+	f := settings.DefaultFlowSettings()
+	f.PeerResumeHints = false
+	settings.StoreBTsets(&settings.BTSets{CacheSize: 4 << 20, DisableDHT: true, Flow: f})
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	storage := torrstor.Global()
+	if err := storage.Install(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = storage.Uninstall() })
+	session, err := lt.NewSession(lt.SessionConfig{"enable_dht": false, "enable_lsd": false, "enable_upnp": false, "enable_natpmp": false, "listen_interfaces": "127.0.0.1:0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = session.Close() })
+	digest := sha1.Sum(bytes.Repeat([]byte{0x37}, 16384))
+	payload := append([]byte("d4:infod6:lengthi16384e4:name4:test12:piece lengthi16384e6:pieces20:"), digest[:]...)
+	payload = append(payload, []byte("ee")...)
+	metadata, err := lt.ParseTorrentBytes(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bt := &BTServer{session: session, torrents: map[Hash]*Torrent{}}
+	spec := &TorrentSpec{InfoHash: NewHashFromHex(metadata.InfoHash), InfoBytes: payload}
+	for iteration := 0; iteration < 128; iteration++ {
+		retiring, err := NewTorrent(spec, bt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		done := make(chan struct{})
+		go func() { retiring.Close(); close(done) }()
+		deadline := time.Now().Add(time.Second)
+		for retiring.LTHandle() != nil && time.Now().Before(deadline) {
+			runtime.Gosched()
+		}
+		if retiring.LTHandle() != nil {
+			t.Fatal("retirement did not detach the handle")
+		}
+		fresh, err := NewTorrent(spec, bt)
+		<-done
+		if err != nil || fresh == nil || fresh == retiring {
+			t.Fatal("revival failed", err)
+		}
+		if handle := fresh.LTHandle(); handle == nil {
+			t.Fatal("revival lost its handle")
+		} else if st, err := handle.Status(); err != nil || st == nil || !st.HasMetadata {
+			t.Fatal("retirement removed the revived native identity", err)
+		}
+		if storage.CacheByHash(fresh.StorageHash()) == nil {
+			t.Fatal("revival lost its cache")
+		}
+		bt.RemoveTorrent(fresh.Hash())
 	}
 }

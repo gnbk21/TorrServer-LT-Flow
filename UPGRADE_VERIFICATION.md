@@ -300,3 +300,22 @@ remaining ledger requirements are not complete.
 - Complete local web suite: 91 passed, one native-exported contract skipped;
   TypeScript and ESLint passed. PGO run `38082696428` was cancelled after the
   known native fixture failure; it will be rerun against corrected source.
+
+## Native CPU capture and retirement follow-up
+
+- Added isolated Windows ETW and PID-scoped Linux Perfetto capture to the real
+  generated-media workload. Profiler fixtures preserve symbols separately from
+  ordinary release binaries. Capture duration, size, decoded sample scope and
+  cleanup have explicit gates; workstation CPU recording is refused.
+  Eight portable profiling/control tests and actionlint passed. Actual native
+  capture and attribution remain pending the new CI jobs; see NATIVE_PROFILING.md.
+- Identified a concrete retirement/revival race: Close checked registry
+  ownership, unlocked, then removed the native handle. A fresh NewTorrent could
+  reuse that handle between the check and removal. Close now detaches under its
+  state lock and holds the registry lock across ownership check/native removal.
+  Added 128 real native retirement/revival cycles checking handle metadata and
+  cache ownership. Native/race verification is pending. This could explain the
+  earlier zero-byte endurance failure, but causality has not been established.
+- Corrected-source `2caccb12` macOS builds passed for both architectures.
+  Windows cross-compilation now passed; actual WFP enforcement still awaits the
+  service job. Full Linux/native and other acceptance gates are still running.
