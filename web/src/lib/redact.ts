@@ -3,7 +3,7 @@ export function redactDiagnostic(value: unknown): string {
   const text = Array.isArray(value) ? value.join(", ") : String(value ?? "—");
   return text
     .replace(
-      /(?:https?|udp|wss?|torrs):\/\/[^\s"'<>]+|magnet:\?[^\s"'<>]+/gi,
+      /(?:https?|udp|wss?|socks(?:4a?|5h?)|torrs):\/\/[^\s"'<>]+|magnet:\?[^\s"'<>]+/gi,
       (raw) => {
         try {
           const url = new URL(raw);
@@ -27,7 +27,7 @@ export function redactDiagnostic(value: unknown): string {
       "$1[redacted]",
     )
     .replace(
-      /\b((?:probe_key|passkey|password|passwd|api[_-]?key|access[_-]?token|token|authorization|secret|capability)["']?\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s&;,"']+)/gi,
+      /\b((?:probe_key|passkey|password|passwd|api[_-]?key|(?:access|session|client|bot|tg)[_-]?token|token|ss|authorization|secret|capability)["']?\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s&;,"']+)/gi,
       "$1[redacted]",
     );
 }

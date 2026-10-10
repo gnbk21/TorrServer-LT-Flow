@@ -15,7 +15,7 @@ def component(name, version, ecosystem, license_name=None, properties=()):
     return result
 
 
-def generate(root, binaries, tag, commit, timestamp, native_root):
+def generate(root, binaries, tag, commit, timestamp, native_root, guard=None):
     components, dependencies = {}, {}
     app_ref = f'pkg:github/gnbk21/TorrServer-LT-Flow@{commit}'
     app_dependencies = set()
@@ -62,6 +62,23 @@ def generate(root, binaries, tag, commit, timestamp, native_root):
     for package in web['packages']:
         dependencies[web_refs[package['key']]] = sorted({web_refs[key] for key in package['dependencies']})
     app_dependencies.update(web_refs[key] for key in web['roots'])
+    if guard is not None:
+        helper = component('FlowNetworkGuard', commit, 'generic', 'GPL-3.0-only',
+                           [('flow:inventory-evidence', 'Matching source and binary hashes in BUILDINFO.json'),
+                            ('flow:executable-sha256', guard['executable_sha256'])])
+        helper['type'] = 'application'
+        helper['hashes'] = [{'alg':'SHA-256','content':guard['executable_sha256']}]
+        components[helper['bom-ref']] = helper
+        app_dependencies.add(helper['bom-ref'])
+        runtime_refs = []
+        for archive in guard['runtime_archives']:
+            item = component('mingw-w64/'+archive['name'], archive['sha256'], 'generic',
+                             properties=[('flow:inventory-evidence', 'Build compiler static runtime archive; original notices in NATIVE_AND_GO_NOTICES.txt'),
+                                         ('flow:compiler-version', guard['compiler']['version'])])
+            item['hashes'] = [{'alg':'SHA-256','content':archive['sha256']}]
+            components[item['bom-ref']] = item
+            runtime_refs.append(item['bom-ref'])
+        dependencies[helper['bom-ref']] = sorted(runtime_refs)
     dependencies[app_ref] = sorted(app_dependencies)
     for ref in components:
         dependencies.setdefault(ref, [])

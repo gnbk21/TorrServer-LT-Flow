@@ -486,6 +486,20 @@ jobs:
 
       # Primary artifacts are already uploaded. Build a differently stamped
       # native fixture for updater lifecycle tests; never publish this fixture.
+      - name: Build optional Windows interface guard
+        if: matrix.target == 'windows-amd64'
+        run: |
+          x86_64-w64-mingw32-g++ -std=c++17 -O2 -Wall -Wextra -Werror -static -static-libgcc -static-libstdc++ -municode -D_WIN32_WINNT=0x0A00 -DUNICODE -D_UNICODE build/windows-interface-guard.cpp -o _out/FlowNetworkGuard-windows-amd64.exe -lfwpuclnt -liphlpapi -ladvapi32 -lole32 -lws2_32
+          python3 build/guard_manifest.py --binary _out/FlowNetworkGuard-windows-amd64.exe --output _out/FlowNetworkGuard-build.json --compiler x86_64-w64-mingw32-g++
+      - uses: actions/upload-artifact@v4
+        if: matrix.target == 'windows-amd64'
+        with:
+          name: flow-interface-guard-windows
+          path: |
+            _out/FlowNetworkGuard-windows-amd64.exe
+            _out/FlowNetworkGuard-build.json
+          if-no-files-found: error
+
       - name: Build update lifecycle fixture
         if: matrix.target == 'windows-amd64'
         env:
@@ -567,6 +581,13 @@ jobs:
         with:
           name: TorrServer-LT-windows-amd64
           path: service-binary
+      - uses: actions/download-artifact@v4
+        with:
+          name: flow-interface-guard-windows
+          path: interface-guard
+      - name: Isolated per-executable WFP installation, protocol and removal checks
+        shell: pwsh
+        run: ./build/test-windows-interface-guard.ps1 -Guard ./interface-guard/FlowNetworkGuard-windows-amd64.exe -OutputDirectory ./interface-guard-check -InstallFixture
       - name: Restricted account lifecycle
         shell: pwsh
         run: ./build/test-windows-service.ps1 -Executable ./service-binary/TorrServer-LT-windows-amd64.exe -OutputDirectory ./service-test-state -RecoveryProbe ./service-recovery-probe.exe
@@ -594,6 +615,7 @@ jobs:
             service-test-state/recovery-display.txt
             service-test-state/recovery-policy.json
             service-test-state/flow.log
+            interface-guard-check/report.json
             update-test-state/report.json
             service-update-test-state/report.json
             service-update-test-state/state/flow.log

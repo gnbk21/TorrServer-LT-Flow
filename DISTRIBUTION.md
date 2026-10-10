@@ -46,6 +46,10 @@ No publisher signing certificate is bundled or implied.
 
 ## Windows installation
 
+The optional [Windows interface guard](WINDOWS_INTERFACE_GUARD.md) accompanies
+the Windows ZIP. It is never installed automatically. Its explicit preview,
+Administrator install/remove and verification limits are documented separately.
+
 Extract the ZIP. Keep all four PowerShell scripts together. Use an explicit
 state directory separate from the executable directory. Existing state is
 retained; installations are never inferred from whichever process owns a port.

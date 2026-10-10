@@ -17,7 +17,15 @@ it("redacts quoted fields, authorization values and opaque playback paths", () =
     "probe_key=secret",
     "/flow/play/secret",
     "magnet:?xt=urn:btih:secret",
+    "socks5h://alice:secret@proxy.test:1080",
+    "wss://alice:secret@tracker.test/private-secret",
+    "ss=secret TGToken=secret bot_token=secret session_token=secret client_token=secret",
   ]) {
     expect(redactDiagnostic(value)).not.toContain("secret");
   }
+});
+it("does not confuse harmless field suffixes with session tokens", () => {
+  expect(redactDiagnostic("address=192.0.2.1 progress=20")).toBe(
+    "address=192.0.2.1 progress=20",
+  );
 });

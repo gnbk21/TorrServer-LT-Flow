@@ -5,6 +5,7 @@ export async function searchPosters(
   config: TMDBSettings,
   title: string,
   language: string,
+  signal?: AbortSignal,
 ): Promise<string[]> {
   const base = new URL(config.APIURL || "https://api.themoviedb.org");
   if (
@@ -22,6 +23,9 @@ export async function searchPosters(
     query: title.slice(0, 100),
   }).toString();
   const controller = new AbortController();
+  const cancel = () => controller.abort();
+  signal?.addEventListener("abort", cancel, { once: true });
+  if (signal?.aborted) cancel();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
     const response = await fetch(base, {
@@ -61,5 +65,6 @@ export async function searchPosters(
       .map((item) => `${imageBase.origin}/t/p/w300${item.poster_path}`);
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener("abort", cancel);
   }
 }

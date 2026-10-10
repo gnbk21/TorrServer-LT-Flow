@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-var remoteURL = regexp.MustCompile(`(?i)(?:https?|udp|magnet|torrs)://[^\s<>"']+|magnet:\?[^\s<>"']+`)
-var sensitiveValue = regexp.MustCompile(`(?i)((?:probe_key|passkey|password|passwd|api[_-]?key|access[_-]?token|token|authorization|secret|capability)["']?\s*[=:]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s&;,"']+)`)
+var remoteURL = regexp.MustCompile(`(?i)(?:https?|wss?|udp|socks(?:4a?|5h?)|magnet|torrs)://[^\s<>"']+|magnet:\?[^\s<>"']+`)
+var sensitiveValue = regexp.MustCompile(`(?i)\b((?:probe_key|passkey|password|passwd|api[_-]?key|(?:access|session|client|bot|tg)[_-]?token|token|ss|authorization|secret|capability)["']?\s*[=:]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s&;,"']+)`)
 var authorizationValue = regexp.MustCompile(`(?i)(authorization["']?\s*[=:]\s*)(?:bearer|basic)\s+[^\s&,;"']+`)
 var capabilityPath = regexp.MustCompile(`/flow/play/[^\s/?"']+`)
 

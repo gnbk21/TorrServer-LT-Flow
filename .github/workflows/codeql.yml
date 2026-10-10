@@ -11,6 +11,25 @@ concurrency:
   group: codeql-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  windows-guard:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: cpp
+          build-mode: manual
+          queries: security-extended
+      - name: Extract the real Windows WFP helper
+        shell: pwsh
+        run: ./build/build-windows-interface-guard.ps1
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /windows-interface-guard
   web:
     uses: ./.github/workflows/build-web.yml
     with:

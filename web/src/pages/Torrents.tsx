@@ -1,11 +1,19 @@
 import { torrentMagnet } from "../lib/torrentLink";
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
-import { useLibraryPage, useActive, refreshLibrary } from "../hooks/queries";
+import {
+  useLibraryPage,
+  useActive,
+  useActiveTorrent,
+  refreshLibrary,
+} from "../hooks/queries";
 import { usePreference, isString, isPage } from "../hooks/preferences";
 import { torrentsApi } from "../api/torrents";
 import type { Torrent } from "../types/torrent";
-import { TorrentCard } from "../components/torrent/TorrentCard";
+import {
+  TorrentCard,
+  type TorrentCardProps,
+} from "../components/torrent/TorrentCard";
 import { AddTorrentModal } from "../components/torrent/AddTorrentModal";
 import { TorrentFilesDialog } from "../components/torrent/TorrentFilesDialog";
 import { Button } from "../components/common/Button";
@@ -43,6 +51,37 @@ function DiagnosticsView({
     </Suspense>
   );
 }
+const selectNoActivityData = () => null;
+function LiveTorrentCard(props: TorrentCardProps) {
+  const live = useActiveTorrent(props.torrent.hash).data;
+  const torrent = live
+    ? {
+        ...props.torrent,
+        ...live.torrent,
+        flow_playback: (live.status.sessions || [])
+          .filter((session) => session.active_readers > 0)
+          .map((session) => ({
+            file_index: session.file_index,
+            buffer_seconds:
+              session.playback_consumption_rate > 0
+                ? session.buffer_ahead_seconds
+                : null,
+            sustainability:
+              session.playback_consumption_rate > 0
+                ? session.sustainability_ratio
+                : null,
+            buffer_warning: session.buffer_warning,
+          })),
+      }
+    : props.torrent;
+  return (
+    <TorrentCard
+      {...props}
+      torrent={torrent}
+      isActiveStream={(torrent.active_readers ?? 0) > 0}
+    />
+  );
+}
 export default function Torrents() {
   const { t } = useTranslation();
   const [filter, setFilter] = usePreference("library.filter", "", isString);
@@ -69,7 +108,7 @@ export default function Torrents() {
     return () => clearTimeout(timer);
   }, [filter]);
   const query = useLibraryPage({ q: search, category, sort, page, limit: 50 });
-  const activity = useActive();
+  const activity = useActive(selectNoActivityData);
   const restoredScroll = useRef(false);
   useEffect(() => {
     if (!query.data || restoredScroll.current) return;
@@ -108,27 +147,7 @@ export default function Torrents() {
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const pages = Math.max(1, Math.ceil((query.data?.total || 0) / 50));
   const currentPage = query.data?.page || page;
-  const visibleRows = (query.data?.items || []).map((row) => {
-    const live = activity.data?.items.find(
-      (item) => item.torrent.hash === row.hash,
-    );
-    return live
-      ? {
-          ...row,
-          ...live.torrent,
-          flow_playback: (live.status.sessions || [])
-            .filter((s) => s.active_readers > 0)
-            .map((s) => ({
-              file_index: s.file_index,
-              buffer_seconds:
-                s.playback_consumption_rate > 0 ? s.buffer_ahead_seconds : null,
-              sustainability:
-                s.playback_consumption_rate > 0 ? s.sustainability_ratio : null,
-              buffer_warning: s.buffer_warning,
-            })),
-        }
-      : row;
-  });
+  const visibleRows = query.data?.items || [];
   const act = async (
     key: string,
     fn: () => Promise<unknown>,
@@ -269,6 +288,13 @@ export default function Torrents() {
           stale={!!query.data}
         />
       )}{" "}
+      {activity.error && (
+        <RequestError
+          error={activity.error}
+          retry={() => activity.refetch()}
+          stale={!!query.data}
+        />
+      )}
       {!!error && <RequestError error={error} />}{" "}
       {notice && <p role="status">{notice}</p>}
       {!query.isPending && !query.error && !visibleRows.length && (
@@ -280,7 +306,7 @@ export default function Torrents() {
         className={mode === "cards" ? "grid xl:grid-cols-2 gap-4" : "space-y-3"}
       >
         {visibleRows.map((row) => (
-          <TorrentCard
+          <LiveTorrentCard
             busy={busy.has(row.hash)}
             compact={mode === "list"}
             key={row.hash}

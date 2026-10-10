@@ -453,7 +453,8 @@
     "linkFailed": "Impossible de créer le lien. Vérifiez l’authentification et les métadonnées.",
     "view": "Vue",
     "cards": "Cartes",
-    "list": "Liste"
+    "list": "Liste",
+    "importProgress": "Traitement de {{done}} / {{total}} sources"
   },
   "runtime": {
     "torrents": "Torrents",
@@ -481,7 +482,9 @@
     "compatible": "Liens classiques autorisés",
     "capabilities": "Authentification ou liens temporaires",
     "localExposure": "Les paramètres d’écoute ne prouvent pas l’accessibilité Internet. Gardez la gestion sur un LAN de confiance.",
-    "bindingLimit": "La liaison suspend le réseau torrent si l’adaptateur disparaît. Le routage DNS et l’absence de fuite VPN restent non vérifiés ; utilisez un coupe-circuit OS/VPN pour cette garantie."
+    "bindingLimit": "La liaison suspend le réseau torrent si l’adaptateur disparaît. Le routage DNS et l’absence de fuite VPN restent non vérifiés ; utilisez un coupe-circuit OS/VPN pour cette garantie.",
+    "guardAvailable": "L’outil Windows est présent. Installation et suppression nécessitent une action explicite de l’administrateur ; l’état des règles et la protection DNS restent non vérifiés ici. Voir WINDOWS_INTERFACE_GUARD.md dans le ZIP de la version.",
+    "guardUnavailable": "L’outil Windows facultatif est absent à côté de cet exécutable. La liaison à une interface ne confirme pas la protection DNS ou contre les fuites."
   },
   "nav": {
     "dashboard": "Tableau de bord",

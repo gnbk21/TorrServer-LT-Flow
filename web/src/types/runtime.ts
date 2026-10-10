@@ -62,6 +62,13 @@ export interface RuntimeStatus {
       leak_protection_verified: boolean;
     };
     vpn_leak_protection_verified: boolean;
+    windows_guard?: {
+      supported: boolean;
+      available: boolean;
+      state: string;
+      dns_verified: boolean;
+      leak_protection_verified: boolean;
+    };
   };
   memory?: {
     rss_bytes: number;

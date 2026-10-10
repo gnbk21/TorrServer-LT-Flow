@@ -64,6 +64,10 @@ jobs:
           path: artifacts
       - uses: actions/download-artifact@v4
         with:
+          name: flow-interface-guard-windows
+          path: artifacts/interface-guard
+      - uses: actions/download-artifact@v4
+        with:
           name: flow-web-cross
           path: server/web/pages/template
       - uses: actions/cache@v4

@@ -766,7 +766,8 @@
     "linkFailed": "Could not create a link. Check authentication and file metadata.",
     "view": "View",
     "cards": "Cards",
-    "list": "List"
+    "list": "List",
+    "importProgress": "Processing {{done}} / {{total}} sources"
   },
   "pairing": {
     "title": "Connect your phone",
@@ -1062,7 +1063,9 @@
     "compatible": "Legacy links allowed",
     "capabilities": "Authenticated or expiring links",
     "localExposure": "Listener settings do not prove Internet reachability. Keep management on a trusted LAN.",
-    "bindingLimit": "Binding pauses torrent networking when the adapter disappears. DNS routing and VPN leak protection remain unverified; use an OS/VPN kill switch for that guarantee."
+    "bindingLimit": "Binding pauses torrent networking when the adapter disappears. DNS routing and VPN leak protection remain unverified; use an OS/VPN kill switch for that guarantee.",
+    "guardAvailable": "Windows guard helper is present. Installation and removal are explicit Administrator actions; its installed state and DNS protection remain unverified here. See WINDOWS_INTERFACE_GUARD.md in the release ZIP.",
+    "guardUnavailable": "Optional Windows guard helper is unavailable beside this executable. Interface binding alone does not verify DNS or leak protection."
   },
   "app": {
     "error": "Unable to display this page.",

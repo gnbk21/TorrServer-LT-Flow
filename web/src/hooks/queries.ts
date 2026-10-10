@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import {
   useQuery,
   useQueries,
@@ -11,7 +11,7 @@ import { flowApi } from "../api/flow";
 import { runtimeApi } from "../api/runtime";
 import { settingsApi } from "../api/settings";
 import { libraryApi } from "../api/library";
-import type { LibraryFilter } from "../types/library";
+import type { ActiveSnapshot, LibraryFilter } from "../types/library";
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -27,20 +27,43 @@ export const queryClient = new QueryClient({
     },
   },
 });
+const visibilitySubscribers = new Set<() => void>();
+const publishVisibility = () =>
+  visibilitySubscribers.forEach((notify) => notify());
+function subscribeVisibility(notify: () => void) {
+  if (!visibilitySubscribers.size)
+    document.addEventListener("visibilitychange", publishVisibility);
+  visibilitySubscribers.add(notify);
+  return () => {
+    visibilitySubscribers.delete(notify);
+    if (!visibilitySubscribers.size)
+      document.removeEventListener("visibilitychange", publishVisibility);
+  };
+}
 export function useVisible() {
-  const [visible, setVisible] = useState(!document.hidden);
+  return useSyncExternalStore(
+    subscribeVisibility,
+    () => !document.hidden,
+    () => true,
+  );
+}
+// Disabling polling does not abort an already running request. Read-only
+// observers use this gate so hidden pages also release network work promptly.
+export function useVisibilityGate(key: readonly unknown[], enabled = true) {
+  const visible = useVisible();
+  const client = useQueryClient();
   useEffect(() => {
-    const update = () => setVisible(!document.hidden);
-    document.addEventListener("visibilitychange", update);
-    return () => document.removeEventListener("visibilitychange", update);
-  }, []);
-  return visible;
+    if (!visible || !enabled)
+      void client.cancelQueries({ queryKey: key, exact: true });
+  }, [client, key, enabled, visible]);
+  return visible && enabled;
 }
 export function useLibrary() {
-  const visible = useVisible();
+  const visible = useVisibilityGate(["torrents"]);
   return useQuery({
     queryKey: ["torrents"],
     queryFn: ({ signal }) => torrentsApi.list(signal),
+    enabled: visible,
     refetchInterval: (query) =>
       !visible
         ? false
@@ -55,7 +78,7 @@ export function useLibrary() {
   });
 }
 export function useLibraryPage(filter: LibraryFilter) {
-  const visible = useVisible();
+  const visible = useVisibilityGate(["library", filter]);
   return useQuery({
     queryKey: ["library", filter],
     queryFn: ({ signal }) => libraryApi.page(filter, signal),
@@ -63,29 +86,48 @@ export function useLibraryPage(filter: LibraryFilter) {
     refetchInterval: visible ? 5000 : false,
   });
 }
-export function useActive() {
-  const visible = useVisible();
-  return useQuery({
+export function useActive<T = ActiveSnapshot>(
+  select?: (data: ActiveSnapshot) => T,
+  poll = true,
+) {
+  const visible = useVisibilityGate(["active"]);
+  return useQuery<ActiveSnapshot, Error, T>({
     queryKey: ["active"],
     queryFn: ({ signal }) => libraryApi.active(signal),
     enabled: visible,
+    select,
+    refetchOnMount: poll,
+    refetchOnWindowFocus: poll,
+    refetchOnReconnect: poll,
     refetchInterval: (query) =>
-      !visible ? false : query.state.data?.items.length ? 1000 : 5000,
+      !visible || !poll ? false : query.state.data?.items.length ? 1000 : 5000,
   });
 }
+export function useActiveTorrent(hash: string) {
+  const select = useCallback(
+    (data: ActiveSnapshot) =>
+      data.items.find((item) => item.torrent.hash === hash),
+    [hash],
+  );
+  // The page owns the polling interval; cards only select from its shared
+  // cache. Giving every card a timer can duplicate fast completed requests.
+  return useActive(select, false);
+}
 export function useRuntime() {
-  const visible = useVisible();
+  const visible = useVisibilityGate(["runtime"]);
   return useQuery({
     queryKey: ["runtime"],
     queryFn: ({ signal }) => runtimeApi.getStatus(signal),
+    enabled: visible,
     refetchInterval: visible ? 5000 : false,
   });
 }
 export function useNetwork() {
-  const visible = useVisible();
+  const visible = useVisibilityGate(["network"]);
   return useQuery({
     queryKey: ["network"],
     queryFn: ({ signal }) => flowApi.getNetwork(signal),
+    enabled: visible,
     refetchInterval: visible ? 5000 : false,
   });
 }
@@ -97,21 +139,28 @@ export function useSettings() {
   });
 }
 export function useFlow(hash?: string) {
-  const visible = useVisible();
+  const visible = useVisibilityGate(["flow", hash], !!hash);
   return useQuery({
     queryKey: ["flow", hash],
     queryFn: ({ signal }) => flowApi.getStatus(hash!, signal),
-    enabled: !!hash,
+    enabled: visible,
     refetchInterval: visible ? 1000 : false,
   });
 }
 export function useFlows(hashes: string[]) {
   const visible = useVisible();
+  const client = useQueryClient();
+  useEffect(() => {
+    if (!visible)
+      for (const hash of hashes)
+        void client.cancelQueries({ queryKey: ["flow", hash], exact: true });
+  }, [client, hashes, visible]);
   return useQueries({
     queries: hashes.map((hash) => ({
       queryKey: ["flow", hash],
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         flowApi.getStatus(hash, signal),
+      enabled: visible,
       refetchInterval: visible ? 1000 : false,
     })),
   });
@@ -162,7 +211,7 @@ export interface CacheState {
   Readers?: { Start: number; End: number; Reader: number }[];
 }
 export function useCache(hash: string, enabled: boolean) {
-  const visible = useVisible();
+  const visible = useVisibilityGate(["cache", hash], enabled);
   return useQuery({
     queryKey: ["cache", hash],
     queryFn: ({ signal }) =>
@@ -171,7 +220,7 @@ export function useCache(hash: string, enabled: boolean) {
         { action: "get", hash },
         signal,
       ),
-    enabled,
+    enabled: visible,
     refetchInterval: visible ? 3000 : false,
   });
 }

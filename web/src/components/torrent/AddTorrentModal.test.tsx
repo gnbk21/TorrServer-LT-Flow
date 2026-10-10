@@ -55,3 +55,27 @@ it("retries only failed batch entries while preserving their metadata", async ()
     title: "Second",
   });
 });
+
+it("reports batch progress and keeps inputs fixed until the batch finishes", async () => {
+  let finish: ((value: never) => void) | undefined;
+  const add = vi.mocked(torrentsApi.add).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  render(<AddTorrentModal isOpen onClose={() => {}} onSuccess={() => {}} />);
+  const input = screen.getByLabelText("ImportLibraryHint");
+  fireEvent.change(input, { target: { value: "magnet:?xt=urn:btih:fixture" } });
+  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await waitFor(() => expect(add).toHaveBeenCalledOnce());
+  expect(input).toBeDisabled();
+  expect(screen.getByText("torrent.importProgress")).toHaveAttribute(
+    "role",
+    "status",
+  );
+  expect(screen.getByRole("button", { name: "Add" })).toBeDisabled();
+  finish?.({ hash: "fixture" } as never);
+  await waitFor(() => expect(input).not.toBeDisabled());
+  expect(screen.queryByText("torrent.importProgress")).not.toBeInTheDocument();
+});

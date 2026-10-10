@@ -206,3 +206,40 @@ remaining ledger requirements are not complete.
   five interleaved repetitions per scenario with identical startup/cache/piece
   geometry. Published builds remain ordinary builds and no automatic adoption
   occurs. The revised PGO comparison still needs actual CI execution.
+
+## Web ownership and Windows guard checkpoint
+
+- Read-only library/active/runtime/network/Flow/cache observers stop initial
+  hidden-page requests and abort in-flight work on backgrounding. All observers
+  share one visibility listener. Per-torrent selectors isolate live card updates;
+  the 1 s active/5 s idle batched request remains shared between cards.
+- Batch import displays completed-source progress, holds inputs during the batch
+  and retries only failed entries. Artwork configuration and external fetches
+  abort on close, title change and backgrounding; artwork remains independent
+  of playback preparation.
+- Web source type/lint checks passed. The full suite passed 84 tests with one
+  locally skipped native contract; three additional import/artwork checks passed
+  afterward. Four actual browser library cases (1/200/1000/5000 entries) passed.
+- At `0b9635b3`, Go/C++/TypeScript/Actions security CI passed, including actual
+  parser sanitizers and native storage fuzzing after the empty-write correction.
+- The optional WFP helper builds with MSVC/Windows SDK and warnings-as-errors.
+  Local preview and read-only status were exercised; no workstation filter was
+  installed. Rules use exact executable identity, selected interface LUID,
+  IPv4/IPv6 ALE layers and LAN exceptions. Install/replacement/removal use WFP
+  transactions; status checks owned rule geometry, conditions, actions/weights
+  and completeness. Both DNS/full-leak verification flags stay false.
+- Production helper compilation uses MinGW-w64 with the native Windows runtime
+  notices; binary/source identities and static-runtime archive identities enter
+  release provenance and CycloneDX. Separate Windows CodeQL extraction and
+  disposable-runner two-executable TCP/UDP/install/remove regressions are wired
+  into CI. Those new actual installation checks remain pending. This does not
+  complete the separate shared-DNS/per-protocol physical enforcement milestone.
+- Follow-up checks: 88 web tests passed with one native DTO skip, plus the new
+  single-poll-owner timer regression. Web type/lint, all 26 Python build-tool
+  tests, workflow lint, script parsing and three fresh production performance
+  repeats passed. Portable guard-presence, log and flow checks passed locally;
+  the complete netpolicy package still requires the native SDK/CI environment.
+- The runtime exposure panel reports helper presence separately from installed
+  or verified protection and never invokes/elevates it. Secret redaction now
+  covers SOCKS/WebSocket credentials and standalone player, bot and session
+  tokens without masking harmless field-name suffixes.

@@ -453,7 +453,8 @@
     "linkFailed": "无法创建链接，请检查身份验证和文件元数据。",
     "view": "视图",
     "cards": "卡片",
-    "list": "列表"
+    "list": "列表",
+    "importProgress": "正在处理来源：{{done}} / {{total}}"
   },
   "runtime": {
     "torrents": "种子",
@@ -481,7 +482,9 @@
     "compatible": "允许传统链接",
     "capabilities": "身份验证或限时链接",
     "localExposure": "监听设置不能证明互联网可达性，请在可信局域网中管理。",
-    "bindingLimit": "网卡消失时会暂停种子网络。DNS 路由和 VPN 防泄漏尚未验证；此类保证需依靠系统或 VPN 的断网保护。"
+    "bindingLimit": "网卡消失时会暂停种子网络。DNS 路由和 VPN 防泄漏尚未验证；此类保证需依靠系统或 VPN 的断网保护。",
+    "guardAvailable": "Windows 防护工具已找到。安装和移除需要管理员明确操作；此处尚未验证规则安装状态或 DNS 防护。请参阅发行版 ZIP 中的 WINDOWS_INTERFACE_GUARD.md。",
+    "guardUnavailable": "此可执行文件旁未找到可选的 Windows 防护工具。仅绑定接口不能证明 DNS 防护或防泄漏能力。"
   },
   "nav": {
     "dashboard": "概览",

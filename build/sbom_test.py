@@ -23,6 +23,9 @@ class Inventory(unittest.TestCase):
             with patch('sbom.subprocess.check_output', side_effect=output):
                 first = generate(root, [Path('fixture')], 'release', 'b'*40, '2026-10-10T00:00:00Z', root/'native')
                 second = generate(root, [Path('fixture')], 'release', 'b'*40, '2026-10-10T00:00:00Z', root/'native')
+                guarded = generate(root, [Path('fixture')], 'release', 'b'*40, '2026-10-10T00:00:00Z', root/'native',
+                    dict(executable_sha256='e'*64,compiler=dict(version='14.2.0'),
+                         runtime_archives=[dict(name='libstdc++.a',sha256='f'*64)]))
             self.assertEqual(first,second)
             self.assertEqual(first['bomFormat'],'CycloneDX')
             self.assertEqual({c['name'] for c in first['components']}, {'golang/go', 'example.org/module', 'boost', 'openssl', 'libtorrent-rasterbar', 'react', 'deps/libdatachannel'})
@@ -31,6 +34,12 @@ class Inventory(unittest.TestCase):
             for edge in first['dependencies']:
                 self.assertIn(edge['ref'],refs)
                 self.assertTrue(set(edge['dependsOn']) <= refs)
+            helper = next(c for c in guarded['components'] if c['name']=='FlowNetworkGuard')
+            self.assertEqual(helper['type'],'application')
+            self.assertEqual(helper['hashes'],[dict(alg='SHA-256',content='e'*64)])
+            runtime = next(c for c in guarded['components'] if c['name']=='mingw-w64/libstdc++.a')
+            edge = next(c for c in guarded['dependencies'] if c['ref']==helper['bom-ref'])
+            self.assertEqual(edge['dependsOn'],[runtime['bom-ref']])
 
 
 if __name__ == '__main__': unittest.main()

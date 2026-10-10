@@ -447,7 +447,8 @@
     "linkFailed": "Linkul nu a putut fi creat. Verificați autentificarea și metadatele fișierului.",
     "view": "Vizualizare",
     "cards": "Carduri",
-    "list": "Listă"
+    "list": "Listă",
+    "importProgress": "Procesare surse: {{done}} / {{total}}"
   },
   "runtime": {
     "torrents": "Torrente",
@@ -475,7 +476,9 @@
     "compatible": "Linkuri clasice permise",
     "capabilities": "Autentificare sau linkuri temporare",
     "localExposure": "Setările de ascultare nu dovedesc accesul din Internet. Păstrați administrarea într-o LAN de încredere.",
-    "bindingLimit": "Legarea oprește rețeaua torrent când adaptorul dispare. Rutarea DNS și protecția VPN contra scurgerilor sunt neverificate; folosiți un kill switch OS/VPN pentru garanție."
+    "bindingLimit": "Legarea oprește rețeaua torrent când adaptorul dispare. Rutarea DNS și protecția VPN contra scurgerilor sunt neverificate; folosiți un kill switch OS/VPN pentru garanție.",
+    "guardAvailable": "Utilitarul Windows este prezent. Instalarea și eliminarea cer acțiuni explicite de administrator; starea regulilor și protecția DNS nu sunt verificate aici. Consultați WINDOWS_INTERFACE_GUARD.md din arhiva ZIP a versiunii.",
+    "guardUnavailable": "Utilitarul Windows opțional lipsește lângă acest executabil. Asocierea cu o interfață nu confirmă protecția DNS sau împotriva scurgerilor."
   },
   "nav": {
     "dashboard": "Panou de control",

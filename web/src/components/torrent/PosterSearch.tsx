@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { integrationsApi } from "../../api/integrations";
 import { Button } from "../common/Button";
@@ -11,14 +11,29 @@ export function PosterSearch({
   onSelect: (url: string) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const [items, setItems] = useState<string[]>([]);
+  const [result, setResult] = useState<{ title: string; items: string[] }>();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const request = useRef<AbortController>(undefined);
+  useEffect(() => {
+    const cancel = () => {
+      if (document.hidden) request.current?.abort();
+    };
+    document.addEventListener("visibilitychange", cancel);
+    return () => {
+      request.current?.abort();
+      document.removeEventListener("visibilitychange", cancel);
+    };
+  }, [title]);
   const run = async () => {
+    request.current?.abort();
+    const operation = new AbortController();
+    request.current = operation;
     setBusy(true);
     setMessage("");
     try {
-      const config = await integrationsApi.getTMDB();
+      const config = await integrationsApi.getTMDB(operation.signal);
+      if (operation.signal.aborted) return;
       if (!config.APIKey) {
         setMessage(t("torrent.tmdbUnavailable"));
         return;
@@ -27,13 +42,15 @@ export function PosterSearch({
         config,
         title,
         i18n.resolvedLanguage || "en",
+        operation.signal,
       );
-      setItems(result);
+      if (operation.signal.aborted) return;
+      setResult({ title, items: result });
       if (!result.length) setMessage(t("search.empty"));
     } catch {
-      setMessage(t("torrent.tmdbFailed"));
+      if (!operation.signal.aborted) setMessage(t("torrent.tmdbFailed"));
     } finally {
-      setBusy(false);
+      if (request.current === operation) setBusy(false);
     }
   };
   return (
@@ -47,7 +64,7 @@ export function PosterSearch({
       </Button>
       {message && <p role="status">{message}</p>}
       <div className="flex flex-wrap gap-2">
-        {items.map((url, index) => (
+        {(result?.title === title ? result.items : []).map((url, index) => (
           <button
             type="button"
             key={url}
