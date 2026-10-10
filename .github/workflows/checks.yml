@@ -7,6 +7,29 @@ on:
 permissions:
   contents: read
 jobs:
+  windows-interface-guard:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: Build Windows SDK guard
+        shell: pwsh
+        run: ./build/build-windows-interface-guard.ps1
+      - name: Disposable kernel enforcement and independent policy removal
+        shell: pwsh
+        env:
+          FLOW_ISOLATED_WFP: github-hosted
+        run: ./build/test-windows-interface-guard.ps1 -Guard .tools/windows-interface-guard/FlowNetworkGuard-windows-amd64.exe -InstallFixture
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flow-wfp-sdk-check
+          path: .tools/windows-interface-guard-check/report.json
+          if-no-files-found: error
   portable:
     strategy:
       matrix:

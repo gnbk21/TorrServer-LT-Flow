@@ -664,6 +664,8 @@ jobs:
           name: flow-interface-guard-windows
           path: interface-guard
       - name: Isolated per-executable WFP installation, protocol and removal checks
+        env:
+          FLOW_ISOLATED_WFP: github-hosted
         shell: pwsh
         run: ./build/test-windows-interface-guard.ps1 -Guard ./interface-guard/FlowNetworkGuard-windows-amd64.exe -OutputDirectory ./interface-guard-check -InstallFixture
       - name: Restricted account lifecycle

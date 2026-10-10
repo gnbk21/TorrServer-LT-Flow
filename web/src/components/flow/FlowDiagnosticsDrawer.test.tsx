@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { FlowDiagnosticsDrawer } from "./FlowDiagnosticsDrawer";
 import type { FlowStatusResponse } from "../../types/flow";
-vi.mock("../../hooks/queries", () => ({ useFlowDiagnostics: () => ({}) }));
+vi.mock("../../hooks/queries", () => ({
+  useFlowDiagnostics: () => ({}),
+  useVisible: () => true,
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, options?: { defaultValue?: string }) =>
@@ -13,8 +16,57 @@ vi.mock("react-i18next", () => ({
           : key,
   }),
 }));
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 describe("startup explanation", () => {
+  it("expires supplier evidence and advice without another server response", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-10T00:00:00Z"));
+    render(
+      <FlowDiagnosticsDrawer
+        isOpen
+        onClose={() => {}}
+        status={
+          {
+            hash: "fixture",
+            sampled_at: new Date().toISOString(),
+            sparse: {
+              known: true,
+              sampled_at_ms: Date.now(),
+              sampled_peers: 1,
+            },
+            sessions: [
+              {
+                group: "fixture",
+                file_index: 1,
+                wait_explanation: {
+                  reason: "MISSING_CONNECTED",
+                  confidence: "high",
+                  actions: ["WAIT_SUPPLIERS"],
+                },
+              },
+            ],
+          } as FlowStatusResponse
+        }
+      />,
+    );
+    expect(screen.getByText("flow.sparsePeers")).toBeInTheDocument();
+    expect(
+      screen.getByText("flow.waitActions.WAIT_SUPPLIERS"),
+    ).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(5001));
+    expect(screen.queryByText("flow.sparsePeers")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("flow.waitActions.WAIT_SUPPLIERS"),
+    ).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(5000));
+    expect(
+      screen.queryByText("flow.waitActions.WAIT_SUPPLIERS"),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText("flow.sparseUnknown")).toHaveLength(2);
+  });
   it("shows bounded urgent progress only for fresh snapshots", () => {
     const urgent = {
       piece: 1,

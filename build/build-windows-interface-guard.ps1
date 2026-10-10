@@ -1,4 +1,4 @@
-param([string]$OutputDirectory = '.tools/windows-interface-guard')
+param([string]$OutputDirectory = '.tools/windows-interface-guard', [switch]$BuildAcceptanceProbe)
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $output = [IO.Path]::GetFullPath((Join-Path $repoRoot $OutputDirectory))
@@ -19,6 +19,10 @@ try {
   $env:LIB = "$vc/lib/x64;$sdk/Lib/$sdkVersion/ucrt/x64;$sdk/Lib/$sdkVersion/um/x64"
   & (Join-Path $vc 'bin/Hostx64/x64/cl.exe') /nologo /EHsc /std:c++17 /W4 /WX /MT /D_WIN32_WINNT=0x0A00 /DUNICODE /D_UNICODE "/Fe:$output/FlowNetworkGuard-windows-amd64.exe" "/Fo:$output/guard.obj" (Join-Path $PSScriptRoot 'windows-interface-guard.cpp') /link fwpuclnt.lib iphlpapi.lib advapi32.lib ole32.lib ws2_32.lib
   if ($LASTEXITCODE -ne 0) { throw "WFP helper compilation failed: $LASTEXITCODE" }
+  if ($BuildAcceptanceProbe) {
+    & (Join-Path $vc 'bin/Hostx64/x64/cl.exe') /nologo /EHsc /std:c++17 /W4 /WX /MT /D_WIN32_WINNT=0x0A00 /DUNICODE /D_UNICODE "/Fe:$output/guard-drop-probe.exe" "/Fo:$output/drop-probe.obj" (Join-Path $PSScriptRoot 'guard_drop_probe_windows.cpp') /link fwpuclnt.lib ws2_32.lib
+    if ($LASTEXITCODE -ne 0) { throw "CI drop probe compilation failed: $LASTEXITCODE" }
+  }
 } finally {
   $env:INCLUDE = $oldInclude
   $env:LIB = $oldLib

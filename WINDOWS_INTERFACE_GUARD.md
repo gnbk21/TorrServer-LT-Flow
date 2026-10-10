@@ -71,6 +71,18 @@ isolation between two executable paths. IPv6 without a usable route remains
 explicitly unverified. Do not run that switch on a normal workstation merely
 to view a preview. It is never invoked by the server or installer.
 
+Installation fixtures require explicit GitHub-hosted CI environment gates.
+The unpublished Windows SDK drop probe reads only the fixture's recent WFP
+events and exports TCP/UDP counts attributed to that exact executable, synthetic
+destination and Flow-owned block filter. It requires enabled WFP diagnostic
+events and never changes collection settings. A successful UDP socket write is
+not treated as evidence of delivery: the kernel classification/drop record is
+the enforcement gate. Missing drop evidence fails the check. Local preview
+and compilation remain available without installation or diagnostic access.
+
+The probe uses the documented [event enumeration filter](https://learn.microsoft.com/en-us/windows/win32/api/fwpmtypes/ns-fwpmtypes-fwpm_net_event_enum_template0)
+and [WFP drop logging](https://learn.microsoft.com/en-us/windows/win32/fwp/logging).
+
 WFP uses Microsoft's documented [application and interface conditions](https://learn.microsoft.com/en-us/windows/win32/fwp/filtering-condition-identifiers-)
 and [filter arbitration](https://learn.microsoft.com/en-us/windows/win32/fwp/filter-arbitration).
 Selected-interface/LAN permits have higher weights within the helper's own

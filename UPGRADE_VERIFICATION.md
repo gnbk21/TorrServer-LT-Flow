@@ -365,3 +365,21 @@ remaining ledger requirements are not complete.
   reduced-motion styles and all three modern/legacy export downloads.
   The full 96-test web suite, TypeScript and ESLint passed. Physical TV remote
   and Android browser acceptance remain distinct from these Chromium checks.
+
+## Asynchronous evidence and stale observations
+
+- The completed `2caccb12` Windows fixture passed TCP blocking, LAN TCP/UDP,
+  atomic/repeated installation and cleanup, but its UDP gate failed: a queued
+  socket write reported success. That does not establish packet delivery.
+  The corrected acceptance gate requires exact-app/time/destination WFP drop
+  events attributed to a Flow-owned block filter. The unpublished CI-only probe
+  does not change diagnostic settings and refuses ordinary workstation access.
+  MSVC/SDK compilation with warnings-as-errors passed; workstation refusal was
+  checked. Actual kernel evidence remains pending corrected CI execution.
+- Supplier snapshots and advice now expire at their 5/10-second deadlines even
+  if no subsequent server response arrives. One deadline timer is removed on
+  hide/close and stops once both observations expire. Two additional regressions
+  passed, along with TypeScript/ESLint; this timer performs no polling.
+- `2760dfd7` macOS arm64 unit tests passed all four forced TCP/uTP v2/hybrid
+  transfer/reuse variants, the delayed backing-file test and 128 retirement
+  cycles. amd64 passed compilation and its version probe, not the unit suite.

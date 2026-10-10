@@ -21,6 +21,7 @@ $preview = Invoke-Guard -Arguments @('preview','--exe',$guardPath,'--interface-i
 if ($preview.changes_applied -or $preview.planned_filters -ne 30 -or $preview.dns_verified -or $preview.leak_protection_verified) { throw 'Preview modified policy or claimed unverified protection' }
 $report = [ordered]@{ preview=$preview; installation_tested=$false; scope='Isolated generated fixture executable only; no system DNS rules'; protocols=@{} }
 if ($InstallFixture) {
+  if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:FLOW_ISOLATED_WFP -ne 'github-hosted') { throw 'Fixture installation requires an explicitly selected disposable GitHub-hosted runner' }
   # This switch is used only on the disposable Windows CI runner. Never called
   # automatically by installers or a running user's server.
   $fixture = Join-Path $output 'guard-fixture.exe'
@@ -28,6 +29,8 @@ if ($InstallFixture) {
   & go build -o $fixture (Join-Path $PSScriptRoot 'guard_probe_windows.go')
   if ($LASTEXITCODE -ne 0) { throw 'Fixture compilation failed' }
   Copy-Item -LiteralPath $fixture -Destination $second
+  & (Join-Path $PSScriptRoot 'build-windows-interface-guard.ps1') -OutputDirectory $OutputDirectory -BuildAcceptanceProbe | Out-Host
+  $dropProbe = Join-Path $output 'guard-drop-probe.exe'
   foreach ($app in @($fixture,$second)) {
     if ((Invoke-Guard -Arguments @('status','--exe',$app)).installed) { throw 'Fresh fixture unexpectedly has installed filters' }
   }
@@ -40,15 +43,25 @@ if ($InstallFixture) {
     }
     $repeated = Invoke-Guard -Arguments @('install','--exe',$fixture,'--interface-index',"$index")
     if ($repeated.filter_count -ne 30) { throw 'Repeated install duplicated filters' }
+    $startedAt = [DateTime]::UtcNow.ToFileTimeUtc()
     $protected = & $fixture | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0) { throw 'Installed fixture failed' }
+    $drops = $null
+    for ($attempt = 0; $attempt -lt 10; $attempt++) {
+      Start-Sleep -Milliseconds 200
+      $drops = & $dropProbe $fixture "$startedAt" | ConvertFrom-Json
+      if ($LASTEXITCODE -ne 0) { throw 'Scoped kernel drop evidence is unavailable' }
+      if ($drops.tcp4 -gt 0 -and $drops.udp4 -gt 0) { break }
+    }
     foreach ($protocol in @('tcp4','udp4','tcp6','udp6')) {
       $local = "lan_$protocol"
       $remote = "public_$protocol"
       if ($baseline.$local.success -and !$protected.$local.success) { throw "LAN $protocol regressed" }
       $eligible = !$baseline.$remote.access_denied -and !$baseline.$remote.unavailable
-      $verified = $eligible -and $protected.$remote.access_denied
-      $report.protocols[$protocol] = @{ verified=$verified; baseline=$baseline.$remote; installed=$protected.$remote; lan=$protected.$local }
+      # UDP Write may report queued success even when WFP drops the first packet.
+      # Require kernel evidence from this exact app and an owned Flow block rule.
+      $verified = $eligible -and $drops.$protocol -gt 0
+      $report.protocols[$protocol] = @{ verified=$verified; owned_classify_drops=$drops.$protocol; evidence='Exact fixture/app/time/destination and owned WFP block rule'; baseline=$baseline.$remote; installed=$protected.$remote; lan=$protected.$local }
       if ($protocol.EndsWith('4') -and !$verified) { throw "IPv4 $protocol fallback enforcement was not verified" }
       if ($eligible -and !$verified) { throw "$protocol fallback enforcement failed" }
     }

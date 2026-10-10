@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Modal } from "../common/Modal";
 import type { FlowStatusResponse } from "../../types/flow";
 import { useFlowDiagnostics } from "../../hooks/queries";
+import { useObservationTime } from "../../hooks/observationTime";
 import { RequestError } from "../common/RequestState";
 import { IncidentTimeline } from "./IncidentTimeline";
 import { PlayerEvidence } from "./PlayerEvidence";
@@ -23,7 +24,12 @@ export function FlowDiagnosticsDrawer({
   const diagnostics = useFlowDiagnostics(summary?.hash, isOpen);
   const status = diagnostics.data ?? summary;
   const sampledAt = status?.sampled_at ? Date.parse(status.sampled_at) : NaN;
-  const sampleAge = Date.now() - sampledAt;
+  const now = useObservationTime(
+    isOpen,
+    sampledAt + 10_000,
+    (status?.sparse?.sampled_at_ms ?? NaN) + 5000,
+  );
+  const sampleAge = now - sampledAt;
   const fresh =
     Number.isFinite(sampleAge) && sampleAge >= 0 && sampleAge < 10_000;
   return (
@@ -72,8 +78,8 @@ export function FlowDiagnosticsDrawer({
               <h3 className="font-semibold">{t("flow.sparseTitle")}</h3>
               {!status.sparse.known ||
               !status.sparse.sampled_at_ms ||
-              Date.now() - status.sparse.sampled_at_ms < 0 ||
-              Date.now() - status.sparse.sampled_at_ms >= 5000 ? (
+              now - status.sparse.sampled_at_ms < 0 ||
+              now - status.sparse.sampled_at_ms >= 5000 ? (
                 <p>{t("flow.sparseUnknown")}</p>
               ) : (
                 <div className="space-y-2 mt-2 text-sm">
@@ -200,9 +206,7 @@ export function FlowDiagnosticsDrawer({
                             })
                           : typeof value === "object" && value !== null
                             ? redactDiagnostic(JSON.stringify(value))
-                            : typeof value === "object" && value !== null
-                              ? redactDiagnostic(JSON.stringify(value))
-                              : redactDiagnostic(value)}
+                            : redactDiagnostic(value)}
                     </dd>
                   </div>
                 ))}
