@@ -10,6 +10,7 @@ import (
 	"server/flow"
 	"server/log"
 	"server/settings"
+	"server/torr/state"
 	"server/torr/storage/torrstor"
 )
 
@@ -396,7 +397,13 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 	}
 	t.flowMu.Unlock()
 	cache := torrstor.Global().CacheByHash([20]byte(t.Hash()))
-	status := t.Status()
+	var status *state.TorrentStatus
+	if includeTraces {
+		status = t.Status()
+	} else {
+		summary := t.LibrarySummary()
+		status = &summary
+	}
 	sparse := t.SparseStatus()
 	for i := range out {
 		s := &out[i]

@@ -80,6 +80,7 @@ const groups: Record<string, string[]> = {
     "Flow.SecurityProfile",
     "Flow.RequirePlaybackToken",
     "Flow.PlaybackTokenTTL",
+    "Flow.MSXAllowLAN",
   ],
   advanced: [
     "PadTailPartial",
@@ -106,6 +107,7 @@ export default function Settings() {
   }>();
   const { setDirty } = useDirty();
   const [tab, setTab] = useState("general");
+  const [search, setSearch] = useState("");
   const [error, setError] = useState<unknown>();
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState<
@@ -254,25 +256,88 @@ export default function Settings() {
       setSaving(false);
     }
   };
-  const keys = Object.keys(values).filter((key) =>
-    tab === "flow"
-      ? key.startsWith("Flow.") &&
-        key !== "Flow.SchemaVersion" &&
-        !groups.security!.includes(key) &&
-        !groups.network!.includes(key) &&
-        !key.startsWith("Flow.SwarmCustom.")
-      : tab === "advanced"
-        ? groups.advanced!.includes(key) || key.startsWith("Flow.SwarmCustom.")
-        : tab === "integrations"
-          ? groups.integrations!.includes(key) ||
-            key.startsWith("TMDBSettings.")
-          : groups[tab]?.includes(key),
+  const labelFor = (key: string) =>
+    t([`settings.fields.${key}`, `SettingsDialog.${key}`], {
+      defaultValue: key
+        .replace(/^Flow\.|^TMDBSettings\./, "")
+        .replace(/([a-z])([A-Z])/g, "$1 $2"),
+    });
+  const hintFor = (key: string) =>
+    [
+      t(`SettingsDialog.${key}Hint`, { defaultValue: "" }),
+      key === "Flow.MSXAllowLAN" ? t("flowHelp.MSXAllowLAN") : "",
+      key.startsWith("Flow.")
+        ? t(`settings.fieldHints.${key.slice(5)}`, { defaultValue: "" })
+        : "",
+      (
+        {
+          "Flow.DiagnosticHistory": t("settings.historyHint"),
+          "Flow.DHTStatePersistence": t("settings.dhtHint"),
+          "Flow.PeerResumeHints": t("settings.peerHintsHelp"),
+          "Flow.ScarcePieceHints": t("settings.scarceHintsHelp"),
+          "Flow.RateAwareDeadlines": t("settings.rateDeadlinesHelp"),
+          "Flow.CapacityAwareRequests": t("settings.highBitrateExperimentHelp"),
+          "Flow.AdaptiveUrgentHorizon": t("settings.highBitrateExperimentHelp"),
+          "Flow.ContainerBurstHints": t("settings.highBitrateExperimentHelp"),
+        } as Record<string, string>
+      )[key] || "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+  const originalFields = flattenSettings(original);
+  const effectiveFields = configuration.data?.effective
+    ? flattenSettings(configuration.data.effective as BTSettings)
+    : {};
+  const changed = Object.keys(values).filter(
+    (key) => values[key] !== originalFields[key],
+  );
+  const keys = Object.keys(values).filter(
+    (key) =>
+      key !== "Flow.SchemaVersion" &&
+      (search.trim()
+        ? `${labelFor(key)} ${hintFor(key)}`
+            .toLocaleLowerCase()
+            .includes(search.trim().toLocaleLowerCase())
+        : tab === "flow"
+          ? key.startsWith("Flow.") &&
+            key !== "Flow.SchemaVersion" &&
+            !groups.security!.includes(key) &&
+            !groups.network!.includes(key) &&
+            !key.startsWith("Flow.SwarmCustom.")
+          : tab === "advanced"
+            ? groups.advanced!.includes(key) ||
+              key.startsWith("Flow.SwarmCustom.")
+            : tab === "integrations"
+              ? groups.integrations!.includes(key) ||
+                key.startsWith("TMDBSettings.")
+              : groups[tab]?.includes(key)),
   );
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-semibold">{t("nav.settings")}</h1>
+      <label className="field max-w-xl">
+        {t("settings.search")}
+        <input
+          type="search"
+          value={search}
+          maxLength={256}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      </label>
       <div className="panel space-y-2" aria-live="polite">
         <p>{t(dirty ? "settings.unsaved" : "settings.savedState")}</p>
+        {!!changed.length && (
+          <details>
+            <summary>
+              {t("settings.changedFields", { count: changed.length })}
+            </summary>
+            <ul className="list-disc pl-5">
+              {changed.map((key) => (
+                <li key={key}>{labelFor(key)}</li>
+              ))}
+            </ul>
+          </details>
+        )}
         <p className="text-sm">
           {t("settings.cacheState", {
             draft: (Number(values.CacheSize) / 1048576).toFixed(0),
@@ -334,7 +399,10 @@ export default function Settings() {
             aria-selected={tab === name}
             key={name}
             variant={tab === name ? "primary" : "secondary"}
-            onClick={() => setTab(name)}
+            onClick={() => {
+              setTab(name);
+              setSearch("");
+            }}
           >
             {t(`settings.tabs.${name}`)}
           </Button>
@@ -388,14 +456,7 @@ export default function Settings() {
         <div className="grid md:grid-cols-2 gap-4">
           {keys.map((key) => {
             const value = values[key];
-            const label = t(
-              [`settings.fields.${key}`, `SettingsDialog.${key}`],
-              {
-                defaultValue: key
-                  .replace(/^Flow\.|^TMDBSettings\./, "")
-                  .replace(/([a-z])([A-Z])/g, "$1 $2"),
-              },
-            );
+            const label = labelFor(key);
             const bounds = flowBounds[key.replace("Flow.", "")];
             return (
               <div
@@ -403,47 +464,43 @@ export default function Settings() {
                 key={key}
               >
                 <label htmlFor={field(key)}>{label}</label>
+                {typeof value === "number" && key !== "CacheSize" && (
+                  <span className="text-xs text-slate-400">
+                    {key.endsWith("MB")
+                      ? "MiB"
+                      : /Ms$/.test(key)
+                        ? "ms"
+                        : /(?:Seconds|Sec|Timeout|RequestQueueTime|ReconnectTime|PlaybackTokenTTL)$/.test(
+                              key,
+                            )
+                          ? "s"
+                          : /(?:Pct|ReadAHead|PreloadCache)$/.test(key)
+                            ? "%"
+                            : ""}
+                  </span>
+                )}
+                {!!search.trim() && (
+                  <span className="text-xs text-slate-400">
+                    {t(
+                      `settings.tabs.${Object.keys(groups).find((group) => groups[group]?.includes(key)) || (key.startsWith("TMDBSettings.") ? "integrations" : key.startsWith("Flow.SwarmCustom.") ? "advanced" : "flow")}`,
+                    )}
+                  </span>
+                )}
+                {!!hintFor(key) && (
+                  <span className="text-xs text-slate-400">{hintFor(key)}</span>
+                )}
+                {typeof value === "number" && configuration.data?.effective && (
+                  <span className="text-xs text-slate-400">
+                    {t("settings.effectiveValue", {
+                      value:
+                        key === "CacheSize"
+                          ? `${Number(configuration.data.effective.CacheSize) / 1048576} MiB`
+                          : (effectiveFields[key] ?? "—"),
+                    })}
+                  </span>
+                )}
                 {key === "CacheSize" && <span>MiB</span>}
-                {key === "Flow.DiagnosticHistory" && (
-                  <span className="text-xs text-slate-400">
-                    {t("settings.historyHint")}
-                  </span>
-                )}
-                {key === "Flow.DHTStatePersistence" && (
-                  <span className="text-xs text-slate-400">
-                    {t("settings.dhtHint")}
-                  </span>
-                )}
-                {key === "Flow.PeerResumeHints" && (
-                  <span className="text-xs text-slate-400">
-                    {t("settings.peerHintsHelp")}
-                  </span>
-                )}
-                {key === "Flow.ScarcePieceHints" && (
-                  <span className="text-xs text-slate-400">
-                    {t("settings.scarceHintsHelp")}
-                  </span>
-                )}
-                {key === "Flow.RateAwareDeadlines" && (
-                  <span className="text-xs text-slate-400">
-                    {t("settings.rateDeadlinesHelp")}
-                  </span>
-                )}
-                {[
-                  "Flow.CapacityAwareRequests",
-                  "Flow.AdaptiveUrgentHorizon",
-                  "Flow.ContainerBurstHints",
-                ].includes(key) && (
-                  <span className="text-xs text-slate-400">
-                    {t("settings.highBitrateExperimentHelp")}
-                  </span>
-                )}
                 {key === "PreloadCache" && <span>%</span>}
-                {t(`SettingsDialog.${key}Hint`, { defaultValue: "" }) && (
-                  <span className="text-xs text-slate-400">
-                    {t(`SettingsDialog.${key}Hint`)}
-                  </span>
-                )}
                 {key === "CacheSize" ? (
                   <input
                     id={field(key)}

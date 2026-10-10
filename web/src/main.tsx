@@ -36,6 +36,8 @@ import { flowApi } from "./api/flow";
 import { ApiError } from "./api/client";
 import { Button } from "./components/common/Button";
 import { Modal } from "./components/common/Modal";
+import { Appearance } from "./components/common/Appearance";
+import { ObservedPlayback } from "./components/flow/ObservedPlayback";
 import { Loading, RequestError } from "./components/common/RequestState";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Torrents = lazy(() => import("./pages/Torrents"));
@@ -51,6 +53,23 @@ function Shell() {
   const version = useVersion();
   const network = useNetwork();
   const visible = useVisible();
+  useEffect(() => {
+    if (!visible)
+      void queryClient.cancelQueries({
+        predicate: (query) =>
+          [
+            "active",
+            "library",
+            "flow",
+            "flow-diagnostics",
+            "cache",
+            "torrent",
+            "runtime",
+            "network",
+            "tray",
+          ].includes(String(query.queryKey[0])),
+      });
+  }, [visible]);
   const tray = useQuery({
     queryKey: ["tray"],
     queryFn: ({ signal }) => flowApi.getTray(signal),
@@ -174,6 +193,7 @@ function Shell() {
           >
             {t("pairing.connect")}
           </Button>
+          <Appearance />
           <Button
             disabled={controlling || !tray.data || !!tray.error}
             onClick={() => void control()}
@@ -181,6 +201,7 @@ function Shell() {
             {t(paused ? "flow.resume" : "flow.pause")}
           </Button>
         </header>
+        <ObservedPlayback />
         <main
           id="main"
           tabIndex={-1}

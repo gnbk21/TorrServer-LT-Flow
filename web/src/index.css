@@ -1,13 +1,50 @@
 @import "tailwindcss";
 @theme {
   --color-flow-bg: #090d16;
+  --color-slate-950: var(--flow-bg);
+  --color-slate-900: var(--flow-input);
+  --color-slate-800: var(--flow-surface-hover);
+  --color-slate-700: var(--flow-border);
+  --color-slate-600: var(--flow-border);
+  --color-slate-500: var(--flow-muted);
+  --color-slate-400: var(--flow-muted);
+  --color-slate-300: var(--flow-secondary);
+  --color-slate-200: var(--flow-text);
+  --color-slate-100: var(--flow-text);
 }
 @layer base {
-  body {
+  :root {
     color-scheme: dark;
+    --flow-bg: #090d16;
+    --flow-input: #0f172a;
+    --flow-surface: #111a2a;
+    --flow-surface-hover: #1e293b;
+    --flow-border: #475569;
+    --flow-muted: #a6b5cb;
+    --flow-secondary: #cbd5e1;
+    --flow-text: #f1f5f9;
+    --flow-accent: #60a5fa;
+    --flow-panel-padding: 1.25rem;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --flow-bg: #f5f7fb;
+    --flow-input: #fff;
+    --flow-surface: #fff;
+    --flow-surface-hover: #e8edf5;
+    --flow-border: #8797ae;
+    --flow-muted: #4b5d76;
+    --flow-secondary: #334155;
+    --flow-text: #172338;
+    --flow-accent: #1d4ed8;
+  }
+  :root[data-density="compact"] {
+    --flow-panel-padding: 0.8rem;
+  }
+  body {
     margin: 0;
-    background: #090d16;
-    color: #f1f5f9;
+    background: var(--flow-bg);
+    color: var(--flow-text);
     font-family: system-ui, sans-serif;
   }
   button,
@@ -27,14 +64,14 @@
     cursor: pointer;
   }
   :focus-visible {
-    outline: 2px solid #60a5fa;
+    outline: 2px solid var(--flow-accent);
     outline-offset: 3px;
   }
   input,
   textarea,
   select {
-    background: #0f172a;
-    border: 1px solid #475569;
+    background: var(--flow-input);
+    border: 1px solid var(--flow-border);
     border-radius: 0.5rem;
     padding: 0.65rem;
     max-width: 100%;
@@ -60,10 +97,10 @@
 }
 @layer components {
   .panel {
-    border: 1px solid #263449;
-    background: #111a2a;
+    border: 1px solid var(--flow-border);
+    background: var(--flow-surface);
     border-radius: 1rem;
-    padding: 1.25rem;
+    padding: var(--flow-panel-padding);
   }
   .field {
     display: grid;
@@ -71,7 +108,7 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 0.4rem;
     font-size: 0.875rem;
-    color: #cbd5e1;
+    color: var(--flow-secondary);
   }
   input[type="checkbox"] {
     justify-self: start;
@@ -85,4 +122,24 @@
     flex-wrap: wrap;
     align-items: center;
   }
+}
+
+/* Status text remains legible on both surfaces; primary action text stays white. */
+html[data-theme="light"] :is(.text-blue-300, .text-blue-400) {
+  color: #1d4ed8;
+}
+html[data-theme="light"]
+  :is(.text-amber-300, .text-amber-400, .text-yellow-300) {
+  color: #854d0e;
+}
+html[data-theme="light"]
+  :is(.text-rose-300, .text-rose-400, .text-red-300, .text-red-400) {
+  color: #be123c;
+}
+html[data-theme="light"]
+  :is(.text-green-300, .text-green-400, .text-emerald-300, .text-emerald-400) {
+  color: #047857;
+}
+:is(.bg-blue-600, .bg-blue-700, .bg-rose-700) {
+  color: #fff;
 }

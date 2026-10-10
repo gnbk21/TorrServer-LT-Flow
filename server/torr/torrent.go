@@ -47,6 +47,7 @@ type Torrent struct {
 	UploadSpeed         float64
 	BytesReadUsefulData int64
 	BytesWrittenData    int64
+	libraryNative       lt.Status // watch snapshot; guarded by mu
 
 	// counters driven by the alert pump (atomic-friendly under mu)
 	piecesDirtiedGood int64
@@ -392,15 +393,28 @@ func (t *Torrent) WaitInfo() bool {
 
 // GotInfo wraps WaitInfo with state transitions matching the legacy API.
 func (t *Torrent) GotInfo() bool {
-	if t == nil || t.Stat == state.TorrentClosed {
+	if t == nil {
+		return false
+	}
+	t.mu.Lock()
+	if t.Stat == state.TorrentClosed {
+		t.mu.Unlock()
 		return false
 	}
 	if t.Stat == state.TorrentPreload {
+		t.mu.Unlock()
 		return true
 	}
 	t.Stat = state.TorrentGettingInfo
+	t.mu.Unlock()
 	if t.WaitInfo() {
+		t.mu.Lock()
+		if t.Stat == state.TorrentClosed {
+			t.mu.Unlock()
+			return false
+		}
 		t.Stat = state.TorrentWorking
+		t.mu.Unlock()
 		t.AddExpiredTime(torrentExpireTimeout())
 		// Metadata (and so the release name) is now known — backfill a TMDB
 		// poster for torrents that came in without one (bare magnets, tgbot,
@@ -496,6 +510,7 @@ func (t *Torrent) progressTick() {
 	t.BytesReadUsefulData = st.TotalPayloadDownload
 	t.BytesWrittenData = st.TotalPayloadUpload
 	t.lastTimeSpeed = now
+	t.libraryNative = *st
 	rate := t.DownloadSpeed
 	t.mu.Unlock()
 	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {

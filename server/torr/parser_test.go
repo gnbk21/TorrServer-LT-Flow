@@ -1,6 +1,7 @@
 package torr
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -8,9 +9,42 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"server/torrshash"
 )
+
+func TestParseHTTPContextCancelsOutstandingRequest(t *testing.T) {
+	started, cancelled := make(chan struct{}), make(chan struct{})
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-r.Context().Done()
+		close(cancelled)
+	}))
+	defer upstream.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { _, err := ParseLinkContext(ctx, upstream.URL); done <- err }()
+	select {
+	case <-started:
+	case <-time.After(3 * time.Second):
+		t.Fatal("fetch did not start")
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("cancellation lost: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("cancelled caller did not return")
+	}
+	select {
+	case <-cancelled:
+	case <-time.After(3 * time.Second):
+		t.Fatal("last owner left upstream fetch running")
+	}
+}
 
 // minimalTorrent returns a bencoded single-file .torrent of 100 bytes
 // payload with a single 16 KiB piece (all-zero SHA-1 placeholder).

@@ -3,11 +3,16 @@ package msx
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"server/log"
+	"server/netpolicy"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"server/settings"
 	"server/torr"
@@ -21,6 +26,45 @@ import (
 const base, files = "tsmsx.yourok.ru", "media"
 
 var param = "menu:request:interaction:{SERVER}@{PREFIX}" + base + "/start.html"
+var paramMu sync.RWMutex
+var publicTransport = netpolicy.DestinationTransport(false)
+var lanTransport = netpolicy.DestinationTransport(true)
+
+func remote(c *gin.Context, method, target string, body io.Reader) (*http.Response, error) {
+	allowLAN := settings.CurrentFlow().MSXAllowLAN
+	req, err := http.NewRequestWithContext(c.Request.Context(), method, target, body)
+	if err != nil {
+		return nil, errors.New("invalid remote request")
+	}
+	if err = netpolicy.ValidateDestination(req.URL, allowLAN); err != nil {
+		return nil, err
+	}
+	var headers []string
+	if c.Request.URL.Path == "/msx/proxy" {
+		headers = c.QueryArray("header")
+	}
+	for _, header := range headers {
+		pair := strings.SplitN(header, ":", 2)
+		if len(pair) == 2 {
+			req.Header.Add(pair[0], pair[1])
+		}
+	}
+	transport := publicTransport
+	if allowLAN {
+		transport = lanTransport
+	}
+	client := &http.Client{Timeout: 20 * time.Second, Transport: transport, CheckRedirect: func(next *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return errors.New("remote redirect limit reached")
+		}
+		return netpolicy.ValidateDestination(next.URL, allowLAN)
+	}}
+	response, err := client.Do(req)
+	if err != nil {
+		return nil, errors.New(log.RedactSecrets(err.Error()))
+	}
+	return response, nil
+}
 
 func trn(h string) (st, sc string) {
 	if h := torr.GetTorrent(h); h != nil {
@@ -52,14 +96,17 @@ func SetupRoute(r gin.IRouter) {
 	authorized := r.Group("/", auth.CheckAuth())
 	// MSX:
 	authorized.GET("/msx/", func(c *gin.Context) {
-		r, e := http.Get("http://" + base)
+		r, e := remote(c, http.MethodGet, "http://"+base, nil)
 		rsp(c, r, e)
 	})
 	authorized.GET("/msx/start.json", func(c *gin.Context) {
+		paramMu.RLock()
+		parameter := param
+		paramMu.RUnlock()
 		c.JSON(http.StatusOK, map[string]any{
 			"name":      "TorrServer",
 			"version":   version.Version,
-			"parameter": param,
+			"parameter": parameter,
 			"launcher": map[string]any{
 				"type":  "start",
 				"image": utils.GetScheme(c) + "://" + c.Request.Host + "/logo.png",
@@ -67,9 +114,18 @@ func SetupRoute(r gin.IRouter) {
 		})
 	})
 	authorized.POST("/msx/start.json", func(c *gin.Context) {
-		if e := c.BindJSON(&param); e != nil {
+		var parameter string
+		if e := c.ShouldBindJSON(&parameter); e != nil {
 			c.AbortWithError(http.StatusBadRequest, e)
+			return
 		}
+		if len(parameter) > 8192 {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+		paramMu.Lock()
+		param = parameter
+		paramMu.Unlock()
 	})
 	authorized.GET("/msx/trn", func(c *gin.Context) {
 		r := false
@@ -119,15 +175,8 @@ func SetupRoute(r gin.IRouter) {
 	authorized.Any("/msx/proxy", func(c *gin.Context) {
 		if u := c.Query("url"); u == "" {
 			c.AbortWithStatus(http.StatusBadRequest)
-		} else if q, e := http.NewRequest(c.Request.Method, u, c.Request.Body); e != nil {
-			c.AbortWithError(http.StatusInternalServerError, e)
 		} else {
-			for _, v := range c.QueryArray("header") {
-				if v := strings.SplitN(v, ":", 2); len(v) == 2 {
-					q.Header.Add(v[0], v[1])
-				}
-			}
-			r, e := http.DefaultClient.Do(q)
+			r, e := remote(c, c.Request.Method, u, http.MaxBytesReader(c.Writer, c.Request.Body, 8<<20))
 			rsp(c, r, e)
 		}
 	})
@@ -136,13 +185,14 @@ func SetupRoute(r gin.IRouter) {
 		if j = strings.HasSuffix(i, ".json"); !j {
 			i += ".json"
 		}
-		if r, e := http.Get("https://v2.sg.media-imdb.com/suggestion/h/" + i); e != nil || r.StatusCode != http.StatusOK || j {
+		if r, e := remote(c, http.MethodGet, "https://v2.sg.media-imdb.com/suggestion/h/"+i, nil); e != nil || r.StatusCode != http.StatusOK || j {
 			rsp(c, r, e)
 		} else {
+			defer r.Body.Close()
 			var j struct {
 				D []struct{ I struct{ ImageUrl string } }
 			}
-			if e = json.NewDecoder(r.Body).Decode(&j); e != nil {
+			if e = json.NewDecoder(io.LimitReader(r.Body, 2<<20)).Decode(&j); e != nil {
 				c.AbortWithError(http.StatusInternalServerError, e)
 			} else if len(j.D) == 0 || j.D[0].I.ImageUrl == "" {
 				c.Status(http.StatusNotFound)
@@ -157,7 +207,7 @@ func SetupRoute(r gin.IRouter) {
 		if l, e := os.Readlink(filepath.Join(settings.Path, files)); e == nil || os.IsNotExist(e) {
 			c.JSON(http.StatusOK, l)
 		} else {
-			c.JSON(http.StatusInternalServerError, e.Error)
+			c.JSON(http.StatusInternalServerError, log.RedactSecrets(e.Error()))
 		}
 	})
 	authorized.POST("/files", func(c *gin.Context) {

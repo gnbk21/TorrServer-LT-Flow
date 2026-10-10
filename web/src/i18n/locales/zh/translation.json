@@ -214,7 +214,8 @@
     "DefaultTrackers": "默认 Tracker",
     "DefaultTrackersHint": "本地 announce URL，每行一个。当所有远程获取失败时单独使用，或在远程列表成功加载后合并。",
     "ShowQuickVLCButton": "Show VLC button on torrent cards",
-    "ShowQuickVLCButtonHint": "Optional shortcut for single-video torrents. VLC must also be enabled."
+    "ShowQuickVLCButtonHint": "Optional shortcut for single-video torrents. VLC must also be enabled.",
+    "MSXAllowLAN": "允许 MSX 代理访问局域网"
   },
   "Size": "大小",
   "SpeedTest": "速度测试",
@@ -449,7 +450,10 @@
     "pageCount": "第 {{page}} 页，共 {{pages}} 页",
     "expiringLink": "创建或续期限时链接",
     "linkExpires": "有效期至 {{time}}；服务器重启后链接失效。",
-    "linkFailed": "无法创建链接，请检查身份验证和文件元数据。"
+    "linkFailed": "无法创建链接，请检查身份验证和文件元数据。",
+    "view": "视图",
+    "cards": "卡片",
+    "list": "列表"
   },
   "runtime": {
     "torrents": "种子",
@@ -529,7 +533,15 @@
   "app": {
     "error": "无法显示此页面。",
     "reload": "重新加载",
-    "install": "可以将此页面添加到主屏幕。安装功能因浏览器而异；普通局域网 HTTP 也支持流式播放。"
+    "install": "可以将此页面添加到主屏幕。安装功能因浏览器而异；普通局域网 HTTP 也支持流式播放。",
+    "appearance": "外观",
+    "theme": "主题",
+    "dark": "深色",
+    "light": "浅色",
+    "system": "跟随系统",
+    "density": "密度",
+    "comfortable": "舒适",
+    "compact": "紧凑"
   },
   "flow": {
     "title": "Flow 播放",
@@ -692,7 +704,10 @@
       "callback_max_us": "最大回调（微秒）"
     },
     "urgentAge": "最早未完成请求：{{ms}} 毫秒",
-    "reserveHint": "HTTP 传输与索引字节/时间斜率只是估计，并非手机解码器时钟。空洞之后的已验证分片不计入连续储备。"
+    "reserveHint": "HTTP 传输与索引字节/时间斜率只是估计，并非手机解码器时钟。空洞之后的已验证分片不计入连续储备。",
+    "observedPlayback": "观察到的流",
+    "warm": "保留缓冲",
+    "serverObservation": "服务器观察结果；未测量播放器的实际播放情况。"
   },
   "search": {
     "source": "来源",
@@ -836,7 +851,8 @@
         "RequireTorrentInterface": "要求明确选择种子网卡",
         "CapacityAwareRequests": "遵守对端请求容量（实验）",
         "AdaptiveUrgentHorizon": "自适应紧急分片范围（实验）",
-        "ContainerBurstHints": "已缓存容器索引的峰值提示（实验）"
+        "ContainerBurstHints": "已缓存容器索引的峰值提示（实验）",
+        "MSXAllowLAN": "允许 MSX 代理访问局域网"
       }
     },
     "maintenance": {
@@ -923,7 +939,10 @@
         "user": "服务器文件"
       },
       "plainHttp": "此页面使用 HTTP。在此上传私钥会以未加密方式传输。请先打开 HTTPS 再上传。"
-    }
+    },
+    "search": "搜索所有设置",
+    "changedFields": "已更改的字段：{{count}}",
+    "effectiveValue": "当前生效：{{value}}"
   },
   "preparation": {
     "title": "准备剧集",
@@ -964,5 +983,8 @@
     "help": "镜像必须提供与种子完全相同的字节。原生引擎处理 Range 请求、哈希校验、有限重试和节点回退。仅显示来源域；路径、签名参数和凭据不进入诊断。无需提供商账号。",
     "local": "批准我的局域网镜像",
     "localHelp": "批准要求使用明确的私有或回环 IP，且不包含凭据或查询参数。其他镜像必须使用全球地址；DNS 结果和重定向由原生引擎检查。代理隐藏的目标会被阻止。"
+  },
+  "flowHelp": {
+    "MSXAllowLAN": "默认关闭。仅允许明确指定的私有或回环 IP 地址。解析到局域网的域名和链路本地元数据服务仍被阻止。"
   }
 }

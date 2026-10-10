@@ -220,7 +220,8 @@
     "DefaultTrackers": "Trackere implicite",
     "DefaultTrackersHint": "URL-uri de anunțare locale, câte unul pe linie. Sunt folosite singure când toate descărcările de la distanță eșuează sau sunt adăugate după o descărcare reușită de la distanță.",
     "ShowQuickVLCButton": "Show VLC button on torrent cards",
-    "ShowQuickVLCButtonHint": "Optional shortcut for single-video torrents. VLC must also be enabled."
+    "ShowQuickVLCButtonHint": "Optional shortcut for single-video torrents. VLC must also be enabled.",
+    "MSXAllowLAN": "Permite accesul proxy-ului MSX la rețeaua locală"
   },
   "Size": "Mărime",
   "SpeedTest": "Test de viteză",
@@ -443,7 +444,10 @@
     "pageCount": "Pagina {{page}} din {{pages}}",
     "expiringLink": "Creează / reînnoiește link temporar",
     "linkExpires": "Valabil până la {{time}}; repornirea serverului revocă linkul.",
-    "linkFailed": "Linkul nu a putut fi creat. Verificați autentificarea și metadatele fișierului."
+    "linkFailed": "Linkul nu a putut fi creat. Verificați autentificarea și metadatele fișierului.",
+    "view": "Vizualizare",
+    "cards": "Carduri",
+    "list": "Listă"
   },
   "runtime": {
     "torrents": "Torrente",
@@ -523,7 +527,15 @@
   "app": {
     "error": "Pagina nu poate fi afișată.",
     "reload": "Reîncarcă",
-    "install": "Poți adăuga pagina pe ecranul principal. Instalarea depinde de browser; redarea funcționează prin HTTP obișnuit în rețeaua locală."
+    "install": "Poți adăuga pagina pe ecranul principal. Instalarea depinde de browser; redarea funcționează prin HTTP obișnuit în rețeaua locală.",
+    "appearance": "Aspect",
+    "theme": "Temă",
+    "dark": "Întunecată",
+    "light": "Luminoasă",
+    "system": "Sistem",
+    "density": "Densitate",
+    "comfortable": "Confortabilă",
+    "compact": "Compactă"
   },
   "flow": {
     "title": "Redare Flow",
@@ -686,7 +698,10 @@
       "callback_max_us": "Apel maxim (µs)"
     },
     "urgentAge": "Cea mai veche cerere în așteptare: {{ms}} ms",
-    "reserveHint": "Livrarea HTTP și estimările octeți/timp nu reprezintă ceasul decodorului telefonului. Piesele verificate după un gol sunt excluse din rezerva continuă."
+    "reserveHint": "Livrarea HTTP și estimările octeți/timp nu reprezintă ceasul decodorului telefonului. Piesele verificate după un gol sunt excluse din rezerva continuă.",
+    "observedPlayback": "Flux observat",
+    "warm": "Buffer păstrat",
+    "serverObservation": "Observații ale serverului; redarea în player nu este măsurată."
   },
   "search": {
     "source": "Sursă",
@@ -830,7 +845,8 @@
         "RequireTorrentInterface": "Solicită un adaptor torrent selectat explicit",
         "CapacityAwareRequests": "Respectă limita cererilor peerului (experiment)",
         "AdaptiveUrgentHorizon": "Orizont urgent adaptiv (experiment)",
-        "ContainerBurstHints": "Indicii de vârf din indexul rezident (experiment)"
+        "ContainerBurstHints": "Indicii de vârf din indexul rezident (experiment)",
+        "MSXAllowLAN": "Permite accesul proxy-ului MSX la rețeaua locală"
       }
     },
     "maintenance": {
@@ -917,7 +933,10 @@
         "user": "Fișierele serverului"
       },
       "plainHttp": "Această pagină folosește HTTP. Încărcarea unei chei private aici o transmite necriptat. Deschideți HTTPS înainte de încărcare."
-    }
+    },
+    "search": "Caută în toate setările",
+    "changedFields": "Câmpuri modificate: {{count}}",
+    "effectiveValue": "Aplicat: {{value}}"
   },
   "preparation": {
     "title": "Pregătește episodul",
@@ -958,5 +977,8 @@
     "help": "Oglinda trebuie să furnizeze exact octeții torrentului. Motorul nativ gestionează Range, verificarea hashurilor, reîncercările limitate și revenirea la peers. Sunt afișate doar originile; căile, semnăturile și acreditările sunt excluse din diagnostic. Nu este necesar un cont.",
     "local": "Aprobă oglinda mea LAN",
     "localHelp": "Aprobarea necesită un IP privat sau loopback explicit, fără acreditări și parametri. Alte oglinzi necesită adrese globale; DNS și redirecționările sunt verificate nativ. Destinațiile ascunse de proxy sunt blocate."
+  },
+  "flowHelp": {
+    "MSXAllowLAN": "Dezactivat implicit. Permite adrese IP private sau loopback indicate explicit. Numele rezolvate către rețeaua locală și serviciile link-local rămân blocate."
   }
 }

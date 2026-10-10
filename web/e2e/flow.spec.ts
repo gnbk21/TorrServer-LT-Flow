@@ -288,6 +288,13 @@ async function mockServer(
       });
     if (path === "/echo")
       return route.fulfill({ body: "MatriX.145.Flow-test" });
+    // Existing scenarios deliberately exercise the legacy-server fallback.
+    // Projection-specific scenarios override these routes with real new DTOs.
+    if (path === "/flow/active" || path === "/flow/library")
+      return json(
+        { error: "endpoint unavailable on legacy fixture" },
+        status === 200 ? 404 : status,
+      );
     if (path === "/mediabase")
       return json({ base: new URL(route.request().url()).origin });
     if (path === "/ssl/status")

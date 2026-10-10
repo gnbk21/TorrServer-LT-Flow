@@ -240,7 +240,7 @@ jobs:
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
         run: |
-          go test -count=1 -timeout 180s ./console/ ./log/ ./diagnostics/ ./flow/ ./netpolicy/ ./netchange/ ./ffprobe/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/pages/template/ ./dlna/ ./web/sslcerts/ ./torr/utils/ ./cmd/
+          go test -count=1 -timeout 180s ./console/ ./log/ ./diagnostics/ ./flow/ ./netpolicy/ ./netchange/ ./ffprobe/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/msx/ ./web/pages/template/ ./dlna/ ./web/sslcerts/ ./torr/utils/ ./cmd/
           GST_E2E_MKV="$GITHUB_WORKSPACE/_out/gst-e2e.mkv" go test -tags gst -count=1 -timeout 180s ./gstreamer/
 
       - name: Go vet
@@ -300,7 +300,7 @@ jobs:
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
         run: |
-          go test -race -count=1 -timeout 180s ./console/ ./log/ ./flow/ ./netpolicy/ ./netchange/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/sslcerts/ ./torr/utils/ ./mcp/ ./tgbot/
+          go test -race -count=1 -timeout 180s ./console/ ./log/ ./flow/ ./netpolicy/ ./netchange/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/msx/ ./web/sslcerts/ ./torr/utils/ ./mcp/ ./tgbot/
           go test -race -tags gst -count=1 -timeout 180s ./gstreamer/
           go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
           govulncheck ./...

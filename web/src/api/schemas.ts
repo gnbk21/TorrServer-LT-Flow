@@ -208,6 +208,20 @@ export const networkSchema = z
   })
   .passthrough();
 
+export const librarySchema = z.object({
+  items: torrentSchema.array(),
+  total: z.number().int().nonnegative(),
+  library_total: z.number().int().nonnegative(),
+  page: z.number().int().positive(),
+  limit: z.number().int().min(1).max(100),
+  categories: z.array(z.string()),
+  sampled_at: z.string().datetime({ offset: true }),
+});
+export const activeSchema = z.object({
+  items: z.array(z.object({ torrent: torrentSchema, status: flowSchema })),
+  sampled_at: z.string().datetime({ offset: true }),
+});
+
 export const runtimeSchema = z
   .object({
     dlna_enabled: z.boolean(),

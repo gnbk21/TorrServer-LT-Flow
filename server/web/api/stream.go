@@ -126,7 +126,7 @@ func stream(c *gin.Context) {
 			category = torrsHash.Category()
 		}
 	} else {
-		spec, err = utils.ParseLink(link)
+		spec, err = utils.ParseLinkContext(c.Request.Context(), link)
 		if err != nil {
 			abortWithJSONError(c, http.StatusBadRequest, errors.Wrap(err, "error parse link"))
 			return
@@ -303,7 +303,7 @@ func streamNoAuth(c *gin.Context) {
 			category = torrsHash.Category()
 		}
 	} else {
-		spec, err = utils.ParseLink(link)
+		spec, err = utils.ParseLinkContext(c.Request.Context(), link)
 		if err != nil {
 			abortWithJSONError(c, http.StatusBadRequest, errors.Wrap(err, "error parse link"))
 			return

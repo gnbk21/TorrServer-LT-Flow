@@ -76,7 +76,7 @@ func ConsolePanel(title string, sections []console.Section) {
 }
 
 func Event(level, component, message string) {
-	log.Printf("[%s] [%s] %s", level, component, message)
+	log.Printf("[%s] [%s] %s", level, component, RedactSecrets(message))
 }
 
 var (
@@ -193,7 +193,7 @@ func Close() {
 }
 
 func TLogln(v ...interface{}) {
-	log.Print(RedactInternalMediaKey(fmt.Sprintln(v...)))
+	log.Print(RedactSecrets(RedactInternalMediaKey(fmt.Sprintln(v...))))
 }
 
 var internalMediaKey = regexp.MustCompile(`probe_key=[A-Za-z0-9%_-]+`)
@@ -204,7 +204,7 @@ func RedactInternalMediaKey(s string) string {
 
 func WebLogln(v ...interface{}) {
 	if webLog != nil {
-		webLog.Println(v...)
+		webLog.Print(RedactSecrets(fmt.Sprintln(v...)))
 	}
 }
 

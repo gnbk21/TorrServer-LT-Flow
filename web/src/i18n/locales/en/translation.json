@@ -242,7 +242,8 @@
     "DefaultTrackers": "Default trackers",
     "DefaultTrackersHint": "Local announce URLs, one per line. Used alone when all remote fetches fail, or merged after a successful remote fetch.",
     "ShowQuickVLCButton": "Show VLC button on torrent cards",
-    "ShowQuickVLCButtonHint": "Optional shortcut for single-video torrents. VLC must also be enabled."
+    "ShowQuickVLCButtonHint": "Optional shortcut for single-video torrents. VLC must also be enabled.",
+    "MSXAllowLAN": "Allow MSX proxy access to LAN"
   },
   "Size": "Size",
   "SpeedTest": "Speed Test",
@@ -613,7 +614,10 @@
       "callback_max_us": "Callback maximum (µs)"
     },
     "urgentAge": "Oldest outstanding request: {{ms}} ms",
-    "reserveHint": "HTTP delivery and indexed byte/time slopes are estimates, not the phone decoder clock. Verified pieces beyond a hole are excluded from contiguous reserve."
+    "reserveHint": "HTTP delivery and indexed byte/time slopes are estimates, not the phone decoder clock. Verified pieces beyond a hole are excluded from contiguous reserve.",
+    "observedPlayback": "Observed stream",
+    "warm": "Warm buffer",
+    "serverObservation": "Server observations; player playback is not measured."
   },
   "torrent": {
     "justPlayer": "Play in Just Player",
@@ -672,7 +676,10 @@
     "pageCount": "Page {{page}} of {{pages}}",
     "expiringLink": "Create / renew expiring link",
     "linkExpires": "Valid until {{time}}; server restart revokes this link.",
-    "linkFailed": "Could not create a link. Check authentication and file metadata."
+    "linkFailed": "Could not create a link. Check authentication and file metadata.",
+    "view": "View",
+    "cards": "Cards",
+    "list": "List"
   },
   "pairing": {
     "title": "Connect your phone",
@@ -830,7 +837,8 @@
         "RequireTorrentInterface": "Require an explicitly selected torrent adapter",
         "CapacityAwareRequests": "Respect peer request capacity (experiment)",
         "AdaptiveUrgentHorizon": "Adaptive urgent horizon (experiment)",
-        "ContainerBurstHints": "Resident container burst hints (experiment)"
+        "ContainerBurstHints": "Resident container burst hints (experiment)",
+        "MSXAllowLAN": "Allow MSX proxy access to LAN"
       }
     },
     "maintenance": {
@@ -917,7 +925,10 @@
         "user": "Server files"
       },
       "plainHttp": "This page uses plain HTTP. Uploading a private key here sends it unencrypted. Open HTTPS before uploading."
-    }
+    },
+    "search": "Search all settings",
+    "changedFields": "Changed fields: {{count}}",
+    "effectiveValue": "Effective: {{value}}"
   },
   "runtime": {
     "torrents": "Torrents",
@@ -950,7 +961,15 @@
   "app": {
     "error": "Unable to display this page.",
     "reload": "Reload",
-    "install": "You can add this page to your home screen. Installation features vary by browser; streaming works over ordinary LAN HTTP."
+    "install": "You can add this page to your home screen. Installation features vary by browser; streaming works over ordinary LAN HTTP.",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "dark": "Dark",
+    "light": "Light",
+    "system": "System",
+    "density": "Density",
+    "comfortable": "Comfortable",
+    "compact": "Compact"
   },
   "Loading": "Loading…",
   "Language": "Language",
@@ -994,5 +1013,8 @@
     "help": "A mirror must supply exactly the torrent’s bytes. Native Range requests, hash checks, retry limits and peer fallback apply. Origins are shown; paths, signed queries and credentials stay out of diagnostics. No provider account is needed.",
     "local": "Approve my LAN mirror",
     "localHelp": "LAN approval permits a literal private or loopback IP without credentials or query arguments. Imported mirrors otherwise require global addresses; DNS results and redirects are checked natively. Proxy-hidden destinations fail closed."
+  },
+  "flowHelp": {
+    "MSXAllowLAN": "Off by default. Allows explicitly requested private or loopback IP addresses. Hostnames resolving to LAN and link-local metadata services remain blocked."
   }
 }

@@ -49,6 +49,7 @@ type FlowSettings struct {
 	PlaybackTokenTTL        int
 	TorrentInterface        string // adapter name; empty retains OS routing
 	RequireTorrentInterface bool
+	MSXAllowLAN             bool // explicit approval of literal private/loopback proxy targets
 }
 
 // Zero custom values leave libtorrent's own setting unchanged.
