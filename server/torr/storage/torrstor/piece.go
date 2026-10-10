@@ -70,6 +70,10 @@ func savePath() string {
 }
 
 func (p *Piece) WriteAt(b []byte, off int64) (int, error) {
+	length := p.expectedSize()
+	if off < 0 || off > length || int64(len(b)) > length-off {
+		return 0, errOutOfPiece
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	var (

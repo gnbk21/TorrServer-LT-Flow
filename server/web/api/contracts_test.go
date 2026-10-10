@@ -22,6 +22,7 @@ func TestExportFrontendContracts(t *testing.T) {
 		t.Skip("contract export is requested by the native integration job")
 	}
 	hash := "0123456789012345678901234567890123456789"
+	measuredDuration := int64(2)
 	cases := []struct {
 		Kind    string `json:"kind"`
 		Payload any    `json:"payload"`
@@ -34,7 +35,7 @@ func TestExportFrontendContracts(t *testing.T) {
 		{"flow", FlowStatusResponse{Hash: hash, Sessions: []torr.FlowSessionStatus{{Group: "contract", FileIndex: 1, State: "PLAYING"}}}},
 		{"flow", FlowStatusResponse{Hash: hash, Sessions: nil}},
 		{"flow", FlowStatusResponse{Hash: hash, NextEpisodeWarmup: &torr.NextEpisodeStatus{Enabled: true, CurrentFileIndex: 1, NextEpisodeStatus: torrstor.NextEpisodeStatus{FileIndex: 2, State: "waiting", Reason: "PLAYBACK_RESERVE", BudgetBytes: 32 << 20}}}},
-		{"flow", FlowStatusResponse{Hash: hash, SampledAt: "2026-10-10T00:00:00Z", Timeline: &flow.TimelineSnapshot{Source: "server", Events: []flow.TimelineEvent{{Time: time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC), Type: "seek", ElapsedMs: 1000, OperationMs: 2, File: 1}}, Dropped: 0}, Sessions: []torr.FlowSessionStatus{{SessionID: "ABCDEFGHIJKLMNOPQRSTUV", FileIndex: 1, State: "PLAYING"}}}},
+		{"flow", FlowStatusResponse{Hash: hash, SampledAt: "2026-10-10T00:00:00Z", Timeline: &flow.TimelineSnapshot{Source: "server", Events: []flow.TimelineEvent{{Time: time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC), Type: "seek", ElapsedMs: 1000, OperationMs: &measuredDuration, File: 1}, {Time: time.Date(2026, 10, 10, 0, 0, 1, 0, time.UTC), Type: "metadata", ElapsedMs: 1001, File: 1}}, Dropped: 0}, Sessions: []torr.FlowSessionStatus{{SessionID: "ABCDEFGHIJKLMNOPQRSTUV", FileIndex: 1, State: "PLAYING"}}}},
 		{"flow", FlowStatusResponse{Hash: hash, StorageIO: lt.StorageIO{QueuedBytes: 16384, PeakQueueBytes: 32768, QueuedJobs: 2, CompletedJobs: 7, WaitP95Us: 128, CallbackP95Us: 256}, Sessions: []torr.FlowSessionStatus{{Group: "evidence", FileIndex: 1, State: "PLAYING", ReadableContiguousBytes: 32768, VerifiedContiguousBytes: 16384, Delivery: flow.DeliveryEvidence{DeficitBytes: 4096, DeficitSamples: 4}}}}},
 		{"runtime", RuntimeStatus{BT: &torr.ClientStatusSnapshot{}, Memory: diagnostics.Memory()}},
 		{"network", torr.FlowNetworkStatus{State: "NO_ADDRESS", Connectivity: "INTERNET_WAIT"}},

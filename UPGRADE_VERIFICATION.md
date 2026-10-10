@@ -141,3 +141,39 @@ remaining ledger requirements are not complete.
   4 KiB detail bound without changing their HTTP status/response shape.
 - Local sparse, token, Telegram and API-error checks passed. Web type/lint checks
   and 76 tests passed; the additional stale-action test passed separately.
+
+## Settings, pairing and storage fault checkpoint
+
+- Common/advanced settings views preserve hidden draft values. Search reaches
+  advanced fields; keyboard arrows/Home/End move between groups. Numeric units
+  reflect the native configuration, including KiB/s and requests/minute.
+- A draft keeps its original settings and revision. Background server changes
+  leave edits intact, display an explicit conflict and block stale Apply.
+  Discard/reload adopts the current saved settings and revision. Confirmation
+  lists changed field names without exposing secret values.
+- Pairing distinguishes plaintext HTTP, phone certificate trust and this
+  server's certificate status. Address suggestions do not claim connectivity.
+  Close/background cancellation stops certificate requests and QR generation.
+- Web checks: 81 unit tests passed, one native DTO fixture skipped locally;
+  TypeScript and source lint passed. The full browser run passed 86 cases;
+  its remaining experiment test passed after adapting it to the advanced view.
+  Three fresh production dashboard lab repeats passed the existing bundle,
+  LCP, interaction and CLS gates.
+- Warmup now respects a short renewed risk lease from other active streams,
+  even before they enter a blocking read. Clearing/expiry releases the lease.
+  Its native regression is queued with the new storage checks.
+- Real-filesystem regression cases cover failed creation/recovery, interrupted
+  preallocated writes/restart and Linux ENOSPC via /dev/full. Piece writes reject
+  negative/overflow/cross-boundary offsets before backend mutation. Bounded Go
+  storage fuzzing is added to native CI; these checks need that native runner.
+- At `2a3ac4e0`, native tests for lt/flow/settings/torr/storage passed on Linux,
+  and both macOS targets passed. ASAN/UBSAN parser fuzzing completed 1,084,762
+  executions after running before CodeQL tracing. The run then exposed a stale
+  API DTO test initializer for nullable operation durations, now corrected with
+  both measured and unknown duration examples. Final full CI remains required.
+- Five-repeat checkpoint measurements are recorded in UPGRADE_MEASUREMENTS.md.
+  All 160 integrity trials passed; speed gains were mixed, so no default is
+  promoted. Those reports predate subsequent corrections and are not final-head
+  acceptance. The fresh old-binary endurance reproduction passed the original
+  failure's 32-minute point without reproducing it; eight-hour acceptance and
+  the original failure's cause remain unresolved.

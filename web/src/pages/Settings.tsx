@@ -18,6 +18,8 @@ import {
   mergeSettings,
   validateSettings,
   flowBounds,
+  commonSettings,
+  settingsUnit,
   type SettingsValue,
 } from "../lib/settings";
 import { Button } from "../components/common/Button";
@@ -102,6 +104,7 @@ export default function Settings() {
     refetchInterval: visible ? 5000 : false,
   });
   const [draftRevision, setDraftRevision] = useState("");
+  const [draftBase, setDraftBase] = useState<BTSettings>();
   const [plan, setPlan] = useState<{
     restart_required: boolean;
     active_work: boolean;
@@ -109,6 +112,7 @@ export default function Settings() {
   const { setDirty } = useDirty();
   const [tab, setTab] = useState("general");
   const [search, setSearch] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState<unknown>();
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState<
@@ -164,6 +168,7 @@ export default function Settings() {
       BTSettings | undefined;
     if (saved && !formState.isDirty) {
       reset(flattenSettings(saved));
+      setDraftBase(saved);
       setDraftRevision(configuration.data?.revision ?? "");
     }
   }, [query.data, configuration.data, reset, formState.isDirty]);
@@ -183,7 +188,21 @@ export default function Settings() {
   if (!query.data)
     return <RequestError error={query.error} retry={() => query.refetch()} />;
   const original = (configuration.data?.saved ?? query.data) as BTSettings;
+  const conflict =
+    formState.isDirty &&
+    !!draftRevision &&
+    !!configuration.data?.revision &&
+    draftRevision !== configuration.data.revision;
+  const discard = () => {
+    reset(flattenSettings(original));
+    setDraftBase(original);
+    setDraftRevision(configuration.data?.revision ?? "");
+    setPending(undefined);
+    setConfirm(undefined);
+    setError(undefined);
+  };
   const submit = async (raw: Record<string, SettingsValue>) => {
+    if (conflict || integrationDirty || certificateDirty) return;
     const data = decode(raw);
     const errors = validateSettings(data);
     if (Object.keys(errors).length) {
@@ -200,6 +219,7 @@ export default function Settings() {
                 groups[group]?.includes(first),
               ) || "integrations",
       );
+      setShowAdvanced(true);
       requestAnimationFrame(() =>
         document.getElementById(field(first))?.focus(),
       );
@@ -207,7 +227,9 @@ export default function Settings() {
     }
     setError(undefined);
     try {
-      setPlan(await settingsApi.plan(mergeSettings(original, data)));
+      setPlan(
+        await settingsApi.plan(mergeSettings(draftBase ?? original, data)),
+      );
       setPending(data);
       setConfirm("save");
     } catch (e) {
@@ -215,12 +237,13 @@ export default function Settings() {
     }
   };
   const apply = async (when: "now" | "idle" = "now") => {
+    if (confirm === "save" && conflict) return;
     setSaving(true);
     setError(undefined);
     try {
       if (confirm === "save" && pending) {
         await settingsApi.apply(
-          mergeSettings(original, pending),
+          mergeSettings(draftBase ?? original, pending),
           draftRevision,
           when,
         );
@@ -253,6 +276,7 @@ export default function Settings() {
       await queryClient.invalidateQueries({ queryKey: ["runtime"] });
     } catch (e) {
       setError(e);
+      await configuration.refetch();
     } finally {
       setSaving(false);
     }
@@ -287,14 +311,14 @@ export default function Settings() {
     ]
       .filter(Boolean)
       .join(" ");
-  const originalFields = flattenSettings(original);
+  const originalFields = flattenSettings(draftBase ?? original);
   const effectiveFields = configuration.data?.effective
     ? flattenSettings(configuration.data.effective as BTSettings)
     : {};
   const changed = Object.keys(values).filter(
     (key) => values[key] !== originalFields[key],
   );
-  const keys = Object.keys(values).filter(
+  const groupKeys = Object.keys(values).filter(
     (key) =>
       key !== "Flow.SchemaVersion" &&
       (search.trim()
@@ -316,6 +340,15 @@ export default function Settings() {
                 key.startsWith("TMDBSettings.")
               : groups[tab]?.includes(key)),
   );
+  const keys = groupKeys.filter(
+    (key) =>
+      search.trim() ||
+      showAdvanced ||
+      tab === "advanced" ||
+      commonSettings.has(key) ||
+      key.startsWith("TMDBSettings."),
+  );
+  const hiddenCount = groupKeys.length - keys.length;
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-semibold">{t("nav.settings")}</h1>
@@ -330,6 +363,14 @@ export default function Settings() {
       </label>
       <div className="panel space-y-2" aria-live="polite">
         <p>{t(dirty ? "settings.unsaved" : "settings.savedState")}</p>
+        {conflict && (
+          <div role="alert" className="space-y-2">
+            <p>{t("settings.draftConflict")}</p>
+            <Button onClick={discard} disabled={saving}>
+              {t("settings.reloadSaved")}
+            </Button>
+          </div>
+        )}
         {!!changed.length && (
           <details>
             <summary>
@@ -389,7 +430,34 @@ export default function Settings() {
           </div>
         )}
       </div>
-      <div className="actions" role="tablist">
+      <div
+        className="actions"
+        role="tablist"
+        aria-label={t("settings.groups")}
+        onKeyDown={(event) => {
+          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))
+            return;
+          const tabs = Array.from(
+            event.currentTarget.querySelectorAll<HTMLButtonElement>(
+              '[role="tab"]',
+            ),
+          );
+          const current = tabs.indexOf(event.target as HTMLButtonElement);
+          if (current < 0) return;
+          event.preventDefault();
+          const next =
+            event.key === "Home"
+              ? 0
+              : event.key === "End"
+                ? tabs.length - 1
+                : (current +
+                    (event.key === "ArrowRight" ? 1 : -1) +
+                    tabs.length) %
+                  tabs.length;
+          tabs[next]?.click();
+          tabs[next]?.focus();
+        }}
+      >
         {[
           "general",
           "flow",
@@ -401,6 +469,7 @@ export default function Settings() {
           <Button
             role="tab"
             aria-selected={tab === name}
+            tabIndex={tab === name ? 0 : -1}
             key={name}
             variant={tab === name ? "primary" : "secondary"}
             onClick={() => {
@@ -412,6 +481,24 @@ export default function Settings() {
           </Button>
         ))}
       </div>
+      {!search.trim() && tab !== "advanced" && (
+        <label className="actions">
+          <input
+            type="checkbox"
+            checked={showAdvanced}
+            onChange={(event) => setShowAdvanced(event.target.checked)}
+          />
+          {t("settings.showAdvanced")}
+          {hiddenCount > 0 && (
+            <span className="text-sm">
+              {t("settings.hiddenFields", { count: hiddenCount })}
+            </span>
+          )}
+        </label>
+      )}
+      {search.trim() && keys.length === 0 && (
+        <p role="status">{t("settings.noMatches")}</p>
+      )}
       {query.error && (
         <RequestError error={query.error} stale retry={() => query.refetch()} />
       )}{" "}
@@ -468,19 +555,16 @@ export default function Settings() {
                 key={key}
               >
                 <label htmlFor={field(key)}>{label}</label>
-                {typeof value === "number" && key !== "CacheSize" && (
+                {changed.includes(key) && (
+                  <span className="text-xs text-primary">
+                    {t("settings.changed")}
+                  </span>
+                )}
+                {typeof value === "number" && settingsUnit(key) && (
                   <span className="text-xs text-slate-400">
-                    {key.endsWith("MB")
-                      ? "MiB"
-                      : /Ms$/.test(key)
-                        ? "ms"
-                        : /(?:Seconds|Sec|Timeout|RequestQueueTime|ReconnectTime|PlaybackTokenTTL)$/.test(
-                              key,
-                            )
-                          ? "s"
-                          : /(?:Pct|ReadAHead|PreloadCache)$/.test(key)
-                            ? "%"
-                            : ""}
+                    {key === "Flow.ManagementRateLimit"
+                      ? t("settings.requestsPerMinute")
+                      : settingsUnit(key)}
                   </span>
                 )}
                 {!!search.trim() && (
@@ -522,8 +606,6 @@ export default function Settings() {
                     })}
                   </span>
                 )}
-                {key === "CacheSize" && <span>MiB</span>}
-                {key === "PreloadCache" && <span>%</span>}
                 {key === "CacheSize" ? (
                   <input
                     id={field(key)}
@@ -644,15 +726,15 @@ export default function Settings() {
               !formState.isDirty ||
               saving ||
               !draftRevision ||
-              !!configuration.data?.applying
+              !!configuration.data?.applying ||
+              conflict ||
+              integrationDirty ||
+              certificateDirty
             }
           >
             {t("settings.apply")}
           </Button>
-          <Button
-            disabled={!formState.isDirty || saving}
-            onClick={() => reset(flattenSettings(original))}
-          >
+          <Button disabled={!formState.isDirty || saving} onClick={discard}>
             {t("settings.discard")}
           </Button>
           <p className="text-xs text-slate-400" role="status">
@@ -695,13 +777,26 @@ export default function Settings() {
           )}
         </p>
         {confirm === "save" && (
-          <p>
-            {t(
-              plan?.restart_required
-                ? "settings.needsRestart"
-                : "settings.hotApply",
-            )}
-          </p>
+          <div className="space-y-2">
+            <p>
+              {t(
+                plan?.restart_required
+                  ? "settings.needsRestart"
+                  : "settings.hotApply",
+              )}
+            </p>
+            <details>
+              <summary>
+                {t("settings.changedFields", { count: changed.length })}
+              </summary>
+              <ul className="list-disc pl-5">
+                {changed.map((key) => (
+                  <li key={key}>{labelFor(key)}</li>
+                ))}
+              </ul>
+            </details>
+            {conflict && <p role="alert">{t("settings.draftConflict")}</p>}
+          </div>
         )}
         <div className="actions mt-4">
           <Button onClick={() => setConfirm(undefined)} disabled={saving}>
@@ -710,12 +805,17 @@ export default function Settings() {
           <Button
             variant="danger"
             isLoading={saving}
+            disabled={confirm === "save" && conflict}
             onClick={() => void apply()}
           >
             {t("settings.confirmAction")}
           </Button>
           {confirm === "save" && plan?.restart_required && (
-            <Button isLoading={saving} onClick={() => void apply("idle")}>
+            <Button
+              isLoading={saving}
+              disabled={conflict}
+              onClick={() => void apply("idle")}
+            >
               {t("settings.applyIdle")}
             </Button>
           )}

@@ -528,7 +528,14 @@
     "copyLampa": "Copier l’adresse Lampa",
     "copyPlaylist": "Copier la liste de lecture de la bibliothèque",
     "copyFailed": "La copie automatique a échoué. Sélectionnez et copiez l’adresse manuellement.",
-    "authHint": "Les QR codes ne contiennent aucun identifiant. Authentifiez-vous séparément si nécessaire."
+    "authHint": "Les QR codes ne contiennent aucun identifiant. Authentifiez-vous séparément si nécessaire.",
+    "httpPlaintext": "HTTP transmet la vidéo et les identifiants sans chiffrement. Utilisez-le uniquement sur un réseau de confiance.",
+    "httpsTrust": "HTTPS chiffre la connexion après acceptation du certificat pour cette adresse par le téléphone. La confiance du serveur ne prouve pas celle du téléphone.",
+    "reachability": "Cette adresse est une suggestion, pas un test de connexion. Ouvrez-la sur le téléphone connecté au même réseau avant de l’ajouter à Lampa.",
+    "checkingCertificate": "Vérification du certificat de ce serveur…",
+    "serverTrustOnly": "Ce serveur fait confiance à son certificat. Le téléphone doit vérifier séparément l’adresse et la confiance.",
+    "serverUntrusted": "Ce serveur ne fait pas confiance à son certificat. Un certificat autosigné nécessite une décision de confiance sur le téléphone.",
+    "tlsNotReported": "Ce serveur ne signale aucun port TLS. Un proxy ou une adresse HTTPS saisie peut différer ; vérifiez sur le téléphone."
   },
   "app": {
     "error": "Impossible d’afficher cette page.",
@@ -1025,7 +1032,15 @@
     "changedFields": "Champs modifiés : {{count}}",
     "effectiveValue": "Effectif : {{value}}",
     "transportDirect": "Lecture directe du cache",
-    "transportHelp": "Comparez les tailles avec le même fichier et les mêmes réserves. Valeur actuelle par défaut : 1024 Kio. Les changements concernent les nouvelles requêtes HTTP."
+    "transportHelp": "Comparez les tailles avec le même fichier et les mêmes réserves. Valeur actuelle par défaut : 1024 Kio. Les changements concernent les nouvelles requêtes HTTP.",
+    "groups": "Groupes de paramètres",
+    "showAdvanced": "Afficher les paramètres avancés",
+    "hiddenFields": "{{count}} champs supplémentaires masqués",
+    "noMatches": "Aucun paramètre ne correspond à cette recherche.",
+    "changed": "Modifié",
+    "draftConflict": "Les paramètres du serveur ont changé pendant la modification. Votre brouillon est conservé. Rechargez les paramètres enregistrés avant de les appliquer ; le brouillon sera supprimé.",
+    "reloadSaved": "Supprimer le brouillon et recharger",
+    "requestsPerMinute": "requêtes/min"
   },
   "preparation": {
     "title": "Préparer cet épisode",

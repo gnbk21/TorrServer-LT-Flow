@@ -73,6 +73,18 @@ func TestNextEpisodeSingleGlobalOwnerAndOtherPlaybackWait(t *testing.T) {
 		t.Fatal("another torrent's read was ignored")
 	}
 	b.flowWaiting.Store(0)
+	b.SetWarmupPlaybackRisk(true)
+	if len(a.nextEpisodeDemand(false)) != 0 || a.NextEpisodeWarmupStatus().Reason != "PLAYBACK_RESERVE" {
+		t.Fatal("another playback's risk was ignored before an actual read wait")
+	}
+	b.SetWarmupPlaybackRisk(false)
+	if len(a.nextEpisodeDemand(false)) == 0 {
+		t.Fatal("cleared playback risk retained its lease")
+	}
+	b.warmupRiskUntil.Store(time.Now().Add(-time.Second).UnixMilli())
+	if len(a.nextEpisodeDemand(false)) == 0 {
+		t.Fatal("expired playback risk retained its lease")
+	}
 	a.close()
 	b.SetNextEpisodeWarmup(2, 64*flow.MiB, 60*flow.MiB, true, true, "HEALTHY_BUFFER")
 	if len(b.nextEpisodeDemand(false)) == 0 {

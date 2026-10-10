@@ -31,9 +31,24 @@ func (t *Torrent) nextEpisodeFileChanged(fileID int) {
 
 func (t *Torrent) tickNextEpisode(cache *torrstor.Cache) {
 	f := settings.CurrentFlow()
+	if !f.Enabled || !f.NextEpisodeWarmup || !f.MetricsEnabled || FlowIsPaused() {
+		cache.SetWarmupPlaybackRisk(false)
+		cache.ClearNextEpisodeWarmup()
+		return
+	}
+	sessions := t.FlowStatusWithTraces(false)
+	risky, observedActive := false, false
+	for _, session := range sessions {
+		if session.ActiveReaders <= 0 {
+			continue
+		}
+		observedActive = true
+		risky = risky || session.Risk.Level != "HEALTHY" || session.Risk.Confidence == "unknown" || session.Delivery.AgeMs < 0 || session.Delivery.AgeMs > 5000
+	}
+	cache.SetWarmupPlaybackRisk(risky || (!observedActive && cache.StreamingReaders() > 0))
 	t.nextEpisodeMu.Lock()
 	defer t.nextEpisodeMu.Unlock()
-	if !f.Enabled || !f.NextEpisodeWarmup || !f.MetricsEnabled || FlowIsPaused() || t.nextEpisodeSuppressed {
+	if t.nextEpisodeSuppressed {
 		cache.ClearNextEpisodeWarmup()
 		return
 	}
@@ -43,7 +58,7 @@ func (t *Torrent) tickNextEpisode(cache *torrstor.Cache) {
 		return
 	}
 	eligible, seen, reason := true, false, "HEALTHY_BUFFER"
-	for _, s := range t.FlowStatusWithTraces(false) {
+	for _, s := range sessions {
 		if s.State == "EXPIRED" {
 			continue
 		}

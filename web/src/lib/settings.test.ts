@@ -1,7 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { flattenSettings, mergeSettings, validateSettings } from "./settings";
+import {
+  flattenSettings,
+  mergeSettings,
+  validateSettings,
+  settingsUnit,
+} from "./settings";
 import type { BTSettings } from "../types/settings";
 describe("settings round trip and bounds", () => {
+  it("labels byte rates and durations using the native settings units", () => {
+    expect(settingsUnit("DownloadRateLimit")).toBe("KiB/s");
+    expect(settingsUnit("Flow.StreamTransportBufferKiB")).toBe("KiB");
+    expect(settingsUnit("Flow.ManagementRateLimit")).toBe("requests/min");
+    expect(settingsUnit("Flow.ProbeGraceMs")).toBe("ms");
+    expect(settingsUnit("Flow.SwarmCustom.MinReconnectTime")).toBe("s");
+    expect(settingsUnit("Flow.StartupSafetyFactorPct")).toBe("%");
+    expect(settingsUnit("ConnectionsLimit")).toBe("");
+  });
   const original = {
     CacheSize: 67108864,
     ReaderReadAHead: 95,

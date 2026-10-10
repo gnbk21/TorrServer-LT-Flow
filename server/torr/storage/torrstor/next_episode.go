@@ -24,6 +24,14 @@ type nextEpisodeWarmup struct {
 	done     bool
 }
 
+func (c *Cache) SetWarmupPlaybackRisk(risky bool) {
+	until := int64(0)
+	if risky {
+		until = time.Now().Add(3 * time.Second).UnixMilli()
+	}
+	c.warmupRiskUntil.Store(until)
+}
+
 func (c *Cache) ClearNextEpisodeWarmup() {
 	if c == nil {
 		return
@@ -123,12 +131,18 @@ func (c *Cache) nextEpisodeDemand(blocked bool) []int {
 	if c.storage != nil {
 		c.storage.mu.RLock()
 		waiting := false
+		risky := false
 		for _, other := range c.storage.caches {
 			waiting = waiting || other.flowWaiting.Load() > 0 || other.flowReconnect.Load()
+			risky = risky || time.Now().UnixMilli() < other.warmupRiskUntil.Load()
 		}
 		c.storage.mu.RUnlock()
 		if waiting {
 			w.Reason = "PLAYBACK_WAIT"
+			return nil
+		}
+		if risky {
+			w.Reason = "PLAYBACK_RESERVE"
 			return nil
 		}
 	}

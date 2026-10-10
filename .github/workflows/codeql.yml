@@ -81,6 +81,7 @@ jobs:
           cd server
           go test -count=1 -timeout 180s ./lt ./flow ./settings ./torr ./torr/storage/torrstor ./web/api ./mcp ./tgbot
           go test ./flow -run '^$' -fuzz '^FuzzInfoHash$' -fuzztime=10s -parallel=2
+          go test ./torr/storage/torrstor -run '^$' -fuzz '^FuzzStorageWriteBounds$' -fuzztime=15s -parallel=2
       - uses: github/codeql-action/init@v4
         with:
           languages: go,cpp

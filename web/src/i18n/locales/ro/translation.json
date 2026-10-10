@@ -522,7 +522,14 @@
     "copyLampa": "Copiază adresa Lampa",
     "copyPlaylist": "Copiază lista de redare a bibliotecii",
     "copyFailed": "Copierea automată a eșuat. Selectează și copiază manual adresa.",
-    "authHint": "Codurile QR nu includ acreditări. Autentifică-te separat dacă este necesar."
+    "authHint": "Codurile QR nu includ acreditări. Autentifică-te separat dacă este necesar.",
+    "httpPlaintext": "HTTP transmite video și datele de autentificare fără criptare. Folosește-l numai într-o rețea de încredere.",
+    "httpsTrust": "HTTPS criptează conexiunea după ce telefonul acceptă certificatul pentru această adresă. Încrederea serverului nu dovedește încrederea telefonului.",
+    "reachability": "Adresa este o sugestie de conectare, nu un test. Deschide-o pe telefon în aceeași rețea înainte de a o adăuga în Lampa.",
+    "checkingCertificate": "Se verifică certificatul acestui server…",
+    "serverTrustOnly": "Serverul are încredere în certificatul său. Telefonul trebuie să verifice separat adresa și încrederea.",
+    "serverUntrusted": "Serverul nu are încredere în certificatul său. Un certificat autosemnat necesită o decizie separată pe telefon.",
+    "tlsNotReported": "Serverul nu raportează un port TLS. Un proxy sau o adresă HTTPS introdusă manual poate diferi; verifică pe telefon."
   },
   "app": {
     "error": "Pagina nu poate fi afișată.",
@@ -1019,7 +1026,15 @@
     "changedFields": "Câmpuri modificate: {{count}}",
     "effectiveValue": "Aplicat: {{value}}",
     "transportDirect": "Citire directă din cache",
-    "transportHelp": "Comparați dimensiunile cu același fișier și aceleași rezerve. Valoare implicită: 1024 KiB. Modificările se aplică cererilor HTTP noi."
+    "transportHelp": "Comparați dimensiunile cu același fișier și aceleași rezerve. Valoare implicită: 1024 KiB. Modificările se aplică cererilor HTTP noi.",
+    "groups": "Grupuri de setări",
+    "showAdvanced": "Afișează setările avansate",
+    "hiddenFields": "{{count}} câmpuri suplimentare ascunse",
+    "noMatches": "Nicio setare nu corespunde căutării.",
+    "changed": "Modificat",
+    "draftConflict": "Setările serverului s-au schimbat în timpul editării. Modificările sunt păstrate în ciornă. Reîncarcă setările salvate înainte de aplicare; ciorna va fi eliminată.",
+    "reloadSaved": "Elimină ciorna și reîncarcă setările",
+    "requestsPerMinute": "cereri/min"
   },
   "preparation": {
     "title": "Pregătește episodul",

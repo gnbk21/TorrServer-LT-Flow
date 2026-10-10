@@ -775,7 +775,7 @@ test("quoted disk cache paths show a correction before any settings save", async
   });
 });
 
-test("settings polling preserves draft revision and rejects conflicting save", async ({
+test("settings polling preserves draft, blocks a known conflict and reloads its revision", async ({
   page,
 }) => {
   await mockServer(page);
@@ -815,16 +815,64 @@ test("settings polling preserves draft revision and rejects conflicting save", a
   await expect(
     page.getByRole("spinbutton", { name: "Cache Size", exact: true }),
   ).toHaveValue("512");
+  await expect(
+    page.getByRole("button", { name: "Apply settings", exact: true }),
+  ).toBeDisabled();
+  expect(submitted).toBe("");
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "Settings changed on the server" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("spinbutton", { name: "Cache Size", exact: true }),
+  ).toHaveValue("512");
+  await page
+    .getByRole("button", {
+      name: "Discard draft and reload saved settings",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("spinbutton", { name: "Cache Size", exact: true }),
+  ).toHaveValue(String(settings.CacheSize / 1048576));
+  await page.getByRole("button", { name: "512 MiB", exact: true }).click();
   await page
     .getByRole("button", { name: "Apply settings", exact: true })
     .click();
   await page.getByRole("button", { name: "Confirm", exact: true }).click();
-  await expect.poll(() => submitted).toBe("draft-base");
+  await expect.poll(() => submitted).toBe("external-change");
   await expect(page.getByRole("dialog").getByRole("alert")).toBeVisible();
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+});
+
+test("settings advanced view and keyboard groups preserve hidden draft fields", async ({
+  page,
+}) => {
+  const saves = await mockServer(page);
+  await page.goto("/#/settings");
+  await page.getByRole("tab", { name: "Network", exact: true }).click();
+  await expect(page.locator("#ConnectionsLimit")).toHaveCount(0);
+  await page.getByRole("checkbox", { name: "Show advanced settings" }).check();
+  await page.locator("#ConnectionsLimit").fill("321");
+  await page
+    .getByRole("checkbox", { name: "Show advanced settings" })
+    .uncheck();
+  await expect(page.locator("#ConnectionsLimit")).toHaveCount(0);
+  const network = page.getByRole("tab", { name: "Network", exact: true });
+  await network.focus();
+  await page.keyboard.press("Home");
   await expect(
-    page.getByRole("spinbutton", { name: "Cache Size", exact: true }),
-  ).toHaveValue("512");
+    page.getByRole("tab", { name: "General", exact: true }),
+  ).toBeFocused();
+  await page.getByRole("button", { name: "512 MiB", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Apply settings", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0]).toMatchObject({
+    sets: { ConnectionsLimit: 321, CacheSize: 536870912 },
+  });
 });
 
 test("required expiring playback links preserve the playlist session", async ({
@@ -866,6 +914,7 @@ test("deadline experiment is off by default and saves only after confirmation", 
   const saves = await mockServer(page);
   await page.goto("/#/settings");
   await page.getByRole("tab", { name: "Flow", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Show advanced settings" }).check();
   const experiment = page.getByRole("checkbox", {
     name: "Rate-aware deadline experiment",
     exact: true,

@@ -93,6 +93,7 @@ type Cache struct {
 	indexWorkers      sync.WaitGroup
 	resourceBudget    atomic.Int64 // zero means not yet coordinated
 	backgroundLimited atomic.Bool
+	warmupRiskUntil   atomic.Int64 // short-lived watcher lease; no diagnostic poll drives scheduling
 	nextMu            sync.Mutex
 	nextWarmup        nextEpisodeWarmup
 
@@ -1636,6 +1637,7 @@ const maxTailPinPieces = 6
 // close drops the in-memory state for every piece but leaves on-disk
 // files in place — they're the source of truth for the next resume.
 func (c *Cache) close() {
+	c.SetWarmupPlaybackRisk(false)
 	c.ClearNextEpisodeWarmup()
 	c.stopBurstIndexes()
 	// Drop any leftover preload reservation (e.g. a preview that never streamed)
@@ -1655,6 +1657,7 @@ func (c *Cache) close() {
 // on-disk file (if any). Triggered when libtorrent asks us to delete
 // the storage (e.g. RemTorrent with delete=true).
 func (c *Cache) wipe() {
+	c.SetWarmupPlaybackRisk(false)
 	c.ClearNextEpisodeWarmup()
 	c.stopBurstIndexes()
 	c.mu.Lock()

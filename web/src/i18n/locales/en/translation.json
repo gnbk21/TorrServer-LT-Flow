@@ -775,7 +775,14 @@
     "copyLampa": "Copy Lampa address",
     "copyPlaylist": "Copy library playlist",
     "copyFailed": "Automatic copying failed. Select and copy the address manually.",
-    "authHint": "QR codes do not include credentials. Authenticate separately when the server requires it."
+    "authHint": "QR codes do not include credentials. Authenticate separately when the server requires it.",
+    "httpPlaintext": "HTTP sends playback and credentials without encryption. Use it only on a trusted network.",
+    "httpsTrust": "HTTPS encrypts the connection only after the phone accepts the certificate for this address. Server trust does not prove phone trust.",
+    "reachability": "This address is a connection suggestion, not a connectivity test. Open it on your phone on the same network before adding it to Lampa.",
+    "checkingCertificate": "Checking this server’s certificate…",
+    "serverTrustOnly": "This server trusts its certificate. Your phone must check the selected address and trust separately.",
+    "serverUntrusted": "This server does not trust its certificate. A self-signed certificate needs a separate trust decision on your phone.",
+    "tlsNotReported": "This server does not report a TLS listener. A proxy or manually entered HTTPS address may differ; check it on your phone."
   },
   "search": {
     "source": "Source",
@@ -1011,7 +1018,15 @@
     "changedFields": "Changed fields: {{count}}",
     "effectiveValue": "Effective: {{value}}",
     "transportDirect": "Direct cache reads",
-    "transportHelp": "Compare transport sizes with the same fixture and reserves. Existing default: 1024 KiB. Changes apply to new HTTP requests."
+    "transportHelp": "Compare transport sizes with the same fixture and reserves. Existing default: 1024 KiB. Changes apply to new HTTP requests.",
+    "groups": "Settings groups",
+    "showAdvanced": "Show advanced settings",
+    "hiddenFields": "{{count}} additional fields hidden",
+    "noMatches": "No settings match this search.",
+    "changed": "Changed",
+    "draftConflict": "Settings changed on the server while this draft was open. Your edits are preserved. Reload saved settings before applying; this discards the draft.",
+    "reloadSaved": "Discard draft and reload saved settings",
+    "requestsPerMinute": "requests/min"
   },
   "runtime": {
     "torrents": "Torrents",

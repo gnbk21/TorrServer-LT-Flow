@@ -20,7 +20,7 @@ tracked separately. Baseline: stable 1.0.1 / source 55c16dc3; integration c3dfe7
 - [ ] Incident timeline, confidence/actions, stale timestamps and closed-detail cancellation.
 - [ ] Card/list modes, restored filters/page/scroll, episode/raw-name parity and per-row actions.
 - [ ] Search/add/preparation progress and retries; artwork independent of readiness.
-- [ ] Settings search, grouping, units/effective values, changed-field/restart summaries.
+- [x] Settings search, common/advanced grouping, units/effective values, changed-field/restart summaries.
 - [ ] Draft/conflict protection, pairing/trust/readiness/LAN guidance and optional availability.
 - [x] Compact batched /flow/active and full-dataset paginated /flow/library projections.
 - [ ] Split identity/live subscriptions; visibility polling, lazy optional chunks and SVG graphs.
