@@ -707,7 +707,43 @@
     "reserveHint": "Le débit HTTP et les estimations octets/temps ne sont pas l’horloge du décodeur du téléphone. Les pièces vérifiées après un trou sont exclues de la réserve contiguë.",
     "observedPlayback": "Flux observé",
     "warm": "Tampon conservé",
-    "serverObservation": "Observations du serveur ; la lecture du lecteur n’est pas mesurée."
+    "serverObservation": "Observations du serveur ; la lecture du lecteur n’est pas mesurée.",
+    "timelineTitle": "Chronologie des incidents",
+    "timelineHint": "Observations du serveur sur une même horloge du torrent. Les valeurs à côté des événements décrivent l’opération mesurée. Les événements absents restent inconnus ; ceci ne mesure pas les interruptions du lecteur.",
+    "sampledAt": "Instantané à",
+    "timelineTruncated": "Événements anciens omis : {{count}}",
+    "timelineEvents": {
+      "engine_started": "Moteur démarré",
+      "engine_stopped": "Moteur arrêté",
+      "metadata": "Métadonnées prêtes",
+      "startup": "Phase de démarrage",
+      "first_byte": "Premier octet HTTP",
+      "first_block": "Premier bloc utile",
+      "probe": "Analyse du média",
+      "dht_peer": "Pair DHT",
+      "peer_disconnected": "Pair déconnecté",
+      "seek": "Recherche demandée",
+      "recovery": "Réponse après recherche"
+    },
+    "playerEvidence": "Mesures du lecteur",
+    "playerEvidenceHint": "Rapport Flow Player facultatif. L’import reste dans cette boîte de dialogue ouverte ; il n’est ni envoyé au serveur ni appliqué aux paramètres.",
+    "playerImport": "Importer le rapport JSON",
+    "playerMatched": "Le rapport correspond à une session observée.",
+    "playerUnmatched": "Session non identifiée ; les mesures restent séparées.",
+    "playerClockUnknown": "Synchronisation de l’horloge inconnue ; ne déduisez pas de coïncidence exacte.",
+    "clearPlayerReport": "Effacer le rapport importé",
+    "playerUnknown": "Aucune mesure du lecteur. Les attentes du serveur ne prouvent pas des interruptions du lecteur.",
+    "playerReportInvalid": "Rapport invalide ou trop volumineux.",
+    "playerMetrics": {
+      "startup_ms": "Démarrage (ms)",
+      "rebuffer_events": "Événements de remise en mémoire tampon",
+      "rebuffer_ms": "Temps de remise en mémoire tampon (ms)",
+      "seek_events": "Recherches",
+      "seek_buffer_ms": "Attente après recherche (ms)",
+      "buffered_ms": "Durée en tampon (ms)",
+      "dropped_frames": "Images perdues",
+      "paused_ms": "Pause (ms)"
+    }
   },
   "search": {
     "source": "Source",
@@ -852,7 +888,8 @@
         "CapacityAwareRequests": "Respecter la capacité de requêtes du pair (expérience)",
         "AdaptiveUrgentHorizon": "Horizon urgent adaptatif (expérience)",
         "ContainerBurstHints": "Indications de pics par index résident (expérience)",
-        "MSXAllowLAN": "Autoriser le proxy MSX sur le réseau local"
+        "MSXAllowLAN": "Autoriser le proxy MSX sur le réseau local",
+        "StreamTransportBufferKiB": "Tampon de transport (expérience contrôlée)"
       }
     },
     "maintenance": {
@@ -942,7 +979,9 @@
     },
     "search": "Rechercher dans tous les paramètres",
     "changedFields": "Champs modifiés : {{count}}",
-    "effectiveValue": "Effectif : {{value}}"
+    "effectiveValue": "Effectif : {{value}}",
+    "transportDirect": "Lecture directe du cache",
+    "transportHelp": "Comparez les tailles avec le même fichier et les mêmes réserves. Valeur actuelle par défaut : 1024 Kio. Les changements concernent les nouvelles requêtes HTTP."
   },
   "preparation": {
     "title": "Préparer cet épisode",

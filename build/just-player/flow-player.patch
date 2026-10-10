@@ -10,11 +10,21 @@
 +            playerBuilder.setLoadControl(FlowLoadControl.create(this));
 +        }
          player = playerBuilder.build();
-+        if (getIntent().getBooleanExtra("flow_diagnostics", false))
-+            FlowPlaybackAnalytics.attach(player);
++        if (FlowDiagnosticsSettings.enabled(this))
++            FlowPlaybackAnalytics.attach(this, player);
  
          AudioAttributes audioAttributes = new AudioAttributes.Builder()
                  .setUsage(C.USAGE_MEDIA)
+--- a/app/src/main/java/com/brouken/player/SettingsActivity.java
++++ b/app/src/main/java/com/brouken/player/SettingsActivity.java
+@@ -82,6 +82,7 @@
+         @Override
+         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
+             setPreferencesFromResource(R.xml.root_preferences, rootKey);
++            FlowDiagnosticsSettings.install(this);
+ 
+             Preference preferenceAutoPiP = findPreference("autoPiP");
+             if (preferenceAutoPiP != null) {
 --- a/app/build.gradle
 +++ b/app/build.gradle
 @@ -9,7 +9,7 @@

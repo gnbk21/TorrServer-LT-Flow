@@ -145,9 +145,16 @@ export default function Dashboard() {
   const [unmeasuredFiles, setUnmeasuredFiles] = useState<Torrent>();
   const bt = runtime.data?.bt;
   return (
-    <div className="space-y-5">
+    <div
+      className="space-y-5"
+      aria-busy={activity.isPending || runtime.isPending}
+    >
       <h1 className="text-2xl font-semibold">{t("nav.dashboard")}</h1>
-      {(activity.isPending || runtime.isPending) && <Loading />}
+      {(activity.isPending || runtime.isPending) && (
+        <span role="status" className="sr-only">
+          {t("Loading")}
+        </span>
+      )}
       {activity.error && (
         <RequestError
           error={activity.error}
@@ -180,8 +187,12 @@ export default function Dashboard() {
             </section>
           ))}
         </>
+      ) : activity.isPending ? (
+        <section className="panel min-h-52 flex items-center" role="status">
+          {t("Loading")}
+        </section>
       ) : (
-        <section className="panel space-y-3">
+        <section className="panel min-h-52 space-y-3">
           <h2 className="text-xl">{t("dashboard.idle")}</h2>
           <p className="text-slate-300">{t("dashboard.idleHint")}</p>
           <div className="actions">

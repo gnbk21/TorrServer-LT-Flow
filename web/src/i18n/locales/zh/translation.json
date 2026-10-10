@@ -707,7 +707,43 @@
     "reserveHint": "HTTP 传输与索引字节/时间斜率只是估计，并非手机解码器时钟。空洞之后的已验证分片不计入连续储备。",
     "observedPlayback": "观察到的流",
     "warm": "保留缓冲",
-    "serverObservation": "服务器观察结果；未测量播放器的实际播放情况。"
+    "serverObservation": "服务器观察结果；未测量播放器的实际播放情况。",
+    "timelineTitle": "事件时间线",
+    "timelineHint": "服务器观察结果使用同一条种子时间轴。事件旁的数值表示测得的操作耗时。缺失事件仍视为未知；此处并未测量播放器卡顿。",
+    "sampledAt": "快照时间",
+    "timelineTruncated": "已省略较早的事件：{{count}}",
+    "timelineEvents": {
+      "engine_started": "引擎已启动",
+      "engine_stopped": "引擎已停止",
+      "metadata": "元数据就绪",
+      "startup": "启动阶段",
+      "first_byte": "首个 HTTP 字节",
+      "first_block": "首个有效数据块",
+      "probe": "媒体分析",
+      "dht_peer": "DHT 节点",
+      "peer_disconnected": "节点已断开",
+      "seek": "已请求跳转",
+      "recovery": "跳转响应恢复"
+    },
+    "playerEvidence": "播放器测量",
+    "playerEvidenceHint": "可选的 Flow Player 报告。导入数据仅保留在此打开的对话框中，不会上传到服务器或更改设置。",
+    "playerImport": "导入播放器 JSON 报告",
+    "playerMatched": "报告与观察到的会话匹配。",
+    "playerUnmatched": "无法匹配会话；测量结果单独显示。",
+    "playerClockUnknown": "播放器时钟同步情况未知；请勿推断事件完全重合。",
+    "clearPlayerReport": "清除导入报告",
+    "playerUnknown": "没有播放器测量结果。服务器等待不能证明播放器卡顿。",
+    "playerReportInvalid": "播放器报告无效或过大。",
+    "playerMetrics": {
+      "startup_ms": "启动（毫秒）",
+      "rebuffer_events": "重新缓冲次数",
+      "rebuffer_ms": "重新缓冲时间（毫秒）",
+      "seek_events": "跳转次数",
+      "seek_buffer_ms": "跳转缓冲时间（毫秒）",
+      "buffered_ms": "缓冲时长（毫秒）",
+      "dropped_frames": "丢帧数",
+      "paused_ms": "暂停时间（毫秒）"
+    }
   },
   "search": {
     "source": "来源",
@@ -852,7 +888,8 @@
         "CapacityAwareRequests": "遵守对端请求容量（实验）",
         "AdaptiveUrgentHorizon": "自适应紧急分片范围（实验）",
         "ContainerBurstHints": "已缓存容器索引的峰值提示（实验）",
-        "MSXAllowLAN": "允许 MSX 代理访问局域网"
+        "MSXAllowLAN": "允许 MSX 代理访问局域网",
+        "StreamTransportBufferKiB": "传输缓冲区（受控实验）"
       }
     },
     "maintenance": {
@@ -942,7 +979,9 @@
     },
     "search": "搜索所有设置",
     "changedFields": "已更改的字段：{{count}}",
-    "effectiveValue": "当前生效：{{value}}"
+    "effectiveValue": "当前生效：{{value}}",
+    "transportDirect": "直接读取缓存",
+    "transportHelp": "使用相同测试文件和预留量比较缓冲大小。当前默认值为 1024 KiB。更改仅影响新的 HTTP 请求。"
   },
   "preparation": {
     "title": "准备剧集",

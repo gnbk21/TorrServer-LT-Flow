@@ -34,6 +34,9 @@ export const settingsSchema = z
         CapacityAwareRequests: z.boolean().optional(),
         AdaptiveUrgentHorizon: z.boolean().optional(),
         ContainerBurstHints: z.boolean().optional(),
+        StreamTransportBufferKiB: z
+          .union([z.literal(0), z.literal(64), z.literal(256), z.literal(1024)])
+          .optional(),
         SwarmCustom: z.record(z.string(), z.unknown()),
       })
       .passthrough()
@@ -43,6 +46,10 @@ export const settingsSchema = z
   .passthrough();
 export const flowSessionSchema = z
   .object({
+    session_id: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{16,64}$/)
+      .optional(),
     supply_qualified: z.boolean().optional(),
     readable_contiguous_bytes: z.number().int().nonnegative().optional(),
     verified_contiguous_bytes: z.number().int().nonnegative().optional(),
@@ -99,6 +106,26 @@ export const flowSessionSchema = z
   .passthrough();
 export const flowSchema = z
   .object({
+    sampled_at: z.string().datetime({ offset: true }).optional(),
+    timeline: z
+      .object({
+        source: z.literal("server"),
+        dropped: z.number().int().nonnegative(),
+        events: z
+          .array(
+            z.object({
+              time: z.string().datetime({ offset: true }),
+              elapsed_ms: z.number().int().nonnegative(),
+              operation_ms: z.number().int(),
+              type: z.string(),
+              stage: z.string().optional(),
+              file: z.number().int().optional(),
+              bytes: z.number().int().optional(),
+            }),
+          )
+          .max(128),
+      })
+      .optional(),
     storage_io: z
       .object({
         queued_bytes: z.number().int().nonnegative(),

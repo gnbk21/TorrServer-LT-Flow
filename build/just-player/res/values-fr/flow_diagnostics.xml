@@ -1,0 +1,9 @@
+<resources>
+    <string name="flow_diagnostics_title">Diagnostics Flow</string>
+    <string name="flow_diagnostics_enable">Enregistrer les diagnostics de lecture</string>
+    <string name="flow_diagnostics_hint">Désactivé par défaut. Actif à la prochaine lecture. Un rapport privé limité avec des mesures numériques Media3 ; aucun envoi automatique.</string>
+    <string name="flow_diagnostics_export">Exporter le rapport</string>
+    <string name="flow_diagnostics_export_hint">Choisissez un fichier JSON. Les rapports excluent les noms de vidéos, adresses et identifiants.</string>
+    <string name="flow_diagnostics_exported">Rapport exporté</string>
+    <string name="flow_diagnostics_unavailable">Aucun rapport disponible ou échec de l’export</string>
+</resources>

@@ -84,6 +84,7 @@ type Torrent struct {
 	flowStartupStarted     time.Time
 	flowAddedAt            time.Time
 	diagnosticID           uint64
+	timeline               flow.Timeline
 	preloadWorkMu          sync.Mutex
 	preloadWork            *preloadOperation
 	flowStartup            FlowStartupStatus

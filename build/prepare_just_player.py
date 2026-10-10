@@ -4,6 +4,7 @@ import argparse
 import hashlib
 from pathlib import Path
 import subprocess
+import shutil
 
 COMMIT = 'aa85148f6ccbfdf931fe207bb75ec77c478d8eb0'
 ROOT = Path(__file__).resolve().parent
@@ -23,13 +24,20 @@ def prepare(directory):
     for source in (ROOT/'just-player').glob('*.java'):
         if source.name.endswith('Test.java'): continue
         (target/source.name).write_bytes(source.read_bytes())
+    for source in (ROOT/'just-player/res').glob('*/flow_diagnostics.xml'):
+        destination = directory/'app/src/main/res'/source.parent.name/source.name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source,destination)
     # A separate package and label allow stock Just Player to remain installed.
     manifest = directory/'app/src/main/AndroidManifest.xml'
     text = manifest.read_text()
     text = text.replace('android:label="@string/app_name"', 'android:label="Flow Player (experimental)"')
     manifest.write_text(text, encoding='utf-8', newline='\n')
     digest = hashlib.sha256()
-    for source in sorted((ROOT/'just-player').glob('*')): digest.update(source.read_bytes())
+    recipe = ROOT/'just-player'
+    for source in sorted(path for path in recipe.rglob('*') if path.is_file()):
+        digest.update(source.relative_to(recipe).as_posix().encode('utf-8'))
+        digest.update(source.read_bytes())
     print('Player commit:',COMMIT,'Flow recipe:',digest.hexdigest())
 
 

@@ -77,6 +77,11 @@
     max-width: 100%;
     min-width: 0;
   }
+  button,
+  input,
+  select {
+    min-height: 44px;
+  }
   label {
     display: block;
   }
@@ -125,15 +130,28 @@
 }
 
 /* Status text remains legible on both surfaces; primary action text stays white. */
-html[data-theme="light"] :is(.text-blue-300, .text-blue-400) {
+html[data-theme="light"] :is(.text-blue-200, .text-blue-300, .text-blue-400) {
   color: #1d4ed8;
 }
 html[data-theme="light"]
-  :is(.text-amber-300, .text-amber-400, .text-yellow-300) {
+  :is(
+    .text-amber-200,
+    .text-amber-300,
+    .text-amber-400,
+    .text-yellow-200,
+    .text-yellow-300
+  ) {
   color: #854d0e;
 }
 html[data-theme="light"]
-  :is(.text-rose-300, .text-rose-400, .text-red-300, .text-red-400) {
+  :is(
+    .text-rose-200,
+    .text-rose-300,
+    .text-rose-400,
+    .text-red-200,
+    .text-red-300,
+    .text-red-400
+  ) {
   color: #be123c;
 }
 html[data-theme="light"]

@@ -10,6 +10,7 @@ import re
 import shlex
 import subprocess
 import zipfile
+from sbom import generate as generate_sbom
 
 REPOSITORY = "gnbk21/TorrServer-LT-Flow"
 PLATFORMS = ("windows-amd64", "linux-amd64", "linux-arm64", "linux-armv7",
@@ -133,10 +134,13 @@ def package(artifact_dir, output, tag, commit, native_root):
     for name in ("LICENSE", "DISTRIBUTION.md"):
         (output / name).write_bytes((root / name).read_bytes())
     (output / "THIRD_PARTY_NOTICES.txt").write_bytes((root / "server/web/pages/template/pages/THIRD_PARTY_NOTICES.txt").read_bytes())
+    build_epoch = int(subprocess.check_output(["git", "show", "-s", "--format=%ct", commit], cwd=root, text=True).strip())
+    timestamp = datetime.datetime.fromtimestamp(build_epoch, datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
+    (output / "SBOM.cdx.json").write_text(json.dumps(generate_sbom(root, binaries, tag, commit, timestamp, native_root), indent=2)+'\n', encoding='utf-8')
     (output / "FlowTray.ps1").write_bytes((root / "tray/FlowTray.ps1").read_bytes())
     for name in ("Install-Flow.ps1", "Update-Flow.ps1", "FlowRelease.ps1"):
         (output / name).write_bytes((root / "distribution" / name).read_bytes())
-    documents = ("LICENSE", "DISTRIBUTION.md", "BUILDINFO.json", "NATIVE_AND_GO_NOTICES.txt", "THIRD_PARTY_NOTICES.txt")
+    documents = ("LICENSE", "DISTRIBUTION.md", "BUILDINFO.json", "NATIVE_AND_GO_NOTICES.txt", "THIRD_PARTY_NOTICES.txt", "SBOM.cdx.json")
     packages = {}
     for platform in PLATFORMS:
         name = f"TorrServer-Flow-{platform}-{tag}.zip"

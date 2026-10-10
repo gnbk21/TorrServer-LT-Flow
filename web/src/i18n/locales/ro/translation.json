@@ -701,7 +701,43 @@
     "reserveHint": "Livrarea HTTP și estimările octeți/timp nu reprezintă ceasul decodorului telefonului. Piesele verificate după un gol sunt excluse din rezerva continuă.",
     "observedPlayback": "Flux observat",
     "warm": "Buffer păstrat",
-    "serverObservation": "Observații ale serverului; redarea în player nu este măsurată."
+    "serverObservation": "Observații ale serverului; redarea în player nu este măsurată.",
+    "timelineTitle": "Cronologia incidentelor",
+    "timelineHint": "Observații ale serverului pe aceeași scară de timp a torrentului. Valorile de lângă evenimente descriu operația măsurată. Evenimentele absente rămân necunoscute; aceasta nu măsoară întreruperile playerului.",
+    "sampledAt": "Instantaneu la",
+    "timelineTruncated": "Evenimente vechi omise: {{count}}",
+    "timelineEvents": {
+      "engine_started": "Motor pornit",
+      "engine_stopped": "Motor oprit",
+      "metadata": "Metadate disponibile",
+      "startup": "Etapă de pornire",
+      "first_byte": "Primul octet HTTP",
+      "first_block": "Primul bloc util",
+      "probe": "Analiză media",
+      "dht_peer": "Peer DHT",
+      "peer_disconnected": "Peer deconectat",
+      "seek": "Salt solicitat",
+      "recovery": "Răspuns după salt"
+    },
+    "playerEvidence": "Măsurători ale playerului",
+    "playerEvidenceHint": "Raport Flow Player opțional. Importul rămâne în acest dialog deschis; nu este încărcat pe server și nu modifică setările.",
+    "playerImport": "Importă raportul JSON",
+    "playerMatched": "Raportul corespunde unei sesiuni observate.",
+    "playerUnmatched": "Sesiunea nu a fost identificată; măsurătorile rămân separate.",
+    "playerClockUnknown": "Sincronizarea ceasului este necunoscută; nu deduce suprapunerea exactă a evenimentelor.",
+    "clearPlayerReport": "Șterge raportul importat",
+    "playerUnknown": "Nu există măsurători ale playerului. Așteptările serverului nu dovedesc întreruperi în player.",
+    "playerReportInvalid": "Raport invalid sau prea mare.",
+    "playerMetrics": {
+      "startup_ms": "Pornire (ms)",
+      "rebuffer_events": "Evenimente de rebuffering",
+      "rebuffer_ms": "Rebuffering (ms)",
+      "seek_events": "Salturi",
+      "seek_buffer_ms": "Buffering după salt (ms)",
+      "buffered_ms": "Timp în buffer (ms)",
+      "dropped_frames": "Cadre pierdute",
+      "paused_ms": "Pauză (ms)"
+    }
   },
   "search": {
     "source": "Sursă",
@@ -846,7 +882,8 @@
         "CapacityAwareRequests": "Respectă limita cererilor peerului (experiment)",
         "AdaptiveUrgentHorizon": "Orizont urgent adaptiv (experiment)",
         "ContainerBurstHints": "Indicii de vârf din indexul rezident (experiment)",
-        "MSXAllowLAN": "Permite accesul proxy-ului MSX la rețeaua locală"
+        "MSXAllowLAN": "Permite accesul proxy-ului MSX la rețeaua locală",
+        "StreamTransportBufferKiB": "Buffer de transport (experiment controlat)"
       }
     },
     "maintenance": {
@@ -936,7 +973,9 @@
     },
     "search": "Caută în toate setările",
     "changedFields": "Câmpuri modificate: {{count}}",
-    "effectiveValue": "Aplicat: {{value}}"
+    "effectiveValue": "Aplicat: {{value}}",
+    "transportDirect": "Citire directă din cache",
+    "transportHelp": "Comparați dimensiunile cu același fișier și aceleași rezerve. Valoare implicită: 1024 KiB. Modificările se aplică cererilor HTTP noi."
   },
   "preparation": {
     "title": "Pregătește episodul",

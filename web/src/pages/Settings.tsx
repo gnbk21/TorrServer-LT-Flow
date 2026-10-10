@@ -83,6 +83,7 @@ const groups: Record<string, string[]> = {
     "Flow.MSXAllowLAN",
   ],
   advanced: [
+    "Flow.StreamTransportBufferKiB",
     "PadTailPartial",
     "EnableDebug",
     "ShowFSActiveTorr",
@@ -279,6 +280,7 @@ export default function Settings() {
           "Flow.CapacityAwareRequests": t("settings.highBitrateExperimentHelp"),
           "Flow.AdaptiveUrgentHorizon": t("settings.highBitrateExperimentHelp"),
           "Flow.ContainerBurstHints": t("settings.highBitrateExperimentHelp"),
+          "Flow.StreamTransportBufferKiB": t("settings.transportHelp"),
         } as Record<string, string>
       )[key] || "",
     ]
@@ -303,6 +305,7 @@ export default function Settings() {
             key !== "Flow.SchemaVersion" &&
             !groups.security!.includes(key) &&
             !groups.network!.includes(key) &&
+            !groups.advanced!.includes(key) &&
             !key.startsWith("Flow.SwarmCustom.")
           : tab === "advanced"
             ? groups.advanced!.includes(key) ||
@@ -480,11 +483,30 @@ export default function Settings() {
                   </span>
                 )}
                 {!!search.trim() && (
-                  <span className="text-xs text-slate-400">
+                  <button
+                    type="button"
+                    className="text-xs text-primary underline"
+                    onClick={() => {
+                      const group =
+                        Object.keys(groups).find((group) =>
+                          groups[group]?.includes(key),
+                        ) ||
+                        (key.startsWith("TMDBSettings.")
+                          ? "integrations"
+                          : key.startsWith("Flow.SwarmCustom.")
+                            ? "advanced"
+                            : "flow");
+                      setTab(group);
+                      setSearch("");
+                      requestAnimationFrame(() =>
+                        document.getElementById(field(key))?.focus(),
+                      );
+                    }}
+                  >
                     {t(
                       `settings.tabs.${Object.keys(groups).find((group) => groups[group]?.includes(key)) || (key.startsWith("TMDBSettings.") ? "integrations" : key.startsWith("Flow.SwarmCustom.") ? "advanced" : "flow")}`,
                     )}
-                  </span>
+                  </button>
                 )}
                 {!!hintFor(key) && (
                   <span className="text-xs text-slate-400">{hintFor(key)}</span>
@@ -515,6 +537,19 @@ export default function Settings() {
                       })
                     }
                   />
+                ) : key === "Flow.StreamTransportBufferKiB" ? (
+                  <select
+                    id={field(key)}
+                    {...register(key, { valueAsNumber: true })}
+                  >
+                    {[0, 64, 256, 1024].map((size) => (
+                      <option key={size} value={size}>
+                        {size === 0
+                          ? t("settings.transportDirect")
+                          : `${size} KiB`}
+                      </option>
+                    ))}
+                  </select>
                 ) : typeof value === "boolean" ? (
                   <input id={field(key)} type="checkbox" {...register(key)} />
                 ) : key === "Flow.SwarmProfile" ? (

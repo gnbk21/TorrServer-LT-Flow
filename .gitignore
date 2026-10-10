@@ -52,6 +52,7 @@ rutor.ls
 /web/build/
 /web/playwright-report/
 /web/test-results/
+/web/lab-results/
 /web-legacy/node_modules/
 /web-legacy/build/
 # Python verification outputs

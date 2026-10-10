@@ -161,7 +161,10 @@ function Shell() {
       </aside>
       <div className="lg:ml-60">
         <header className="sticky top-0 z-20 bg-slate-950/95 border-b border-slate-800 p-3 flex flex-wrap gap-3 items-center">
-          <strong className="mr-auto text-sm lg:text-base">
+          <strong
+            className="mr-auto w-full sm:w-auto min-h-6 truncate text-sm lg:text-base"
+            title={t(`status.${status}`)}
+          >
             {t(`status.${status}`)}
           </strong>
           <label className="sr-only" htmlFor="language">
@@ -210,7 +213,13 @@ function Shell() {
           {!!controlError && (
             <RequestError error={controlError} retry={() => void control()} />
           )}
-          <Suspense fallback={<Loading />}>
+          <Suspense
+            fallback={
+              <div className="min-h-[calc(100svh-12rem)]">
+                <Loading />
+              </div>
+            }
+          >
             <Outlet />
           </Suspense>
           <footer className="mt-8 text-xs text-slate-400">

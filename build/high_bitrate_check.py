@@ -147,7 +147,7 @@ def paced(server, info_hash, index, source, rate, seconds, bursts):
 
 def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, preload=False,
         *, reqq=512, strict=False, latency_ms=0, piece_mb=4, disk=False,
-        capacity_aware=False, urgent_horizon=False, burst_hints=False, startup_mb=32):
+        capacity_aware=False, urgent_horizon=False, burst_hints=False, startup_mb=32, transport_kib=1024):
     report = {'profile': profile, 'case': case, 'cache_mb': cache_mb,
               'nominal_demand_mbps': rate*8/1_000_000,
               'piece_bytes': piece_mb*MIB, 'requested_seconds': seconds,
@@ -159,7 +159,7 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
         plans = [PeerPlan(rate=int(1.7*rate), request_queue=reqq, strict_request_queue=strict, request_latency_ms=latency_ms)] + [PeerPlan(rate=rate//20, request_queue=reqq, strict_request_queue=strict, request_latency_ms=latency_ms) for _ in range(7)]
     report.update(peer_advertised_request_queue=reqq, strict_peer_capacity=strict, request_latency_ms=latency_ms,
                   storage_backend='disk' if disk else 'ram', capacity_aware=capacity_aware,
-                  urgent_horizon=urgent_horizon, burst_hints=burst_hints, startup_reserve_mb=startup_mb)
+                  urgent_horizon=urgent_horizon, burst_hints=burst_hints, startup_reserve_mb=startup_mb, transport_buffer_kib=transport_kib)
     server = OwnedServer(executable, root, extra_settings={
         'CacheSize': cache_mb*MIB, 'PreloadCache': 10,
         'UseDisk': disk, 'TorrentsSavePath': str((root/'cache').resolve()) if disk else '',
@@ -168,7 +168,8 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                  'StartupBufferMaxMB': startup_mb, 'StartupBufferSeconds': 2,
                  'WarmSessionTimeoutSec': 30, 'GlobalCacheBudgetMB': cache_mb,
                  'CapacityAwareRequests': capacity_aware, 'AdaptiveUrgentHorizon': urgent_horizon,
-                 'ContainerBurstHints': burst_hints, 'DiagnosticHistory': False}})
+                 'ContainerBurstHints': burst_hints, 'DiagnosticHistory': False,
+                 'StreamTransportBufferKiB': transport_kib}})
     swarm, cpu_start, playback_start = None, None, None
     try:
         report['ready_ms'] = server.ready()
@@ -210,6 +211,7 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                         'cache_size': max((s['cache_size'] for s in sessions), default=0),
                         'sessions': sessions,
                         'storage_io': status.get('storage_io'),
+                        'redundant_bytes': status.get('sparse', {}).get('redundant_bytes'),
                         'urgent': status.get('sparse', {}).get('urgent'),
                         'urgent_truncated': status.get('sparse', {}).get('urgent_truncated')})
                     if len(report['samples']) % 5 == 1:
@@ -246,6 +248,10 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                     raise AssertionError('Readers leaked after cancellation')
                 time.sleep(.2)
             report['active_readers_after_cancellation'] = active
+            report['native_redundant_bytes'] = status.get('sparse', {}).get('redundant_bytes')
+            seeks = sorted(item['ttfb_ms'] for item in report['ranges'] if not item.get('cancelled'))
+            report['seek_ttfb_p95_ms'] = seeks[min(len(seeks)-1, int(len(seeks)*.95))]
+            report['seek_ttfb_p99_ms'] = seeks[min(len(seeks)-1, int(len(seeks)*.99))]
             report['runtime'] = server.json('/runtime/status')
             report['swarm'] = swarm.status()
             report['passed'] = True

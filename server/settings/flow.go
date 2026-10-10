@@ -8,48 +8,49 @@ import (
 // FlowSettings keeps Flow controls independent of upstream settings.
 // A nil Flow field is migrated to these defaults when existing settings load.
 type FlowSettings struct {
-	SchemaVersion           int
-	Enabled                 bool
-	AdaptiveStartup         bool
-	BootstrapHeadMB         int
-	BootstrapTailMode       string
-	ProbeGraceMs            int
-	StartupBufferSeconds    int
-	StartupBufferMinMB      int
-	StartupBufferMaxMB      int
-	StartupSafetyFactorPct  int
-	AdaptiveReadAhead       bool
-	TargetBufferSeconds     int
-	MaxBufferSeconds        int
-	WarmSessionTimeoutSec   int
-	NetworkRetryMinSec      int
-	NetworkRetryMaxSec      int
-	SwarmProfile            string
-	SwarmCustom             FlowSwarmCustom
-	RangeTraceEnabled       bool
-	RangeClassification     bool
-	MetricsEnabled          bool
-	DebugFlow               bool
-	DiagnosticHistory       bool
-	DHTStatePersistence     bool
-	PreparationQuotaMB      int
-	PeerResumeHints         bool // opt-in local peer identities, outside history
-	ScarcePieceHints        bool // bounded scheduling experiment, off by default
-	RateAwareDeadlines      bool // measured scheduling experiment, off by default
-	CapacityAwareRequests   bool // honor remote and local urgent queue caps, opt-in
-	AdaptiveUrgentHorizon   bool // demand-sized urgent subset, opt-in
-	ContainerBurstHints     bool // resident index estimates only, opt-in
-	GlobalCacheBudgetMB     int  // aggregate RAM eviction budget; zero chooses bounded auto policy
-	WarmCacheBudgetMB       int
-	PreparationConcurrency  int
-	ManagementOrigins       string // comma-separated browser origins, local dashboard always allowed
-	ManagementRateLimit     int    // requests/minute/client; zero disables compatibility limit
-	SecurityProfile         string // compatible or restricted
-	RequirePlaybackToken    bool
-	PlaybackTokenTTL        int
-	TorrentInterface        string // adapter name; empty retains OS routing
-	RequireTorrentInterface bool
-	MSXAllowLAN             bool // explicit approval of literal private/loopback proxy targets
+	SchemaVersion            int
+	Enabled                  bool
+	AdaptiveStartup          bool
+	BootstrapHeadMB          int
+	BootstrapTailMode        string
+	ProbeGraceMs             int
+	StartupBufferSeconds     int
+	StartupBufferMinMB       int
+	StartupBufferMaxMB       int
+	StartupSafetyFactorPct   int
+	AdaptiveReadAhead        bool
+	TargetBufferSeconds      int
+	MaxBufferSeconds         int
+	WarmSessionTimeoutSec    int
+	NetworkRetryMinSec       int
+	NetworkRetryMaxSec       int
+	SwarmProfile             string
+	SwarmCustom              FlowSwarmCustom
+	RangeTraceEnabled        bool
+	RangeClassification      bool
+	MetricsEnabled           bool
+	DebugFlow                bool
+	DiagnosticHistory        bool
+	DHTStatePersistence      bool
+	PreparationQuotaMB       int
+	PeerResumeHints          bool // opt-in local peer identities, outside history
+	ScarcePieceHints         bool // bounded scheduling experiment, off by default
+	RateAwareDeadlines       bool // measured scheduling experiment, off by default
+	CapacityAwareRequests    bool // honor remote and local urgent queue caps, opt-in
+	AdaptiveUrgentHorizon    bool // demand-sized urgent subset, opt-in
+	ContainerBurstHints      bool // resident index estimates only, opt-in
+	StreamTransportBufferKiB int  // 0/direct, 64, 256 or 1024; existing 1024 KiB default
+	GlobalCacheBudgetMB      int  // aggregate RAM eviction budget; zero chooses bounded auto policy
+	WarmCacheBudgetMB        int
+	PreparationConcurrency   int
+	ManagementOrigins        string // comma-separated browser origins, local dashboard always allowed
+	ManagementRateLimit      int    // requests/minute/client; zero disables compatibility limit
+	SecurityProfile          string // compatible or restricted
+	RequirePlaybackToken     bool
+	PlaybackTokenTTL         int
+	TorrentInterface         string // adapter name; empty retains OS routing
+	RequireTorrentInterface  bool
+	MSXAllowLAN              bool // explicit approval of literal private/loopback proxy targets
 }
 
 // Zero custom values leave libtorrent's own setting unchanged.
@@ -88,11 +89,17 @@ func DefaultFlowSettings() *FlowSettings {
 		SwarmProfile:   "legacy",
 		MetricsEnabled: true, DHTStatePersistence: true, PreparationQuotaMB: 4096,
 		WarmCacheBudgetMB: 512, PreparationConcurrency: 1, SecurityProfile: "compatible", PlaybackTokenTTL: 3600,
+		StreamTransportBufferKiB: 1024,
 	}
 }
 
 // Normalize bounds user-supplied values without changing explicit false flags.
 func (f *FlowSettings) Normalize() {
+	switch f.StreamTransportBufferKiB {
+	case 0, 64, 256, 1024:
+	default:
+		f.StreamTransportBufferKiB = 1024
+	}
 	if f.SchemaVersion == 0 {
 		f.SchemaVersion = 1
 	}

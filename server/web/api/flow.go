@@ -3,8 +3,10 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"server/flow"
 	"server/lt"
 	"server/torr"
+	"time"
 )
 
 type FlowStatusResponse struct {
@@ -15,6 +17,8 @@ type FlowStatusResponse struct {
 	Network   torr.FlowNetworkStatus       `json:"network"`
 	Sparse    lt.SparseSnapshot            `json:"sparse"`
 	StorageIO lt.StorageIO                 `json:"storage_io"`
+	Timeline  *flow.TimelineSnapshot       `json:"timeline,omitempty"`
+	SampledAt string                       `json:"sampled_at,omitempty"`
 }
 
 // flowStatus exposes a bounded diagnostic snapshot for one live torrent.
@@ -27,7 +31,8 @@ func flowStatus(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "torrent not found"})
 		return
 	}
-	c.JSON(http.StatusOK, FlowStatusResponse{Hash: c.Param("hash"), Startup: t.FlowStartup(), Sessions: t.FlowStatusWithTraces(c.Query("traces") != "false"), Trackers: t.FlowTrackers(), Network: torr.NetworkStatusSnapshot(), Sparse: t.SparseStatus(), StorageIO: lt.StorageIOStats()})
+	timeline := t.FlowTimeline()
+	c.JSON(http.StatusOK, FlowStatusResponse{Hash: c.Param("hash"), Startup: t.FlowStartup(), Sessions: t.FlowStatusWithTraces(c.Query("traces") != "false"), Trackers: t.FlowTrackers(), Network: torr.NetworkStatusSnapshot(), Sparse: t.SparseStatus(), StorageIO: lt.StorageIOStats(), Timeline: &timeline, SampledAt: time.Now().UTC().Format(time.RFC3339Nano)})
 }
 
 func flowNetwork(c *gin.Context) {

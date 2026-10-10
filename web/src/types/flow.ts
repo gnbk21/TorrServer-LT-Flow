@@ -34,6 +34,7 @@ export interface FlowStartup {
 }
 
 export interface FlowSession {
+  session_id?: string;
   readable_contiguous_bytes?: number;
   verified_contiguous_bytes?: number;
   frontier_growth_rate?: number;
@@ -155,6 +156,20 @@ export interface FlowTrackerSummary {
   last_at: string;
 }
 export interface FlowStatusResponse {
+  sampled_at?: string;
+  timeline?: {
+    source: "server";
+    dropped: number;
+    events: {
+      time: string;
+      elapsed_ms: number;
+      operation_ms: number;
+      type: string;
+      stage?: string;
+      file?: number;
+      bytes?: number;
+    }[];
+  };
   storage_io?: StorageIO;
   sparse?: SparseSnapshot;
   hash: string;

@@ -4,6 +4,8 @@ import { Modal } from "../common/Modal";
 import type { FlowStatusResponse } from "../../types/flow";
 import { useFlowDiagnostics } from "../../hooks/queries";
 import { RequestError } from "../common/RequestState";
+import { IncidentTimeline } from "./IncidentTimeline";
+import { PlayerEvidence } from "./PlayerEvidence";
 export interface FlowDiagnosticsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -38,6 +40,8 @@ export function FlowDiagnosticsDrawer({
         <p>{t("flow.noMetrics")}</p>
       ) : (
         <div className="space-y-5">
+          <IncidentTimeline status={status} />
+          <PlayerEvidence status={status} />
           {status.storage_io && (
             <section className="panel">
               <h3 className="font-semibold">{t("flow.ioTitle")}</h3>

@@ -50,6 +50,7 @@ export interface FlowSettings {
   CapacityAwareRequests?: boolean;
   AdaptiveUrgentHorizon?: boolean;
   ContainerBurstHints?: boolean;
+  StreamTransportBufferKiB?: number;
 }
 
 export interface TMDBSettings {

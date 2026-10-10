@@ -6,6 +6,7 @@ on:
       - 'build/just-player/**'
       - 'build/prepare_just_player.py'
       - 'build/player_patch_check.py'
+      - 'build/player_sbom.py'
       - '.github/workflows/just-player.yml'
   workflow_dispatch:
 permissions:
@@ -46,6 +47,7 @@ jobs:
           sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;29.0.14206865'
           chmod +x gradlew
           ./gradlew --no-daemon assembleLatestUniversalDebug
+          ./gradlew --no-daemon --init-script ../build/just-player/inventory.gradle :app:flowInventory
       - name: Preserve source and license
         run: |
           mkdir -p _out/player-source
@@ -53,6 +55,8 @@ jobs:
           cp -r build/just-player _out/player-source/flow-patch
           cp build/prepare_just_player.py _out/player-source/
           cp build/player_patch_check.py _out/player-source/
+          python3 build/player_sbom.py _player/flow-resolved-dependencies.json _out/player-source/SBOM.cdx.json
+          cp _player/LICENSE _out/player-source/UPSTREAM_LICENSE.txt
           sha256sum _player/app/build/outputs/apk/latestUniversal/debug/*.apk > _out/player-source/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:

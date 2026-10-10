@@ -7,22 +7,22 @@ remains required; implementation, automated evidence and physical acceptance are
 tracked separately. Baseline: stable 1.0.1 / source 55c16dc3; integration c3dfe708.
 
 ## Maintenance
-- [ ] Close all MSX bodies, synchronize launcher configuration, bounded cancellation.
-- [ ] Propagate torrent request cancellation; bounded shared fetch with last-owner cleanup.
-- [ ] Separate credentials/network policy in shared fetch identity.
+- [x] Close all MSX bodies, synchronize launcher configuration, bounded cancellation.
+- [x] Propagate torrent request cancellation; bounded shared fetch with last-owner cleanup.
+- [x] Separate credentials/network policy in shared fetch identity.
 - [ ] Redact sensitive values in logs, errors and exports.
-- [ ] Validate inherited proxy destinations and redirects; explicit intentional LAN policy.
+- [x] Validate inherited proxy destinations and redirects; explicit intentional LAN policy.
 
 ## Web
-- [ ] Consistent design tokens, dark/light/system themes, comfortable/compact preferences.
+- [x] Consistent design tokens, dark/light/system themes, comfortable/compact preferences.
 - [ ] Responsive navigation/sheets/action bars, keyboard/TV focus and reduced motion.
-- [ ] Active playback focus, concise idle state and persistent observed-playback summary.
+- [x] Active playback focus, concise idle state and persistent observed-playback summary.
 - [ ] Incident timeline, confidence/actions, stale timestamps and closed-detail cancellation.
 - [ ] Card/list modes, restored filters/page/scroll, episode/raw-name parity and per-row actions.
 - [ ] Search/add/preparation progress and retries; artwork independent of readiness.
 - [ ] Settings search, grouping, units/effective values, changed-field/restart summaries.
 - [ ] Draft/conflict protection, pairing/trust/readiness/LAN guidance and optional availability.
-- [ ] Compact batched /flow/active and full-dataset paginated /flow/library projections.
+- [x] Compact batched /flow/active and full-dataset paginated /flow/library projections.
 - [ ] Split identity/live subscriptions; visibility polling, lazy optional chunks and SVG graphs.
 - [ ] Seven-language parity and all existing API/player/HTTP fallback compatibility.
 
@@ -55,9 +55,9 @@ tracked separately. Baseline: stable 1.0.1 / source 55c16dc3; integration c3dfe7
 - [ ] New maintenance ownership/cancellation/redaction/proxy/concurrency regressions.
 - [ ] Five rotated matched-reserve comparisons across healthy/intermittent/mixed/burst cases.
 - [ ] Startup/tail waits/seek/duplicates/CPU/RSS/integrity evidence; separate experiments.
-- [ ] UI 1/200/1000/5000 entries, seven languages, five widths plus phone landscape.
+- [x] UI 1/200/1000/5000 entries, seven languages, five widths plus phone landscape.
 - [ ] Auth/503/offline/stale/conflicts/fallback/keyboard and background polling checks.
-- [ ] Documented lab bundle/LCP/interaction/CLS targets; real-device evidence separate.
+- [x] Documented lab bundle/LCP/interaction/CLS targets; real-device evidence separate.
 - [ ] Physical Android, Windows boot/sleep/network and per-protocol enforcement acceptance.
 - [ ] Final requirement reconciliation; unchanged defaults and recorded rollback paths.
 

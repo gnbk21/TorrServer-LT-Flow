@@ -617,7 +617,43 @@
     "reserveHint": "HTTP delivery and indexed byte/time slopes are estimates, not the phone decoder clock. Verified pieces beyond a hole are excluded from contiguous reserve.",
     "observedPlayback": "Observed stream",
     "warm": "Warm buffer",
-    "serverObservation": "Server observations; player playback is not measured."
+    "serverObservation": "Server observations; player playback is not measured.",
+    "timelineTitle": "Incident timeline",
+    "timelineHint": "Server observations on one torrent clock. Values beside events describe their measured operation. Missing events remain unknown; this does not measure player stutters.",
+    "sampledAt": "Snapshot at",
+    "timelineTruncated": "Older recent events omitted: {{count}}",
+    "timelineEvents": {
+      "engine_started": "Engine started",
+      "engine_stopped": "Engine stopped",
+      "metadata": "Metadata ready",
+      "startup": "Startup phase",
+      "first_byte": "HTTP first byte",
+      "first_block": "First useful block",
+      "probe": "Media probe",
+      "dht_peer": "DHT peer",
+      "peer_disconnected": "Peer disconnected",
+      "seek": "Seek requested",
+      "recovery": "Seek response recovered"
+    },
+    "playerEvidence": "Player measurements",
+    "playerEvidenceHint": "Optional Flow Player report. Import stays in this open dialog; it is not uploaded or applied as a server setting.",
+    "playerImport": "Import player JSON report",
+    "playerMatched": "Report matches an observed session.",
+    "playerUnmatched": "Session could not be matched; measurements remain separate.",
+    "playerClockUnknown": "Player clock alignment is unknown; do not infer exact event overlap.",
+    "clearPlayerReport": "Clear imported report",
+    "playerUnknown": "No player measurements available. Server waits do not establish player stutters.",
+    "playerReportInvalid": "Invalid or oversized player report.",
+    "playerMetrics": {
+      "startup_ms": "Startup (ms)",
+      "rebuffer_events": "Rebuffer events",
+      "rebuffer_ms": "Rebuffer time (ms)",
+      "seek_events": "Seeks",
+      "seek_buffer_ms": "Seek buffering (ms)",
+      "buffered_ms": "Buffered time (ms)",
+      "dropped_frames": "Dropped frames",
+      "paused_ms": "Paused time (ms)"
+    }
   },
   "torrent": {
     "justPlayer": "Play in Just Player",
@@ -838,7 +874,8 @@
         "CapacityAwareRequests": "Respect peer request capacity (experiment)",
         "AdaptiveUrgentHorizon": "Adaptive urgent horizon (experiment)",
         "ContainerBurstHints": "Resident container burst hints (experiment)",
-        "MSXAllowLAN": "Allow MSX proxy access to LAN"
+        "MSXAllowLAN": "Allow MSX proxy access to LAN",
+        "StreamTransportBufferKiB": "Transport buffer (controlled experiment)"
       }
     },
     "maintenance": {
@@ -928,7 +965,9 @@
     },
     "search": "Search all settings",
     "changedFields": "Changed fields: {{count}}",
-    "effectiveValue": "Effective: {{value}}"
+    "effectiveValue": "Effective: {{value}}",
+    "transportDirect": "Direct cache reads",
+    "transportHelp": "Compare transport sizes with the same fixture and reserves. Existing default: 1024 KiB. Changes apply to new HTTP requests."
   },
   "runtime": {
     "torrents": "Torrents",

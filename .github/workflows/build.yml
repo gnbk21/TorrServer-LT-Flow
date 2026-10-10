@@ -38,7 +38,8 @@ on:
 
 concurrency:
   group: build-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Keep long native comparisons and rollback evidence intact across checkpoints.
+  cancel-in-progress: false
 
 jobs:
   windows-network-notifications:
@@ -514,7 +515,7 @@ jobs:
           chmod +x _out/TorrServer-LT-linux-amd64
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
-          python3 build/high_bitrate_matrix.py --executable _out/TorrServer-LT-linux-amd64 --output _out/high-bitrate --mbps '${{ matrix.mbps }}' --cases '${{ matrix.case }}' --cache-mb '${{ matrix.cache }}' --piece-mb '${{ matrix.piece }}' ${{ matrix.backend == 'disk' && '--disk' || '' }}
+          python3 build/high_bitrate_matrix.py --executable _out/TorrServer-LT-linux-amd64 --output _out/high-bitrate --mbps '${{ matrix.mbps }}' --cases '${{ matrix.case }}' --cache-mb '${{ matrix.cache }}' --piece-mb '${{ matrix.piece }}' --rotations 3 --experiments ${{ matrix.backend == 'disk' && '--disk' || '' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
