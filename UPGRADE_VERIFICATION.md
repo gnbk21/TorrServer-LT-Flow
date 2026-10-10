@@ -416,3 +416,19 @@ next-episode regressions. Optional Android build/inventory gates have passed;
 physical Media3 playback is still unverified. The four near-future scarce hints
 and capacity controls remain opt-in, bounded by existing windows; healthy slow
 peers retain native connections and in-flight partial cache pieces.
+
+## Eviction ownership and convergence
+
+- Linux race-check job `114312712170` failed the preload handoff fixture's
+  immediate capacity assertion, without a Go data-race report. The fixture had
+  started asynchronous eviction and then treated a second coalesced request as
+  synchronous completion. It now waits for the original worker's bounded
+  convergence before checking the tail pin or restoring shared settings.
+- Inspection also found two real request-loss cases in eviction ownership:
+  publishing a pending trim after losing ownership could arrive after the worker
+  exited; a pass that freed nothing could discard queued budget/protection
+  changes. Requests are now published before ownership and drained regardless
+  of prior progress. No pending request means no additional pass. Deterministic
+  regressions cover no-progress rechecking, 64 concurrent callers, single-worker
+  ownership and exactly one coalesced follow-up. Native/race execution is pending
+  the corrected source's CI gate; the failing PGO run is not accepted evidence.

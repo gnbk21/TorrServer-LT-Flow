@@ -1867,28 +1867,33 @@ func (c *Cache) consumeEvicted(piece int) bool {
 // to evict; if every spare piece is somehow protected we leave the cache a touch
 // over budget rather than evict the playing window.
 func (c *Cache) evictIfOverCapacity() {
+	c.runEviction(func() { c.evictPass() })
+}
+
+// runEviction coalesces trim requests while keeping at most one pass active.
+// Publish the request before attempting ownership, so a finishing worker cannot
+// miss a caller which loses the ownership race. A pass which freed no bytes may
+// have used an older protection/budget snapshot; queued changes still need a pass.
+func (c *Cache) runEviction(pass func()) {
 	// Single-flight: at most one eviction pass runs at a time. writePiece spawns a pass
 	// on EVERY 16 KB block, so a fast download would otherwise fire hundreds of
 	// overlapping passes per second, each doing a full reader + anchor walk
 	// (readerProtectRanges) under readersMu and contending with the streaming Read path.
+	c.evictAgain.Store(true)
 	if !c.evicting.CompareAndSwap(false, true) {
 		// A pass is already running. Record that more work arrived so it re-runs after
 		// finishing, instead of dropping this trigger — that re-run is what keeps filled
 		// from drifting above cap between passes under a fast download.
-		c.evictAgain.Store(true)
 		return
 	}
 	for {
 		c.evictAgain.Store(false)
-		evicted := c.evictPass()
+		pass()
 		c.evicting.Store(false)
-		// Re-run only while passes are actually freeing space AND a trigger arrived
-		// mid-pass (its CompareAndSwap failed, so it set evictAgain). A pass that evicted
-		// nothing is already at/under cap — stop, and let the next over-cap write
-		// re-trigger a fresh pass; this drives filled down to the budget under coalesced
-		// triggers without spinning empty passes during the cache-fill ramp (filled < cap).
-		// The re-acquire hands the loop to whichever goroutine wins, so exactly one runs.
-		if !evicted || !c.evictAgain.Load() || !c.evicting.CompareAndSwap(false, true) {
+		// Only a new request can cause another pass, even when the previous pass
+		// freed nothing. With no requests this stops immediately; the re-acquire
+		// hands the loop to whichever goroutine wins, so exactly one runs.
+		if !c.evictAgain.Load() || !c.evicting.CompareAndSwap(false, true) {
 			return
 		}
 	}
@@ -1896,8 +1901,7 @@ func (c *Cache) evictIfOverCapacity() {
 
 // evictPass is one capacity-trim pass: reap stranded incomplete leftovers, then LRU-evict
 // complete pieces until filled<=cap, never touching a protected window/pin. Returns
-// whether it evicted anything, so the single-flight loop in evictIfOverCapacity knows
-// whether another pass could free more. The caller holds the evicting guard.
+// whether it evicted anything. The caller holds the evicting guard.
 func (c *Cache) evictPass() (evictedAny bool) {
 	// Build the protect set ONCE and derive capacity from it (capacityFor), instead of
 	// capacity() and readerProtectRanges() each walking the readers + recomputing every
