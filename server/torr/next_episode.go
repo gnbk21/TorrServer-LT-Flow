@@ -23,6 +23,7 @@ func (t *Torrent) nextEpisodeFileChanged(fileID int) {
 	t.nextEpisodeCurrent = fileID
 	t.nextEpisodeManual, t.nextEpisodeTarget = 0, 0
 	t.nextEpisodeSuppressed = false
+	t.nextEpisodeSelectionKnown = false
 	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
 		cache.ClearNextEpisodeWarmup()
 	}
@@ -67,22 +68,31 @@ func (t *Torrent) tickNextEpisode(cache *torrstor.Cache) {
 	target := t.nextEpisodeManual
 	automatic := target == 0
 	if automatic {
-		snapshot := t.fileSnapshot()
-		if snapshot == nil {
-			cache.ClearNextEpisodeWarmup()
-			return
+		if t.nextEpisodeSelectionKnown {
+			target = t.nextEpisodeTarget
+			if target == 0 {
+				cache.ClearNextEpisodeWarmup()
+				return
+			}
+		} else {
+			snapshot := t.fileSnapshot()
+			if snapshot == nil {
+				cache.ClearNextEpisodeWarmup()
+				return
+			}
+			files := make([]flow.EpisodeFile, 0, len(snapshot.sorted))
+			for _, file := range snapshot.sorted {
+				files = append(files, flow.EpisodeFile{ID: file.Index + 1, Path: file.Path, Offset: file.Offset, Length: file.Length})
+			}
+			next, ok := flow.ConfidentNextEpisode(files, current)
+			t.nextEpisodeSelectionKnown = true
+			if !ok {
+				cache.ClearNextEpisodeWarmup()
+				t.nextEpisodeTarget = 0
+				return
+			}
+			target = next.ID
 		}
-		files := make([]flow.EpisodeFile, 0, len(snapshot.sorted))
-		for _, file := range snapshot.sorted {
-			files = append(files, flow.EpisodeFile{ID: file.Index + 1, Path: file.Path, Offset: file.Offset, Length: file.Length})
-		}
-		next, ok := flow.ConfidentNextEpisode(files, current)
-		if !ok {
-			cache.ClearNextEpisodeWarmup()
-			t.nextEpisodeTarget = 0
-			return
-		}
-		target = next.ID
 	}
 	file := t.fileByID(target)
 	if file == nil {
@@ -137,6 +147,7 @@ func (t *Torrent) SelectNextEpisodeWarmup(index int, action string) error {
 	case "auto":
 		t.nextEpisodeManual = 0
 		t.nextEpisodeSuppressed = false
+		t.nextEpisodeSelectionKnown = false
 	case "cancel":
 		t.nextEpisodeManual = 0
 		t.nextEpisodeSuppressed = true

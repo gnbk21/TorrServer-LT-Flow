@@ -189,6 +189,11 @@ func (p *Piece) readAtLocked(b []byte, off int64) (int, error) {
 // expectedSize accounts for the final piece being potentially shorter
 // than PieceLength.
 func (p *Piece) expectedSize() int64 {
+	if sizes := p.cache.pieceSizes.Load(); sizes != nil {
+		if size, ok := (*sizes)[p.Id]; ok {
+			return size
+		}
+	}
 	if total := p.cache.totalSize.Load(); total > 0 && p.Id == p.cache.NumPieces-1 {
 		return total - int64(p.Id)*p.cache.PieceLength
 	}

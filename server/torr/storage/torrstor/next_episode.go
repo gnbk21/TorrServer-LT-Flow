@@ -84,7 +84,11 @@ func (c *Cache) nextEpisodeDemand(blocked bool) []int {
 	missing := make([]int, 0, len(w.pieces))
 	for _, p := range w.pieces {
 		if c.Have(p) {
-			verified += c.PieceLength
+			c.mu.RLock()
+			if piece := c.pieces[p]; piece != nil {
+				verified += piece.expectedSize()
+			}
+			c.mu.RUnlock()
 		} else {
 			missing = append(missing, p)
 		}

@@ -106,6 +106,7 @@ func (s *Storage) Install() error {
 		Prune:      s.callbackPrune,
 		Evict:      s.callbackEvict,
 		Size:       s.callbackSize,
+		Geometry:   s.callbackGeometry,
 		ClearPiece: s.callbackClearPiece,
 	})
 }
@@ -262,6 +263,19 @@ func (s *Storage) callbackEvict(storage int64, piece int) bool {
 func (s *Storage) callbackSize(storage int64, totalSize int64) {
 	if c := s.lookup(storage); c != nil {
 		c.totalSize.Store(totalSize)
+	}
+}
+
+func (s *Storage) callbackGeometry(storage int64, sizes []lt.PieceSize) {
+	if c := s.lookup(storage); c != nil {
+		layout := make(map[int]int64, len(sizes))
+		for _, entry := range sizes {
+			if entry.Piece < 0 || entry.Piece >= c.NumPieces || entry.Size <= 0 || entry.Size > c.PieceLength {
+				return
+			}
+			layout[entry.Piece] = entry.Size
+		}
+		c.pieceSizes.Store(&layout)
 	}
 }
 

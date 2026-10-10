@@ -101,6 +101,7 @@ type Cache struct {
 	NumPieces   int
 	totalSize   atomic.Int64 // exact metadata length; zero for legacy test callers
 	PieceLength int64
+	pieceSizes  atomic.Pointer[map[int]int64] // immutable BEP 52 short file tails
 
 	mu          sync.RWMutex
 	pieces      map[int]*Piece

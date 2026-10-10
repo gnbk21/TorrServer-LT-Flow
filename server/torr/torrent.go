@@ -35,16 +35,17 @@ type Torrent struct {
 	Timestamp int64
 	Size      int64
 
-	bt                    *BTServer
-	lh                    atomic.Pointer[lt.Torrent]   // nil for DB-only or closed torrents
-	filesSnapshot         atomic.Pointer[torrentFiles] // immutable after metadata arrives
-	filesMu               sync.Mutex
-	nextEpisodeMu         sync.Mutex
-	nextEpisodeCurrent    int
-	nextEpisodeManual     int
-	nextEpisodeTarget     int
-	nextEpisodeAutomatic  bool
-	nextEpisodeSuppressed bool
+	bt                        *BTServer
+	lh                        atomic.Pointer[lt.Torrent]   // nil for DB-only or closed torrents
+	filesSnapshot             atomic.Pointer[torrentFiles] // immutable after metadata arrives
+	filesMu                   sync.Mutex
+	nextEpisodeMu             sync.Mutex
+	nextEpisodeCurrent        int
+	nextEpisodeManual         int
+	nextEpisodeTarget         int
+	nextEpisodeAutomatic      bool
+	nextEpisodeSuppressed     bool
+	nextEpisodeSelectionKnown bool
 
 	mu       sync.Mutex
 	sourceMu sync.Mutex
