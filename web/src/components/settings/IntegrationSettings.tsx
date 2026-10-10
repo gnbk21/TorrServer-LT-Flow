@@ -8,7 +8,11 @@ import {
   type StorageSettings,
   type GstSettings,
 } from "../../api/integrations";
-import { useSettings, useRuntime } from "../../hooks/queries";
+import {
+  useSettings,
+  useRuntime,
+  useVisibilityGate,
+} from "../../hooks/queries";
 import { Button } from "../common/Button";
 import { Loading, RequestError } from "../common/RequestState";
 export default function IntegrationSettings({
@@ -21,13 +25,16 @@ export default function IntegrationSettings({
   const { t } = useTranslation();
   const settings = useSettings();
   const runtime = useRuntime();
+  const wafEnabled = useVisibilityGate(["waf"], tab === "security");
+  const gstEnabled = useVisibilityGate(["gst"], tab === "integrations");
+  const storageEnabled = useVisibilityGate(["storage"], tab === "advanced");
   const waf = useQuery({
     queryKey: ["waf"],
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     staleTime: Infinity,
     queryFn: ({ signal }) => integrationsApi.getWAF(signal),
-    enabled: tab === "security",
+    enabled: wafEnabled,
   });
   const gst = useQuery({
     queryKey: ["gst"],
@@ -35,7 +42,7 @@ export default function IntegrationSettings({
     refetchOnReconnect: false,
     staleTime: Infinity,
     queryFn: ({ signal }) => integrationsApi.getGst(signal),
-    enabled: tab === "integrations",
+    enabled: gstEnabled,
   });
   const storage = useQuery({
     queryKey: ["storage"],
@@ -43,12 +50,16 @@ export default function IntegrationSettings({
     refetchOnReconnect: false,
     staleTime: Infinity,
     queryFn: ({ signal }) => integrationsApi.getStorage(signal),
-    enabled: tab === "advanced",
+    enabled: storageEnabled,
   });
+  const healthEnabled = useVisibilityGate(
+    ["gst-health"],
+    tab === "integrations" && gst.data?.built_in === true,
+  );
   const gstHealth = useQuery({
     queryKey: ["gst-health"],
     queryFn: ({ signal }) => integrationsApi.getGstHealth(signal),
-    enabled: tab === "integrations" && gst.data?.built_in === true,
+    enabled: healthEnabled,
     staleTime: 30000,
   });
   const [wafDraft, setWaf] = useState<WafSettings>();

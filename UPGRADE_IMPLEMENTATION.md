@@ -10,32 +10,32 @@ tracked separately. Baseline: stable 1.0.1 / source 55c16dc3; integration c3dfe7
 - [x] Close all MSX bodies, synchronize launcher configuration, bounded cancellation.
 - [x] Propagate torrent request cancellation; bounded shared fetch with last-owner cleanup.
 - [x] Separate credentials/network policy in shared fetch identity.
-- [ ] Redact sensitive values in logs, errors and exports.
+- [x] Redact sensitive values in logs, errors and exports.
 - [x] Validate inherited proxy destinations and redirects; explicit intentional LAN policy.
 
 ## Web
 - [x] Consistent design tokens, dark/light/system themes, comfortable/compact preferences.
 - [x] Responsive navigation/sheets/action bars, keyboard/TV focus and reduced motion.
 - [x] Active playback focus, concise idle state and persistent observed-playback summary.
-- [ ] Incident timeline, confidence/actions, stale timestamps and closed-detail cancellation.
-- [ ] Card/list modes, restored filters/page/scroll, episode/raw-name parity and per-row actions.
-- [ ] Search/add/preparation progress and retries; artwork independent of readiness.
+- [x] Incident timeline, confidence/actions, stale timestamps and closed-detail cancellation.
+- [x] Card/list modes, restored filters/page/scroll, episode/raw-name parity and per-row actions.
+- [x] Search/add/preparation progress and retries; artwork independent of readiness.
 - [x] Settings search, common/advanced grouping, units/effective values, changed-field/restart summaries.
-- [ ] Draft/conflict protection, pairing/trust/readiness/LAN guidance and optional availability.
+- [x] Draft/conflict protection, pairing/trust/readiness/LAN guidance and optional availability.
 - [x] Compact batched /flow/active and full-dataset paginated /flow/library projections.
-- [ ] Split identity/live subscriptions; visibility polling, lazy optional chunks and SVG graphs.
-- [ ] Seven-language parity and all existing API/player/HTTP fallback compatibility.
+- [x] Split identity/live subscriptions; visibility polling, lazy optional chunks and SVG graphs.
+- [x] Seven-language parity and all existing API/player/HTTP fallback compatibility.
 
 ## Streaming and evidence
-- [ ] Synchronized startup/discovery/storage/HTTP/seek/recovery timeline and sparse explanations.
-- [ ] Optional Media3 startup/rebuffer/seek/buffer/drop telemetry; bounded redacted export/import.
-- [ ] Opaque session correlation; explicit unknown player evidence and server-estimate labels.
+- [x] Synchronized startup/discovery/storage/HTTP/seek/recovery timeline and sparse explanations.
+- [x] Optional Media3 startup/rebuffer/seek/buffer/drop telemetry; bounded redacted export/import.
+- [x] Opaque session correlation; explicit unknown player evidence and server-estimate labels.
 - [ ] Native direct/64/256/1024 KiB buffer comparison and Go/ETW/Perfetto profiling.
-- [ ] Interruption/VBR reserves, recovery hysteresis, fair readers and bounded urgency refinements.
-- [ ] Duplicate traffic accounting, useful-slow-peer retention, bounded controller changes.
+- [x] Interruption/VBR reserves, recovery hysteresis, fair readers and bounded urgency refinements.
+- [x] Duplicate traffic accounting, useful-slow-peer retention, bounded controller changes.
 - [ ] Representative PGO evaluation; disabled unless comparative evidence supports adoption.
-- [ ] One opt-in next-episode header/index warmup <=32 MiB in existing spare cache.
-- [ ] Warmup yields to waits/risk/pressure; cancels on changes/disablement/shutdown.
+- [x] One opt-in next-episode header/index warmup <=32 MiB in existing spare cache.
+- [x] Warmup yields to waits/risk/pressure; cancels on changes/disablement/shutdown.
 
 ## Reliability/security
 - [ ] Slow/full disk, interrupted writes, crash, reconnect and concurrent-cache regressions.

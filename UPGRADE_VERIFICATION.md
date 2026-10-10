@@ -383,3 +383,36 @@ remaining ledger requirements are not complete.
 - `2760dfd7` macOS arm64 unit tests passed all four forced TCP/uTP v2/hybrid
   transfer/reuse variants, the delayed backing-file test and 128 retirement
   cycles. amd64 passed compilation and its version probe, not the unit suite.
+
+## Read ownership, logging sinks and ledger reconciliation
+
+- Corrected WFP SDK check `38086233101` passed actual IPv4 TCP/UDP kernel drop
+  attribution, loopback TCP/UDP for both families, repeated installation,
+  independent policy removal and cleanup. IPv6 public routing was unavailable
+  and explicitly unverified; shared DNS remains outside the guard. The MinGW
+  production helper and physical network-loss checks remain separate gates.
+- Settings, configuration, version and external-media-base read observers now
+  abort when hidden and start no initial hidden requests. Integration and
+  certificate status reads also release on tab exit. Four hook regressions and
+  three actual-browser cancellation cases passed. Browser checks for preserved
+  certificate drafts and settings conflict/revision handling also passed.
+- Standard Go/native log messages could bypass convenience-function redaction.
+  Server, access-log and console logger sinks now apply the shared redactor.
+  An actual shared-file test verifies standard/native and direct access logging;
+  writer regressions preserve the input-count/short-write/error contract. Local
+  log/console/Flow/diagnostics/template suites passed with owned loopback access.
+- Reconciled implemented maintenance/web/timeline/player/scheduling/warmup items
+  against their code paths and recorded tests. Checked implementation boxes do
+  not replace the remaining final-source, comparative, packaging, endurance or
+  physical acceptance boxes. Native fixtures passed earlier Linux/race and
+  macOS arm64 gates; local browser tests retain their stated mock/lab scope.
+
+Evidence locations for the newly checked rows: `server/log` and API export
+projection regressions; `web/e2e/flow.spec.ts`, `accessibility.spec.ts`,
+`library-export.spec.ts` and the 1/200/1000/5000 production lab; query ownership,
+library scroll, player import, locales and schema tests; native `timeline`,
+`delivery`, `deficit`, `resilience`, `deadline`, resource/reader-window and
+next-episode regressions. Optional Android build/inventory gates have passed;
+physical Media3 playback is still unverified. The four near-future scarce hints
+and capacity controls remain opt-in, bounded by existing windows; healthy slow
+peers retain native connections and in-flight partial cache pieces.

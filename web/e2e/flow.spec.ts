@@ -2,6 +2,65 @@ import { test, expect, type Page } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
 import settings from "./settings.json" with { type: "json" };
 
+for (const fixture of [
+  { tab: "Security", paths: ["/waf", "/ssl/status"] },
+  { tab: "Integrations", paths: ["/gst/settings"] },
+  { tab: "Advanced", paths: ["/storage/settings"] },
+]) {
+  test(`${fixture.tab} detail reads abort on backgrounding and tab exit`, async ({
+    page,
+  }) => {
+    await mockServer(page);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const requested: Record<string, number> = {};
+    const failed: Record<string, number> = {};
+    page.on("requestfailed", (request) => {
+      const path = new URL(request.url()).pathname;
+      if (fixture.paths.includes(path)) failed[path] = (failed[path] ?? 0) + 1;
+    });
+    for (const path of fixture.paths) {
+      await page.route(`**${path}`, async (route) => {
+        requested[path] = (requested[path] ?? 0) + 1;
+        await held;
+        await route.fulfill({ json: {} }).catch(() => {});
+      });
+    }
+    try {
+      await page.goto("/#/settings");
+      await page.getByRole("tab", { name: fixture.tab, exact: true }).click();
+      for (const path of fixture.paths)
+        await expect.poll(() => requested[path]).toBe(1);
+      await page.evaluate(() => {
+        Object.defineProperty(document, "hidden", {
+          configurable: true,
+          value: true,
+        });
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      for (const path of fixture.paths)
+        await expect.poll(() => failed[path]).toBe(1);
+      await page.evaluate(() => {
+        Object.defineProperty(document, "hidden", {
+          configurable: true,
+          value: false,
+        });
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      for (const path of fixture.paths)
+        await expect.poll(() => requested[path]).toBe(2);
+      await page.getByRole("tab", { name: "General", exact: true }).click();
+      for (const path of fixture.paths)
+        await expect.poll(() => failed[path]).toBe(2);
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+    } finally {
+      release();
+    }
+  });
+}
+
 test("certificate drafts survive tabs, block navigation and use revision checks", async ({
   page,
 }) => {

@@ -14,7 +14,8 @@ export function useObservationTime(
     if (!enabled || !visible) return;
     const now = Date.now();
     const future = [sampleDeadline, sparseDeadline].filter(
-      (deadline) => Number.isFinite(deadline) && deadline > now,
+      (deadline) =>
+        Number.isFinite(deadline) && deadline > now && deadline - now <= 10_000,
     );
     if (!future.length) return;
     const timer = setTimeout(refresh, Math.min(...future) - now + 1);

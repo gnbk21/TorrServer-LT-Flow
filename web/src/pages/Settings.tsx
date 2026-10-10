@@ -1,12 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
 import type { BTSettings } from "../types/settings";
 import { useForm, type RegisterOptions } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import {
   useSettings,
   useRuntime,
-  useVisible,
+  useConfiguration,
   queryClient,
 } from "../hooks/queries";
 import { useDirty } from "../hooks/dirty";
@@ -97,12 +96,7 @@ export default function Settings() {
   const { t } = useTranslation();
   const query = useSettings();
   const runtime = useRuntime();
-  const visible = useVisible();
-  const configuration = useQuery({
-    queryKey: ["configuration"],
-    queryFn: ({ signal }) => settingsApi.state(signal),
-    refetchInterval: visible ? 5000 : false,
-  });
+  const configuration = useConfiguration();
   const [draftRevision, setDraftRevision] = useState("");
   const [draftBase, setDraftBase] = useState<BTSettings>();
   const [plan, setPlan] = useState<{

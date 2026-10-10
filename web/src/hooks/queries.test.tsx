@@ -7,10 +7,17 @@ import {
   useFlow,
   useActiveTorrent,
   useActive,
+  useSettings,
+  useConfiguration,
+  useVersion,
 } from "./queries";
 import { flowApi } from "../api/flow";
 import { libraryApi } from "../api/library";
 import type { ActiveSnapshot } from "../types/library";
+import { settingsApi } from "../api/settings";
+import { runtimeApi } from "../api/runtime";
+import { api } from "../api/client";
+import { useExternalMediaBase } from "./mediaBase";
 
 afterEach(() => {
   cleanup();
@@ -40,6 +47,63 @@ function fixture() {
     });
   return { client, wrapper, request, signal: () => signal };
 }
+
+it.each([
+  {
+    name: "settings",
+    hook: useSettings,
+    spy: () => vi.spyOn(settingsApi, "get"),
+  },
+  {
+    name: "configuration",
+    hook: useConfiguration,
+    spy: () => vi.spyOn(settingsApi, "state"),
+  },
+  {
+    name: "version",
+    hook: useVersion,
+    spy: () => vi.spyOn(runtimeApi, "getEcho"),
+  },
+  {
+    name: "external media base",
+    hook: useExternalMediaBase,
+    spy: () => vi.spyOn(api, "get"),
+  },
+])(
+  "gates and cancels read-only $name work on visibility changes",
+  async (item) => {
+    const f = fixture();
+    let hidden = true;
+    let signal: AbortSignal | undefined;
+    vi.spyOn(document, "hidden", "get").mockImplementation(() => hidden);
+    const request = item.spy();
+    request.mockImplementation((...args: unknown[]) => {
+      signal = args.at(-1) as AbortSignal;
+      return new Promise<never>((_, reject) =>
+        signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("Cancelled", "AbortError")),
+          { once: true },
+        ),
+      );
+    });
+    const useObserver = item.hook;
+    renderHook(() => useObserver(), { wrapper: f.wrapper });
+    expect(request).not.toHaveBeenCalled();
+    act(() => {
+      hidden = false;
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await waitFor(() => expect(request).toHaveBeenCalledOnce());
+    act(() => {
+      hidden = true;
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await waitFor(() => expect(signal?.aborted).toBe(true));
+    expect(request).toHaveBeenCalledOnce();
+    f.client.clear();
+  },
+);
 
 it("cancels a diagnostic request when its drawer closes", async () => {
   const f = fixture();

@@ -132,10 +132,21 @@ export function useNetwork() {
   });
 }
 export function useSettings() {
+  const visible = useVisibilityGate(["settings"]);
   return useQuery({
     queryKey: ["settings"],
     queryFn: ({ signal }) => settingsApi.get(signal),
+    enabled: visible,
     staleTime: 30_000,
+  });
+}
+export function useConfiguration() {
+  const visible = useVisibilityGate(["configuration"]);
+  return useQuery({
+    queryKey: ["configuration"],
+    queryFn: ({ signal }) => settingsApi.state(signal),
+    enabled: visible,
+    refetchInterval: visible ? 5000 : false,
   });
 }
 export function useFlow(hash?: string) {
@@ -187,9 +198,11 @@ export function useFlowDiagnostics(hash: string | undefined, enabled: boolean) {
   });
 }
 export function useVersion() {
+  const visible = useVisibilityGate(["version"]);
   return useQuery({
     queryKey: ["version"],
     queryFn: ({ signal }) => runtimeApi.getEcho(signal),
+    enabled: visible,
     staleTime: 60_000,
   });
 }

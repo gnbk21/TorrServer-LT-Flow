@@ -11,6 +11,13 @@ afterEach(() => {
   });
 });
 
+it("does not schedule overflowing or far-future server timestamps", () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(100_000);
+  renderHook(() => useObservationTime(true, NaN, Number.MAX_SAFE_INTEGER));
+  expect(vi.getTimerCount()).toBe(0);
+});
+
 it("owns one deadline timer, releases it while hidden or closed, and expires without polling", () => {
   vi.useFakeTimers();
   vi.setSystemTime(100_000);

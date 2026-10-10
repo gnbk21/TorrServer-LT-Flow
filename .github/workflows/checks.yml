@@ -42,7 +42,7 @@ jobs:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
       - working-directory: server
-        run: go test ./console ./flow ./diagnostics ./web/pages/template
+        run: go test ./console ./log ./flow ./diagnostics ./web/pages/template
       - name: Portable library export privacy and format checks
         working-directory: server
         run: go test ./web/api/library_export_projection.go ./web/api/library_export_projection_test.go
