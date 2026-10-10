@@ -724,7 +724,8 @@
       "dht_peer": "Peer DHT",
       "peer_disconnected": "Peer deconectat",
       "seek": "Salt solicitat",
-      "recovery": "Răspuns după salt"
+      "recovery": "Răspuns după salt",
+      "storage": "Operație cache"
     },
     "playerEvidence": "Măsurători ale playerului",
     "playerEvidenceHint": "Raport Flow Player opțional. Importul rămâne în acest dialog deschis; nu este încărcat pe server și nu modifică setările.",
@@ -787,6 +788,13 @@
       "WAIT_SUPPLIERS": "Așteptați un peer cu piesa necesară. Eșantionul descrie peerii conectați, nu întregul roi.",
       "WAIT_UNCHOKE": "Așteptați ca furnizorii să permită transferul; conectarea nu înseamnă disponibilitate pentru trimitere.",
       "WAIT_BLOCK": "Așteptați blocul necesar și verificarea lui; salvați diagnosticul dacă așteptarea persistă."
+    },
+    "storageTimelineHint": "Duratele operațiilor cache includ așteptarea blocărilor și lucrul în memorie sau pe disc. Nu dovedesc o defecțiune a discului sau o întrerupere a redării.",
+    "storageStages": {
+      "CACHE_READ_SLOW": "Citire lentă din cache",
+      "CACHE_WRITE_SLOW": "Scriere lentă în cache",
+      "CACHE_READ_FAILED": "Citirea din cache a eșuat",
+      "CACHE_WRITE_FAILED": "Scrierea în cache a eșuat"
     }
   },
   "search": {

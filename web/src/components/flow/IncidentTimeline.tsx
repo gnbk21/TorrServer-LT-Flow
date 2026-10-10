@@ -8,6 +8,7 @@ export function IncidentTimeline({ status }: { status: FlowStatusResponse }) {
     <section className="panel space-y-3">
       <h3 className="font-semibold">{t("flow.timelineTitle")}</h3>
       <p className="text-sm text-slate-400">{t("flow.timelineHint")}</p>
+      <p className="text-sm text-slate-400">{t("flow.storageTimelineHint")}</p>
       {status.sampled_at && (
         <p className="text-xs text-slate-400">
           {t("flow.sampledAt")}{" "}
@@ -33,11 +34,14 @@ export function IncidentTimeline({ status }: { status: FlowStatusResponse }) {
             </span>
             <span>
               {event.stage
-                ? t(`flow.startupStages.${event.stage}`, {
-                    defaultValue: t(`flow.timelineEvents.${event.type}`, {
-                      defaultValue: t("status.unknown"),
-                    }),
-                  })
+                ? t(
+                    `flow.${event.type === "storage" ? "storageStages" : "startupStages"}.${event.stage}`,
+                    {
+                      defaultValue: t(`flow.timelineEvents.${event.type}`, {
+                        defaultValue: t("status.unknown"),
+                      }),
+                    },
+                  )
                 : t(`flow.timelineEvents.${event.type}`, {
                     defaultValue: t("status.unknown"),
                   })}

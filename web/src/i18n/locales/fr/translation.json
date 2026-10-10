@@ -730,7 +730,8 @@
       "dht_peer": "Pair DHT",
       "peer_disconnected": "Pair déconnecté",
       "seek": "Recherche demandée",
-      "recovery": "Réponse après recherche"
+      "recovery": "Réponse après recherche",
+      "storage": "Opération du cache"
     },
     "playerEvidence": "Mesures du lecteur",
     "playerEvidenceHint": "Rapport Flow Player facultatif. L’import reste dans cette boîte de dialogue ouverte ; il n’est ni envoyé au serveur ni appliqué aux paramètres.",
@@ -793,6 +794,13 @@
       "WAIT_SUPPLIERS": "Attendez un pair possédant la pièce requise. Cet échantillon décrit les pairs connectés, pas tout l’essaim.",
       "WAIT_UNCHOKE": "Attendez que les fournisseurs autorisent le transfert ; être connecté ne signifie pas être prêt à envoyer.",
       "WAIT_BLOCK": "Attendez le bloc requis et sa vérification ; conservez le diagnostic si l’attente persiste."
+    },
+    "storageTimelineHint": "Les durées du cache comprennent les attentes de verrou et le travail en mémoire ou sur disque. Elles ne prouvent ni une panne du disque ni une interruption de lecture.",
+    "storageStages": {
+      "CACHE_READ_SLOW": "Lecture lente du cache",
+      "CACHE_WRITE_SLOW": "Écriture lente du cache",
+      "CACHE_READ_FAILED": "Échec de lecture du cache",
+      "CACHE_WRITE_FAILED": "Échec d’écriture du cache"
     }
   },
   "search": {

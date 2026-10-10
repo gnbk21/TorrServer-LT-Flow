@@ -633,7 +633,8 @@
       "dht_peer": "DHT peer",
       "peer_disconnected": "Peer disconnected",
       "seek": "Seek requested",
-      "recovery": "Seek response recovered"
+      "recovery": "Seek response recovered",
+      "storage": "Cache operation"
     },
     "playerEvidence": "Player measurements",
     "playerEvidenceHint": "Optional Flow Player report. Import stays in this open dialog; it is not uploaded or applied as a server setting.",
@@ -696,6 +697,13 @@
       "WAIT_SUPPLIERS": "Wait for a peer with the required piece. This sample describes connected peers, not the entire swarm.",
       "WAIT_UNCHOKE": "Allow suppliers to unchoke the connection; connected does not mean currently willing to send.",
       "WAIT_BLOCK": "Wait for the required block and its verification; capture diagnostics if the wait persists."
+    },
+    "storageTimelineHint": "Cache timings include lock waits and memory or disk work. They do not establish a disk fault or player stutter.",
+    "storageStages": {
+      "CACHE_READ_SLOW": "Slow cache read",
+      "CACHE_WRITE_SLOW": "Slow cache write",
+      "CACHE_READ_FAILED": "Cache read failed",
+      "CACHE_WRITE_FAILED": "Cache write failed"
     }
   },
   "torrent": {

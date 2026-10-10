@@ -177,3 +177,32 @@ remaining ledger requirements are not complete.
   acceptance. The fresh old-binary endurance reproduction passed the original
   failure's 32-minute point without reproducing it; eight-hour acceptance and
   the original failure's cause remain unresolved.
+
+## Storage timeline and representative profiling checkpoint
+
+- Per-cache read/write failures and operations taking at least 50 ms now enter
+  the torrent timeline with their original completion time. Capture is limited
+  to 16 queued observations per cache, with explicit dropped-event accounting;
+  it contains enum/numeric fields and no filenames or free-text errors.
+  Successful fast operations are omitted. Normal EOF is not a cache failure.
+  Durations include lock waits and memory/disk work; seven-language labels avoid
+  attributing them to physical disk faults or player stutters.
+- The `2c1ebe18` native fuzz seed exposed an empty write at the exact piece end
+  returning a short-write error in RAM storage. Piece-level zero-length writes
+  now succeed without allocating a backing buffer. Native reruns are required.
+- Local flow/log/hash tests, diagnostic translation/timeline tests (13 cases),
+  TypeScript and source lint passed. Loopback unit tests require host access;
+  their initial restricted run failed at socket access before the HTTP check.
+- Four actual owned Windows streaming runs at `2a3ac4e0` (healthy, outages,
+  mixed peers, bursts; nominal 120 Mbps, 40 s, 512 MiB cache) passed byte-integrity
+  checks and captured CPU, Go trace, heap, allocations, mutex, block and goroutine
+  profiles. Profiles are bounded to 32 MiB each and carry SHA-256 identities.
+  Profiling affects timings; these are neither comparative nor final-head gates.
+- Merging the four CPU profiles with `go tool pprof -symbolize=none -proto`
+  succeeded. Of 128.57 s sampled CPU, 91.44% appears in runtime.cgocall; Go
+  profiling does not resolve the underlying native call stacks. This supports
+  collecting OS-level native profiles rather than claiming a Go PGO speedup.
+- Optional CI PGO training now uses all four paced scenarios. Comparison uses
+  five interleaved repetitions per scenario with identical startup/cache/piece
+  geometry. Published builds remain ordinary builds and no automatic adoption
+  occurs. The revised PGO comparison still needs actual CI execution.

@@ -620,6 +620,11 @@ func (t *Torrent) progressTick() {
 	t.mu.Unlock()
 	if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 		cache.SetFlowDownloadRate(rate, FlowIsPaused())
+		events, dropped := cache.DrainStorageEvidence()
+		t.timeline.AddDropped(dropped)
+		for _, event := range events {
+			t.historyEvent(event)
+		}
 		t.tickNextEpisode(cache)
 	}
 	count := 0

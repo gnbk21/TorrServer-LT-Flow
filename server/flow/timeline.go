@@ -1,6 +1,7 @@
 package flow
 
 import (
+	"sort"
 	"sync"
 	"time"
 )
@@ -35,7 +36,11 @@ func (t *Timeline) Record(e HistoryEvent, elapsed time.Duration) {
 	if !validHistoryEvent(e) || e.Type == "sparse" || e.Type == "dht" || elapsed < 0 {
 		return
 	}
-	row := TimelineEvent{Time: time.Now().UTC(), ElapsedMs: elapsed.Milliseconds(), Type: e.Type, Stage: e.Stage, File: e.File, Bytes: e.Bytes}
+	observed := e.Time
+	if observed.IsZero() {
+		observed = time.Now().UTC()
+	}
+	row := TimelineEvent{Time: observed, ElapsedMs: elapsed.Milliseconds(), Type: e.Type, Stage: e.Stage, File: e.File, Bytes: e.Bytes}
 	if e.OperationMeasured && e.ElapsedMs >= 0 {
 		duration := e.ElapsedMs
 		row.OperationMs = &duration
@@ -50,6 +55,11 @@ func (t *Timeline) Record(e HistoryEvent, elapsed time.Duration) {
 		t.events = append(t.events, row)
 	}
 }
+func (t *Timeline) AddDropped(count uint64) {
+	t.mu.Lock()
+	t.dropped += count
+	t.mu.Unlock()
+}
 func (t *Timeline) Snapshot() TimelineSnapshot {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -60,5 +70,6 @@ func (t *Timeline) Snapshot() TimelineSnapshot {
 			events[i].OperationMs = &value
 		}
 	}
+	sort.SliceStable(events, func(i, j int) bool { return events[i].ElapsedMs < events[j].ElapsedMs })
 	return TimelineSnapshot{Events: events, Dropped: t.dropped, Source: "server"}
 }

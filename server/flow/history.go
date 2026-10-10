@@ -112,12 +112,12 @@ func NewHistory(dir string) (*History, error) {
 
 func validHistoryEvent(e HistoryEvent) bool {
 	switch e.Type {
-	case "engine_started", "engine_stopped", "metadata", "startup", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht", "sparse", "seek", "recovery":
+	case "engine_started", "engine_stopped", "metadata", "startup", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht", "sparse", "seek", "recovery", "storage":
 	default:
 		return false
 	}
 	switch e.Stage {
-	case "", "METADATA", "PEERS", "FIRST_BLOCK", "HEAD_INDEX", "PREBUFFER", "PROBE_GRACE", "READY", "PLAYING", "READER_WINDOW", "CANCELLED", "TIMEOUT", "FAILED", "DHT_RESTORED", "DHT_SAVED", "DHT_IGNORED", "PAUSED", "REDUNDANT", "OTHER":
+	case "", "METADATA", "PEERS", "FIRST_BLOCK", "HEAD_INDEX", "PREBUFFER", "PROBE_GRACE", "READY", "PLAYING", "READER_WINDOW", "CANCELLED", "TIMEOUT", "FAILED", "DHT_RESTORED", "DHT_SAVED", "DHT_IGNORED", "PAUSED", "REDUNDANT", "OTHER", "CACHE_READ_SLOW", "CACHE_WRITE_SLOW", "CACHE_READ_FAILED", "CACHE_WRITE_FAILED":
 	default:
 		return false
 	}
@@ -134,7 +134,10 @@ func (h *History) Record(e HistoryEvent) {
 		h.dropped.Add(1)
 		return
 	}
-	e.Time, e.Run = time.Now().UTC(), h.run
+	if e.Time.IsZero() {
+		e.Time = time.Now().UTC()
+	}
+	e.Run = h.run
 	select {
 	case h.queue <- e:
 	default:

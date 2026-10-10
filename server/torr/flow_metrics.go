@@ -72,7 +72,11 @@ func (t *Torrent) historyEvent(e flow.HistoryEvent) {
 		return
 	}
 	if !t.flowAddedAt.IsZero() {
-		t.timeline.Record(e, time.Since(t.flowAddedAt))
+		elapsed := time.Since(t.flowAddedAt)
+		if !e.Time.IsZero() {
+			elapsed = e.Time.Sub(t.flowAddedAt)
+		}
+		t.timeline.Record(e, elapsed)
 	}
 	if t.bt == nil {
 		return

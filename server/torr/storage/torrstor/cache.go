@@ -71,6 +71,7 @@ type Cache struct {
 	evicted           map[int]bool // guarded by mu
 	storage           *Storage
 	flowCounters      flow.Counters
+	storageEvidence   flow.StorageObservations
 	flowMu            sync.Mutex
 	verifiedReads     atomic.Bool
 	flowScarce        map[int]bool // at most 256 bounded diagnostic entries

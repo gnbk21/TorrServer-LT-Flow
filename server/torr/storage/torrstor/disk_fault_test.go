@@ -25,6 +25,10 @@ func TestDiskWriteFailureDoesNotAdvertiseDataAndRecovers(t *testing.T) {
 		t.Fatalf("failed backing file write: n=%d error=%v", n, err)
 	}
 	c := s.lookup(1)
+	events, _ := c.DrainStorageEvidence()
+	if len(events) != 1 || events[0].Stage != "CACHE_WRITE_FAILED" || events[0].Bytes != 0 {
+		t.Fatalf("backing file failure missing from bounded evidence: %+v", events)
+	}
 	c.SignalPieceComplete(0)
 	if c.Have(0) || c.readableAt(0, 0) != 0 {
 		t.Fatal("failed write exposed data")
