@@ -77,7 +77,43 @@ func Refresh() (InterfaceStatus, <-chan struct{}) {
 	return s, interfaceLifecycle.changed
 }
 
-type boundTransport struct{ base *http.Transport }
+type boundTransport struct {
+	base       *http.Transport
+	mu         sync.Mutex
+	generation <-chan struct{}
+}
+
+// dialWithInterface never falls back to an unbound socket after a source was
+// selected. Literal destinations avoid resolving the pinned address a second time.
+func dialWithInterface(ctx context.Context, network, address string, s InterfaceStatus) (net.Conn, error) {
+	d := net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}
+	if s.Name == "" {
+		return d.DialContext(ctx, network, address)
+	}
+	if s.State != "BOUND" {
+		return nil, errors.New("selected torrent interface is unavailable")
+	}
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, errors.New("invalid destination")
+	}
+	destination := net.ParseIP(host)
+	for _, text := range s.Addresses {
+		ip := net.ParseIP(text)
+		if ip == nil || (destination != nil && (ip.To4() != nil) != (destination.To4() != nil)) {
+			continue
+		}
+		d.LocalAddr = &net.TCPAddr{IP: ip}
+		connection, err := d.DialContext(ctx, network, address)
+		if err == nil {
+			return connection, nil
+		}
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+	}
+	return nil, errors.New("torrent fetch could not use selected interface")
+}
 
 var transportOnce sync.Once
 var sharedTransport http.RoundTripper
@@ -96,29 +132,21 @@ func newHTTPTransport() http.RoundTripper {
 		return http.ProxyFromEnvironment(req)
 	}
 	t.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
-		s := Snapshot()
-		d := net.Dialer{Timeout: 15 * time.Second, KeepAlive: 30 * time.Second}
-		if s.Name == "" {
-			return d.DialContext(ctx, network, address)
-		}
-		if s.State != "BOUND" {
-			return nil, errors.New("selected torrent interface is unavailable")
-		}
-		// Try each selected source family explicitly; never retry unbound.
-		for _, text := range s.Addresses {
-			ip := net.ParseIP(text)
-			d.LocalAddr = &net.TCPAddr{IP: ip}
-			connection, err := d.DialContext(ctx, network, address)
-			if err == nil {
-				return connection, nil
-			}
-		}
-		return nil, errors.New("torrent fetch could not use selected interface")
+		return dialWithInterface(ctx, network, address, Snapshot())
 	}
-	return &boundTransport{t}
+	return &boundTransport{base: t}
 }
+func (t *boundTransport) CloseIdleConnections() { t.base.CloseIdleConnections() }
 func (t *boundTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	s, changed := Refresh()
+	// Close old pooled sockets synchronously before this request can reuse them.
+	// The cancellation watcher alone can race a request on the new generation.
+	t.mu.Lock()
+	if t.generation != changed {
+		t.base.CloseIdleConnections()
+		t.generation = changed
+	}
+	t.mu.Unlock()
 	if s.Name != "" && s.State != "BOUND" {
 		t.base.CloseIdleConnections()
 		return nil, errors.New("selected torrent interface is unavailable")

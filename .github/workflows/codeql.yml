@@ -98,7 +98,7 @@ jobs:
           printf 'magnet:?xt=urn:btmh:1220abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd' > _out/parser-corpus/v2-magnet
           env -u LD_PRELOAD _out/test-torrent-parser-fuzz _out/parser-corpus -max_total_time=15 -timeout=3 -max_len=65536 -rss_limit_mb=2048
           cd server
-          go test -count=1 -timeout 180s ./lt ./flow ./settings ./torr ./torr/storage/torrstor ./web/api ./mcp ./tgbot
+          go test -count=1 -timeout 180s ./lt ./flow ./settings ./netpolicy ./torr ./torr/storage/torrstor ./web/api ./mcp ./tgbot
           go test ./flow -run '^$' -fuzz '^FuzzInfoHash$' -fuzztime=10s -parallel=2
           go test ./torr/storage/torrstor -run '^$' -fuzz '^FuzzStorageWriteBounds$' -fuzztime=15s -parallel=2
       - uses: github/codeql-action/init@v4

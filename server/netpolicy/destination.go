@@ -45,7 +45,31 @@ func ValidateDestination(u *url.URL, allowLAN bool) error {
 // DestinationTransport pins validated resolver answers when dialing. URL-only
 // validation cannot prevent DNS rebinding. TLS still verifies the URL hostname.
 // Environment proxies are excluded because their resolver would bypass this gate.
-func DestinationTransport(allowLAN bool) *http.Transport {
+type destinationTransport struct {
+	*http.Transport
+	bound    *boundTransport
+	allowLAN bool
+}
+
+func approvedLiteralLAN(host string, allow bool) bool {
+	ip, err := netip.ParseAddr(host)
+	ip = ip.Unmap()
+	return allow && err == nil && ip.Zone() == "" && (ip.IsPrivate() || ip.IsLoopback())
+}
+
+func (t *destinationTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if err := ValidateDestination(req.URL, t.allowLAN); err != nil {
+		return nil, err
+	}
+	// An explicitly approved literal LAN endpoint remains reachable when the
+	// torrent interface is absent. Hostnames and redirects get no such exemption.
+	if approvedLiteralLAN(req.URL.Hostname(), t.allowLAN) {
+		return t.Transport.RoundTrip(req)
+	}
+	return t.bound.RoundTrip(req)
+}
+
+func DestinationTransport(allowLAN bool) *destinationTransport {
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.Proxy = nil
 	t.ResponseHeaderTimeout = 10 * time.Second
@@ -54,7 +78,11 @@ func DestinationTransport(allowLAN bool) *http.Transport {
 		if err != nil {
 			return nil, errors.New("invalid destination")
 		}
-		literal, literalErr := netip.ParseAddr(host)
+		lan := approvedLiteralLAN(host, allowLAN)
+		s := Snapshot()
+		if !lan && s.Name != "" && s.State != "BOUND" {
+			return nil, errors.New("selected torrent interface is unavailable")
+		}
 		addresses, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
 		if err != nil {
 			return nil, errors.New("destination resolution failed")
@@ -64,14 +92,16 @@ func DestinationTransport(allowLAN bool) *http.Transport {
 		}
 		for _, ip := range addresses {
 			ip = ip.Unmap()
-			approvedLAN := allowLAN && literalErr == nil && literal.Unmap() == ip && (ip.IsPrivate() || ip.IsLoopback()) && ip.Zone() == ""
-			if !publicDestination(ip) && !approvedLAN {
+			if !publicDestination(ip) && !lan {
 				return nil, errors.New("destination resolution includes a prohibited address")
 			}
 		}
 		for _, ip := range addresses {
-			d := net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}
-			conn, e := d.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+			source := s
+			if lan {
+				source = InterfaceStatus{}
+			}
+			conn, e := dialWithInterface(ctx, network, net.JoinHostPort(ip.String(), port), source)
 			if e == nil {
 				return conn, nil
 			}
@@ -81,5 +111,5 @@ func DestinationTransport(allowLAN bool) *http.Transport {
 		}
 		return nil, errors.New("destination connection failed")
 	}
-	return t
+	return &destinationTransport{Transport: t, bound: &boundTransport{base: t}, allowLAN: allowLAN}
 }
