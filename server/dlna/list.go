@@ -362,7 +362,7 @@ func loadTorrent(path, host string) (ret []interface{}) {
 	if hash == "/" || hash == "\\" {
 		hash = filepath.Base(path)
 	}
-	if len(hash) != 40 {
+	if len(hash) != 40 && len(hash) != 64 {
 		return
 	}
 

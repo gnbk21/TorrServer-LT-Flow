@@ -7,7 +7,7 @@ export const preparationSchema = z.object({
       z
         .object({
           id: z.string(),
-          hash: z.string().regex(/^[a-f0-9]{40}$/),
+          hash: z.string().regex(/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/),
           file_index: z.number().int().positive(),
           state: z.enum([
             "downloading",

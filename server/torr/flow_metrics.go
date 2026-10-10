@@ -184,7 +184,7 @@ func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Requ
 		}
 	}
 	if !internal && req.Method == http.MethodGet && settings.CurrentFlow().Enabled {
-		if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+		if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 			cache.ClearWarmReserve()
 		}
 		t.mu.Lock()
@@ -232,7 +232,7 @@ func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Requ
 		}
 		if purpose == "SEEK" {
 			t.historyEvent(flow.HistoryEvent{Type: "seek", File: fileID})
-			if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+			if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 				cache.ResetFlowWindow(group, file.Index)
 			}
 			s.SeekCount++
@@ -266,7 +266,7 @@ func (t *Torrent) flowReaderClosed(file *File, offset int64) {
 	if t == nil || !settings.CurrentFlow().Enabled {
 		return
 	}
-	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil && cache.StreamingReaders() == 0 {
+	if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil && cache.StreamingReaders() == 0 {
 		t.mu.Lock()
 		started := t.warmIdleSince.IsZero() && cache.StreamingReaders() == 0
 		if started {
@@ -423,7 +423,7 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 		demands = append(demands, s.demandOffset)
 	}
 	t.flowMu.Unlock()
-	cache := torrstor.Global().CacheByHash([20]byte(t.Hash()))
+	cache := torrstor.Global().CacheByHash(t.StorageHash())
 	var status *state.TorrentStatus
 	if includeTraces {
 		status = t.Status()

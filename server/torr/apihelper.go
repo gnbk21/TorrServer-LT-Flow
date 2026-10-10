@@ -156,7 +156,7 @@ func GetTorrentInfo(hashHex string) *Torrent {
 	if dbt := sets.GetTorrent(hashHex); dbt != nil {
 		return torrentFromDB(dbt)
 	}
-	return nil
+	return GetTorrentDB(NewHashFromHex(hashHex))
 }
 
 // GetTorrent returns the in-memory torrent if present, or revives a

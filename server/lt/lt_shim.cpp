@@ -26,6 +26,9 @@
 #include <libtorrent/sha1_hash.hpp>
 #include <libtorrent/torrent_handle.hpp>
 #include <libtorrent/torrent_info.hpp>
+#include <libtorrent/load_torrent.hpp>
+#include <libtorrent/entry.hpp>
+#include <libtorrent/bencode.hpp>
 #include <libtorrent/torrent_status.hpp>
 #include <libtorrent/version.hpp>
 
@@ -61,6 +64,7 @@
 extern void tsl_install_disk_io_on(libtorrent::session_params& params);
 
 #include <atomic>
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -244,6 +248,22 @@ inline std::string sha1_hex(lt::sha1_hash const& h) {
     return out;
 }
 
+inline std::string sha256_hex(lt::sha256_hash const& h) {
+    static const char* hex = "0123456789abcdef";
+    std::string out(64,'0');
+    auto const* p = reinterpret_cast<unsigned char const*>(h.data());
+    for (int i=0;i<32;++i) { out[i*2]=hex[p[i]>>4];out[i*2+1]=hex[p[i]&15]; }
+    return out;
+}
+inline std::string primary_hash(lt::info_hash_t const& hashes) {
+    return hashes.has_v1() ? sha1_hex(hashes.v1) : sha256_hex(hashes.v2);
+}
+inline void identity_json(json& j,lt::info_hash_t const& hashes) {
+    j["info_hash"]=primary_hash(hashes);
+    if (hashes.has_v1()) j["info_hash_v1"]=sha1_hex(hashes.v1);
+    if (hashes.has_v2()) j["info_hash_v2"]=sha256_hex(hashes.v2);
+}
+
 // 40-char hex → sha1_hash; returns false if input is not exactly 40 hex chars.
 inline bool hex_to_sha1(std::string const& hex, lt::sha1_hash& out) {
     if (hex.size() != 40) return false;
@@ -314,7 +334,7 @@ struct sparse_snapshot {
 };
 struct torrent_entry {
     lt::torrent_handle h;
-    std::string hex; // 40-char lowercase v1 info-hash
+    std::string hex; // full primary identity; hybrid keeps its v1 identifier
     std::shared_ptr<sparse_snapshot> sparse = std::make_shared<sparse_snapshot>();
 };
 std::unordered_map<int64_t, torrent_entry> g_torrents;
@@ -338,9 +358,10 @@ lt::torrent_handle get_torrent(lt_torrent id) {
 int64_t register_torrent(lt::torrent_handle const& h) {
     if (!h.is_valid()) return 0;
     auto hashes = h.info_hashes();
-    std::string hex = sha1_hex(hashes.v1);
+    std::string hex = primary_hash(hashes);
     std::unique_lock<std::shared_mutex> lk(g_torr_mu);
     auto exist = g_hash2id.find(hex);
+    if (exist==g_hash2id.end() && hashes.has_v2()) exist=g_hash2id.find(sha256_hex(hashes.v2));
     if (exist != g_hash2id.end()) {
         // Same info-hash re-added. If the old entry's handle is dead (torrent
         // removed, then re-added), replace it with the fresh handle under the
@@ -352,20 +373,25 @@ int64_t register_torrent(lt::torrent_handle const& h) {
             told->second.h = h;
             told->second.sparse = std::make_shared<sparse_snapshot>();
         }
-        return exist->second;
+        auto const id=exist->second;
+        if (hashes.has_v1()) g_hash2id[sha1_hex(hashes.v1)]=id;
+        if (hashes.has_v2()) g_hash2id[sha256_hex(hashes.v2)]=id;
+        return id;
     }
     int64_t id = g_next_torr++;
     g_torrents.emplace(id, torrent_entry{h, hex});
     g_hash2id.emplace(std::move(hex), id);
+    if (hashes.has_v2()) g_hash2id[sha256_hex(hashes.v2)]=id;
     return id;
 }
 
 int64_t lookup_torrent_id(lt::torrent_handle const& h) {
     if (!h.is_valid()) return 0;
     auto hashes = h.info_hashes();
-    std::string hex = sha1_hex(hashes.v1);
+    std::string hex = primary_hash(hashes);
     std::shared_lock<std::shared_mutex> lk(g_torr_mu);
     auto it = g_hash2id.find(hex);
+    if (it == g_hash2id.end() && hashes.has_v2()) it=g_hash2id.find(sha256_hex(hashes.v2));
     if (it == g_hash2id.end()) return 0;
     return it->second;
 }
@@ -374,7 +400,9 @@ void unregister_torrent(lt_torrent id) {
     std::unique_lock<std::shared_mutex> lk(g_torr_mu);
     auto it = g_torrents.find(id);
     if (it == g_torrents.end()) return;
-    g_hash2id.erase(it->second.hex);
+    for (auto alias=g_hash2id.begin();alias!=g_hash2id.end();) {
+        if (alias->second==id) alias=g_hash2id.erase(alias); else ++alias;
+    }
     g_torrents.erase(it);
 }
 
@@ -481,7 +509,7 @@ json status_to_json(lt::torrent_handle const& h) {
     auto st = h.status();
     j["name"]         = st.name;
     auto hashes = h.info_hashes();
-    j["info_hash"]    = sha1_hex(hashes.v1);
+    identity_json(j,hashes);
     j["state"]        = state_name(st.state);
     j["is_finished"]  = st.is_finished;
     j["progress"]     = st.progress;
@@ -539,7 +567,7 @@ json alert_to_json(lt::alert const* a) {
         int64_t id = lookup_torrent_id(ta->handle);
         if (id != 0) j["torrent"] = id;
         if (ta->handle.is_valid()) {
-            j["torrent_hash"] = sha1_hex(ta->handle.info_hashes().v1);
+            j["torrent_hash"] = primary_hash(ta->handle.info_hashes());
         }
     }
 
@@ -903,22 +931,21 @@ int lt_session_destroy(lt_session id) {
 // store as InfoBytes, so round-tripping metadata through the DB must accept
 // it: wrap it into a minimal metainfo dict and re-parse. On failure returns
 // nullptr with ec holding the original (full-metainfo) parse error.
-static std::shared_ptr<lt::torrent_info> parse_torrent_or_info(
+static lt::add_torrent_params parse_torrent_or_info(
     char const* buf, int len, lt::error_code& ec)
 {
     ec.clear();
-    auto ti = std::make_shared<lt::torrent_info>(buf, len, ec);
-    if (!ec) return ti;
+    auto atp=lt::load_torrent_buffer(lt::span<char const>{buf,len},ec);
+    if (!ec && atp.ti) return atp;
     std::string wrapped;
     wrapped.reserve(static_cast<size_t>(len) + 8);
     wrapped += "d4:info";
     wrapped.append(buf, static_cast<size_t>(len));
     wrapped += 'e';
     lt::error_code ec2;
-    auto ti2 = std::make_shared<lt::torrent_info>(
-        wrapped.data(), static_cast<int>(wrapped.size()), ec2);
-    if (!ec2) { ec.clear(); return ti2; }
-    return nullptr;
+    auto wrapped_atp=lt::load_torrent_buffer(lt::span<char const>{wrapped.data(),static_cast<int>(wrapped.size())},ec2);
+    if (!ec2 && wrapped_atp.ti) { ec.clear(); return wrapped_atp; }
+    return {};
 }
 
 // Keep tracker tiers bounded and reject malformed JSON before calling native code.
@@ -950,11 +977,12 @@ lt_torrent lt_session_add_torrent(
         if (!slot) { set_err(LT_ERR_NOT_FOUND, "session not found"); return 0; }
 
         lt::add_torrent_params atp;
+        if (info_len>(64u<<20)) {set_err(LT_ERR_INVALID,"metadata exceeds 64 MiB");return 0;}
         atp.save_path = save_path ? save_path : ".";
 
         if (info_bytes && info_len > 0) {
             lt::error_code ec;
-            atp.ti = parse_torrent_or_info(
+            atp = parse_torrent_or_info(
                 reinterpret_cast<char const*>(info_bytes), static_cast<int>(info_len), ec);
             if (ec || !atp.ti) { set_err_ec(LT_ERR_PARSE, ec); return 0; }
         } else if (link && *link) {
@@ -981,8 +1009,9 @@ lt_torrent lt_session_add_torrent(
             return 0;
         }
 
+        atp.save_path = save_path ? save_path : ".";
         if (trackers_json && *trackers_json
-            && !(atp.ti && atp.ti->priv() && !atp.ti->trackers().empty())) {
+            && !(atp.ti && atp.ti->priv() && !atp.trackers.empty())) {
             auto tiers = json::parse(trackers_json);
             if (!valid_tracker_tiers(tiers)) { set_err(LT_ERR_INVALID, "invalid tracker tiers"); return 0; }
             atp.trackers.clear();
@@ -1399,6 +1428,27 @@ char* lt_torrent_metadata_alloc(lt_torrent tid, size_t* out_len) {
         if (!ti || !ti->is_valid()) { set_err(LT_ERR_NOT_FOUND, "no metadata yet"); return nullptr; }
         auto const& info = ti->info_section();
         std::string s(info.data(), info.size());
+        if (ti->v2()) {
+            // Retain acquired piece layers with the original info bytes. Empty
+            // or incomplete layers remain unknown and are never trusted resume bits.
+            lt::entry meta;
+            meta["info"]=lt::entry::preformatted_type(info.begin(),info.end());
+            auto urls=h.url_seeds();
+            for (auto const& url:urls) {if (meta["url-list"].list().size()==16) break;meta["url-list"].list().emplace_back(url);}
+            auto layers=h.piece_layers();
+            auto const& files=ti->files();
+            for (auto f:files.file_range()) {
+                if (files.pad_file_at(f) || files.file_size(f)<=files.piece_length()
+                    || int(f)>=int(layers.size())) continue;
+                auto const& layer=layers[int(f)];
+                if (int(layer.size())!=files.file_num_pieces(f)
+                    || std::any_of(layer.begin(),layer.end(),[](auto const& hash){return hash.is_all_zeros();})) continue;
+                std::string bytes;
+                for (auto const& hash:layer) bytes.append(hash.data(),32);
+                meta["piece layers"][std::string(files.root_ptr(f),32)]=bytes;
+            }
+            s.clear();lt::bencode(std::back_inserter(s),meta);
+        }
         return alloc_string(s, out_len);
     } catch (std::exception const& e) {
         set_err(LT_ERR_INTERNAL, e.what());
@@ -1463,6 +1513,16 @@ int64_t lt_torrent_file_offset(lt_torrent tid, int idx) {
         set_err(LT_ERR_INTERNAL, e.what());
         return -1;
     }
+}
+
+int lt_torrent_file_is_pad(lt_torrent tid,int idx) {
+    WRAP_BEGIN
+    auto h=get_torrent(tid);
+    if (!h.is_valid()) return set_err(LT_ERR_NOT_FOUND,"torrent not found");
+    auto ti=h.torrent_file();
+    if (!ti || idx<0 || idx>=ti->num_files()) return set_err(LT_ERR_INVALID,"file index out of range");
+    return ti->files().pad_file_at(lt::file_index_t{idx}) ? 1 : 0;
+    WRAP_END(LT_ERR_INTERNAL)
 }
 
 int lt_torrent_num_pieces(lt_torrent tid) {
@@ -1533,7 +1593,7 @@ size_t lt_torrent_info_hash_hex(lt_torrent tid, char* buf, size_t cap) {
     try {
         auto h = get_torrent(tid);
         if (!h.is_valid()) { set_err(LT_ERR_NOT_FOUND, "torrent not found"); return 0; }
-        std::string hex = sha1_hex(h.info_hashes().v1);
+        std::string hex = primary_hash(h.info_hashes());
         return copy_string(hex, buf, cap);
     } catch (std::exception const& e) {
         set_err(LT_ERR_INTERNAL, e.what());
@@ -1867,9 +1927,9 @@ char* lt_session_pop_alerts_json_alloc(lt_session sid, size_t* out_len) {
 
 // ----- parsers (utility) -----
 
-static char* parse_atp_to_json(lt::add_torrent_params const& atp, size_t* out_len) {
+static char* parse_atp_to_json(lt::add_torrent_params const& atp, size_t* out_len, lt::bdecode_node const* source=nullptr) {
     json j;
-    j["info_hash"] = sha1_hex(atp.info_hashes.v1);
+    identity_json(j,atp.ti ? atp.ti->info_hashes() : atp.info_hashes);
     j["display_name"] = atp.name;
     json tr = json::array();
     for (auto const& t : atp.trackers) tr.push_back(t);
@@ -1896,7 +1956,30 @@ static char* parse_atp_to_json(lt::add_torrent_params const& atp, size_t* out_le
                 piece_hashes += sha1_hex(atp.ti->hash_for_piece(lt::piece_index_t{i}));
         }
         j["piece_hashes"] = std::move(piece_hashes);
+        if (atp.ti->v2()) {
+            auto const& files=atp.ti->files();
+            auto layers=source ? source->dict_find_dict("piece layers") : lt::bdecode_node{};
+            json v2files=json::array();
+            for (auto f:files.file_range()) {
+                if (files.pad_file_at(f) || files.file_size(f)<=0) continue;
+                auto root=files.root(f);
+                std::string layer;
+                if (layers) {
+                    auto value=layers.dict_find_string(lt::string_view(root.data(),32));
+                    if (value) {
+                        auto bytes=value.string_value();
+                        static const char* hex="0123456789abcdef";
+                        for (unsigned char b:bytes) {layer.push_back(hex[b>>4]);layer.push_back(hex[b&15]);}
+                    }
+                }
+                v2files.push_back({{"offset",files.file_offset(f)},{"size",files.file_size(f)},
+                    {"root",sha256_hex(root)},{"piece_layer",layer}});
+            }
+            j["v2_files"]=std::move(v2files);
+        }
         json seeds = json::array();
+        for (auto const& seed:atp.url_seeds) {if (seeds.size()==16) break;seeds.push_back(seed);}
+        for (auto const& seed:atp.http_seeds) {if (seeds.size()==16) break;seeds.push_back(seed);}
         for (auto const& seed : atp.ti->web_seeds()) { if (seeds.size() == 16) break; seeds.push_back(seed.url); }
         j["web_seeds"] = std::move(seeds);
     } else {
@@ -1928,20 +2011,16 @@ char* lt_parse_magnet_alloc(const char* uri, size_t* out_len) {
 char* lt_parse_torrent_bytes_alloc(const uint8_t* buf, size_t len, size_t* out_len) {
     set_err(LT_OK, "");
     try {
-        if (!buf || len == 0) { set_err(LT_ERR_INVALID, "empty bytes"); return nullptr; }
+        if (!buf || len == 0 || len>(64u<<20)) { set_err(LT_ERR_INVALID, "invalid metadata size"); return nullptr; }
         lt::error_code ec;
-        auto ti = parse_torrent_or_info(
+        auto atp = parse_torrent_or_info(
             reinterpret_cast<char const*>(buf), static_cast<int>(len), ec);
-        if (ec || !ti) { set_err_ec(LT_ERR_PARSE, ec); return nullptr; }
-        lt::add_torrent_params atp;
-        atp.ti = ti;
-        atp.info_hashes = ti->info_hashes();
-        atp.name = ti->name();
-        for (auto const& tracker : ti->trackers()) {
-            atp.trackers.push_back(tracker.url);
-            atp.tracker_tiers.push_back(tracker.tier);
-        }
-        return parse_atp_to_json(atp, out_len);
+        if (ec || !atp.ti) { set_err_ec(LT_ERR_PARSE, ec); return nullptr; }
+        atp.name=atp.ti->name();
+        lt::bdecode_node source;
+        lt::error_code decode_ec;
+        lt::bdecode(reinterpret_cast<char const*>(buf),reinterpret_cast<char const*>(buf)+len,source,decode_ec);
+        return parse_atp_to_json(atp,out_len,decode_ec ? nullptr : &source);
     } catch (std::exception const& e) {
         set_err(LT_ERR_INTERNAL, e.what());
         return nullptr;

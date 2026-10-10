@@ -2,6 +2,8 @@ package pages
 
 import (
 	"net/url"
+	"server/flow"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -64,7 +66,7 @@ func getTorrents(c *gin.Context) {
 			continue
 		}
 		v := url.Values{}
-		v.Set("xt", "urn:btih:"+ts.InfoHash)
+		v.Set("xt", strings.TrimPrefix(flow.ParseInfoHash(ts.InfoHash).Magnet(), "magnet:?xt="))
 		if ts.DisplayName != "" {
 			v.Set("dn", ts.DisplayName)
 		}
@@ -74,7 +76,7 @@ func getTorrents(c *gin.Context) {
 			}
 		}
 		mag := "magnet:?" + v.Encode()
-		html += "<p><a href='" + mag + "'>magnet:?xt=urn:btih:" + ts.InfoHash + "</a></p>"
+		html += "<p><a href='" + mag + "'>" + flow.ParseInfoHash(ts.InfoHash).Magnet() + "</a></p>"
 	}
 	html += "</div>"
 	c.Data(200, "text/html; charset=utf-8", []byte(html))

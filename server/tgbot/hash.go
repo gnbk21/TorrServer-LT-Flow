@@ -45,9 +45,6 @@ func extractHashFromReply(c tele.Context) string {
 			}
 			if idx := strings.Index(btn.Data, "all|"); idx >= 0 {
 				h := btn.Data[idx+4:]
-				if len(h) >= 40 && isHash(h[:40]) {
-					return h[:40]
-				}
 				if isHash(h) {
 					return h
 				}

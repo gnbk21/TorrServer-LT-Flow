@@ -60,6 +60,11 @@ func ParseLinkContext(ctx context.Context, link string) (*TorrentSpec, error) {
 	}
 
 	lower := strings.ToLower(link)
+	// A full v2 identity is also base62. Recognize digest lengths before the
+	// historical compact-token heuristic, preserving the old token decoder.
+	if (len(link) == 40 || len(link) == 64) && isHex(link) {
+		return ParseMagnetURI(magnetFromSpec(&TorrentSpec{InfoHash: NewHashFromHex(lower)}))
+	}
 
 	// 1. torrs:// or bare base62 token
 	if strings.HasPrefix(lower, "torrs://") ||
@@ -133,11 +138,12 @@ func ParseReader(r io.Reader) (*TorrentSpec, error) {
 
 // ParseTorrentFilePath reads a .torrent file from disk.
 func ParseTorrentFilePath(path string) (*TorrentSpec, error) {
-	buf, err := os.ReadFile(path)
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("torr.ParseTorrentFilePath: %w", err)
 	}
-	return ParseBytes(buf)
+	defer file.Close()
+	return ParseReader(file)
 }
 
 // ParseTorrsHash decodes a torrs:// token (or bare base62 form) and
@@ -260,6 +266,8 @@ func specFromParsed(pt *lt.ParsedTorrent, info []byte) *TorrentSpec {
 	}
 	return &TorrentSpec{
 		InfoHash:    NewHashFromHex(pt.InfoHash),
+		InfoHashV1:  pt.InfoHashV1,
+		InfoHashV2:  pt.InfoHashV2,
 		InfoBytes:   info,
 		Trackers:    trackers,
 		DisplayName: pt.DisplayName,

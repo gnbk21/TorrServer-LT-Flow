@@ -25,6 +25,11 @@
 #include <libtorrent/storage_defs.hpp>
 #include <libtorrent/units.hpp>
 #include <libtorrent/version.hpp>
+#if LIBTORRENT_VERSION_NUM >= 20100
+#include <libtorrent/aux_/torrent.hpp>
+#else
+#include <libtorrent/torrent.hpp>
+#endif
 
 #include <atomic>
 #include <array>
@@ -256,7 +261,7 @@ public:
     // ----- storage lifecycle -----
 
     lt::storage_holder new_torrent(lt::storage_params const& p,
-                                   std::shared_ptr<void> const&) override
+                                   std::shared_ptr<void> const& owner) override
     {
         int64_t idx = g_next_storage_id.fetch_add(1);
 
@@ -274,8 +279,19 @@ public:
         }
 
         auto raw = sha1_raw_from(p.info_hash);
-        cb_.open(idx, reinterpret_cast<uint8_t const*>(raw.data()),
-                 ss->num_pieces, ss->piece_length);
+        if (cb_.open_full && owner) {
+#if LIBTORRENT_VERSION_NUM >= 20100
+            auto tor = std::static_pointer_cast<lt::aux::torrent>(owner);
+#else
+            auto tor = std::static_pointer_cast<lt::torrent>(owner);
+#endif
+            auto const& hashes = tor->info_hash();
+            std::array<uint8_t,33> identity{};
+            if (hashes.has_v1()) std::memcpy(identity.data(), hashes.v1.data(), 20);
+            else { std::memcpy(identity.data(), hashes.v2.data(), 32); identity[32]=2; }
+            cb_.open_full(idx, identity.data(), ss->num_pieces, ss->piece_length);
+        } else cb_.open(idx, reinterpret_cast<uint8_t const*>(raw.data()),
+                       ss->num_pieces, ss->piece_length);
         if (cb_.size) cb_.size(idx, p.files.total_size());
         // BEP 52 file tails may be short in the middle of the torrent. Publish
         // their actual resident size before any native write can be queued.
@@ -292,6 +308,7 @@ public:
             if (!tails.empty()) cb_.geometry(idx,tails.data(),int(tails.size()/2));
         }
 
+        if (cb_.ready) cb_.ready(idx);
         auto storage_idx = lt::storage_index_t(static_cast<int>(idx));
         return lt::storage_holder(storage_idx, *this);
     }
@@ -320,13 +337,17 @@ public:
             lt::post(io_, [h] { (*h)(lt::disk_buffer_holder{}, make_io_error("read")); });
         };
         bool throttle = false;
-        if (!state || r.length <= 0 || !work_.submit(storage_id_of(s), int(r.piece),
+        if (!state || r.length <= 0 || r.start < 0 || int(r.piece)<0 || int(r.piece)>=state->num_pieces
+            || r.start>state->files->piece_size(r.piece) || r.length>state->files->piece_size(r.piece)-r.start
+            || !work_.submit(storage_id_of(s), int(r.piece),
                 std::size_t(r.length), [this, state, r, h] {
             char* buf = g_completion_allocator.allocate(std::size_t(r.length));
             lt::storage_error err;
-            if (!buf || cb_.read(state->id, int(r.piece), r.start,
-                    reinterpret_cast<uint8_t*>(buf), r.length) != r.length)
-                err = make_io_error("read");
+            int const actual = state->files->v2()
+                ? std::min(r.length,std::max(0,state->files->piece_size2(r.piece)-r.start)) : r.length;
+            if (!buf || (actual>0 && cb_.read(state->id, int(r.piece), r.start,
+                    reinterpret_cast<uint8_t*>(buf), actual) != actual)) err=make_io_error("read");
+            if (buf && actual<r.length) std::memset(buf+actual,0,r.length-actual);
 #if LIBTORRENT_VERSION_NUM >= 20100
             lt::disk_buffer_holder holder(g_completion_allocator, buf);
 #else
@@ -349,7 +370,9 @@ public:
         bool throttle = false;
         // libtorrent owns buf only until this call returns. The queue budget
         // includes this copy; there is no second piece cache or write staging.
-        if (!state || r.length <= 0 || std::size_t(r.length) > flow_io_queue::limit_bytes) {
+        if (!state || !buf || r.length <= 0 || r.start<0 || int(r.piece)<0 || int(r.piece)>=state->num_pieces
+            || r.start>state->files->piece_size(r.piece) || r.length>state->files->piece_size(r.piece)-r.start
+            || std::size_t(r.length) > flow_io_queue::limit_bytes) {
             lt::post(io_, [h] { (*h)(make_io_error("write")); });
             return false;
         }
@@ -364,8 +387,11 @@ public:
         };
         if (!work_.submit(state->id, int(r.piece), data->size(), [this, state, r, data, h] {
             lt::storage_error err;
-            if (cb_.write(state->id, int(r.piece), r.start,
-                    reinterpret_cast<uint8_t const*>(data->data()), r.length) != r.length)
+            int const actual = state->files->v2()
+                ? std::min(r.length,std::max(0,state->files->piece_size2(r.piece)-r.start)) : r.length;
+            bool const valid_pad=std::all_of(data->begin()+actual,data->end(),[](char byte){return byte==0;});
+            if (!valid_pad || (actual>0 && cb_.write(state->id, int(r.piece), r.start,
+                    reinterpret_cast<uint8_t const*>(data->data()), actual) != actual))
                 err = make_io_error("write");
             lt::post(io_, [h, state, err] { (*h)(err); });
         }, throttle, std::move(wake))) {

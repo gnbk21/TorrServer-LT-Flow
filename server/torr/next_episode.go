@@ -24,7 +24,7 @@ func (t *Torrent) nextEpisodeFileChanged(fileID int) {
 	t.nextEpisodeManual, t.nextEpisodeTarget = 0, 0
 	t.nextEpisodeSuppressed = false
 	t.nextEpisodeSelectionKnown = false
-	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+	if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 		cache.ClearNextEpisodeWarmup()
 	}
 }
@@ -108,7 +108,7 @@ func (t *Torrent) NextEpisodeWarmupStatus() NextEpisodeStatus {
 	defer t.nextEpisodeMu.Unlock()
 	f := settings.CurrentFlow()
 	s := NextEpisodeStatus{Enabled: f.Enabled && f.NextEpisodeWarmup && f.MetricsEnabled, CurrentFileIndex: t.nextEpisodeCurrent}
-	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+	if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 		s.NextEpisodeStatus = cache.NextEpisodeWarmupStatus()
 	}
 	if s.State == "" {
@@ -155,7 +155,7 @@ func (t *Torrent) SelectNextEpisodeWarmup(index int, action string) error {
 		return errors.New("unknown warmup action")
 	}
 	t.nextEpisodeTarget = 0
-	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+	if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 		cache.ClearNextEpisodeWarmup()
 	}
 	return nil

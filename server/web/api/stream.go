@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"server/flow"
 	"server/log"
 	"server/torrshash"
 	"strconv"
@@ -109,7 +110,7 @@ func stream(c *gin.Context) {
 	var torrsHash *torrshash.TorrsHash
 	var err error
 
-	if strings.HasPrefix(link, "torrs://") || (len(link) > 45 && torrshash.IsBase62(link)) {
+	if strings.HasPrefix(link, "torrs://") || (len(link) > 45 && !flow.ValidInfoHash(link) && torrshash.IsBase62(link)) {
 		spec, torrsHash, err = utils.ParseTorrsHash(link)
 		if err != nil {
 			log.TLogln("error parse torrshash:", err)
@@ -286,7 +287,7 @@ func streamNoAuth(c *gin.Context) {
 	var torrsHash *torrshash.TorrsHash
 	var err error
 
-	if strings.HasPrefix(link, "torrs://") || (len(link) > 45 && torrshash.IsBase62(link)) {
+	if strings.HasPrefix(link, "torrs://") || (len(link) > 45 && !flow.ValidInfoHash(link) && torrshash.IsBase62(link)) {
 		spec, torrsHash, err = utils.ParseTorrsHash(link)
 		if err != nil {
 			log.TLogln("error parse torrshash:", err)

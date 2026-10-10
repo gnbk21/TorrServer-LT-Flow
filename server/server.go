@@ -91,7 +91,7 @@ func cleanCache() {
 	log.TLogln("Remove unused cache in dir:", settings.BTsets().TorrentsSavePath)
 	keep := map[string]bool{}
 	for _, d := range dirs {
-		if len(d.Name()) != 40 {
+		if len(d.Name()) != 40 && len(d.Name()) != 64 {
 			// Not a hash
 			continue
 		}

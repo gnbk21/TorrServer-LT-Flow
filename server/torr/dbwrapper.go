@@ -2,6 +2,7 @@ package torr
 
 import (
 	"encoding/json"
+	"server/lt"
 
 	"server/settings"
 	"server/torr/state"
@@ -75,12 +76,22 @@ func GetTorrentDB(hash Hash) *Torrent {
 		if NewHashFromHex(db.TorrentSpec.InfoHash) == hash {
 			return torrentFromDB(db)
 		}
+		if hash.HexString() == db.InfoHashV1 || hash.HexString() == db.InfoHashV2 {
+			// Additive aliases are trusted only after checking their actual metadata.
+			if pt, err := lt.ParseTorrentBytes(db.InfoBytes); err == nil && (hash.HexString() == pt.InfoHashV1 || hash.HexString() == pt.InfoHashV2) {
+				return torrentFromDB(db)
+			}
+		}
 	}
 	return nil
 }
 
 // RemTorrentDB removes a torrent record by info hash.
 func RemTorrentDB(hash Hash) {
+	if stored := GetTorrentDB(hash); stored != nil {
+		settings.RemTorrent(stored.Hash().HexString())
+		return
+	}
 	settings.RemTorrent(hash.HexString())
 }
 
@@ -120,6 +131,8 @@ func settingsSpec(s *TorrentSpec) *settings.TorrentSpec {
 	return &settings.TorrentSpec{
 		WebSeeds:    append([]settings.WebSeed(nil), s.WebSeeds...),
 		InfoHash:    s.InfoHash.HexString(),
+		InfoHashV1:  s.InfoHashV1,
+		InfoHashV2:  s.InfoHashV2,
 		InfoBytes:   s.InfoBytes,
 		Trackers:    s.Trackers,
 		DisplayName: s.DisplayName,
@@ -133,6 +146,8 @@ func torrSpec(s *settings.TorrentSpec) *TorrentSpec {
 	return &TorrentSpec{
 		WebSeeds:    append([]settings.WebSeed(nil), s.WebSeeds...),
 		InfoHash:    NewHashFromHex(s.InfoHash),
+		InfoHashV1:  s.InfoHashV1,
+		InfoHashV2:  s.InfoHashV2,
 		InfoBytes:   s.InfoBytes,
 		Trackers:    s.Trackers,
 		DisplayName: s.DisplayName,

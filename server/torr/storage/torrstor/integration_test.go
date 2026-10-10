@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"server/flow"
 	"testing"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 // given content, with piece_length == len(content) (one piece total).
 // Returned `info` is the raw info-dict bytes; sha1(info) is the
 // torrent's info hash.
-func makeSyntheticTorrent(content []byte, name string) (torrentBytes, infoSection []byte, infoHash [20]byte) {
+func makeSyntheticTorrent(content []byte, name string) (torrentBytes, infoSection []byte, infoHash flow.InfoHash) {
 	pieceSha := sha1.Sum(content)
 	infoSection = []byte(fmt.Sprintf(
 		"d6:lengthi%de4:name%d:%s12:piece lengthi%de6:pieces20:%se",
@@ -27,7 +28,7 @@ func makeSyntheticTorrent(content []byte, name string) (torrentBytes, infoSectio
 	torrentBytes = []byte("d4:info")
 	torrentBytes = append(torrentBytes, infoSection...)
 	torrentBytes = append(torrentBytes, 'e')
-	infoHash = sha1.Sum(infoSection)
+	infoHash = flow.V1Hash(sha1.Sum(infoSection))
 	return
 }
 

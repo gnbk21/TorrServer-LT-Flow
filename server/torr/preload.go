@@ -129,7 +129,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	}
 	probeCached := t.restoreProbe(index, false)
 
-	cache := torrstor.Global().CacheByHash([20]byte(t.Hash()))
+	cache := torrstor.Global().CacheByHash(t.StorageHash())
 	if cache == nil || cache.PieceLength <= 0 {
 		return
 	}
@@ -944,7 +944,7 @@ func (t *Torrent) probeMediaInfo(index int) {
 	}
 	t.mu.Unlock()
 	if file := t.fileByID(index); file != nil {
-		if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+		if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 			cache.UpdateFlowMediaEstimate(file.Index,
 				flow.MediaEstimate(file.Length, data.Format.DurationSeconds, data.Format.BitRate))
 		}
@@ -1065,7 +1065,7 @@ func PreloadOnPlay(reqCtx context.Context, torr *Torrent, index int) {
 	}
 	torr.preloadGateMu.Unlock()
 
-	if cache := torrstor.Global().CacheByHash([20]byte(torr.Hash())); cache != nil && cache.PieceLength > 0 {
+	if cache := torrstor.Global().CacheByHash(torr.StorageHash()); cache != nil && cache.PieceLength > 0 {
 		if f := torr.fileByID(index); f != nil {
 			if hl := preloadHeadLastPiece(f, cache.PieceLength, cache.NumPieces); headRangeResident(cache, int(f.Offset/cache.PieceLength), hl) {
 				dbg("skip: head already resident, headLast", hl)

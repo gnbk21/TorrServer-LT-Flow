@@ -41,6 +41,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"server/flow"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -496,6 +497,13 @@ func (t *Torrent) Files() ([]File, error) {
 	out := make([]File, 0, n)
 	for i := 0; i < n; i++ {
 		idx := C.int(i)
+		pad := C.lt_torrent_file_is_pad(t.id, idx)
+		if pad < 0 {
+			return nil, lastError()
+		}
+		if pad == 1 {
+			continue
+		} // preserve native indices; virtual alignment files cannot be played
 		path := cStringBuf(func(buf *C.char, cap C.size_t) C.size_t {
 			return C.lt_torrent_file_path(t.id, idx, buf, cap)
 		}, 256)
@@ -539,7 +547,7 @@ func (t *Torrent) DisplayName() string {
 func (t *Torrent) InfoHash() string {
 	return cStringBuf(func(buf *C.char, cap C.size_t) C.size_t {
 		return C.lt_torrent_info_hash_hex(t.id, buf, cap)
-	}, 41)
+	}, 65)
 }
 
 // SetPiecePriority sets the per-piece download priority (0..7).
@@ -640,6 +648,8 @@ func (t *Torrent) SetFilePriority(file, prio int) error {
 type Status struct {
 	Name                 string  `json:"name"`
 	InfoHash             string  `json:"info_hash"`
+	InfoHashV1           string  `json:"info_hash_v1,omitempty"`
+	InfoHashV2           string  `json:"info_hash_v2,omitempty"`
 	State                string  `json:"state"`
 	IsFinished           bool    `json:"is_finished"`
 	Progress             float64 `json:"progress"`
@@ -758,18 +768,39 @@ func (s *Session) RequestSessionStats() error {
 // ParsedTorrent is the decoded form of a magnet URI or .torrent file as
 // emitted by the shim's parsers.
 type ParsedTorrent struct {
-	WebSeeds     []string   `json:"web_seeds"`
-	PieceHashes  string     `json:"piece_hashes,omitempty"`
-	InfoHash     string     `json:"info_hash"`
-	DisplayName  string     `json:"display_name"`
-	Trackers     []string   `json:"trackers"`
-	TrackerTiers [][]string `json:"tracker_tiers"`
-	Private      bool       `json:"private"`
-	HasMetadata  bool       `json:"has_metadata"`
-	MetadataSize int        `json:"metadata_size"`
-	NumPieces    int        `json:"num_pieces,omitempty"`
-	PieceLength  int64      `json:"piece_length,omitempty"`
-	TotalSize    int64      `json:"total_size,omitempty"`
+	V2Files      []flow.V2File `json:"v2_files,omitempty"`
+	WebSeeds     []string      `json:"web_seeds"`
+	PieceHashes  string        `json:"piece_hashes,omitempty"`
+	InfoHash     string        `json:"info_hash"`
+	InfoHashV1   string        `json:"info_hash_v1,omitempty"`
+	InfoHashV2   string        `json:"info_hash_v2,omitempty"`
+	DisplayName  string        `json:"display_name"`
+	Trackers     []string      `json:"trackers"`
+	TrackerTiers [][]string    `json:"tracker_tiers"`
+	Private      bool          `json:"private"`
+	HasMetadata  bool          `json:"has_metadata"`
+	MetadataSize int           `json:"metadata_size"`
+	NumPieces    int           `json:"num_pieces,omitempty"`
+	PieceLength  int64         `json:"piece_length,omitempty"`
+	TotalSize    int64         `json:"total_size,omitempty"`
+}
+
+func (p *ParsedTorrent) CompletePieceLayers() bool {
+	if p == nil {
+		return false
+	}
+	if p.InfoHashV2 == "" {
+		return true
+	}
+	if p.PieceLength <= 0 || len(p.V2Files) == 0 {
+		return false
+	}
+	for _, file := range p.V2Files {
+		if file.Size > p.PieceLength && int64(len(file.PieceLayer)) != ((file.Size-1)/p.PieceLength+1)*64 {
+			return false
+		}
+	}
+	return true
 }
 
 func (t *Torrent) SetURLSeed(url string, remove, allowLocal bool) error {
@@ -931,7 +962,9 @@ func decodeParsed(raw []byte) (*ParsedTorrent, error) {
 // as a storage_error on the libtorrent side.
 type StorageCallbacks struct {
 	// Open is fired when libtorrent creates a new storage for a torrent.
-	Open func(storage int64, infoHash [20]byte, numPieces int, pieceLength int64)
+	Open     func(storage int64, infoHash [20]byte, numPieces int, pieceLength int64)
+	OpenFull func(storage int64, infoHash flow.InfoHash, numPieces int, pieceLength int64)
+	Ready    func(storage int64)
 	// Close is fired when libtorrent destroys a storage.
 	Close func(storage int64)
 	// Deleted is fired when libtorrent requests deletion of the on-disk
@@ -982,8 +1015,8 @@ func storageSnapshot() StorageCallbacks {
 // call to NewSession picks up the current setting. Already-running
 // sessions keep whichever disk_io they were started with.
 func RegisterStorageCallbacks(cb StorageCallbacks) error {
-	empty := cb.Open == nil && cb.Close == nil && cb.Deleted == nil &&
-		cb.Read == nil && cb.Write == nil && cb.Have == nil && cb.Prune == nil && cb.Evict == nil && cb.Size == nil
+	empty := cb.Open == nil && cb.OpenFull == nil && cb.Close == nil && cb.Deleted == nil &&
+		cb.Read == nil && cb.Write == nil && cb.Have == nil && cb.Prune == nil && cb.Evict == nil && cb.Size == nil && cb.Ready == nil && cb.Geometry == nil && cb.ClearPiece == nil
 	storageMu.Lock()
 	storage = cb
 	storageMu.Unlock()
@@ -1013,11 +1046,41 @@ func tsl_storage_open_go(storage C.longlong, infoHash *C.uchar, numPieces C.int,
 	cb.Open(int64(storage), h, int(numPieces), int64(pieceLength))
 }
 
+//export tsl_storage_open_full_go
+func tsl_storage_open_full_go(storage C.longlong, identity *C.uchar, numPieces C.int, pieceLength C.longlong) {
+	cb := storageSnapshot()
+	if identity == nil {
+		return
+	}
+	var h flow.InfoHash
+	copy(h[:], unsafe.Slice((*byte)(unsafe.Pointer(identity)), len(h)))
+	if h[32] != 0 && h[32] != 2 {
+		return
+	}
+	if cb.OpenFull != nil {
+		cb.OpenFull(int64(storage), h, int(numPieces), int64(pieceLength))
+		return
+	}
+	// Legacy callback consumers cannot identify v2 and must not see a truncated digest.
+	if cb.Open != nil && !h.IsV2() {
+		var v1 [20]byte
+		copy(v1[:], h[:20])
+		cb.Open(int64(storage), v1, int(numPieces), int64(pieceLength))
+	}
+}
+
 //export tsl_storage_close_go
 func tsl_storage_close_go(storage C.longlong) {
 	cb := storageSnapshot()
 	if cb.Close != nil {
 		cb.Close(int64(storage))
+	}
+}
+
+//export tsl_storage_ready_go
+func tsl_storage_ready_go(storage C.longlong) {
+	if cb := storageSnapshot(); cb.Ready != nil {
+		cb.Ready(int64(storage))
 	}
 }
 

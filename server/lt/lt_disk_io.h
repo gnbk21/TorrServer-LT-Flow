@@ -39,6 +39,10 @@ struct tsl_storage_callbacks {
     // Immutable pairs [piece index, actual file bytes], excluding alignment
     // padding in BEP 52 file-ending pieces. Installed before writes start.
     void (*geometry)(int64_t storage_id, const int64_t* pairs, int count);
+    // Full digest plus algorithm tag: 20 SHA-1 bytes padded to 32 + 0, or
+    // 32 SHA-256 bytes + 2. Replaces open when available; never a wire ID.
+    void (*open_full)(int64_t storage_id, const uint8_t* identity_33, int num_pieces, int64_t piece_length);
+    void (*ready)(int64_t storage_id); // size and per-file geometry published
 };
 
 // Install / clear the Go callbacks. Pass NULL to revert to default

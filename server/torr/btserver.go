@@ -203,7 +203,19 @@ func (bt *BTServer) Session() *lt.Session {
 func (bt *BTServer) GetTorrent(h Hash) *Torrent {
 	bt.mu.Lock()
 	defer bt.mu.Unlock()
-	return bt.torrents[h]
+	return bt.findTorrentLocked(h)
+}
+
+func (bt *BTServer) findTorrentLocked(h Hash) *Torrent {
+	if t := bt.torrents[h]; t != nil {
+		return t
+	}
+	for _, t := range bt.torrents {
+		if t.matchesHash(h) {
+			return t
+		}
+	}
+	return nil
 }
 
 // ListTorrents returns a snapshot of currently in-memory torrents.
@@ -220,12 +232,12 @@ func (bt *BTServer) ListTorrents() map[Hash]*Torrent {
 // RemoveTorrent removes a torrent from the session.
 func (bt *BTServer) RemoveTorrent(h Hash) bool {
 	bt.mu.Lock()
-	t := bt.torrents[h]
+	t := bt.findTorrentLocked(h)
 	if t == nil {
 		bt.mu.Unlock()
 		return false
 	}
-	delete(bt.torrents, h)
+	delete(bt.torrents, t.Hash())
 	bt.mu.Unlock()
 	return t.Close()
 }
@@ -361,7 +373,16 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 		return
 	}
 	bt.mu.Lock()
-	t := bt.torrents[NewHashFromHex(a.TorrentHash)]
+	t := bt.findTorrentLocked(NewHashFromHex(a.TorrentHash))
+	// A hybrid's v1 identity may first appear on its metadata alert.
+	if t == nil && a.Torrent != 0 {
+		for _, candidate := range bt.torrents {
+			if h := candidate.LTHandle(); h != nil && h.ID() == a.Torrent {
+				t = candidate
+				break
+			}
+		}
+	}
 	bt.mu.Unlock()
 	if t == nil {
 		return
@@ -401,7 +422,7 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 		// Wake any Reader blocked on the piece. The actual byte data
 		// is already on the disk side (libtorrent wrote it through
 		// our cb_write before posting this alert).
-		if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+		if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 			cache.SignalPieceComplete(a.Piece)
 		}
 	}

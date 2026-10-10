@@ -96,7 +96,7 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		http.Error(resp, "no reader (cache not yet open)", http.StatusServiceUnavailable)
 		return errors.New("torr.Stream: NewReader returned nil")
 	}
-	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+	if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 		t.mu.Lock()
 		bitrate, duration, probeFile := t.BitRate, t.DurationSeconds, t.ProbeFileID
 		t.mu.Unlock()

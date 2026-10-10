@@ -97,7 +97,7 @@ type Cache struct {
 	nextWarmup        nextEpisodeWarmup
 
 	StorageID   int64
-	InfoHash    [20]byte
+	InfoHash    flow.InfoHash
 	NumPieces   int
 	totalSize   atomic.Int64 // exact metadata length; zero for legacy test callers
 	PieceLength int64
@@ -260,7 +260,7 @@ type waitFocusEntry struct {
 // enough that an abandoned seek stops pulling its target quickly.
 const waitFocusLingerMs = 5000
 
-func newCache(s *Storage, sid int64, hash [20]byte, numPieces int, pieceLength int64) *Cache {
+func newCache(s *Storage, sid int64, hash flow.InfoHash, numPieces int, pieceLength int64) *Cache {
 	files := newDiskHandles(64)
 	if s != nil && s.diskFiles != nil {
 		files = s.diskFiles
@@ -2381,15 +2381,7 @@ func (c *Cache) ReadersSnapshot() []*state.ReaderState {
 	return out
 }
 
-func hashHex(h [20]byte) string {
-	const hex = "0123456789abcdef"
-	out := make([]byte, 40)
-	for i, b := range h {
-		out[i*2] = hex[b>>4]
-		out[i*2+1] = hex[b&0x0f]
-	}
-	return string(out)
-}
+func hashHex(h flow.InfoHash) string { return h.HexString() }
 
 // touch is a placeholder for the LRU bookkeeping that lands in 4.2.
 func (c *Cache) touch(_ int) { _ = time.Now() }

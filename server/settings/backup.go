@@ -46,7 +46,7 @@ var portableSettingNames = []string{
 	"DownloadRateLimit", "UploadRateLimit", "ConnectionsLimit", "DHTConnectionsLimit",
 	"PeersListenPort", "EnableLPD", "ShowFSActiveTorr", "TrackTimecode", "MergeAllM3U",
 }
-var backupHash = regexp.MustCompile(`^[a-f0-9]{40}$`)
+var backupHash = regexp.MustCompile(`^(?:[a-f0-9]{40}|[a-f0-9]{64})$`)
 
 var hostFlowFields = []string{"ManagementOrigins", "ManagementRateLimit", "SecurityProfile", "RequirePlaybackToken", "PlaybackTokenTTL", "TorrentInterface", "RequireTorrentInterface", "MSXAllowLAN"}
 

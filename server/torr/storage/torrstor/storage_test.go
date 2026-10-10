@@ -2,6 +2,7 @@ package torrstor
 
 import (
 	"bytes"
+	"server/flow"
 	"testing"
 
 	"server/lt"
@@ -9,9 +10,9 @@ import (
 
 const pieceLen = int64(16 * 1024)
 
-func mkHash(seed byte) [20]byte {
-	var h [20]byte
-	for i := range h {
+func mkHash(seed byte) flow.InfoHash {
+	var h flow.InfoHash
+	for i := range h[:20] {
 		h[i] = seed
 	}
 	return h

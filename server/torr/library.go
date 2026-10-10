@@ -26,9 +26,11 @@ func (t *Torrent) LibrarySummary() state.TorrentStatus {
 	}
 	if t.TorrentSpec != nil {
 		row.Hash = t.InfoHash.HexString()
+		row.InfoHashV1 = t.InfoHashV1
+		row.InfoHashV2 = t.InfoHashV2
 	}
 	t.mu.Unlock()
-	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+	if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 		row.ActiveReaders = cache.StreamingReaders()
 	}
 	row.WarmIdle = row.ActiveReaders == 0 && settings.CurrentFlow().Enabled &&

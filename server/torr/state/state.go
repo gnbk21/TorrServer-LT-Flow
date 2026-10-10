@@ -38,6 +38,8 @@ type TorrentStatus struct {
 	Timestamp           int64                 `json:"timestamp"`
 	Name                string                `json:"name,omitempty"`
 	Hash                string                `json:"hash,omitempty"`
+	InfoHashV1          string                `json:"info_hash_v1,omitempty"`
+	InfoHashV2          string                `json:"info_hash_v2,omitempty"`
 	TorrsHash           string                `json:"torrs_hash,omitempty"`
 	Stat                TorrentStat           `json:"stat"`
 	StatString          string                `json:"stat_string"`

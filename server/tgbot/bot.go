@@ -227,9 +227,7 @@ func Start(token string) error {
 					}
 					if idx := strings.Index(btn.Data, "all|"); idx >= 0 {
 						h := btn.Data[idx+4:]
-						if len(h) >= 40 && isHash(h[:40]) {
-							hash = h[:40]
-						} else if isHash(h) {
+						if isHash(h) {
 							hash = h
 						}
 					} else if isHash(btn.Data) {
@@ -329,7 +327,7 @@ func help(c tele.Context) error {
 }
 
 func isHash(txt string) bool {
-	if len(txt) == 40 {
+	if len(txt) == 40 || len(txt) == 64 {
 		for _, c := range strings.ToLower(txt) {
 			switch c {
 			case 'a', 'b', 'c', 'd', 'e', 'f', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':

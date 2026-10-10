@@ -15,7 +15,7 @@ import (
 )
 
 func validInfoHash(h string) bool {
-	if len(h) != 40 {
+	if len(h) != 40 && len(h) != 64 {
 		return false
 	}
 	for _, c := range h {

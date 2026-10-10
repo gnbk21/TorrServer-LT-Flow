@@ -1,3 +1,4 @@
+import { torrentMagnet } from "../lib/torrentLink";
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { useLibraryPage, useActive, refreshLibrary } from "../hooks/queries";
@@ -165,8 +166,10 @@ export default function Torrents() {
         : list
             .map((row) =>
               format === "magnets"
-                ? `magnet:?xt=urn:btih:${row.hash}&dn=${encodeURIComponent(row.title)}`
-                : `torrs://${row.torrs_hash || row.hash}`,
+                ? torrentMagnet(row.hash, row.title)
+                : row.torrs_hash
+                  ? `torrs://${row.torrs_hash}`
+                  : torrentMagnet(row.hash, row.title),
             )
             .join("\n");
     const url = URL.createObjectURL(
@@ -298,7 +301,7 @@ export default function Torrents() {
             onDropCache={() =>
               void act(row.hash, () => torrentsApi.drop(row.hash))
             }
-            onCopyMagnet={() => copy(`magnet:?xt=urn:btih:${row.hash}`)}
+            onCopyMagnet={() => copy(torrentMagnet(row.hash))}
             onCopyPlaylist={() => copy(torrentsApi.getPlaylistUrl(row.hash))}
           />
         ))}
