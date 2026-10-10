@@ -349,3 +349,19 @@ remaining ledger requirements are not complete.
 - Retrieved and reconciled all eight `0b9635b3` comparison reports: 160/160
   integrity trials passed. Results remain mixed and predate later changes;
   UPGRADE_MEASUREMENTS.md records exact hashes, medians and unchanged defaults.
+
+## Keyboard focus and detail-request cleanup
+
+- Reproduced a shared dialog defect at 412 and 1440 pixels: focus stayed behind
+  after Escape because controlled Radix dialogs had no Trigger reference.
+  The shared modal now records and restores the opener, with a main-content
+  fallback when navigation removes it. Asynchronous metadata editing explicitly
+  captures its opener before the loading state disables and blurs the button.
+- Editing detail requests now abort on replacement, page exit and document
+  hiding, and aborted results cannot open a late dialog or show a false error.
+- Five browser regressions passed together: keyboard entry, visible focus,
+  forward/reverse trapping, Escape restoration, successive openers, normal Back
+  navigation with a removed opener, actual unfinished-request cancellation,
+  reduced-motion styles and all three modern/legacy export downloads.
+  The full 96-test web suite, TypeScript and ESLint passed. Physical TV remote
+  and Android browser acceptance remain distinct from these Chromium checks.

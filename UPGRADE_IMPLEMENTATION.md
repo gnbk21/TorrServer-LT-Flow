@@ -15,7 +15,7 @@ tracked separately. Baseline: stable 1.0.1 / source 55c16dc3; integration c3dfe7
 
 ## Web
 - [x] Consistent design tokens, dark/light/system themes, comfortable/compact preferences.
-- [ ] Responsive navigation/sheets/action bars, keyboard/TV focus and reduced motion.
+- [x] Responsive navigation/sheets/action bars, keyboard/TV focus and reduced motion.
 - [x] Active playback focus, concise idle state and persistent observed-playback summary.
 - [ ] Incident timeline, confidence/actions, stale timestamps and closed-detail cancellation.
 - [ ] Card/list modes, restored filters/page/scroll, episode/raw-name parity and per-row actions.

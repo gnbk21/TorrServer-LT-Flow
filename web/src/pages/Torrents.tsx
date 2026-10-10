@@ -1,5 +1,5 @@
 import { torrentMagnet } from "../lib/torrentLink";
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import {
   useLibraryPage,
@@ -120,6 +120,18 @@ export default function Torrents() {
   const [files, setFiles] = useState<Torrent>();
   const [diagnostic, setDiagnostic] = useState<Torrent>();
   const [edit, setEdit] = useState<Torrent>();
+  const [editOpener, setEditOpener] = useState<HTMLElement | null>(null);
+  const editRequest = useRef<AbortController | undefined>(undefined);
+  useEffect(() => {
+    const cancelHidden = () => {
+      if (document.hidden) editRequest.current?.abort();
+    };
+    document.addEventListener("visibilitychange", cancelHidden);
+    return () => {
+      document.removeEventListener("visibilitychange", cancelHidden);
+      editRequest.current?.abort();
+    };
+  }, []);
   const [error, setError] = useState<unknown>();
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState<Set<string>>(new Set());
@@ -137,7 +149,7 @@ export default function Torrents() {
       await fn();
       if (refresh) await refreshLibrary();
     } catch (e) {
-      setError(e);
+      if (!(e instanceof DOMException && e.name === "AbortError")) setError(e);
     } finally {
       setBusy((previous) => {
         const next = new Set(previous);
@@ -283,13 +295,29 @@ export default function Torrents() {
             isActiveStream={(row.active_readers ?? 0) > 0}
             onOpenFiles={() => setFiles(row)}
             onOpenDiagnostics={() => setDiagnostic(row)}
-            onEdit={() =>
+            onEdit={() => {
+              // Fetching detail disables the row's buttons and can blur the
+              // focused opener before the asynchronous dialog is mounted.
+              setEditOpener(
+                document.activeElement instanceof HTMLElement
+                  ? document.activeElement
+                  : null,
+              );
+              editRequest.current?.abort();
+              const request = new AbortController();
+              editRequest.current = request;
               void act(
                 row.hash,
-                async () => setEdit(await torrentsApi.get(row.hash)),
+                async () => {
+                  const detail = await torrentsApi.get(
+                    row.hash,
+                    request.signal,
+                  );
+                  if (!request.signal.aborted) setEdit(detail);
+                },
                 false,
-              )
-            }
+              );
+            }}
             onDelete={() =>
               void act(row.hash, () => torrentsApi.remove(row.hash))
             }
@@ -343,7 +371,11 @@ export default function Torrents() {
       {edit && (
         <Modal
           isOpen
-          onClose={() => setEdit(undefined)}
+          onClose={() => {
+            setEdit(undefined);
+            setEditOpener(null);
+          }}
+          returnFocus={editOpener}
           title={t("torrent.edit")}
         >
           <form
@@ -359,6 +391,7 @@ export default function Torrents() {
                   data: edit.data,
                 });
                 setEdit(undefined);
+                setEditOpener(null);
               });
             }}
           >
