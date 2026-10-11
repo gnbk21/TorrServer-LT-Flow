@@ -595,3 +595,64 @@ At `fb4082d8`, branch checks, macOS and optional Android packaging completed
 successfully. The full build and CodeQL were still running when checked. The
 fresh corrected-runtime endurance run remains in progress; elapsed time alone
 does not complete the convergence gate.
+
+### Corrected capture execution and downloaded player verification
+
+At decoder source `0df6eacb`, targeted run `38125387761` passed Linux Perfetto
+and Windows ETW, with healthy generated-byte integrity checks passing in both.
+The exact profiler fixture digests are Linux
+`4662970870996c7b28a0f30fd5b4754b9d45e21228f86b91c8cc15f033756927`
+and Windows
+`b71a2b739b747e9d19a6aa2160143c21a3968440b997ed357315b9ea87635b50`.
+Both came from source run `38087989863`, rather than a new native build.
+
+- Linux: 550,361-byte trace, SHA-256
+  `e0117a819183357cda903253cab81c026b1382f03f8a4520499da07027f0ca11`;
+  506 owned stacks, zero foreign stacks. Full native attribution remains unknown.
+- Windows: 12,058,624-byte trace, SHA-256
+  `6a1f340351a1377a73cdc9c0159bd6627b6b88ecb07b77814f54acd23ac84229`;
+  179,526 decoded events, zero lost events. Its system scope and recent-window
+  limitation remain explicit. Native function attribution is not established.
+- All 36 local build-tool regressions passed with the official schema gate
+  enabled; actionlint and diff checks passed.
+
+Downloaded Android run `38124670578` identifies PR merge source
+`4226dd138b46003106be194c8b6c8dc032607c58` and immutable upstream player
+`aa85148f6ccbfdf931fe207bb75ec77c478d8eb0`. All 24 published recipe/manifest
+file hashes, both preserved license files, six archived AAR hashes and APK
+checksum matched. Its actual inventory passed the official schema and closed
+graph gate (125 components including the application; 125 vertices).
+APK SHA-256:
+`bc03059bc270e040948291e7fe4933c5e704bca526127f9efdb915c101d20d28`.
+
+Inspection found no license/notice files inside the four native-decoder AARs.
+Their upstream history identifies the Media3 1.11.1 update but does not identify
+an immutable build recipe/configuration for every bundled codec. The remaining
+source/notices item therefore requires verified upstream decoder recipes and
+component notices, or a separately verified source rebuild. No guessed codec
+version/license is inserted, and no phone telemetry acceptance is inferred from
+the APK build. This experimental artifact is not a Flow stable release asset.
+
+### Specification review and remaining scope
+
+Re-read the complete 74-section core specification and 100-section interface
+specification against the implementation ledgers and current integration paths.
+The single cache, progressive bootstrap/probe path, arbitrary Range semantics,
+warm lifecycle, native scheduler, service/tray separation and canonical tracker
+identity remain intact. The modern client retains API/settings parity, same-origin
+authentication, HashRouter, visibility-aware queries, lazy optional features,
+secret-free pairing and recoverable legacy reference. Both ledgers continue to
+identify unfinished physical and endurance acceptance rather than treating
+controlled tests as those results.
+
+Application DoH and paid-provider integrations remain conditional/optional in
+the original specification. System DNS and native tracker identity are retained;
+no selected paid provider or unverified application resolver is introduced.
+Legacy remains the benchmark-supported default. WFP's controlled per-protocol
+evidence does not establish shared-OS DNS or complete physical VPN leak protection.
+No automatic profile/PGO promotion, extra media cache or legacy removal occurred.
+
+The full `fb4082d8` run was superseded after its native unit/vet/race/vulnerability,
+contract and fuzz steps passed: its profiler still used the now-corrected decoder.
+The corrected source requires a fresh complete workflow; earlier individual
+successful steps are retained as checkpoint evidence, not an overall pass.

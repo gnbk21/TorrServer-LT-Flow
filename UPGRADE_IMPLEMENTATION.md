@@ -30,7 +30,7 @@ tracked separately. Baseline: stable 1.0.1 / source 55c16dc3; integration c3dfe7
 - [x] Synchronized startup/discovery/storage/HTTP/seek/recovery timeline and sparse explanations.
 - [x] Optional Media3 startup/rebuffer/seek/buffer/drop telemetry; bounded redacted export/import.
 - [x] Opaque session correlation; explicit unknown player evidence and server-estimate labels.
-- [ ] Native direct/64/256/1024 KiB buffer comparison and Go/ETW/Perfetto profiling.
+- [x] Native direct/64/256/1024 KiB buffer comparison and Go/ETW/Perfetto capture/decoding; partial native attribution disclosed.
 - [x] Interruption/VBR reserves, recovery hysteresis, fair readers and bounded urgency refinements.
 - [x] Duplicate traffic accounting, useful-slow-peer retention, bounded controller changes.
 - [x] Representative generated-workload PGO evaluation; retained off after mixed comparative results.
@@ -60,7 +60,7 @@ TCP/uTP cases, final-source full gates and physical acceptance remain separate.
 - [x] Five rotated matched-reserve comparisons across healthy/intermittent/mixed/burst cases.
 - [x] Startup/tail waits/seek/duplicates/CPU/RSS/integrity evidence; separate experiments.
 - [x] UI 1/200/1000/5000 entries, seven languages, five widths plus phone landscape.
-- [ ] Auth/503/offline/stale/conflicts/fallback/keyboard and background polling checks.
+- [x] Auth/503/offline/stale/conflicts/fallback/keyboard and background polling browser checks; physical phone acceptance separate.
 - [x] Documented lab bundle/LCP/interaction/CLS targets; real-device evidence separate.
 - [ ] Physical Android, Windows boot/sleep/network and per-protocol enforcement acceptance.
 - [ ] Final requirement reconciliation; unchanged defaults and recorded rollback paths.
@@ -74,5 +74,10 @@ Corrected runtime comparisons use feature head `15faff93` / PR merge
 `78c437bd`, with 160/160 integrity trials. PGO uses `ad41ffae`, 40/40 trials
 after four training scenarios, and remains off. Exact hashes, medians and scope
 are in UPGRADE_MEASUREMENTS.md. These checkmarks record controlled evidence;
-native attribution, final package/source audit, resource convergence and physical
+complete native attribution, final package/source audit, resource convergence and physical
 acceptance remain open. Later build-tool changes still require their own gates.
+
+Profiling decoder source `0df6eacb` passed both isolated jobs in targeted run
+`38125387761`, using symbol fixtures from `38087989863`. The passing reports
+retain their executable hashes and source-run identity; this is not a fresh
+full-platform build. No default was promoted from a profiled measurement.
