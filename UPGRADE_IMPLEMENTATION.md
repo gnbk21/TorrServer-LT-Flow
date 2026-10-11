@@ -81,3 +81,9 @@ Profiling decoder source `0df6eacb` passed both isolated jobs in targeted run
 `38125387761`, using symbol fixtures from `38087989863`. The passing reports
 retain their executable hashes and source-run identity; this is not a fresh
 full-platform build. No default was promoted from a profiled measurement.
+
+The optional player's six AARs now match the original upstream media build;
+17 pinned source archives and 38 original notices pass real-archive checks.
+Packaging preserves them with a checksum-bound source report. Independent
+native rebuild, resolved Bazel/toolchain closure and redistribution compatibility
+remain separate, so the source/notices gate is not marked fully complete.

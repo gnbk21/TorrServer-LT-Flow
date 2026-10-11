@@ -10,6 +10,7 @@ commit. `SHA256SUMS.txt` identifies the separate debug APK.
 `FLOW_PATCH_LICENSE.txt` is Flow's GPL-3.0 license for the additions in
 `flow-patch/`, `prepare_just_player.py`, `player_patch_check.py` and
 `player_sbom.py`. These licenses do not replace third-party component licenses.
+`player_sources.py` preserves the original component notices separately.
 
 To reproduce the application, check out the immutable player commit, apply
 `prepare_just_player.py` with `flow-patch/` beside it, and follow the preserved
@@ -17,9 +18,31 @@ To reproduce the application, check out the immutable player commit, apply
 `flow-patch/inventory.gradle`. This requires the Android SDK, Java and resolved
 Gradle dependencies; the application archive alone is not an offline build kit.
 
-The bundled decoder AARs contain native binary libraries. Their exact bytes are
-inventoried, but the application archive does not establish the corresponding
-native source, configuration or license mapping for those binaries. The upstream
-`app/libs/README.md` gives general FFmpeg instructions, not a complete immutable
-recipe for all bundled decoders. That source/notices audit remains open. A passing
-CycloneDX schema check does not settle this audit or validate phone playback.
+## Native decoder provenance and notices
+
+All six application AARs match the original `moneytoo/media` build at
+`7286492527b8db7116f56abe836cba62002e3029`, run `34632899792`. The checksum lock
+in `flow-patch/decoder-sources.json` identifies that build, all six AAR digests,
+and the immutable FFmpeg, dav1d, cpu_features, IAMF and MPEG-H source revisions.
+It resolves the original workflow's moving FFmpeg/dav1d branches to the exact
+checkout identities recorded in the successful upstream log.
+
+`decoder-sources/archives/` preserves those source archives, the complete Media3
+fork and IAMF's declared native dependency sources. `notices/` reproduces original
+license, copying, notice and patent files. PFFFT's source header is preserved
+intact because it contains that component's notice. No component is relicensed
+by the application or Flow patch license. MPEG-H and FDK AAC contain their own
+conditions and patent statements; their original terms remain authoritative.
+
+`DECODER_SOURCE_REPORT.json` and the outer source manifest bind archives and
+notices to the actual AAR inventory. A mismatched AAR, source checksum or notice
+fails packaging. The source bundle is approximately 618 MiB before artifact
+compression, mainly upstream test media; it is not an offline Android/Bazel
+toolchain. It retains all four decoder extensions and both custom UI/runtime
+libraries.
+
+This proves source provenance and preserves notices. An independent native
+rebuild, the complete resolved Bazel/toolchain closure and redistribution
+compatibility remain open; `native_corresponding_source_verified` stays false.
+A passing CycloneDX schema check does not settle those checks or validate phone
+playback. The experimental player is not a Flow stable release asset.

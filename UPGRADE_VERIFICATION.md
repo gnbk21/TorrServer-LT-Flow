@@ -656,3 +656,43 @@ The full `fb4082d8` run was superseded after its native unit/vet/race/vulnerabil
 contract and fuzz steps passed: its profiler still used the now-corrected decoder.
 The corrected source requires a fresh complete workflow; earlier individual
 successful steps are retained as checkpoint evidence, not an overall pass.
+
+### Traced decoder source packaging
+
+The six AARs in pinned player `aa85148f` match every byte of the original
+`moneytoo/media` artifact from [upstream run 34632899792](https://github.com/moneytoo/media/actions/runs/34632899792),
+source `7286492527b8db7116f56abe836cba62002e3029`. The original successful log
+identifies the exact FFmpeg and dav1d revisions selected by its moving branches,
+cpu_features v0.11.0, IAMF revision and MPEG-H r3.0.2. F-Droid's recipe for the
+same player commit independently identifies the media/FFmpeg/dav1d pins, but
+omits IAMF/MPEG-H; it is not substituted for the complete player recipe.
+
+`build/just-player/decoder-sources.json` records the matched AAR checksums and
+17 checksum-pinned source archives, including IAMF's declared dependency sources.
+The new `player_sources.py` packaging step preserves those archives and their
+38 original notice/license/patent files, including PFFFT's intact source header.
+Cached-source and real-archive verification passed locally: 647,637,481 source
+bytes, six matched AARs, 17 verified archives and 38 verified notices. The source
+report binds notice bytes to the actual archives, so changing both a notice and
+its report cannot bypass the check. No decoder is removed or replaced.
+
+The player source manifest now verifies that report, hashes the added source
+files and includes nested files named `SOURCE_MANIFEST.json`. The CLI requires
+the decoder bundle when publishing a player source package. All 39 local
+build-tool tests passed with the official CycloneDX schema enabled; actionlint
+and diff checks passed. The initial sandbox run denied loopback/Bash access;
+the same suite passed with the required access, rather than skipping those tests.
+
+This establishes traced source provenance and notice preservation. The report
+retains `native_corresponding_source_verified=false`: an independent native
+rebuild, complete resolved Bazel/toolchain closure and redistribution
+compatibility are not established. The optional APK remains excluded from the
+stable server assets. The updated Android packaging workflow must also pass.
+
+At the `3ba69def` checkpoint, all eight platform builds (including both native
+macOS jobs), web browser/lab checks and native queue/deadline simulations passed.
+Linux native unit/race/vulnerability/contracts/fuzz/maintenance steps passed;
+the longer controlled playback step, downstream inventory, Windows fixture and
+profiling jobs were still running. CodeQL at `0df6eacb` passed all categories;
+the newer checkpoint requires its own conclusion. Eight-hour endurance remains
+in progress, with no completion inferred from its intermediate samples.

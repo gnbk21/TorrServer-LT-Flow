@@ -50,7 +50,7 @@ class PlayerInventoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name in ('UPSTREAM_LICENSE.txt', 'FLOW_PATCH_LICENSE.txt', 'prepare_just_player.py',
-                         'player_patch_check.py', 'player_sbom.py', 'BUILD_WORKFLOW.yml',
+                         'player_patch_check.py', 'player_sbom.py', 'player_sources.py', 'BUILD_WORKFLOW.yml',
                          'flow-patch/inventory.gradle', 'flow-patch/SOURCE_BUNDLE.md'):
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -63,9 +63,11 @@ class PlayerInventoryTests(unittest.TestCase):
                     archive.addfile(member, io.BytesIO(data))
             inventory = {'bundled': [{'name': 'lib-decoder.aar', 'sha256': hashlib.sha256(b'exact built bytes').hexdigest()}]}
             commit = 'a' * 40
+            (root / 'flow-patch/SOURCE_MANIFEST.json').write_text('nested file must be inventoried')
             manifest = source_manifest(root, inventory, commit)
             self.assertEqual(manifest['flow_commit'], commit)
             self.assertFalse(manifest['native_corresponding_source_verified'])
+            self.assertIn('flow-patch/SOURCE_MANIFEST.json', [item['name'] for item in manifest['files']])
             self.assertNotIn(directory, json.dumps(manifest))
             for item in manifest['files']:
                 self.assertEqual(item['sha256'], hashlib.sha256((root / item['name']).read_bytes()).hexdigest())
@@ -84,7 +86,7 @@ class PlayerInventoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name in ('UPSTREAM_LICENSE.txt', 'FLOW_PATCH_LICENSE.txt', 'prepare_just_player.py',
-                         'player_patch_check.py', 'player_sbom.py', 'BUILD_WORKFLOW.yml',
+                         'player_patch_check.py', 'player_sbom.py', 'player_sources.py', 'BUILD_WORKFLOW.yml',
                          'flow-patch/inventory.gradle', 'flow-patch/SOURCE_BUNDLE.md'):
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)

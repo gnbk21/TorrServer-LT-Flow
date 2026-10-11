@@ -9,6 +9,7 @@ from urllib.parse import quote
 import zipfile
 
 from prepare_just_player import COMMIT
+from player_sources import verify_bundle
 
 
 def source_manifest(directory, inventory, flow_commit):
@@ -20,7 +21,7 @@ def source_manifest(directory, inventory, flow_commit):
     if not re.fullmatch(r'[0-9a-f]{40}', flow_commit):
         raise ValueError('Flow source commit must be a full lowercase Git identity')
     required = ('upstream.tar', 'UPSTREAM_LICENSE.txt', 'FLOW_PATCH_LICENSE.txt',
-                'prepare_just_player.py', 'player_patch_check.py', 'player_sbom.py',
+                'prepare_just_player.py', 'player_patch_check.py', 'player_sbom.py', 'player_sources.py',
                 'BUILD_WORKFLOW.yml', 'flow-patch/inventory.gradle',
                 'flow-patch/SOURCE_BUNDLE.md')
     if any(not (directory / name).is_file() for name in required):
@@ -47,16 +48,20 @@ def source_manifest(directory, inventory, flow_commit):
     for path in sorted(directory.rglob('*')):
         if path.is_symlink():
             raise ValueError('Player source bundle must not contain external symlinks')
-        if not path.is_file() or path.name == 'SOURCE_MANIFEST.json':
+        if not path.is_file() or path == directory / 'SOURCE_MANIFEST.json':
             continue
         with path.open('rb') as source:
             digest = hashlib.file_digest(source, 'sha256').hexdigest()
         files.append({'name': path.relative_to(directory).as_posix(),
                       'sha256': digest, 'bytes': path.stat().st_size})
+    decoder = None
+    if (directory / 'decoder-sources').exists():
+        decoder = verify_bundle(directory / 'decoder-sources', inventory)
     return {'schema_version': 1, 'upstream_commit': COMMIT,
             'flow_commit': flow_commit, 'files': files,
+            'native_source_provenance_verified': bool(decoder),
             'native_corresponding_source_verified': False,
-            'scope': 'Pinned application archive, exact bundled AAR bytes, Flow patch and build recipe. Decoder source/version/license mapping remains separate.'}
+            'scope': 'Pinned application archive, exact bundled AAR bytes, Flow patch and build recipe; matched decoder sources/notices when included. Independent native rebuild and redistribution compatibility remain separate.'}
 
 
 def generate(inventory):
@@ -123,6 +128,7 @@ if __name__ == '__main__':
     if args.source_bundle:
         if not re.fullmatch(r'[0-9a-f]{40}', args.flow_commit):
             parser.error('Flow source commit must be a full lowercase Git identity')
+        verify_bundle(args.source_bundle / 'decoder-sources', inventory)
         report['metadata']['properties'].append({'name': 'flow:source-commit', 'value': args.flow_commit})
     args.output.write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
     if args.source_bundle:

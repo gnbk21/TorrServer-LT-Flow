@@ -7,6 +7,7 @@ on:
       - 'build/prepare_just_player.py'
       - 'build/player_patch_check.py'
       - 'build/player_sbom.py'
+      - 'build/player_sources.py'
       - 'build/validate_sbom*'
       - 'build/schema/**'
       - 'web/package.json'
@@ -59,6 +60,8 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon assembleLatestUniversalDebug
           ./gradlew --no-daemon --no-configuration-cache --init-script ../build/just-player/inventory.gradle :app:flowInventory
+      - name: Preserve matched decoder sources and original notices
+        run: python3 build/player_sources.py _player/flow-resolved-dependencies.json _out/player-source/decoder-sources
       - name: Preserve source and license
         run: |
           mkdir -p _out/player-source
@@ -67,6 +70,7 @@ jobs:
           cp build/prepare_just_player.py _out/player-source/
           cp build/player_patch_check.py _out/player-source/
           cp build/player_sbom.py _out/player-source/
+          cp build/player_sources.py _out/player-source/
           cp .github/workflows/just-player.yml _out/player-source/BUILD_WORKFLOW.yml
           cp LICENSE _out/player-source/FLOW_PATCH_LICENSE.txt
           cp _player/LICENSE _out/player-source/UPSTREAM_LICENSE.txt
