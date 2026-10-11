@@ -483,8 +483,8 @@ jobs:
             _out/sparse-rate-check/*/server-output.log
             _out/discovery-check/*/server-output.log
             _out/maintenance-check/report.json
-              _out/upstream-tls-check/report.json
-              _out/upstream-tls-check/*/server-output.log
+            _out/upstream-tls-check/report.json
+            _out/upstream-tls-check/*/server-output.log
             _out/adaptive-check/report.json
             _out/adaptive-check/state/server-output.log
             _out/request-capacity/**/report.json

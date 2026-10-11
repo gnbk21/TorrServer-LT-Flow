@@ -179,7 +179,13 @@
       "scope": "IAMF declared dependency sources; inclusion does not assert every target is linked",
       "required_notices": [
         "NOTICE"
-      ]
+      ],
+      "source_tree": {
+        "sha256": "f4c61f8a7e6b245776904955f8e3f930a007a14b8eebcb9ed2c0559f09b3a172",
+        "bytes": 9746870,
+        "entries": 425
+      },
+      "max_archive_bytes": 8388608
     },
     {
       "name": "pffft",

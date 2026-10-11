@@ -10,21 +10,32 @@ COMMIT = 'aa85148f6ccbfdf931fe207bb75ec77c478d8eb0'
 ROOT = Path(__file__).resolve().parent
 
 
+def recipe_directory(root=None):
+    """Support both the repository and the published source bundle layout."""
+    root = ROOT if root is None else Path(root)
+    for name in ('just-player', 'flow-patch'):
+        recipe = root / name
+        if (recipe / 'flow-player.patch').is_file():
+            return recipe
+    raise ValueError('Flow player patch recipe is missing')
+
+
 def prepare(directory):
     directory = directory.resolve(strict=True)
     head = subprocess.check_output(['git', '-C', str(directory), 'rev-parse', 'HEAD'], text=True).strip()
     if head != COMMIT:
         raise ValueError('Just Player checkout must match '+COMMIT)
-    patch = ROOT/'just-player/flow-player.patch'
+    recipe = recipe_directory()
+    patch = recipe / 'flow-player.patch'
     args = ['git', '-C', str(directory), 'apply', '--whitespace=error']
     if subprocess.run(args+['--reverse', '--check', str(patch)], capture_output=True).returncode:
         subprocess.run(args+['--check', str(patch)], check=True)
         subprocess.run(args+[str(patch)], check=True)
     target = directory/'app/src/main/java/com/brouken/player'
-    for source in (ROOT/'just-player').glob('*.java'):
+    for source in recipe.glob('*.java'):
         if source.name.endswith('Test.java'): continue
         (target/source.name).write_bytes(source.read_bytes())
-    for source in (ROOT/'just-player/res').glob('*/flow_diagnostics.xml'):
+    for source in (recipe/'res').glob('*/flow_diagnostics.xml'):
         destination = directory/'app/src/main/res'/source.parent.name/source.name
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source,destination)
@@ -34,7 +45,6 @@ def prepare(directory):
     text = text.replace('android:label="@string/app_name"', 'android:label="Flow Player (experimental)"')
     manifest.write_text(text, encoding='utf-8', newline='\n')
     digest = hashlib.sha256()
-    recipe = ROOT/'just-player'
     for source in sorted(path for path in recipe.rglob('*') if path.is_file()):
         digest.update(source.relative_to(recipe).as_posix().encode('utf-8'))
         digest.update(source.read_bytes())

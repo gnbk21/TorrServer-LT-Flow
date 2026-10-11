@@ -696,3 +696,29 @@ the longer controlled playback step, downstream inventory, Windows fixture and
 profiling jobs were still running. CodeQL at `0df6eacb` passed all categories;
 the newer checkpoint requires its own conclusion. Eight-hour endurance remains
 in progress, with no completion inferred from its intermediate samples.
+
+The source-bundle reproduction review then found a recipe layout defect:
+preparation expected `just-player/`, while the published archive uses
+`flow-patch/`. Both preparation and the decoder source CLI now discover the
+appropriate layout. The actual published-layout scripts passed repeatability
+and deliberate-drift refusal against the pinned player checkout, then packaged
+all 17 real cached source archives. Eight player packaging unit tests passed,
+including both layouts, missing recipe refusal, archive/notice tampering and
+preserving nested manifest filenames. No change was made to player codec support.
+
+Android run `38127264377` built the APK but failed the new source-download size
+gate. Repeated retrieval isolated the cause to Gitiles' FDK AAC archive: the
+same pinned revision produced 2,518,931- and 2,518,782-byte archives with different
+compressed hashes, while every source entry matched. FDK now additionally pins
+the canonical 425-entry/9,746,870-byte source tree (paths, file content, executable
+bits and link targets), SHA-256
+`f4c61f8a7e6b245776904955f8e3f930a007a14b8eebcb9ed2c0559f09b3a172`.
+Its compressed download has an explicit 8 MiB ceiling; actual archive hashes are
+recorded and reverified in the report. All other compressed-byte pins are
+retained. New regressions accept recompression and reject changed source/modes;
+the failed CI is not counted as passing packaging.
+
+After those fixes all 41 build-tool tests passed with the official inventory
+schema enabled. The downloaded real FDK archives both passed the content pin.
+The controlled-playback artifact list also had two over-indented TLS paths;
+their indentation is corrected so the existing TLS reports are retained.

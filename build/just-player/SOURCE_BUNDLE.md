@@ -9,8 +9,8 @@ commit. `SHA256SUMS.txt` identifies the separate debug APK.
 `UPSTREAM_LICENSE.txt` is the upstream application's original license.
 `FLOW_PATCH_LICENSE.txt` is Flow's GPL-3.0 license for the additions in
 `flow-patch/`, `prepare_just_player.py`, `player_patch_check.py` and
-`player_sbom.py`. These licenses do not replace third-party component licenses.
-`player_sources.py` preserves the original component notices separately.
+`player_sbom.py` and `player_sources.py`. These licenses do not replace third-party
+component licenses. The source packager preserves their original notices separately.
 
 To reproduce the application, check out the immutable player commit, apply
 `prepare_just_player.py` with `flow-patch/` beside it, and follow the preserved
@@ -26,6 +26,11 @@ in `flow-patch/decoder-sources.json` identifies that build, all six AAR digests,
 and the immutable FFmpeg, dav1d, cpu_features, IAMF and MPEG-H source revisions.
 It resolves the original workflow's moving FFmpeg/dav1d branches to the exact
 checkout identities recorded in the successful upstream log.
+Most archives use an exact compressed-byte checksum. Gitiles regenerates the
+FDK AAC archive with varying compressed bytes; its lock also pins all source
+file paths, contents, executable bits and link targets. Packaging verifies that
+425-entry source tree and records the actual downloaded archive checksum. Source
+or notice changes still fail verification; compression metadata alone may vary.
 
 `decoder-sources/archives/` preserves those source archives, the complete Media3
 fork and IAMF's declared native dependency sources. `notices/` reproduces original

@@ -1,4 +1,5 @@
 import hashlib
+import gzip
 import io
 import json
 from pathlib import Path
@@ -6,11 +7,49 @@ import tarfile
 import tempfile
 import unittest
 
-from player_sources import package, validate_lock, verify_bundle
-from prepare_just_player import COMMIT
+from player_sources import package, source_tree, validate_lock, verify_archive, verify_bundle
+from prepare_just_player import COMMIT, recipe_directory
 
 
 class DecoderSourceTests(unittest.TestCase):
+    def test_recompression_preserves_content_pin_but_source_or_mode_change_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, lock, _, cache = self.fixture(root)
+            item = lock['sources'][0]
+            archive = cache / item['archive']
+            item['source_tree'] = source_tree(archive, {'bytes': 1024, 'entries': 2})
+            item['max_archive_bytes'] = 4096
+            original = archive.read_bytes()
+            archive.write_bytes(gzip.compress(gzip.decompress(original), mtime=12345))
+            self.assertNotEqual(hashlib.sha256(archive.read_bytes()).hexdigest(), item['sha256'])
+            receipt = verify_archive(item, archive)
+            self.assertEqual(receipt['archive_sha256'], hashlib.sha256(archive.read_bytes()).hexdigest())
+            # A changed executable bit is part of the source identity, not compression.
+            for data, mode in [(b'original source', 0o755), (b'changed source!', 0o644)]:
+                with tarfile.open(archive, 'w:gz') as output:
+                    for name, content in [('codec/LICENSE', b'original component terms'), ('codec/source.c', data)]:
+                        member = tarfile.TarInfo(name)
+                        member.mode = mode if name.endswith('.c') else 0o644
+                        member.size = len(content)
+                        output.addfile(member, io.BytesIO(content))
+                with self.assertRaisesRegex(ValueError, 'checksum changed'):
+                    verify_archive(item, archive)
+
+    def test_source_bundle_and_repository_recipe_discovery(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(ValueError, 'recipe is missing'):
+                recipe_directory(root)
+            published = root / 'flow-patch'
+            published.mkdir()
+            (published / 'flow-player.patch').write_text('published patch')
+            self.assertEqual(recipe_directory(root), published)
+            checkout = root / 'just-player'
+            checkout.mkdir()
+            (checkout / 'flow-player.patch').write_text('checkout patch')
+            self.assertEqual(recipe_directory(root), checkout)
+
     def fixture(self, root, entries=None):
         cache = root / 'cache'
         cache.mkdir()
