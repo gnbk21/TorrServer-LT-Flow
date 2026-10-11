@@ -203,7 +203,19 @@ func (bt *BTServer) Session() *lt.Session {
 func (bt *BTServer) GetTorrent(h Hash) *Torrent {
 	bt.mu.Lock()
 	defer bt.mu.Unlock()
-	return bt.torrents[h]
+	return bt.findTorrentLocked(h)
+}
+
+func (bt *BTServer) findTorrentLocked(h Hash) *Torrent {
+	if t := bt.torrents[h]; t != nil {
+		return t
+	}
+	for _, t := range bt.torrents {
+		if t.matchesHash(h) {
+			return t
+		}
+	}
+	return nil
 }
 
 // ListTorrents returns a snapshot of currently in-memory torrents.
@@ -220,12 +232,12 @@ func (bt *BTServer) ListTorrents() map[Hash]*Torrent {
 // RemoveTorrent removes a torrent from the session.
 func (bt *BTServer) RemoveTorrent(h Hash) bool {
 	bt.mu.Lock()
-	t := bt.torrents[h]
+	t := bt.findTorrentLocked(h)
 	if t == nil {
 		bt.mu.Unlock()
 		return false
 	}
-	delete(bt.torrents, h)
+	delete(bt.torrents, t.Hash())
 	bt.mu.Unlock()
 	return t.Close()
 }
@@ -327,8 +339,17 @@ func (bt *BTServer) expireWatch(stop <-chan struct{}) {
 				if t == nil || !t.expired(now) {
 					continue
 				}
-				log.Println("torr: auto-drop idle torrent", t.Hash().HexString())
-				bt.RemoveTorrent(t.Hash())
+				bt.mu.Lock()
+				current := bt.findTorrentLocked(t.Hash())
+				claimed := current == t && t.claimExpiration(now)
+				if claimed {
+					delete(bt.torrents, t.Hash())
+				}
+				bt.mu.Unlock()
+				if claimed {
+					log.Println("torr: auto-drop idle torrent", t.Hash().HexString())
+					t.Close()
+				}
 			}
 		}
 	}
@@ -361,7 +382,16 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 		return
 	}
 	bt.mu.Lock()
-	t := bt.torrents[NewHashFromHex(a.TorrentHash)]
+	t := bt.findTorrentLocked(NewHashFromHex(a.TorrentHash))
+	// A hybrid's v1 identity may first appear on its metadata alert.
+	if t == nil && a.Torrent != 0 {
+		for _, candidate := range bt.torrents {
+			if h := candidate.LTHandle(); h != nil && h.ID() == a.Torrent {
+				t = candidate
+				break
+			}
+		}
+	}
 	bt.mu.Unlock()
 	if t == nil {
 		return
@@ -377,7 +407,7 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 			t.mu.Lock()
 			if t.flowStartup.FirstDHTPeerMs < 0 {
 				t.flowStartup.FirstDHTPeerMs = time.Since(t.flowAddedAt).Milliseconds()
-				t.historyEvent(flow.HistoryEvent{Type: "dht_peer", ElapsedMs: t.flowStartup.FirstDHTPeerMs, Code: a.Peers})
+				t.historyEvent(flow.HistoryEvent{Type: "dht_peer", OperationMeasured: true, ElapsedMs: t.flowStartup.FirstDHTPeerMs, Code: a.Peers})
 			}
 			t.mu.Unlock()
 		}
@@ -397,11 +427,11 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 		t.signalGotInfo()
 	case "torrent_error", "file_error":
 		log.Printf("torr: torrent error for %s: %s", a.TorrentHash, a.Error)
-	case "piece_finished", "piece_finished_alert", "read_piece":
+	case "piece_finished", "piece_finished_alert":
 		// Wake any Reader blocked on the piece. The actual byte data
 		// is already on the disk side (libtorrent wrote it through
 		// our cb_write before posting this alert).
-		if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+		if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 			cache.SignalPieceComplete(a.Piece)
 		}
 	}

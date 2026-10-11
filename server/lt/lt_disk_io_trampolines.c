@@ -19,6 +19,9 @@ extern int  tsl_storage_prune_go  (long long storage_id, int piece);
 extern int  tsl_storage_evict_go  (long long storage_id, int piece);
 extern void tsl_storage_size_go   (long long storage_id, long long total_size);
 extern void tsl_storage_clear_piece_go(long long storage_id, int piece);
+extern void tsl_storage_geometry_go(long long storage_id, const long long* pairs, int count);
+extern void tsl_storage_open_full_go(long long storage_id, const unsigned char* identity_33, int num_pieces, long long piece_length);
+extern void tsl_storage_ready_go(long long storage_id);
 
 /* Public installer: registers the Go callback set with the C++ side.
  * Called by lt.RegisterStorageCallbacks() on the Go side. */
@@ -34,6 +37,9 @@ int tsl_install_go_storage_callbacks(void) {
     cb.evict   = (int  (*)(int64_t, int))                                  tsl_storage_evict_go;
     cb.size    = (void (*)(int64_t, int64_t))                              tsl_storage_size_go;
     cb.clear_piece = (void (*)(int64_t, int)) tsl_storage_clear_piece_go;
+    cb.geometry = (void (*)(int64_t, const int64_t*, int)) tsl_storage_geometry_go;
+    cb.open_full = (void (*)(int64_t, const uint8_t*, int, int64_t)) tsl_storage_open_full_go;
+    cb.ready = (void (*)(int64_t)) tsl_storage_ready_go;
     return lt_install_storage_callbacks_full(&cb);
 }
 

@@ -7,6 +7,7 @@
 package utils
 
 import (
+	"context"
 	"mime/multipart"
 
 	"server/torr"
@@ -17,6 +18,10 @@ import (
 // the appropriate parser.
 func ParseLink(link string) (*torr.TorrentSpec, error) {
 	return torr.ParseLink(link)
+}
+
+func ParseLinkContext(ctx context.Context, link string) (*torr.TorrentSpec, error) {
+	return torr.ParseLinkContext(ctx, link)
 }
 
 // ParseFile reads a multipart upload and returns the spec.

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"server/flow"
 	"server/settings"
 	"testing"
 )
@@ -13,7 +14,7 @@ func TestPreparationSharesCacheRetainsAndMigrates(t *testing.T) {
 	settings.StoreBTsets(&settings.BTSets{CacheSize: 16 << 10})
 	defer settings.StoreBTsets(prev)
 	s := NewStorage()
-	var hash [20]byte
+	var hash flow.InfoHash
 	hash[0] = 9
 	s.callbackOpen(1, hash, 3, 16<<10)
 	c := s.CacheByHash(hash)
@@ -53,7 +54,7 @@ func TestPreparationSharesCacheRetainsAndMigrates(t *testing.T) {
 }
 
 func TestPreparationCleanupFencesReaderRegistration(t *testing.T) {
-	c := newCache(NewStorage(), 1, [20]byte{}, 1, 16<<10)
+	c := newCache(NewStorage(), 1, flow.InfoHash{}, 1, 16<<10)
 	r := NewReader(c, nil, FileInfo{Length: 16 << 10})
 	if c.BeginPreparationCleanup() {
 		t.Fatal("cleanup accepted an active player")

@@ -10,7 +10,7 @@ import (
 
 var magnetRegex = regexp.MustCompile(`magnet:\?[^\s]+`)
 var torrsRegex = regexp.MustCompile(`torrs://[^\s]+`)
-var hashRegex = regexp.MustCompile(`\b([a-fA-F0-9]{40})\b`)
+var hashRegex = regexp.MustCompile(`\b([a-fA-F0-9]{64}|[a-fA-F0-9]{40})\b`)
 
 func cmdImport(c tele.Context) error {
 	text := ""

@@ -25,7 +25,9 @@ export function PlaybackLinks({
   const hash = input.searchParams.get("link") ?? "";
   const index = Number(input.searchParams.get("index"));
   const eligible =
-    /^[a-f0-9]{40}$/i.test(hash) && Number.isInteger(index) && index > 0;
+    /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(hash) &&
+    Number.isInteger(index) &&
+    index > 0;
   const capability = useQuery({
     queryKey: ["playback-link", originalURL],
     queryFn: ({ signal }) => flowApi.playbackLink(hash, index, signal),

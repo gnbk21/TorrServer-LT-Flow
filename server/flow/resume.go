@@ -32,6 +32,11 @@ func VerifyPieceFiles(dir string, pieceLength, totalSize int64, hashes [][20]byt
 		if err != nil {
 			continue
 		}
+		opened, statErr := file.Stat()
+		if statErr != nil || !opened.Mode().IsRegular() || !os.SameFile(st, opened) || opened.Size() != expectedSize {
+			_ = file.Close()
+			continue
+		}
 		hash := sha1.New()
 		n, readErr := io.CopyBuffer(hash, io.LimitReader(file, expectedSize+1), buffer)
 		closeErr := file.Close()

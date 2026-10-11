@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -43,13 +44,13 @@ func BenchmarkStreamBuffer(b *testing.B) {
 		b.Fatal(err)
 	}
 	for _, disk := range []bool{false, true} {
-		for _, buffered := range []bool{false, true} {
+		for _, bufferSize := range []int{0, 64 << 10, 256 << 10, 1024 << 10} {
 			name := "RAM/plain"
 			if disk {
 				name = "file/plain"
 			}
-			if buffered {
-				name += "/buffered"
+			if bufferSize > 0 {
+				name += "/" + strconv.Itoa(bufferSize>>10) + "KiB"
 			}
 			b.Run(name, func(b *testing.B) {
 				var source io.ReadSeeker = bytes.NewReader(data)
@@ -72,8 +73,8 @@ func BenchmarkStreamBuffer(b *testing.B) {
 					}
 					counting := &streamCountingReader{source: source}
 					var reader io.Reader = counting
-					if buffered {
-						reader = newBufferedStreamReader(counting, streamBufferSize)
+					if bufferSize > 0 {
+						reader = newBufferedStreamReader(counting, bufferSize)
 					}
 					for {
 						_, err := reader.Read(buf)

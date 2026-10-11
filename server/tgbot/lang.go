@@ -97,7 +97,7 @@ func saveUserLangs() {
 
 func cmdLang(c tele.Context) error {
 	uid := c.Sender().ID
-	args := c.Args()
+	args := callbackArgs(c)
 	if len(args) == 0 {
 		lang := getUserLang(uid)
 		if lang == LangEN {

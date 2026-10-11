@@ -35,8 +35,22 @@ type Torrent struct {
 	Timestamp int64
 	Size      int64
 
-	bt *BTServer
-	lh atomic.Pointer[lt.Torrent] // nil for DB-only or closed torrents
+	bt                        *BTServer
+	lh                        atomic.Pointer[lt.Torrent] // nil for DB-only or closed torrents
+	identities                atomic.Pointer[torrentIdentities]
+	filesSnapshot             atomic.Pointer[torrentFiles] // immutable after metadata arrives
+	filesMu                   sync.Mutex
+	v2MetadataComplete        atomic.Bool
+	v2MetadataAttempt         atomic.Int64
+	reuseMetadataOwner        atomic.Pointer[torrstor.Cache]
+	reuseMetadataAttempt      atomic.Int64
+	nextEpisodeMu             sync.Mutex
+	nextEpisodeCurrent        int
+	nextEpisodeManual         int
+	nextEpisodeTarget         int
+	nextEpisodeAutomatic      bool
+	nextEpisodeSuppressed     bool
+	nextEpisodeSelectionKnown bool
 
 	mu       sync.Mutex
 	sourceMu sync.Mutex
@@ -47,6 +61,7 @@ type Torrent struct {
 	UploadSpeed         float64
 	BytesReadUsefulData int64
 	BytesWrittenData    int64
+	libraryNative       lt.Status // watch snapshot; guarded by mu
 
 	// counters driven by the alert pump (atomic-friendly under mu)
 	piecesDirtiedGood int64
@@ -83,6 +98,7 @@ type Torrent struct {
 	flowStartupStarted     time.Time
 	flowAddedAt            time.Time
 	diagnosticID           uint64
+	timeline               flow.Timeline
 	preloadWorkMu          sync.Mutex
 	preloadWork            *preloadOperation
 	flowStartup            FlowStartupStatus
@@ -97,9 +113,11 @@ type Torrent struct {
 	trackerMu        sync.Mutex
 	trackers         map[string]FlowTrackerDiagnostic
 
-	expiredTime     time.Time
-	preparationHold atomic.Bool
-	warmIdleSince   time.Time
+	expiredTime       time.Time
+	streamAdmissions  int
+	expirationClaimed bool
+	preparationHold   atomic.Bool
+	warmIdleSince     time.Time
 
 	gotInfoCh   chan struct{}
 	gotInfoOnce sync.Once
@@ -141,12 +159,20 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 			return nil, parseErr
 		}
 		metadata = pt
+		if spec.InfoHash.HexString() != pt.InfoHash && spec.InfoHash.HexString() != pt.InfoHashV2 {
+			return nil, errors.New("torrent identity does not match metadata")
+		}
 		if pt.Private && len(pt.TrackerTiers) > 0 {
 			trackerTiers = pt.TrackerTiers
 		}
 		if !pt.Private {
 			trackerTiers = publicTrackerTiers(spec.Trackers)
 		}
+	}
+
+	storageHash := spec.InfoHash
+	if metadata != nil {
+		storageHash = NewHashFromHex(metadata.InfoHash)
 	}
 
 	// If metadata is known at add time (InfoBytes present), scan the
@@ -159,15 +185,15 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 	)
 	if metadata != nil && metadata.HasMetadata && metadata.NumPieces > 0 {
 		pieceCount = metadata.NumPieces
-		if raw, err := hex.DecodeString(metadata.PieceHashes); err == nil && len(raw)/20 == pieceCount && len(raw)%20 == 0 {
-			hashes := make([][20]byte, pieceCount)
+		if raw, err := hex.DecodeString(metadata.PieceHashes); err == nil && (len(raw) == 0 && len(metadata.V2Files) > 0 || len(raw) == pieceCount*20) {
+			hashes := make([][20]byte, len(raw)/20)
 			for i := range hashes {
 				copy(hashes[i][:], raw[i*20:(i+1)*20])
 			}
-			if plan, ok := torrstor.Global().PreparationPlan(spec.InfoHash); ok {
-				havePieces = flow.VerifyPieceFiles(filepath.Join(plan.Root, spec.InfoHash.HexString()), metadata.PieceLength, metadata.TotalSize, hashes)
+			if plan, ok := torrstor.Global().PreparationPlan(storageHash); ok {
+				havePieces = flow.VerifyMetadataPieces(filepath.Join(plan.Root, storageHash.HexString()), metadata.PieceLength, metadata.TotalSize, hashes, metadata.V2Files)
 			} else {
-				havePieces = torrstor.ScanHavePieces(spec.InfoHash, pieceCount, metadata.PieceLength, metadata.TotalSize, hashes)
+				havePieces = torrstor.ScanMetadataPieces(storageHash, metadata.PieceLength, metadata.TotalSize, hashes, metadata.V2Files)
 			}
 		}
 	}
@@ -185,7 +211,14 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 		bt.mu.Unlock()
 		return nil, errors.New("torr.NewTorrent: BT client not connected")
 	}
-	if existing := bt.torrents[spec.InfoHash]; existing != nil {
+	existing := bt.findTorrentLocked(spec.InfoHash)
+	if existing == nil && metadata != nil {
+		existing = bt.findTorrentLocked(NewHashFromHex(metadata.InfoHash))
+	}
+	if existing == nil && metadata != nil && metadata.InfoHashV2 != "" {
+		existing = bt.findTorrentLocked(NewHashFromHex(metadata.InfoHashV2))
+	}
+	if existing != nil {
 		existing.mu.Lock()
 		closed := existing.Stat == state.TorrentClosed
 		existing.mu.Unlock()
@@ -198,18 +231,18 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 		// and expired() skips TorrentClosed so expireWatch never reaps it) must
 		// not shadow the hash forever — every re-add would get the zombie back
 		// and insta-fail. Its lt torrent is already removed; replace the entry.
-		delete(bt.torrents, spec.InfoHash)
+		delete(bt.torrents, existing.Hash())
 	}
 
 	if metadata != nil {
-		torrstor.Global().SetVerifiedResume(spec.InfoHash, havePieces, metadata.TotalSize)
+		torrstor.Global().SetVerifiedResume(storageHash, havePieces, metadata.TotalSize)
 		if len(metadata.WebSeeds) > 0 {
-			torrstor.Global().RequireVerifiedReads(spec.InfoHash)
+			torrstor.Global().RequireVerifiedReads(storageHash)
 		}
 	}
 	for _, seed := range spec.WebSeeds {
 		if !seed.Disabled {
-			torrstor.Global().RequireVerifiedReads(spec.InfoHash)
+			torrstor.Global().RequireVerifiedReads(storageHash)
 			break
 		}
 	}
@@ -223,7 +256,7 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 		PieceCount:   pieceCount,
 	})
 	if err != nil {
-		torrstor.Global().ClearVerifiedResume(spec.InfoHash)
+		torrstor.Global().ClearVerifiedResume(storageHash)
 		bt.mu.Unlock()
 		return nil, err
 	}
@@ -241,6 +274,10 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 		closeCh:     make(chan struct{}),
 	}
 	t.lh.Store(lh)
+	if metadata != nil {
+		t.identities.Store(&torrentIdentities{primary: storageHash, v1: NewHashFromHex(metadata.InfoHashV1), v2: NewHashFromHex(metadata.InfoHashV2)})
+		t.v2MetadataComplete.Store(metadata.CompletePieceLayers())
+	}
 	bt.torrents[spec.InfoHash] = t
 	bt.mu.Unlock()
 
@@ -288,7 +325,31 @@ func magnetFromSpec(spec *TorrentSpec) string {
 	if len(spec.InfoBytes) > 0 {
 		return ""
 	}
-	return "magnet:?xt=urn:btih:" + spec.InfoHash.HexString()
+	return spec.InfoHash.Magnet()
+}
+
+type torrentIdentities struct{ primary, v1, v2 Hash }
+
+// StorageHash follows native metadata's preferred identity. A hybrid discovered
+// from a v2 magnet acquires a SHA-1 storage key without changing its public link.
+func (t *Torrent) StorageHash() Hash {
+	if ids := t.identities.Load(); ids != nil {
+		return ids.primary
+	}
+	return t.Hash()
+}
+
+func (t *Torrent) matchesHash(h Hash) bool {
+	if h.IsZero() {
+		return false
+	}
+	if t.Hash() == h {
+		return true
+	}
+	if ids := t.identities.Load(); ids != nil {
+		return ids.primary == h || ids.v1 == h || ids.v2 == h
+	}
+	return false
 }
 
 func torrentExpireTimeout() time.Duration {
@@ -334,12 +395,24 @@ func (t *Torrent) signalGotInfo() {
 		return
 	}
 	t.gotInfoOnce.Do(func() {
+		if st, err := lh.Status(); err == nil {
+			t.identities.Store(&torrentIdentities{primary: NewHashFromHex(st.InfoHash), v1: NewHashFromHex(st.InfoHashV1), v2: NewHashFromHex(st.InfoHashV2)})
+			t.mu.Lock()
+			if t.TorrentSpec != nil {
+				t.InfoHashV1 = st.InfoHashV1
+				t.InfoHashV2 = st.InfoHashV2
+			}
+			t.mu.Unlock()
+			if st.InfoHashV2 == "" {
+				t.v2MetadataComplete.Store(true)
+			}
+		}
 		t.mu.Lock()
 		t.flowStartup.MetadataReadyMs = time.Since(t.flowAddedAt).Milliseconds()
 		t.flowStartup.WaitReason = ""
 		t.flowStartup.State = "IDLE"
 		t.mu.Unlock()
-		t.historyEvent(flow.HistoryEvent{Type: "metadata", ElapsedMs: time.Since(t.flowAddedAt).Milliseconds()})
+		t.historyEvent(flow.HistoryEvent{Type: "metadata", OperationMeasured: true, ElapsedMs: time.Since(t.flowAddedAt).Milliseconds()})
 		// Switch to lazy/streaming mode: download nothing until a Reader's
 		// window or Preload bumps the specific pieces it needs.
 		_ = lh.SetAllPiecesPriority(0)
@@ -392,15 +465,28 @@ func (t *Torrent) WaitInfo() bool {
 
 // GotInfo wraps WaitInfo with state transitions matching the legacy API.
 func (t *Torrent) GotInfo() bool {
-	if t == nil || t.Stat == state.TorrentClosed {
+	if t == nil {
+		return false
+	}
+	t.mu.Lock()
+	if t.Stat == state.TorrentClosed {
+		t.mu.Unlock()
 		return false
 	}
 	if t.Stat == state.TorrentPreload {
+		t.mu.Unlock()
 		return true
 	}
 	t.Stat = state.TorrentGettingInfo
+	t.mu.Unlock()
 	if t.WaitInfo() {
+		t.mu.Lock()
+		if t.Stat == state.TorrentClosed {
+			t.mu.Unlock()
+			return false
+		}
 		t.Stat = state.TorrentWorking
+		t.mu.Unlock()
 		t.AddExpiredTime(torrentExpireTimeout())
 		// Metadata (and so the release name) is now known — backfill a TMDB
 		// poster for torrents that came in without one (bare magnets, tgbot,
@@ -436,19 +522,54 @@ func (t *Torrent) AddExpiredTime(d time.Duration) {
 // status polls and preload all push expiredTime forward, so an in-use torrent
 // is never seen as expired. Used by BTServer.expireWatch.
 func (t *Torrent) expired(now time.Time) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.expiredLocked(now)
+}
+
+// Admission and expiry share the same lock so a new HTTP request cannot be
+// removed between the timer's decision and creation of its cache reader.
+func (t *Torrent) beginStream() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.Stat == state.TorrentClosed || t.expirationClaimed {
+		return false
+	}
+	t.streamAdmissions++
+	return true
+}
+
+func (t *Torrent) endStream() {
+	t.mu.Lock()
+	t.streamAdmissions--
+	t.mu.Unlock()
+}
+
+func (t *Torrent) claimExpiration(now time.Time) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.expirationClaimed || !t.expiredLocked(now) {
+		return false
+	}
+	t.expirationClaimed = true
+	return true
+}
+
+func (t *Torrent) expiredLocked(now time.Time) bool {
 	if t.preparationHold.Load() {
 		return false
 	}
-	t.mu.Lock()
 	stat := t.Stat
 	deadline := t.expiredTime
 	warmIdleSince := t.warmIdleSince
-	t.mu.Unlock()
+	if t.streamAdmissions > 0 {
+		return false
+	}
 	switch stat {
 	case state.TorrentClosed, state.TorrentGettingInfo, state.TorrentPreload, state.TorrentInDB:
 		return false
 	}
-	if c := torrstor.Global().CacheByHash([20]byte(t.Hash())); c != nil && c.ActiveReaders() > 0 {
+	if c := torrstor.Global().CacheByHash(t.StorageHash()); c != nil && c.ActiveReaders() > 0 {
 		return false
 	}
 	if settings.CurrentFlow().Enabled && !warmIdleSince.IsZero() {
@@ -496,16 +617,94 @@ func (t *Torrent) progressTick() {
 	t.BytesReadUsefulData = st.TotalPayloadDownload
 	t.BytesWrittenData = st.TotalPayloadUpload
 	t.lastTimeSpeed = now
+	t.libraryNative = *st
 	rate := t.DownloadSpeed
 	t.mu.Unlock()
-	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+	if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
+		t.registerReuseMetadata(cache)
 		cache.SetFlowDownloadRate(rate, FlowIsPaused())
+		events, dropped := cache.DrainStorageEvidence()
+		t.timeline.AddDropped(dropped)
+		for _, event := range events {
+			t.historyEvent(event)
+		}
+		t.tickNextEpisode(cache)
 	}
 	count := 0
 	if st.PieceLength > 0 && st.TotalSize > 0 {
 		count = int((st.TotalSize-1)/st.PieceLength + 1)
 	}
 	t.sampleSparse(handle, st.HasMetadata, st.PieceLength, count)
+	t.checkpointV2Metadata(handle)
+}
+
+func (t *Torrent) registerReuseMetadata(cache *torrstor.Cache) {
+	if t.reuseMetadataOwner.Load() == cache || !settings.CurrentFlow().Enabled {
+		return
+	}
+	t.mu.Lock()
+	var data []byte
+	if t.TorrentSpec != nil && t.Stat != state.TorrentClosed {
+		data = t.InfoBytes
+	}
+	t.mu.Unlock()
+	if len(data) == 0 || len(data) > 64<<20 {
+		return
+	}
+	now := time.Now().UnixMilli()
+	last := t.reuseMetadataAttempt.Load()
+	if now-last < 30_000 || !t.reuseMetadataAttempt.CompareAndSwap(last, now) {
+		return
+	}
+	parsed, err := lt.ParseTorrentBytes(data)
+	if err != nil {
+		return
+	}
+	if parsed.InfoHashV2 != "" && !parsed.CompletePieceLayers() {
+		return
+	}
+	// Unsupported/private metadata is a completed decision for this owner.
+	// Acquired v2 layers reset this decision through the existing checkpoint.
+	if torrstor.Global().SetReuseMetadata(cache, parsed) || parsed.Private || parsed.InfoHashV2 == "" {
+		t.reuseMetadataOwner.Store(cache)
+	}
+}
+
+// Persist acquired Merkle layers once, so a v2 magnet can resume verified disk
+// pieces after restart. Retry incomplete metadata at most once per 30 seconds,
+// using the existing watch lifecycle rather than another polling goroutine.
+func (t *Torrent) checkpointV2Metadata(handle *lt.Torrent) {
+	if t.v2MetadataComplete.Load() {
+		return
+	}
+	now := time.Now().UnixMilli()
+	last := t.v2MetadataAttempt.Load()
+	if now-last < 30_000 || !t.v2MetadataAttempt.CompareAndSwap(last, now) {
+		return
+	}
+	data, err := handle.Metadata()
+	if err != nil || len(data) == 0 || len(data) > 64<<20 {
+		return
+	}
+	parsed, err := lt.ParseTorrentBytes(data)
+	if err != nil || !parsed.CompletePieceLayers() {
+		return
+	}
+	t.mu.Lock()
+	if t.Stat == state.TorrentClosed || t.LTHandle() != handle || t.TorrentSpec == nil {
+		t.mu.Unlock()
+		return
+	}
+	t.InfoBytes = data
+	t.InfoHashV1 = parsed.InfoHashV1
+	t.InfoHashV2 = parsed.InfoHashV2
+	t.mu.Unlock()
+	t.v2MetadataComplete.Store(true)
+	t.reuseMetadataOwner.Store(nil)
+	t.reuseMetadataAttempt.Store(0)
+	if GetTorrentDB(t.Hash()) != nil {
+		AddTorrentDB(t)
+	}
 }
 
 // ----- shutdown -----
@@ -517,16 +716,11 @@ func (t *Torrent) Close() bool {
 		return false
 	}
 	t.mu.Lock()
-	if t.Stat == state.TorrentClosed {
-		t.mu.Unlock()
-		t.markClosed()
-		return true
-	}
 	t.Stat = state.TorrentClosed
+	handle := t.lh.Swap(nil)
 	t.mu.Unlock()
 	t.markClosed()
 	hash := t.Hash()
-	handle := t.lh.Swap(nil)
 	if handle != nil && t.bt != nil {
 		// Only remove the libtorrent torrent if no OTHER live instance owns
 		// it. A duplicate Torrent that lost an add race (or any stale copy)
@@ -534,14 +728,22 @@ func (t *Torrent) Close() bool {
 		// removing it here would kill an active stream. The registry entry
 		// is either us or already deleted (RemoveTorrent deletes before
 		// closing) — both mean we own the removal.
-		if cur := t.bt.GetTorrent(hash); cur == nil || cur == t {
+		// Keep ownership and native removal atomic with NewTorrent's add.
+		// Checking through GetTorrent and removing after it unlocked allowed a
+		// fresh add to reuse this native handle just before we removed it.
+		t.bt.mu.Lock()
+		if cur := t.bt.findTorrentLocked(hash); cur == nil || cur == t {
 			_ = handle.Remove(false)
 		}
+		t.bt.mu.Unlock()
 	}
 	return true
 }
 
 func (t *Torrent) markClosed() {
+	if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
+		cache.ClearNextEpisodeWarmup()
+	}
 	t.closeOnce.Do(func() {
 		if t.closeCh != nil {
 			close(t.closeCh)
@@ -592,6 +794,35 @@ func (t *Torrent) Length() int64 {
 
 // Files returns the file list once metadata is known.
 func (t *Torrent) Files() []*File {
+	snapshot := t.fileSnapshot()
+	if snapshot == nil {
+		return nil
+	}
+	out := make([]*File, 0, len(snapshot.sorted))
+	for _, file := range snapshot.sorted {
+		copy := *file
+		out = append(out, &copy)
+	}
+	return out
+}
+
+type torrentFiles struct {
+	sorted []*File
+	byID   map[int]*File
+}
+
+func (t *Torrent) fileSnapshot() *torrentFiles {
+	if t == nil || t.LTHandle() == nil {
+		return nil
+	}
+	if snapshot := t.filesSnapshot.Load(); snapshot != nil {
+		return snapshot
+	}
+	t.filesMu.Lock()
+	defer t.filesMu.Unlock()
+	if snapshot := t.filesSnapshot.Load(); snapshot != nil {
+		return snapshot
+	}
 	handle := t.LTHandle()
 	if handle == nil {
 		return nil
@@ -611,7 +842,12 @@ func (t *Torrent) Files() []*File {
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return utils2.CompareStrings(out[i].Path, out[j].Path) })
-	return out
+	snapshot := &torrentFiles{sorted: out, byID: make(map[int]*File, len(out))}
+	for _, f := range out {
+		snapshot.byID[f.Index+1] = f
+	}
+	t.filesSnapshot.Store(snapshot)
+	return snapshot
 }
 
 // LTHandle returns the underlying libtorrent handle for callers that
@@ -642,6 +878,8 @@ func (t *Torrent) Status() *state.TorrentStatus {
 	st.DurationSeconds = t.DurationSeconds
 	if t.TorrentSpec != nil {
 		st.Hash = t.TorrentSpec.InfoHash.HexString()
+		st.InfoHashV1 = t.InfoHashV1
+		st.InfoHashV2 = t.InfoHashV2
 	}
 
 	handle := t.LTHandle()
@@ -677,7 +915,7 @@ func (t *Torrent) Status() *state.TorrentStatus {
 	st.PreloadSize = t.PreloadSize
 	// Expose the existing playback-reader count so the library can highlight
 	// active torrents without polling detailed Flow snapshots for every card.
-	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+	if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 		st.ActiveReaders = cache.StreamingReaders()
 	}
 	st.WarmIdle = st.ActiveReaders == 0 && settings.CurrentFlow().Enabled &&
@@ -719,7 +957,7 @@ func (t *Torrent) Status() *state.TorrentStatus {
 					th.AddField(torrshash.TagTracker, tr)
 				}
 			}
-			if tok, err := torrshash.Pack(th); err == nil {
+			if tok, err := torrshash.Pack(th); err == nil && len(st.Hash) == 40 {
 				st.TorrsHash = tok
 			}
 		}
@@ -747,7 +985,7 @@ func (t *Torrent) NewReaderGroup(file *File, group string) Reader {
 	if handle == nil || file == nil {
 		return nil
 	}
-	cache := torrstor.Global().CacheByHash([20]byte(t.Hash()))
+	cache := torrstor.Global().CacheByHash(t.StorageHash())
 	if cache == nil {
 		log.TLogln("torr.NewReader: no cache for", t.Hash().HexString())
 		return nil
@@ -778,7 +1016,7 @@ func (t *Torrent) CacheState() *storageState.CacheState {
 	// Pull the real stats (Capacity, Filled, per-piece state) from the live
 	// torrstor cache; fall back to an empty shell if it isn't open yet.
 	var st *storageState.CacheState
-	if c := torrstor.Global().CacheByHash([20]byte(t.Hash())); c != nil {
+	if c := torrstor.Global().CacheByHash(t.StorageHash()); c != nil {
 		st = c.State()
 	} else {
 		st = &storageState.CacheState{Pieces: map[int]storageState.ItemState{}}

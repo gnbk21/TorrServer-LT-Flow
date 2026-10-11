@@ -14,7 +14,15 @@ std::mutex fixture_mu;
 std::condition_variable fixture_cv;
 std::array<uint8_t, 100> stored{};
 std::vector<std::string> events;
-int read_fixture(int64_t, int, int64_t, uint8_t* buffer, int length) {
+bool hybrid_fixture=false;
+std::vector<char> hybrid_bytes;
+std::vector<int64_t> geometry_pairs;
+int read_fixture(int64_t, int piece, int64_t offset, uint8_t* buffer, int length) {
+    if (hybrid_fixture) {
+        auto const start=int64_t(piece)*32768+offset;
+        if (start<0 || start+length>int64_t(hybrid_bytes.size())) return -1;
+        std::memcpy(buffer,hybrid_bytes.data()+start,length);return length;
+    }
     if (lifecycle) {
         std::lock_guard<std::mutex> lock(fixture_mu);
         events.push_back("read");
@@ -43,14 +51,17 @@ int main() {
     callbacks.read = read_fixture;
     callbacks.write = write_fixture;
     callbacks.open = [](int64_t, uint8_t const*, int, int64_t) {};
-    callbacks.close = [](int64_t) {
-        if (lifecycle) { std::lock_guard<std::mutex> lock(fixture_mu); events.push_back("close"); }
+    callbacks.close = [](int64_t storage) {
+        if (lifecycle && storage==1) { std::lock_guard<std::mutex> lock(fixture_mu); events.push_back("close"); }
     };
     callbacks.clear_piece = [](int64_t, int) {
         std::lock_guard<std::mutex> lock(fixture_mu); events.push_back("clear");
     };
     callbacks.deleted = [](int64_t) {
         std::lock_guard<std::mutex> lock(fixture_mu); events.push_back("delete");
+    };
+    callbacks.geometry=[](int64_t, int64_t const* pairs, int count) {
+        geometry_pairs.assign(pairs,pairs+2*count);
     };
     tsl_disk_io disk(io, settings, counters, callbacks);
     lt::file_storage files;
@@ -106,16 +117,81 @@ int main() {
         if (!completed) throw std::runtime_error("write completion missing");
         io.restart();
     }
-    bool unsupported = false;
+    bool block_hashed = false;
+    std::array<char,100> block; block.fill(0x5a);
+    auto const block_digest=lt::hasher256(lt::span<char const>(block.data(),block.size())).final();
     disk.async_hash2(storage, lt::piece_index_t{0}, 0, {},
-        [&](lt::piece_index_t, lt::sha256_hash const&, lt::storage_error const& error) {
-            if (error.ec != boost::system::errc::make_error_code(boost::system::errc::function_not_supported))
-                throw std::runtime_error("unsupported hash used a platform system error number");
-            unsupported = true;
+        [&](lt::piece_index_t, lt::sha256_hash const& hash, lt::storage_error const& error) {
+            if (error.ec || hash!=block_digest) throw std::runtime_error("short BEP 52 block hash changed bytes");
+            block_hashed = true;
         });
-    if (unsupported) throw std::runtime_error("reentrant unsupported-hash completion");
-    run(unsupported);
+    if (block_hashed) throw std::runtime_error("reentrant block-hash completion");
+    run(block_hashed);
     io.restart();
+    std::array<lt::sha256_hash,1> block_hashes;
+    bool both_hashed=false;
+    disk.async_hash(storage,lt::piece_index_t{0},block_hashes,lt::disk_interface::v1_hash,
+        [&](lt::piece_index_t,lt::sha1_hash const& hash,lt::storage_error const& error) {
+            auto const expected=lt::hasher(lt::span<char const>(block.data(),block.size())).final();
+            if (error.ec || hash!=expected || block_hashes[0]!=block_digest) throw std::runtime_error("hybrid hashes disagree");
+            both_hashed=true;
+        });
+    run(both_hashed);
+    io.restart();
+    for (int offset : {-1,1,16384}) {
+        bool rejected=false;
+        disk.async_hash2(storage,lt::piece_index_t{0},offset,{},
+            [&](lt::piece_index_t,lt::sha256_hash const&,lt::storage_error const& error) {
+                if (!error.ec) throw std::runtime_error("invalid v2 block offset accepted");
+                rejected=true;
+            });
+        run(rejected);io.restart();
+    }
+    supplied=99;
+    bool short_hash_rejected=false;
+    disk.async_hash2(storage,lt::piece_index_t{0},0,{},
+        [&](lt::piece_index_t,lt::sha256_hash const&,lt::storage_error const& error) {
+            if (!error.ec) throw std::runtime_error("short v2 read was trusted");
+            short_hash_rejected=true;
+        });
+    run(short_hash_rejected);
+    io.restart();
+    {
+        hybrid_fixture=true;
+        lt::sha256_hash root;
+        lt::file_storage hybrid_files;
+        hybrid_files.set_piece_length(32768);
+        hybrid_files.add_file("hybrid/a.mkv",17001,{},0,{},root.data());
+        hybrid_files.add_file("hybrid/b.mkv",10001,{},0,{},root.data());
+        hybrid_files.set_num_pieces(2);
+        lt::storage_params hybrid_params(hybrid_files,renamed,"","",lt::storage_mode_sparse,priorities,lt::sha1_hash{},true,true);
+        auto hybrid=disk.new_torrent(hybrid_params,{});
+        if (geometry_pairs!=std::vector<int64_t>{0,17001,1,10001})
+            throw std::runtime_error("short per-file BEP 52 geometry was lost");
+        hybrid_bytes.assign(65536,0);
+        for (int i=0;i<17001;++i) hybrid_bytes[i]=char(i%251);
+        for (int i=0;i<10001;++i) hybrid_bytes[32768+i]=char((i+7)%251);
+        std::array<lt::sha256_hash,2> hashes;
+        bool finished=false;
+        disk.async_hash(hybrid,lt::piece_index_t{0},hashes,lt::disk_interface::v1_hash,
+            [&](lt::piece_index_t,lt::sha1_hash const& digest,lt::storage_error const& error) {
+                if (error.ec || digest!=lt::hasher(lt::span<char const>(hybrid_bytes.data(),32768)).final()
+                    || hashes[0]!=lt::hasher256(lt::span<char const>(hybrid_bytes.data(),16384)).final()
+                    || hashes[1]!=lt::hasher256(lt::span<char const>(hybrid_bytes.data()+16384,617)).final())
+                    throw std::runtime_error("hybrid SHA-1 padding or SHA-256 short leaves were incorrect");
+                finished=true;
+            });
+        run(finished);io.restart();finished=false;
+        disk.async_hash2(hybrid,lt::piece_index_t{1},0,{},
+            [&](lt::piece_index_t,lt::sha256_hash const& digest,lt::storage_error const& error) {
+                if (error.ec || digest!=lt::hasher256(lt::span<char const>(hybrid_bytes.data()+32768,10001)).final())
+                    throw std::runtime_error("second-file short leaf included padding");
+                finished=true;
+            });
+        run(finished);io.restart();
+        hybrid.reset();
+        hybrid_fixture=false;
+    }
     lifecycle = true;
     char payload[100]; std::memset(payload, 0x3c, sizeof(payload));
     bool wrote = false, hashed = false, cleared = false, rewrote = false, deleted = false;
@@ -135,7 +211,7 @@ int main() {
     std::array<char, 100> expected; expected.fill(0x3c);
     lt::hasher expected_hash(lt::span<char const>(expected.data(), expected.size()));
     auto const digest = expected_hash.final();
-    disk.async_hash(storage, lt::piece_index_t{0}, {}, {},
+    disk.async_hash(storage, lt::piece_index_t{0}, {}, lt::disk_interface::v1_hash,
         [&](lt::piece_index_t, lt::sha1_hash const& hash, lt::storage_error const& error) {
             if (error.ec || hash != digest) throw std::runtime_error("hash overtook write or caller bytes leaked");
             hashed = true;

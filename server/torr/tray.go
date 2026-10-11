@@ -34,7 +34,7 @@ func FlowHasActiveWork() bool {
 		if preload {
 			return true
 		}
-		if cache := torrstor.Global().CacheByHash([20]byte(tor.Hash())); cache != nil && cache.ActiveReaders() > 0 {
+		if cache := torrstor.Global().CacheByHash(tor.StorageHash()); cache != nil && cache.ActiveReaders() > 0 {
 			return true
 		}
 	}
@@ -77,7 +77,7 @@ func SnapshotFlowTray() FlowTrayStatus {
 		if tor == nil {
 			continue
 		}
-		cache := torrstor.Global().CacheByHash([20]byte(tor.Hash()))
+		cache := torrstor.Global().CacheByHash(tor.StorageHash())
 		if cache == nil || cache.StreamingReaders() == 0 {
 			continue
 		}

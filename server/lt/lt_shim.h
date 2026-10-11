@@ -183,8 +183,12 @@ int     lt_torrent_num_files(lt_torrent t);
 size_t  lt_torrent_file_path(lt_torrent t, int idx, char* buf, size_t cap);
 int64_t lt_torrent_file_size(lt_torrent t, int idx);
 int64_t lt_torrent_file_offset(lt_torrent t, int idx);
+int lt_torrent_file_is_pad(lt_torrent t, int idx);
 int     lt_torrent_num_pieces(lt_torrent t);
 int     lt_torrent_have_piece(lt_torrent t, int piece_idx);
+/* One process-wide <=8 MiB submission; actual bytes only, virtual pad added
+ * internally. Returns 1 accepted, 0 busy, negative error. Always native rehash. */
+int lt_torrent_reuse_piece(lt_torrent t, int piece_idx, const uint8_t* data, size_t length);
 int64_t lt_torrent_piece_length(lt_torrent t);
 int64_t lt_torrent_total_size(lt_torrent t);
 

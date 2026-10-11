@@ -1,0 +1,67 @@
+--- a/include/libtorrent/aux_/torrent.hpp
++++ b/include/libtorrent/aux_/torrent.hpp
+@@ -1374,6 +1374,11 @@
+ #endif
+ 		}
+ 
++#ifndef TORRENT_DISABLE_STREAMING
++		// Give newly free bounded request credit to deadlines before refill.
++		void flow_request_time_critical_pieces();
++#endif
++
+ 		int get_suggest_pieces(std::vector<piece_index_t>& p
+ 			, typed_bitfield<piece_index_t> const& bits
+ 			, int const n)
+--- a/src/torrent.cpp
++++ b/src/torrent.cpp
+@@ -11529,6 +11529,14 @@
+ 
+ 	} // anonymous namespace
+ 
++	void torrent::flow_request_time_critical_pieces()
++	{
++		TORRENT_ASSERT(is_single_thread());
++		if (!m_abort && !upload_mode() && !graceful_pause()
++			&& are_files_checked() && !m_time_critical_pieces.empty())
++			request_time_critical_pieces();
++	}
++
+ 	void torrent::request_time_critical_pieces()
+ 	{
+ 		TORRENT_ASSERT(is_single_thread());
+--- a/src/peer_connection.cpp
++++ b/src/peer_connection.cpp
+@@ -4037,6 +4037,16 @@
+ 			if (!p->m_deferred_send_block_requests)
+ 				return;
+ 
++#ifndef TORRENT_DISABLE_STREAMING
++			// Keep this batch marked deferred while scheduling deadlines,
++			// so its own urgent requests do not recursively queue a send.
++			if (!p->is_disconnecting()
++				&& p->m_settings.get_bool(settings_pack::flow_capacity_aware_requests))
++			{
++				if (auto t = p->m_torrent.lock())
++					t->flow_request_time_critical_pieces();
++			}
++#endif
+ 			p->m_deferred_send_block_requests = false;
+ 			p->send_block_requests_impl();
+ 		});
+--- a/src/request_blocks.cpp
++++ b/src/request_blocks.cpp
+@@ -64,7 +64,13 @@
+ 
+ 		// in time critical mode, only have 1 outstanding request at a time
+ 		// via normal requests
+-		int const desired_queue_size = c.desired_queue_size();
++		// With bounded urgent credit, normal picking must not refill the
++		// whole queue before the deferred deadline scheduler gets a turn.
++		// Preserve the normal one-block fallback for peers without an
++		// available urgent piece; non-experimental behavior is unchanged.
++		int const desired_queue_size = time_critical_mode
++			&& t.settings().get_bool(settings_pack::flow_capacity_aware_requests)
++			? 1 : c.desired_queue_size();
+ 
+ 		int num_requests = desired_queue_size
+ 			- int(c.download_queue().size())

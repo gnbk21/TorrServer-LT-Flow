@@ -1,0 +1,245 @@
+{
+  "schema_version": 1,
+  "player_commit": "aa85148f6ccbfdf931fe207bb75ec77c478d8eb0",
+  "media_commit": "7286492527b8db7116f56abe836cba62002e3029",
+  "upstream_run_url": "https://github.com/moneytoo/media/actions/runs/34632899792",
+  "upstream_log_sha256": "419dabc02fe0869937ea5e1736c085ea218f71252d2e5b355ac218d1919dd60c",
+  "bundled_aar_sha256": {
+    "lib-ui-release.aar": "726fbd10e34c6e35d414cdb99216bd511fb3d601ef1b3199ed652174a636e0b4",
+    "lib-exoplayer-release.aar": "1f0c19f511175450569a2eceedd9bf82db0ea0e4fe5462445f090abc13513682",
+    "lib-decoder-mpegh-release.aar": "c4c54711795f6d501a419619655514ad1481722c0c3210aef6e0559422529676",
+    "lib-decoder-iamf-release.aar": "52f55bd14cc954438adc2e96b58fa51e6cea4d6c1815a37643c8cbba1f5c0aec",
+    "lib-decoder-ffmpeg-release.aar": "cc47a4274586da3407e4cbaf683ad442fea5fd81f40886b6d4608b4dc51145d4",
+    "lib-decoder-av1-release.aar": "0110fb5d50431a4269ebc21c4295bd53abfe11f0158e563368a4a46150999d94"
+  },
+  "sources": [
+    {
+      "name": "media",
+      "revision": "7286492527b8db7116f56abe836cba62002e3029",
+      "url": "https://codeload.github.com/moneytoo/media/tar.gz/7286492527b8db7116f56abe836cba62002e3029",
+      "sha256": "519b3b51dedbb3230ec255524d817d371d5c0b583e316fcf93d591207f648a3f",
+      "bytes": 480734737,
+      "archive": "media.tar.gz",
+      "scope": "wrapper/application libraries",
+      "required_notices": [
+        "media-7286492527b8db7116f56abe836cba62002e3029/LICENSE"
+      ]
+    },
+    {
+      "name": "ffmpeg",
+      "revision": "ba69be84a1ceabfb39127831ad8da0fd7cb471f3",
+      "url": "https://codeload.github.com/FFmpeg/FFmpeg/tar.gz/ba69be84a1ceabfb39127831ad8da0fd7cb471f3",
+      "sha256": "ac1d9072d007b57b272538352fc25d23093a3bd135bc86f176c40f5c14cfebf0",
+      "bytes": 14772750,
+      "archive": "ffmpeg.tar.gz",
+      "scope": "native decoder",
+      "required_notices": [
+        "FFmpeg-ba69be84a1ceabfb39127831ad8da0fd7cb471f3/COPYING.GPLv2",
+        "FFmpeg-ba69be84a1ceabfb39127831ad8da0fd7cb471f3/COPYING.GPLv3",
+        "FFmpeg-ba69be84a1ceabfb39127831ad8da0fd7cb471f3/COPYING.LGPLv2.1",
+        "FFmpeg-ba69be84a1ceabfb39127831ad8da0fd7cb471f3/COPYING.LGPLv3",
+        "FFmpeg-ba69be84a1ceabfb39127831ad8da0fd7cb471f3/LICENSE.md"
+      ]
+    },
+    {
+      "name": "cpu_features",
+      "revision": "81d13c49649f0714dd41fb56bb246398b6584085",
+      "url": "https://codeload.github.com/google/cpu_features/tar.gz/81d13c49649f0714dd41fb56bb246398b6584085",
+      "sha256": "744ecdadf7aba0fa9225dfd42ef21e5d45731bfe2d407bacdeb6609c9a96e934",
+      "bytes": 116926,
+      "archive": "cpu_features.tar.gz",
+      "scope": "native decoder",
+      "required_notices": [
+        "cpu_features-81d13c49649f0714dd41fb56bb246398b6584085/LICENSE"
+      ]
+    },
+    {
+      "name": "dav1d",
+      "revision": "a34e0685b9111b9eb1d7835ea7bea5b425dced73",
+      "url": "https://codeload.github.com/videolan/dav1d/tar.gz/a34e0685b9111b9eb1d7835ea7bea5b425dced73",
+      "sha256": "ec9b2c1380df4b7f3df163fc6489bbc4bcd22244d5fbada40787ca8cfd0b5a2a",
+      "bytes": 1751913,
+      "archive": "dav1d.tar.gz",
+      "scope": "native decoder",
+      "required_notices": [
+        "dav1d-a34e0685b9111b9eb1d7835ea7bea5b425dced73/COPYING",
+        "dav1d-a34e0685b9111b9eb1d7835ea7bea5b425dced73/doc/PATENTS"
+      ]
+    },
+    {
+      "name": "mpeghdec",
+      "revision": "335a2587fed4d769f8a21ae8816afd0aaa226b4f",
+      "url": "https://codeload.github.com/Fraunhofer-IIS/mpeghdec/tar.gz/335a2587fed4d769f8a21ae8816afd0aaa226b4f",
+      "sha256": "3a4e1946363a532fccb045784c1273b59d27e639f6b9b7d583d2c102141e1ae1",
+      "bytes": 896110,
+      "archive": "mpeghdec.tar.gz",
+      "scope": "native decoder",
+      "required_notices": [
+        "mpeghdec-335a2587fed4d769f8a21ae8816afd0aaa226b4f/LICENSE.txt"
+      ]
+    },
+    {
+      "name": "iamf_tools",
+      "revision": "e552e7d6d8b55530d201fd2764ca7e12d2c66cd6",
+      "url": "https://codeload.github.com/AOMediaCodec/iamf-tools/tar.gz/e552e7d6d8b55530d201fd2764ca7e12d2c66cd6",
+      "sha256": "08a4f80ff8f30a70da926fec4532f789763188f088e324d84d3fc285ef8d326c",
+      "bytes": 96797561,
+      "archive": "iamf_tools.tar.gz",
+      "scope": "native decoder",
+      "required_notices": [
+        "iamf-tools-e552e7d6d8b55530d201fd2764ca7e12d2c66cd6/LICENSE",
+        "iamf-tools-e552e7d6d8b55530d201fd2764ca7e12d2c66cd6/PATENTS"
+      ]
+    },
+    {
+      "name": "audio_to_tactile",
+      "revision": "d3f449fdfd8cfe4a845d0ae244fce2a0bca34a15",
+      "url": "https://codeload.github.com/google/audio-to-tactile/tar.gz/d3f449fdfd8cfe4a845d0ae244fce2a0bca34a15",
+      "sha256": "b83442c67c9a082a3a6a56a41486454c716645ecae09cbbaedd422346a9dfff5",
+      "bytes": 6214687,
+      "archive": "audio_to_tactile.tar.gz",
+      "scope": "IAMF declared dependency sources; inclusion does not assert every target is linked",
+      "required_notices": [
+        "audio-to-tactile-d3f449fdfd8cfe4a845d0ae244fce2a0bca34a15/LICENSE"
+      ]
+    },
+    {
+      "name": "loudness_ebur128",
+      "revision": "e9e73147637db60dc742cba8a611a37dd72b14b5",
+      "url": "https://codeload.github.com/google/loudness_ebur128/tar.gz/e9e73147637db60dc742cba8a611a37dd72b14b5",
+      "sha256": "76cf5c5f9365eb8f8008431e13e0a1cae926a1d814e356108c4e28ab2dbd408a",
+      "bytes": 21886,
+      "archive": "loudness_ebur128.tar.gz",
+      "scope": "IAMF declared dependency sources; inclusion does not assert every target is linked",
+      "required_notices": [
+        "loudness_ebur128-e9e73147637db60dc742cba8a611a37dd72b14b5/LICENSE"
+      ]
+    },
+    {
+      "name": "obr",
+      "revision": "478dc7c752d5eccae534635139ff0253eee3a14a",
+      "url": "https://codeload.github.com/google/obr/tar.gz/478dc7c752d5eccae534635139ff0253eee3a14a",
+      "sha256": "6698494aaffe58a9e7bbbc6eec31f7b8bf290f8017d9909aa9d176161c88d710",
+      "bytes": 17294888,
+      "archive": "obr.tar.gz",
+      "scope": "IAMF declared dependency sources; inclusion does not assert every target is linked",
+      "required_notices": [
+        "obr-478dc7c752d5eccae534635139ff0253eee3a14a/LICENSE",
+        "obr-478dc7c752d5eccae534635139ff0253eee3a14a/PATENTS"
+      ]
+    },
+    {
+      "name": "libexpat",
+      "revision": "fa75b96546c069d17b8f80d91e0f4ef0cde3790d",
+      "url": "https://codeload.github.com/libexpat/libexpat/tar.gz/fa75b96546c069d17b8f80d91e0f4ef0cde3790d",
+      "sha256": "60764a53ad7bdc774df3619abbf2fc6754dbebb426616669be34b0faedc32155",
+      "bytes": 8416860,
+      "archive": "libexpat.tar.gz",
+      "scope": "IAMF declared dependency sources; inclusion does not assert every target is linked",
+      "required_notices": [
+        "libexpat-fa75b96546c069d17b8f80d91e0f4ef0cde3790d/COPYING",
+        "libexpat-fa75b96546c069d17b8f80d91e0f4ef0cde3790d/expat/COPYING"
+      ]
+    },
+    {
+      "name": "flac",
+      "revision": "8d648456a2d7444d54a579e365bab4c815ac6873",
+      "url": "https://codeload.github.com/xiph/flac/tar.gz/8d648456a2d7444d54a579e365bab4c815ac6873",
+      "sha256": "964cb511f7f74ecab2f13ee1384064569c82e201ae3cdb814c19332a9880a2e2",
+      "bytes": 976117,
+      "archive": "flac.tar.gz",
+      "scope": "IAMF declared dependency sources; inclusion does not assert every target is linked",
+      "required_notices": [
+        "flac-8d648456a2d7444d54a579e365bab4c815ac6873/COPYING.FDL",
+        "flac-8d648456a2d7444d54a579e365bab4c815ac6873/COPYING.GPL",
+        "flac-8d648456a2d7444d54a579e365bab4c815ac6873/COPYING.LGPL",
+        "flac-8d648456a2d7444d54a579e365bab4c815ac6873/COPYING.Xiph"
+      ]
+    },
+    {
+      "name": "opus",
+      "revision": "ddbe48383984d56acd9e1ab6a090c54ca6b735a6",
+      "url": "https://codeload.github.com/xiph/opus/tar.gz/ddbe48383984d56acd9e1ab6a090c54ca6b735a6",
+      "sha256": "18e9d9e26565e279753aafb6823a482ef85ea9fddbfdcdbff8fd095b12dd96b6",
+      "bytes": 4184347,
+      "archive": "opus.tar.gz",
+      "scope": "IAMF declared dependency sources; inclusion does not assert every target is linked",
+      "required_notices": [
+        "opus-ddbe48383984d56acd9e1ab6a090c54ca6b735a6/COPYING",
+        "opus-ddbe48383984d56acd9e1ab6a090c54ca6b735a6/LICENSE_PLEASE_READ.txt"
+      ]
+    },
+    {
+      "name": "fdk_aac",
+      "url": "https://android.googlesource.com/platform/external/aac/+archive/ee76460efbdb147e26d804c798949c23f174460b.tar.gz",
+      "revision": "ee76460efbdb147e26d804c798949c23f174460b",
+      "sha256": "77d17d42dc8ecf4c5659cdb34099dbc7758110338f64cdbc202f6873dac2dcfd",
+      "bytes": 2518931,
+      "archive": "fdk_aac.tar.gz",
+      "scope": "IAMF declared dependency sources; inclusion does not assert every target is linked",
+      "required_notices": [
+        "NOTICE"
+      ],
+      "source_tree": {
+        "sha256": "f4c61f8a7e6b245776904955f8e3f930a007a14b8eebcb9ed2c0559f09b3a172",
+        "bytes": 9746870,
+        "entries": 425
+      },
+      "max_archive_bytes": 8388608
+    },
+    {
+      "name": "pffft",
+      "url": "https://bitbucket.org/jpommier/pffft/get/d7a4c0206a29423478776d6b23a37bbb308f21d5.tar.gz",
+      "revision": "d7a4c0206a29423478776d6b23a37bbb308f21d5",
+      "sha256": "9621a1b63ef456024b7287559ba33d4ed18dcef292f90aced5f9c970ff0343e6",
+      "bytes": 46894,
+      "archive": "pffft.tar.gz",
+      "scope": "IAMF declared dependency sources; inclusion does not assert every target is linked",
+      "required_notices": [
+        "jpommier-pffft-d7a4c0206a29/pffft.c"
+      ]
+    },
+    {
+      "name": "abseil-cpp-20260107.1",
+      "url": "https://github.com/abseil/abseil-cpp/releases/download/20260107.1/abseil-cpp-20260107.1.tar.gz",
+      "revision": "abseil-cpp-20260107.1",
+      "sha256": "4314e2a7cbac89cac25a2f2322870f343d81579756ceff7f431803c2c9090195",
+      "bytes": 2301097,
+      "archive": "abseil-cpp-20260107.1.tar.gz",
+      "scope": "IAMF declared dependency sources; inclusion does not assert every target is linked",
+      "required_notices": [
+        "abseil-cpp-20260107.1/LICENSE"
+      ]
+    },
+    {
+      "name": "eigen-3.4.0.bcr.3",
+      "url": "https://github.com/eigen-mirror/eigen/archive/refs/tags/3.4.0.zip",
+      "revision": "eigen-3.4.0.bcr.3",
+      "sha256": "6ea6a434ba063a0275dbe1a1dcef5c26fe2626d7cf8e9de7a948b5cf81382684",
+      "bytes": 3700486,
+      "archive": "eigen-3.4.0.bcr.3.zip",
+      "scope": "IAMF declared dependency sources; inclusion does not assert every target is linked",
+      "required_notices": [
+        "eigen-3.4.0/COPYING.APACHE",
+        "eigen-3.4.0/COPYING.BSD",
+        "eigen-3.4.0/COPYING.GPL",
+        "eigen-3.4.0/COPYING.LGPL",
+        "eigen-3.4.0/COPYING.MINPACK",
+        "eigen-3.4.0/COPYING.MPL2",
+        "eigen-3.4.0/COPYING.README"
+      ]
+    },
+    {
+      "name": "protobuf-33.5",
+      "url": "https://github.com/protocolbuffers/protobuf/releases/download/v33.5/protobuf-33.5.bazel.tar.gz",
+      "revision": "33.5",
+      "sha256": "692ea6352402599c72020d2487c8bace5c50439bac2029ed864b323e5e214e8b",
+      "bytes": 6891291,
+      "archive": "protobuf-33.5.tar.gz",
+      "scope": "IAMF declared dependency sources; inclusion does not assert every target is linked",
+      "required_notices": [
+        "protobuf-33.5/LICENSE"
+      ]
+    }
+  ]
+}

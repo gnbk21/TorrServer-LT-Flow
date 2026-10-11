@@ -16,6 +16,7 @@ import (
 	"server/log"
 	"server/lt"
 	sets "server/settings"
+	"server/torr/storage/torrstor"
 	"server/torr/utils"
 	"server/version"
 )
@@ -55,16 +56,21 @@ func LoadTorrent(tor *Torrent) *Torrent {
 	if !out.WaitInfo() {
 		return nil
 	}
-	out.Title = tor.Title
-	out.Poster = tor.Poster
-	out.Data = tor.Data
-	out.Category = tor.Category
-	if tor.Timestamp != 0 {
-		out.Timestamp = tor.Timestamp
+	tor.mu.Lock()
+	title, poster, data, category, timestamp, size := tor.Title, tor.Poster, tor.Data, tor.Category, tor.Timestamp, tor.Size
+	tor.mu.Unlock()
+	out.mu.Lock()
+	out.Title = title
+	out.Poster = poster
+	out.Data = data
+	out.Category = category
+	if timestamp != 0 {
+		out.Timestamp = timestamp
 	}
-	if tor.Size > 0 {
-		out.Size = tor.Size
+	if size > 0 {
+		out.Size = size
 	}
+	out.mu.Unlock()
 	// A magnet-only DB record just produced its info-dict (backfilled into the
 	// spec by signalGotInfo): persist it so the next server start serves this
 	// torrent instantly instead of re-fetching metadata from the swarm.
@@ -93,6 +99,7 @@ func AddTorrent(spec *TorrentSpec, title, poster, data, category string) (*Torre
 		return nil, err
 	}
 
+	t.mu.Lock()
 	if t.Title == "" {
 		t.Title = title
 		if title == "" && dbt != nil {
@@ -120,6 +127,7 @@ func AddTorrent(spec *TorrentSpec, title, poster, data, category string) (*Torre
 			t.Data = dbt.Data
 		}
 	}
+	t.mu.Unlock()
 	return t, nil
 }
 
@@ -149,7 +157,7 @@ func GetTorrentInfo(hashHex string) *Torrent {
 	if dbt := sets.GetTorrent(hashHex); dbt != nil {
 		return torrentFromDB(dbt)
 	}
-	return nil
+	return GetTorrentDB(NewHashFromHex(hashHex))
 }
 
 // GetTorrent returns the in-memory torrent if present, or revives a
@@ -211,12 +219,14 @@ func SetTorrent(hashHex, title, poster, category, data string) *Torrent {
 		if title == "" && tor.LTHandle() != nil {
 			title = tor.Name()
 		}
+		tor.mu.Lock()
 		tor.Title = title
 		tor.Poster = poster
 		tor.Category = category
 		if data != "" {
 			tor.Data = data
 		}
+		tor.mu.Unlock()
 	}
 	if dbt != nil {
 		dbt.Title = title
@@ -236,13 +246,22 @@ func SetTorrent(hashHex, title, poster, category, data string) *Torrent {
 // RemTorrent removes a torrent from memory, the DB and (when configured)
 // the on-disk cache directory.
 func RemTorrent(hashHex string) error {
+	var hash Hash
+	if err := hash.UnmarshalText([]byte(hashHex)); err != nil {
+		return err
+	}
+	// Only a canonical digest may become a cache path component.
+	hashHex = hash.HexString()
 	if sets.ReadOnly {
 		log.TLogln("torr.RemTorrent: read-only DB mode:", hashHex)
 		return errors.New("read-only DB mode")
 	}
-	hash := NewHashFromHex(hashHex)
-	if helperEngine() != nil && helperEngine().preparation != nil {
-		if handled, err := helperEngine().preparation.removeTorrentJobs(hash); handled {
+	engine := helperEngine()
+	if engine == nil {
+		return errors.New("torrent engine is unavailable")
+	}
+	if engine.preparation != nil {
+		if handled, err := engine.preparation.removeTorrentJobs(hash); handled {
 			if err != nil {
 				return err
 			}
@@ -251,28 +270,38 @@ func RemTorrent(hashHex string) error {
 		}
 	}
 
-	tor := helperEngine().GetTorrent(hash)
-	if tor == nil {
-		RemTorrentDB(hash)
-		if sets.BTsets().UseDisk && hashHex != "" && hashHex != "/" {
-			os.RemoveAll(filepath.Join(sets.BTsets().TorrentsSavePath, hashHex))
+	config := sets.BTsets()
+	storageHash := hash
+	if tor := engine.GetTorrent(hash); tor != nil {
+		storageHash = tor.StorageHash()
+		engine.RemoveTorrent(hash)
+	} else if stored := GetTorrentDB(hash); stored != nil {
+		storageHash = stored.Hash()
+		// A retained hybrid can have a v2 public link and a v1 storage key.
+		if meta, err := lt.ParseTorrentBytes(stored.InfoBytes); err == nil &&
+			(hashHex == meta.InfoHashV1 || hashHex == meta.InfoHashV2) {
+			storageHash = NewHashFromHex(meta.InfoHash)
 		}
-		return nil
 	}
-
-	closeCh := tor.closeCh
-	if helperEngine().RemoveTorrent(hash) {
-		select {
-		case <-closeCh:
-		case <-time.After(5 * time.Second):
-			log.TLogln("torr.RemTorrent: timeout waiting for close:", hashHex)
-		}
-		if sets.BTsets().UseDisk && hashHex != "" && hashHex != "/" {
-			name := filepath.Join(sets.BTsets().TorrentsSavePath, hashHex)
-			if _, err := os.Stat(name); err == nil {
-				log.TLogln("torr.RemTorrent: removing cache files for", hashHex)
-				os.RemoveAll(name)
+	if config != nil && config.UseDisk {
+		deadline := time.Now().Add(5 * time.Second)
+		for torrstor.Global().CacheByHash(storageHash) != nil {
+			if time.Now().After(deadline) {
+				return errors.New("native storage cleanup is pending; cache files retained")
 			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		// Serialize the final owner check and removal with native re-addition.
+		// A replacement must keep its cache; a timeout also preserves the DB.
+		engine.mu.Lock()
+		if engine.findTorrentLocked(hash) != nil || torrstor.Global().CacheByHash(storageHash) != nil {
+			engine.mu.Unlock()
+			return errors.New("torrent was re-added; cache files retained")
+		}
+		err := os.RemoveAll(filepath.Join(config.TorrentsSavePath, storageHash.HexString()))
+		engine.mu.Unlock()
+		if err != nil {
+			return err
 		}
 	}
 	RemTorrentDB(hash)

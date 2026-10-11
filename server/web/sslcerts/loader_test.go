@@ -6,9 +6,31 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestLeafInspectionRejectsOversizedConfiguredCertificate(t *testing.T) {
+	certPEM, _, err := generateSelfSignedCert(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := filepath.Join(t.TempDir(), "certificate.pem")
+	if err := os.WriteFile(name, certPEM, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if readLeaf(name) == nil {
+		t.Fatal("valid leaf rejected")
+	}
+	data := append(certPEM, []byte(strings.Repeat(" ", MaxPEMSize))...)
+	if err := os.WriteFile(name, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if readLeaf(name) != nil {
+		t.Fatal("oversized configured certificate accepted")
+	}
+}
 
 func TestLoaderReloadAndInvalidReplacement(t *testing.T) {
 	withTempPath(t)

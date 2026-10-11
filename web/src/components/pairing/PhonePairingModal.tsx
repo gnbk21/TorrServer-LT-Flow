@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Modal } from "../common/Modal";
 import { Button } from "../common/Button";
@@ -6,6 +7,9 @@ import { generateQrSvg } from "../../lib/qr";
 import { rankServerAddresses, safePairingUrl } from "../../lib/network";
 import { copyText } from "../../lib/clipboard";
 import { useExternalMediaBase } from "../../hooks/mediaBase";
+import { useVisible } from "../../hooks/queries";
+import { certificatesApi } from "../../api/certificates";
+import { RequestError } from "../common/RequestState";
 export interface PhonePairingModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -17,7 +21,9 @@ export function PhonePairingModal({
   serverIps,
 }: PhonePairingModalProps) {
   const { t } = useTranslation();
-  const mediaBase = useExternalMediaBase(isOpen);
+  const visible = useVisible();
+  const client = useQueryClient();
+  const mediaBase = useExternalMediaBase(isOpen && visible);
   const addresses = rankServerAddresses(
     serverIps || [],
     undefined,
@@ -40,10 +46,27 @@ export function PhonePairingModal({
   } catch {
     /* Invalid manual input must never become a QR. */
   }
+  const https = safe.startsWith("https:");
+  const certificate = useQuery({
+    queryKey: ["pairing-certificates"],
+    queryFn: ({ signal }) => certificatesApi.status(signal),
+    enabled: isOpen && visible && https,
+    staleTime: 30_000,
+    retry: false,
+  });
+  useEffect(() => {
+    const cancel = () =>
+      void client.cancelQueries({
+        queryKey: ["pairing-certificates"],
+        exact: true,
+      });
+    if (!isOpen || !visible || !https) cancel();
+    return cancel;
+  }, [client, isOpen, visible, https]);
   useEffect(() => {
     let disposed = false;
     setQr("");
-    if (safe)
+    if (safe && isOpen && visible)
       generateQrSvg(safe)
         .then((svg) => {
           if (!disposed) setQr(svg);
@@ -54,7 +77,7 @@ export function PhonePairingModal({
     return () => {
       disposed = true;
     };
-  }, [safe]);
+  }, [safe, isOpen, visible]);
   const copy = (value: string) =>
     copyText(value)
       .then(() => setMessage(t("torrent.copied")))
@@ -100,6 +123,30 @@ export function PhonePairingModal({
         {!safe && <p role="status">{t("pairing.invalidAddress")}</p>}
         {safe && (
           <>
+            <div className="panel space-y-2 text-sm">
+              <p>{t(https ? "pairing.httpsTrust" : "pairing.httpPlaintext")}</p>
+              <p>{t("pairing.reachability")}</p>
+              {https && certificate.isPending && (
+                <p role="status">{t("pairing.checkingCertificate")}</p>
+              )}
+              {https && certificate.error && (
+                <RequestError
+                  error={certificate.error}
+                  retry={() => certificate.refetch()}
+                />
+              )}
+              {https && certificate.data && (
+                <p>
+                  {t(
+                    certificate.data.enabled
+                      ? certificate.data.cert.trusted
+                        ? "pairing.serverTrustOnly"
+                        : "pairing.serverUntrusted"
+                      : "pairing.tlsNotReported",
+                  )}
+                </p>
+              )}
+            </div>
             <div className="mx-auto w-48 bg-white rounded-xl p-3">
               {qr ? (
                 <div dangerouslySetInnerHTML={{ __html: qr }} />

@@ -71,6 +71,9 @@ type Cache struct {
 	evicted           map[int]bool // guarded by mu
 	storage           *Storage
 	flowCounters      flow.Counters
+	storageEvidence   flow.StorageObservations
+	reuseVerified     map[int]bool // guarded by mu; only these pieces wait for native hashes
+	reuseClosed       atomic.Bool
 	flowMu            sync.Mutex
 	verifiedReads     atomic.Bool
 	flowScarce        map[int]bool // at most 256 bounded diagnostic entries
@@ -93,12 +96,16 @@ type Cache struct {
 	indexWorkers      sync.WaitGroup
 	resourceBudget    atomic.Int64 // zero means not yet coordinated
 	backgroundLimited atomic.Bool
+	warmupRiskUntil   atomic.Int64 // short-lived watcher lease; no diagnostic poll drives scheduling
+	nextMu            sync.Mutex
+	nextWarmup        nextEpisodeWarmup
 
 	StorageID   int64
-	InfoHash    [20]byte
+	InfoHash    flow.InfoHash
 	NumPieces   int
 	totalSize   atomic.Int64 // exact metadata length; zero for legacy test callers
 	PieceLength int64
+	pieceSizes  atomic.Pointer[map[int]int64] // immutable BEP 52 short file tails
 
 	mu          sync.RWMutex
 	pieces      map[int]*Piece
@@ -257,7 +264,7 @@ type waitFocusEntry struct {
 // enough that an abandoned seek stops pulling its target quickly.
 const waitFocusLingerMs = 5000
 
-func newCache(s *Storage, sid int64, hash [20]byte, numPieces int, pieceLength int64) *Cache {
+func newCache(s *Storage, sid int64, hash flow.InfoHash, numPieces int, pieceLength int64) *Cache {
 	files := newDiskHandles(64)
 	if s != nil && s.diskFiles != nil {
 		files = s.diskFiles
@@ -393,6 +400,11 @@ func (c *Cache) SignalPieceComplete(piece int) {
 		if p.markVerifiedComplete() {
 			c.observeVerifiedForward(piece, p.expectedSize())
 		}
+		if p.Complete() {
+			c.mu.Lock()
+			delete(c.reuseVerified, piece)
+			c.mu.Unlock()
+		}
 	}
 	c.signalPieceProgress(piece)
 }
@@ -503,11 +515,12 @@ func (c *Cache) waitForBytes(ctx context.Context, piece int, off int64, reconcil
 func (c *Cache) readableAt(piece int, off int64) int64 {
 	c.mu.RLock()
 	p := c.pieces[piece]
+	reuse := c.reuseVerified[piece]
 	c.mu.RUnlock()
 	if p == nil {
 		return 0
 	}
-	if c.verifiedReads.Load() && !p.Complete() {
+	if (c.verifiedReads.Load() || reuse) && !p.Complete() {
 		return 0
 	}
 	return p.availableFrom(off)
@@ -533,7 +546,7 @@ func (c *Cache) readResidentPiece(piece int, off int64, dst []byte, verified boo
 	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	if (verified || c.verifiedReads.Load()) && !p.complete {
+	if (verified || c.verifiedReads.Load() || c.reuseVerified[piece]) && !p.complete {
 		return 0, io.EOF
 	}
 	n := p.availableFromLocked(off)
@@ -1183,6 +1196,13 @@ func (c *Cache) applyStreamPriorities() {
 			refetch[i] = struct{}{}
 		}
 	}
+	// Optional header/index work never receives deadlines or a cache reservation.
+	for _, i := range c.nextEpisodeDemand(len(blocked) > 0) {
+		raise(i, 1)
+		if !c.Have(i) && h.HasPiece(i) {
+			refetch[i] = struct{}{}
+		}
+	}
 	for _, r := range rs {
 		ph, ok := anchors[r.group]
 		if !ok {
@@ -1626,6 +1646,9 @@ const maxTailPinPieces = 6
 // close drops the in-memory state for every piece but leaves on-disk
 // files in place — they're the source of truth for the next resume.
 func (c *Cache) close() {
+	c.clearReuse()
+	c.SetWarmupPlaybackRisk(false)
+	c.ClearNextEpisodeWarmup()
 	c.stopBurstIndexes()
 	// Drop any leftover preload reservation (e.g. a preview that never streamed)
 	// so a dropped torrent doesn't carry a stale reserve into its next resume.
@@ -1637,6 +1660,7 @@ func (c *Cache) close() {
 		p.release()
 	}
 	c.pieces = nil
+	c.reuseVerified = nil
 	c.mu.Unlock()
 }
 
@@ -1644,12 +1668,16 @@ func (c *Cache) close() {
 // on-disk file (if any). Triggered when libtorrent asks us to delete
 // the storage (e.g. RemTorrent with delete=true).
 func (c *Cache) wipe() {
+	c.clearReuse()
+	c.SetWarmupPlaybackRisk(false)
+	c.ClearNextEpisodeWarmup()
 	c.stopBurstIndexes()
 	c.mu.Lock()
 	for _, p := range c.pieces {
 		p.wipe()
 	}
 	c.pieces = map[int]*Piece{}
+	c.reuseVerified = nil
 	c.mu.Unlock()
 }
 
@@ -1839,28 +1867,33 @@ func (c *Cache) consumeEvicted(piece int) bool {
 // to evict; if every spare piece is somehow protected we leave the cache a touch
 // over budget rather than evict the playing window.
 func (c *Cache) evictIfOverCapacity() {
+	c.runEviction(func() { c.evictPass() })
+}
+
+// runEviction coalesces trim requests while keeping at most one pass active.
+// Publish the request before attempting ownership, so a finishing worker cannot
+// miss a caller which loses the ownership race. A pass which freed no bytes may
+// have used an older protection/budget snapshot; queued changes still need a pass.
+func (c *Cache) runEviction(pass func()) {
 	// Single-flight: at most one eviction pass runs at a time. writePiece spawns a pass
 	// on EVERY 16 KB block, so a fast download would otherwise fire hundreds of
 	// overlapping passes per second, each doing a full reader + anchor walk
 	// (readerProtectRanges) under readersMu and contending with the streaming Read path.
+	c.evictAgain.Store(true)
 	if !c.evicting.CompareAndSwap(false, true) {
 		// A pass is already running. Record that more work arrived so it re-runs after
 		// finishing, instead of dropping this trigger — that re-run is what keeps filled
 		// from drifting above cap between passes under a fast download.
-		c.evictAgain.Store(true)
 		return
 	}
 	for {
 		c.evictAgain.Store(false)
-		evicted := c.evictPass()
+		pass()
 		c.evicting.Store(false)
-		// Re-run only while passes are actually freeing space AND a trigger arrived
-		// mid-pass (its CompareAndSwap failed, so it set evictAgain). A pass that evicted
-		// nothing is already at/under cap — stop, and let the next over-cap write
-		// re-trigger a fresh pass; this drives filled down to the budget under coalesced
-		// triggers without spinning empty passes during the cache-fill ramp (filled < cap).
-		// The re-acquire hands the loop to whichever goroutine wins, so exactly one runs.
-		if !evicted || !c.evictAgain.Load() || !c.evicting.CompareAndSwap(false, true) {
+		// Only a new request can cause another pass, even when the previous pass
+		// freed nothing. With no requests this stops immediately; the re-acquire
+		// hands the loop to whichever goroutine wins, so exactly one runs.
+		if !c.evictAgain.Load() || !c.evicting.CompareAndSwap(false, true) {
 			return
 		}
 	}
@@ -1868,8 +1901,7 @@ func (c *Cache) evictIfOverCapacity() {
 
 // evictPass is one capacity-trim pass: reap stranded incomplete leftovers, then LRU-evict
 // complete pieces until filled<=cap, never touching a protected window/pin. Returns
-// whether it evicted anything, so the single-flight loop in evictIfOverCapacity knows
-// whether another pass could free more. The caller holds the evicting guard.
+// whether it evicted anything. The caller holds the evicting guard.
 func (c *Cache) evictPass() (evictedAny bool) {
 	// Build the protect set ONCE and derive capacity from it (capacityFor), instead of
 	// capacity() and readerProtectRanges() each walking the readers + recomputing every
@@ -2369,15 +2401,7 @@ func (c *Cache) ReadersSnapshot() []*state.ReaderState {
 	return out
 }
 
-func hashHex(h [20]byte) string {
-	const hex = "0123456789abcdef"
-	out := make([]byte, 40)
-	for i, b := range h {
-		out[i*2] = hex[b>>4]
-		out[i*2+1] = hex[b&0x0f]
-	}
-	return string(out)
-}
+func hashHex(h flow.InfoHash) string { return h.HexString() }
 
 // touch is a placeholder for the LRU bookkeeping that lands in 4.2.
 func (c *Cache) touch(_ int) { _ = time.Now() }

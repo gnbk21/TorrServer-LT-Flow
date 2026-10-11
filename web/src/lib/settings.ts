@@ -1,5 +1,6 @@
 import type { BTSettings } from "../types/settings";
 export const flowBounds: Record<string, readonly [number, number]> = {
+  StreamTransportBufferKiB: [0, 1024],
   GlobalCacheBudgetMB: [0, 1048576],
   WarmCacheBudgetMB: [0, 65536],
   PreparationConcurrency: [1, 16],
@@ -25,6 +26,63 @@ export const flowBounds: Record<string, readonly [number, number]> = {
   "SwarmCustom.MinReconnectTime": [0, 600],
 };
 export type SettingsValue = string | number | boolean;
+// Tuning remains available through Advanced or search; choosing a view never
+// changes the draft or omits hidden fields from the submitted configuration.
+export const commonSettings = new Set([
+  "CacheSize",
+  "ReaderReadAHead",
+  "PreloadCache",
+  "UseDisk",
+  "TorrentsSavePath",
+  "RemoveCacheOnDrop",
+  "FriendlyName",
+  "TrackTimecode",
+  "MergeAllM3U",
+  "ForceEncrypt",
+  "EnableIPv6",
+  "DisableUpload",
+  "DownloadRateLimit",
+  "UploadRateLimit",
+  "PeersListenPort",
+  "Flow.TorrentInterface",
+  "Flow.RequireTorrentInterface",
+  "EnableDLNA",
+  "EnableBonjour",
+  "EnableRutorSearch",
+  "EnableTorznabSearch",
+  "TorznabUrls",
+  "EnableJacRedSearch",
+  "JacRedUrl",
+  "JacRedKey",
+  "SslPort",
+  "Flow.SecurityProfile",
+  "Flow.RequirePlaybackToken",
+  "Flow.Enabled",
+  "Flow.AdaptiveStartup",
+  "Flow.AdaptiveReadAhead",
+  "Flow.SwarmProfile",
+  "Flow.TargetBufferSeconds",
+  "Flow.NextEpisodeWarmup",
+  "Flow.MetricsEnabled",
+  "Flow.DiagnosticHistory",
+  "Flow.RangeTraceEnabled",
+]);
+
+export function settingsUnit(key: string): string {
+  if (key === "CacheSize" || key.endsWith("MB")) return "MiB";
+  if (key.endsWith("KiB")) return "KiB";
+  if (key === "DownloadRateLimit" || key === "UploadRateLimit") return "KiB/s";
+  if (key === "Flow.ManagementRateLimit") return "requests/min";
+  if (/Ms$/.test(key)) return "ms";
+  if (
+    /(?:Seconds|Sec|Timeout|RequestQueueTime|ReconnectTime|PlaybackTokenTTL)$/.test(
+      key,
+    )
+  )
+    return "s";
+  if (/(?:Pct|ReadAHead|PreloadCache)$/.test(key)) return "%";
+  return "";
+}
 export function flattenSettings(
   settings: BTSettings,
 ): Record<string, SettingsValue> {
@@ -74,6 +132,13 @@ export function validateSettings(
   values: Record<string, SettingsValue>,
 ): Record<string, string> {
   const errors: Record<string, string> = {};
+  if (
+    values["Flow.StreamTransportBufferKiB"] !== undefined &&
+    ![0, 64, 256, 1024].includes(
+      Number(values["Flow.StreamTransportBufferKiB"]),
+    )
+  )
+    errors["Flow.StreamTransportBufferKiB"] = "0 / 64 / 256 / 1024 KiB";
   for (const [name, [min, max]] of Object.entries(flowBounds)) {
     const key = `Flow.${name}`;
     const value = values[key];

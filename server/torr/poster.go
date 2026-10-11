@@ -3,6 +3,7 @@ package torr
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"unicode"
 
 	"server/log"
+	"server/netpolicy"
 	sets "server/settings"
 	"server/torr/state"
 )
@@ -32,11 +34,18 @@ func (t *Torrent) fetchPosterIfMissing() {
 	// Title and copy the DB poster right after GotInfo returns.
 	time.Sleep(2 * time.Second)
 
-	if t.Poster != "" {
+	t.mu.Lock()
+	hasPoster := t.Poster != ""
+	t.mu.Unlock()
+	if hasPoster {
 		return
 	}
 	if dbt := GetTorrentDB(t.Hash()); dbt != nil && dbt.Poster != "" {
-		t.Poster = dbt.Poster
+		t.mu.Lock()
+		if t.Poster == "" {
+			t.Poster = dbt.Poster
+		}
+		t.mu.Unlock()
 		return
 	}
 	cfg := sets.BTsets().TMDBSettings
@@ -69,7 +78,13 @@ func (t *Torrent) fetchPosterIfMissing() {
 		return
 	}
 
+	t.mu.Lock()
+	if t.Poster != "" {
+		t.mu.Unlock()
+		return
+	}
 	t.Poster = poster
+	t.mu.Unlock()
 	log.TLogln("torr.poster:", t.Hash().HexString(), "←", poster, "(query:", strconv.Quote(query)+")")
 	// Persist only when the torrent already has a DB record, so an add with
 	// save_to_db=false stays session-only.
@@ -87,9 +102,12 @@ type posterQuery struct {
 // torrent, in decreasing order of curation: Title (user input or magnet dn),
 // metadata torrent name, name of the largest file.
 func (t *Torrent) posterQueryCandidates() []posterQuery {
+	t.mu.Lock()
+	title := t.Title
+	t.mu.Unlock()
 	var names []string
-	if t.Title != "" {
-		names = append(names, t.Title)
+	if title != "" {
+		names = append(names, title)
 	}
 	if n := t.Name(); n != "" {
 		names = append(names, n)
@@ -156,7 +174,7 @@ func searchTMDBPoster(cfg sets.TMDBConfig, query string, year int, lang string) 
 	params.Set("language", lang)
 	params.Set("include_image_language", lang+",null,en")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 10 * time.Second, Transport: netpolicy.HTTPTransport()}
 	resp, err := client.Get(base + "?" + params.Encode())
 	if err != nil {
 		return "", err
@@ -169,7 +187,14 @@ func searchTMDBPoster(cfg sets.TMDBConfig, query string, year int, lang string) 
 	var payload struct {
 		Results []tmdbResult `json:"results"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (4<<20)+1))
+	if err != nil {
+		return "", err
+	}
+	if len(body) > 4<<20 {
+		return "", fmt.Errorf("tmdb: response exceeds 4 MiB")
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
 		return "", err
 	}
 

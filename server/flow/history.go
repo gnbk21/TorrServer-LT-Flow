@@ -22,18 +22,19 @@ const HistoryArchives = 3 // Four files total, at most 4 MiB.
 // request headers or arbitrary metadata. Strings are checked against enums.
 // Torrent is a process-local sequence, not a persistent media identity.
 type HistoryEvent struct {
-	Sparse    *SparseHistory `json:"sparse,omitempty"`
-	Time      time.Time      `json:"time"`
-	Run       string         `json:"run"`
-	Type      string         `json:"type"`
-	Stage     string         `json:"stage,omitempty"`
-	Torrent   uint64         `json:"torrent,omitempty"`
-	File      int            `json:"file,omitempty"`
-	ElapsedMs int64          `json:"elapsed_ms"`
-	Bytes     int64          `json:"bytes,omitempty"`
-	Code      int            `json:"code,omitempty"`
-	Operation int            `json:"operation,omitempty"`
-	Dropped   uint64         `json:"dropped,omitempty"`
+	Sparse            *SparseHistory `json:"sparse,omitempty"`
+	Time              time.Time      `json:"time"`
+	Run               string         `json:"run"`
+	Type              string         `json:"type"`
+	Stage             string         `json:"stage,omitempty"`
+	Torrent           uint64         `json:"torrent,omitempty"`
+	File              int            `json:"file,omitempty"`
+	ElapsedMs         int64          `json:"elapsed_ms"`
+	OperationMeasured bool           `json:"operation_measured,omitempty"`
+	Bytes             int64          `json:"bytes,omitempty"`
+	Code              int            `json:"code,omitempty"`
+	Operation         int            `json:"operation,omitempty"`
+	Dropped           uint64         `json:"dropped,omitempty"`
 }
 
 type SparseHistory struct {
@@ -111,12 +112,12 @@ func NewHistory(dir string) (*History, error) {
 
 func validHistoryEvent(e HistoryEvent) bool {
 	switch e.Type {
-	case "engine_started", "engine_stopped", "metadata", "startup", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht", "sparse":
+	case "engine_started", "engine_stopped", "metadata", "startup", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht", "sparse", "seek", "recovery", "storage":
 	default:
 		return false
 	}
 	switch e.Stage {
-	case "", "METADATA", "PEERS", "FIRST_BLOCK", "HEAD_INDEX", "PREBUFFER", "PROBE_GRACE", "READY", "PLAYING", "READER_WINDOW", "CANCELLED", "TIMEOUT", "FAILED", "DHT_RESTORED", "DHT_SAVED", "DHT_IGNORED", "PAUSED", "REDUNDANT", "OTHER":
+	case "", "METADATA", "PEERS", "FIRST_BLOCK", "HEAD_INDEX", "PREBUFFER", "PROBE_GRACE", "READY", "PLAYING", "READER_WINDOW", "CANCELLED", "TIMEOUT", "FAILED", "DHT_RESTORED", "DHT_SAVED", "DHT_IGNORED", "PAUSED", "REDUNDANT", "OTHER", "CACHE_READ_SLOW", "CACHE_WRITE_SLOW", "CACHE_READ_FAILED", "CACHE_WRITE_FAILED":
 	default:
 		return false
 	}
@@ -133,7 +134,10 @@ func (h *History) Record(e HistoryEvent) {
 		h.dropped.Add(1)
 		return
 	}
-	e.Time, e.Run = time.Now().UTC(), h.run
+	if e.Time.IsZero() {
+		e.Time = time.Now().UTC()
+	}
+	e.Run = h.run
 	select {
 	case h.queue <- e:
 	default:

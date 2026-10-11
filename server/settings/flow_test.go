@@ -32,6 +32,28 @@ func TestStreamingExperimentsDefaultOffAndRoundTrip(t *testing.T) {
 	}
 }
 
+func TestTransportBufferMigrationAndBounds(t *testing.T) {
+	for _, value := range []int{0, 64, 256, 1024, -1, 1, 65536} {
+		f := DefaultFlowSettings()
+		f.StreamTransportBufferKiB = value
+		f.Normalize()
+		if value == 0 || value == 64 || value == 256 || value == 1024 {
+			if f.StreamTransportBufferKiB != value {
+				t.Fatal("explicit transport option lost")
+			}
+		} else if f.StreamTransportBufferKiB != 1024 {
+			t.Fatal("invalid transport buffer not bounded")
+		}
+	}
+	var migrated FlowSettings
+	if err := json.Unmarshal([]byte(`{}`), &migrated); err != nil {
+		t.Fatal(err)
+	}
+	if migrated.StreamTransportBufferKiB != 1024 {
+		t.Fatal("existing transport default changed")
+	}
+}
+
 func TestFlowSettingsMigrateNewFieldsWithoutOverwritingFlags(t *testing.T) {
 	var f FlowSettings
 	if err := json.Unmarshal([]byte(`{"Enabled":true,"AdaptiveStartup":true,"RangeTraceEnabled":false,"TargetBufferSeconds":60}`), &f); err != nil {
@@ -90,6 +112,9 @@ func TestFlowHistoryAndDHTMigration(t *testing.T) {
 	}
 	if migrated.DiagnosticHistory || !migrated.DHTStatePersistence {
 		t.Fatal("incorrect new-field defaults")
+	}
+	if migrated.NextEpisodeWarmup {
+		t.Fatal("warmup must migrate disabled")
 	}
 	var explicit FlowSettings
 	if err := json.Unmarshal([]byte(`{"DiagnosticHistory":true,"DHTStatePersistence":false}`), &explicit); err != nil {

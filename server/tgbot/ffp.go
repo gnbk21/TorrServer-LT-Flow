@@ -18,7 +18,7 @@ import (
 
 func cmdFfp(c tele.Context) error {
 	uid := c.Sender().ID
-	args := c.Args()
+	args := callbackArgs(c)
 	if len(args) < 2 {
 		return c.Send(tr(uid, "ffp_usage"))
 	}

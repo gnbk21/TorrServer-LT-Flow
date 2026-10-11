@@ -1,6 +1,8 @@
 package torrstor
 
 import (
+	"errors"
+	"io"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -70,6 +72,14 @@ func savePath() string {
 }
 
 func (p *Piece) WriteAt(b []byte, off int64) (int, error) {
+	length := p.expectedSize()
+	if off < 0 || off > length || int64(len(b)) > length-off {
+		return 0, errOutOfPiece
+	}
+	if len(b) == 0 {
+		return 0, nil
+	}
+	started := storageOperationStart()
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	var (
@@ -94,6 +104,9 @@ func (p *Piece) WriteAt(b []byte, off int64) (int, error) {
 		// AND hash-verified) via Cache.SignalPieceComplete -> setComplete.
 		p.markAvailLocked(off, int64(n))
 		p.accessed.Store(time.Now().Unix())
+	}
+	if !started.IsZero() {
+		p.cache.storageEvidence.Record(true, started, time.Since(started), n, err != nil)
 	}
 	return n, err
 }
@@ -165,9 +178,14 @@ func (p *Piece) availableFromLocked(off int64) int64 {
 }
 
 func (p *Piece) ReadAt(b []byte, off int64) (int, error) {
+	started := storageOperationStart()
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.readAtLocked(b, off)
+	n, err := p.readAtLocked(b, off)
+	if !started.IsZero() {
+		p.cache.storageEvidence.Record(false, started, time.Since(started), n, err != nil && !errors.Is(err, io.EOF))
+	}
+	return n, err
 }
 
 func (p *Piece) readAtLocked(b []byte, off int64) (int, error) {
@@ -189,6 +207,11 @@ func (p *Piece) readAtLocked(b []byte, off int64) (int, error) {
 // expectedSize accounts for the final piece being potentially shorter
 // than PieceLength.
 func (p *Piece) expectedSize() int64 {
+	if sizes := p.cache.pieceSizes.Load(); sizes != nil {
+		if size, ok := (*sizes)[p.Id]; ok {
+			return size
+		}
+	}
 	if total := p.cache.totalSize.Load(); total > 0 && p.Id == p.cache.NumPieces-1 {
 		return total - int64(p.Id)*p.cache.PieceLength
 	}

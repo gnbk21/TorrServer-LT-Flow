@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"server/netpolicy"
 	"time"
 
 	_ "golang.org/x/image/webp"
@@ -33,7 +34,8 @@ func CheckImgUrl(link string) (ok, verified bool) {
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 
 	client := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout:   5 * time.Second,
+		Transport: netpolicy.HTTPTransport(),
 	}
 
 	resp, err := client.Do(req)

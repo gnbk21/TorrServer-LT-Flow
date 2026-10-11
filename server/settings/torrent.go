@@ -12,6 +12,8 @@ import (
 type TorrentSpec struct {
 	WebSeeds    []WebSeed  `json:"WebSeeds,omitempty"`
 	InfoHash    string     `json:"InfoHash"` // 40-hex lowercase
+	InfoHashV1  string     `json:"InfoHashV1,omitempty"`
+	InfoHashV2  string     `json:"InfoHashV2,omitempty"`
 	InfoBytes   []byte     `json:"InfoBytes,omitempty"`
 	Trackers    [][]string `json:"Trackers,omitempty"`
 	DisplayName string     `json:"DisplayName,omitempty"`
@@ -67,6 +69,9 @@ func ListTorrent() []*TorrentDB {
 	defer mu.Unlock()
 
 	var list []*TorrentDB
+	if tdb == nil {
+		return list
+	}
 	for _, key := range tdb.List("Torrents") {
 		buf := tdb.Get("Torrents", key)
 		if len(buf) == 0 {
@@ -92,6 +97,9 @@ func GetTorrent(hashHex string) *TorrentDB {
 	mu.Lock()
 	defer mu.Unlock()
 
+	if tdb == nil {
+		return nil
+	}
 	buf := tdb.Get("Torrents", hashHex)
 	if len(buf) == 0 {
 		return nil

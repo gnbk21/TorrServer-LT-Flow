@@ -45,9 +45,6 @@ func extractHashFromReply(c tele.Context) string {
 			}
 			if idx := strings.Index(btn.Data, "all|"); idx >= 0 {
 				h := btn.Data[idx+4:]
-				if len(h) >= 40 && isHash(h[:40]) {
-					return h[:40]
-				}
 				if isHash(h) {
 					return h
 				}
@@ -60,7 +57,7 @@ func extractHashFromReply(c tele.Context) string {
 const hashPageSize = 10
 
 func cmdHash(c tele.Context) error {
-	args := c.Args()
+	args := callbackArgs(c)
 	torrents := torr.ListTorrent()
 	if len(torrents) == 0 {
 		return c.Send(tr(c.Sender().ID, "no_torrents"))

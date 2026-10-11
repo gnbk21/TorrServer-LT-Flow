@@ -1,0 +1,9 @@
+<resources>
+    <string name="flow_diagnostics_title">Диагностика Flow</string>
+    <string name="flow_diagnostics_enable">Записывать диагностику воспроизведения</string>
+    <string name="flow_diagnostics_hint">По умолчанию выключено. Включается при следующем воспроизведении. Один ограниченный приватный отчёт с числовыми измерениями Media3; без автоматической отправки.</string>
+    <string name="flow_diagnostics_export">Экспорт отчёта</string>
+    <string name="flow_diagnostics_export_hint">Выберите JSON-файл. В отчётах нет названий видео, адресов и учётных данных.</string>
+    <string name="flow_diagnostics_exported">Отчёт экспортирован</string>
+    <string name="flow_diagnostics_unavailable">Отчёт отсутствует или экспорт не удался</string>
+</resources>

@@ -9,7 +9,7 @@ import (
 )
 
 func upload(c tele.Context) error {
-	args := c.Args()
+	args := callbackArgs(c)
 	if len(args) < 3 {
 		return c.Respond(&tele.CallbackResponse{Text: tr(c.Sender().ID, "callback_unknown")})
 	}
@@ -26,7 +26,7 @@ func upload(c tele.Context) error {
 }
 
 func uploadall(c tele.Context) error {
-	args := c.Args()
+	args := callbackArgs(c)
 	if len(args) < 2 {
 		return c.Respond(&tele.CallbackResponse{Text: tr(c.Sender().ID, "callback_unknown")})
 	}

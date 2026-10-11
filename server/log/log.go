@@ -61,7 +61,7 @@ func ConfigureConsole(mode string, service bool) bool {
 	consoleWriter = console.New(os.Stdout, color)
 	log.SetFlags(0)
 	log.SetPrefix("")
-	log.SetOutput(consoleWriter)
+	log.SetOutput(redactingWriter{consoleWriter})
 	return true
 }
 
@@ -76,7 +76,7 @@ func ConsolePanel(title string, sections []console.Section) {
 }
 
 func Event(level, component, message string) {
-	log.Printf("[%s] [%s] %s", level, component, message)
+	log.Printf("[%s] [%s] %s", level, component, RedactSecrets(message))
 }
 
 var (
@@ -85,6 +85,7 @@ var (
 )
 
 func Init(path, webpath string) {
+	log.SetOutput(redactingWriter{os.Stderr})
 	logPath = path
 	webLogPath = webpath
 
@@ -104,7 +105,7 @@ func Init(path, webpath string) {
 		}
 		logFile = ff
 		webLogFile = ff
-		webLog = log.New(ff, " ", log.LstdFlags)
+		webLog = log.New(redactingWriter{ff}, " ", log.LstdFlags)
 		applyServerLog(ff)
 		return
 	}
@@ -115,7 +116,7 @@ func Init(path, webpath string) {
 			fmt.Fprintf(os.Stderr, "Error create web log file: %v\n", err)
 		} else {
 			webLogFile = ff
-			webLog = log.New(ff, " ", log.LstdFlags)
+			webLog = log.New(redactingWriter{ff}, " ", log.LstdFlags)
 		}
 	}
 
@@ -145,7 +146,7 @@ func applyServerLog(ff *os.File) {
 	}
 	log.SetFlags(log.LstdFlags | log.LUTC | log.Lmsgprefix)
 	log.SetPrefix("UTC0 ")
-	log.SetOutput(ff)
+	log.SetOutput(redactingWriter{ff})
 }
 
 // CloseConsole restores console output without closing file loggers. The API
@@ -162,7 +163,7 @@ func CloseConsole() {
 // before restoring console mode, so its final ANSI reset is still interpreted.
 func closeConsoleOutput() {
 	if consoleWriter != nil {
-		log.SetOutput(os.Stderr)
+		log.SetOutput(redactingWriter{os.Stderr})
 		log.SetFlags(log.LstdFlags)
 		consoleWriter = nil
 	}
@@ -193,7 +194,7 @@ func Close() {
 }
 
 func TLogln(v ...interface{}) {
-	log.Print(RedactInternalMediaKey(fmt.Sprintln(v...)))
+	log.Print(safeLogEntry(RedactSecrets(RedactInternalMediaKey(fmt.Sprintln(v...)))))
 }
 
 var internalMediaKey = regexp.MustCompile(`probe_key=[A-Za-z0-9%_-]+`)
@@ -204,7 +205,7 @@ func RedactInternalMediaKey(s string) string {
 
 func WebLogln(v ...interface{}) {
 	if webLog != nil {
-		webLog.Println(v...)
+		webLog.Print(safeLogEntry(RedactSecrets(fmt.Sprintln(v...))))
 	}
 }
 

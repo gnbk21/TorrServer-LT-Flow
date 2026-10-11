@@ -1,6 +1,11 @@
 package torr
 
 import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"server/flow"
+	"server/log"
 	"server/lt"
 	"server/netpolicy"
 	"server/torrshash"
@@ -38,12 +45,26 @@ var errRedirectedToMagnet = errors.New("torr: redirected to magnet")
 //  3. http(s):// or file://
 //  4. exactly 40 hex chars — treated as an info hash (synthetic magnet)
 func ParseLink(link string) (*TorrentSpec, error) {
+	return ParseLinkContext(context.Background(), link)
+}
+
+// ParseLinkContext preserves the legacy dispatch while cancelling abandoned
+// HTTP downloads without cancelling a concurrent consumer of the same source.
+func ParseLinkContext(ctx context.Context, link string) (*TorrentSpec, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	link = strings.TrimSpace(link)
 	if link == "" {
 		return nil, errors.New("torr.ParseLink: empty link")
 	}
 
 	lower := strings.ToLower(link)
+	// A full v2 identity is also base62. Recognize digest lengths before the
+	// historical compact-token heuristic, preserving the old token decoder.
+	if (len(link) == 40 || len(link) == 64) && isHex(link) {
+		return ParseMagnetURI(magnetFromSpec(&TorrentSpec{InfoHash: NewHashFromHex(lower)}))
+	}
 
 	// 1. torrs:// or bare base62 token
 	if strings.HasPrefix(lower, "torrs://") ||
@@ -61,7 +82,7 @@ func ParseLink(link string) (*TorrentSpec, error) {
 	if u, err := url.Parse(link); err == nil && u.Scheme != "" {
 		switch strings.ToLower(u.Scheme) {
 		case "http", "https":
-			return parseHTTP(u.String())
+			return parseHTTPContext(ctx, u.String())
 		case "file":
 			path := u.Path
 			if runtime.GOOS == "windows" && strings.HasPrefix(path, "/") {
@@ -76,7 +97,7 @@ func ParseLink(link string) (*TorrentSpec, error) {
 		return ParseMagnetURI("magnet:?xt=urn:btih:" + strings.ToLower(link))
 	}
 
-	return nil, fmt.Errorf("torr.ParseLink: unknown scheme/format: %q", link)
+	return nil, errors.New("torr.ParseLink: unknown scheme/format")
 }
 
 // ParseMagnetURI parses a magnet URI via the shim.
@@ -105,20 +126,24 @@ func ParseBytes(buf []byte) (*TorrentSpec, error) {
 // ParseReader reads an io.Reader up to httpMaxBodyBytes and calls
 // ParseBytes.
 func ParseReader(r io.Reader) (*TorrentSpec, error) {
-	buf, err := io.ReadAll(io.LimitReader(r, httpMaxBodyBytes))
+	buf, err := io.ReadAll(io.LimitReader(r, httpMaxBodyBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("torr.ParseReader: %w", err)
+	}
+	if len(buf) > httpMaxBodyBytes {
+		return nil, errors.New("torrent metadata exceeds 64 MiB limit")
 	}
 	return ParseBytes(buf)
 }
 
 // ParseTorrentFilePath reads a .torrent file from disk.
 func ParseTorrentFilePath(path string) (*TorrentSpec, error) {
-	buf, err := os.ReadFile(path)
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("torr.ParseTorrentFilePath: %w", err)
 	}
-	return ParseBytes(buf)
+	defer file.Close()
+	return ParseReader(file)
 }
 
 // ParseTorrsHash decodes a torrs:// token (or bare base62 form) and
@@ -146,6 +171,34 @@ func ParseTorrsHash(token string) (*TorrentSpec, *torrshash.TorrsHash, error) {
 // 30x to a magnet: URI are special-cased: we intercept the redirect via
 // CheckRedirect, abort the body fetch and re-dispatch to ParseMagnetURI.
 func parseHTTP(u string) (*TorrentSpec, error) {
+	return parseHTTPContext(context.Background(), u)
+}
+
+type torrentFetchResult struct {
+	data   []byte
+	magnet string
+}
+
+var torrentFetches flow.FetchGroup[torrentFetchResult]
+
+func parseHTTPContext(ctx context.Context, u string) (*TorrentSpec, error) {
+	policy, _ := json.Marshal(netpolicy.Snapshot())
+	key := sha256.Sum256(append(append([]byte(u), 0), policy...))
+	result, err := torrentFetches.Do(ctx, hex.EncodeToString(key[:]), 4, func(shared context.Context) (torrentFetchResult, error) {
+		return fetchTorrentHTTP(shared, u)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if result.magnet != "" {
+		return ParseMagnetURI(result.magnet)
+	}
+	// Each spec owns its bytes; editing/persisting one result cannot mutate a
+	// concurrent owner's metadata. No completed-result cache is retained.
+	return ParseBytes(bytes.Clone(result.data))
+}
+
+func fetchTorrentHTTP(ctx context.Context, u string) (torrentFetchResult, error) {
 	var (
 		magnetURL string
 		hopCount  int
@@ -167,9 +220,9 @@ func parseHTTP(u string) (*TorrentSpec, error) {
 		},
 	}
 
-	req, err := http.NewRequest(http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return nil, fmt.Errorf("torr.parseHTTP: %w", err)
+		return torrentFetchResult{}, fmt.Errorf("torr.parseHTTP: %s", log.RedactSecrets(err.Error()))
 	}
 	req.Header.Set("User-Agent", "TorrServer-LT/1.0 (+libtorrent)")
 
@@ -178,20 +231,30 @@ func parseHTTP(u string) (*TorrentSpec, error) {
 		// Our CheckRedirect intercept (or a server that responded with a
 		// magnet: location url.Parse can't otherwise represent).
 		if magnetURL != "" {
-			return ParseMagnetURI(magnetURL)
+			return torrentFetchResult{magnet: magnetURL}, nil
 		}
 		if strings.HasPrefix(strings.ToLower(uerr.URL), "magnet:") {
-			return ParseMagnetURI(uerr.URL)
+			return torrentFetchResult{magnet: uerr.URL}, nil
 		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("torr.parseHTTP: %w", err)
+		if ctx.Err() != nil {
+			return torrentFetchResult{}, ctx.Err()
+		}
+		return torrentFetchResult{}, fmt.Errorf("torr.parseHTTP: %s", log.RedactSecrets(err.Error()))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("torr.parseHTTP: HTTP %s", resp.Status)
+		return torrentFetchResult{}, fmt.Errorf("torr.parseHTTP: HTTP %d", resp.StatusCode)
 	}
-	return ParseReader(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, httpMaxBodyBytes+1))
+	if err != nil {
+		return torrentFetchResult{}, fmt.Errorf("torrent metadata read: %s", log.RedactSecrets(err.Error()))
+	}
+	if len(data) > httpMaxBodyBytes {
+		return torrentFetchResult{}, errors.New("torrent metadata exceeds 64 MiB limit")
+	}
+	return torrentFetchResult{data: data}, nil
 }
 
 func specFromParsed(pt *lt.ParsedTorrent, info []byte) *TorrentSpec {
@@ -203,6 +266,8 @@ func specFromParsed(pt *lt.ParsedTorrent, info []byte) *TorrentSpec {
 	}
 	return &TorrentSpec{
 		InfoHash:    NewHashFromHex(pt.InfoHash),
+		InfoHashV1:  pt.InfoHashV1,
+		InfoHashV2:  pt.InfoHashV2,
 		InfoBytes:   info,
 		Trackers:    trackers,
 		DisplayName: pt.DisplayName,

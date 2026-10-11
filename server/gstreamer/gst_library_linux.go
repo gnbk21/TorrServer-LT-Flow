@@ -84,7 +84,7 @@ func closeLinuxLibraries(handles []uintptr) {
 
 func linuxLibraryCandidates(conf Config, name string) []string {
 	roots := gstRuntimeRoots(conf)
-	candidates := make([]string, 0, len(roots)*5)
+	candidates := make([]string, 0, len(roots))
 	for _, dir := range gstLibraryDirCandidates(roots) {
 		candidates = append(candidates, filepath.Join(dir, name))
 	}

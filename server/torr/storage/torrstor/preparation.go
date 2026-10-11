@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"server/flow"
 	"server/lt"
 )
 
@@ -26,10 +27,10 @@ func clonePreparationRanges(in map[string]PreparationRange) map[string]Preparati
 	return out
 }
 
-func (s *Storage) ConfigurePreparation(hash [20]byte, plan PreparationStorage) error {
+func (s *Storage) ConfigurePreparation(hash flow.InfoHash, plan PreparationStorage) error {
 	s.mu.Lock()
 	if s.preparations == nil {
-		s.preparations = make(map[[20]byte]PreparationStorage)
+		s.preparations = make(map[flow.InfoHash]PreparationStorage)
 	}
 	if len(plan.Ranges) == 0 {
 		delete(s.preparations, hash)
@@ -44,7 +45,7 @@ func (s *Storage) ConfigurePreparation(hash [20]byte, plan PreparationStorage) e
 	return nil
 }
 
-func (s *Storage) PreparationPlan(hash [20]byte) (PreparationStorage, bool) {
+func (s *Storage) PreparationPlan(hash flow.InfoHash) (PreparationStorage, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	p, ok := s.preparations[hash]
@@ -186,7 +187,7 @@ func (c *Cache) BeginPreparationCleanup() bool {
 
 func (s *Storage) ResetPreparationPlans() {
 	s.mu.Lock()
-	s.preparations = make(map[[20]byte]PreparationStorage)
+	s.preparations = make(map[flow.InfoHash]PreparationStorage)
 	s.mu.Unlock()
 }
 

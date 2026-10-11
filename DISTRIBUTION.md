@@ -9,11 +9,30 @@ Windows MinGW/GCC and Android NDK static runtime notices are collected from
 the toolchains used in CI; their digests are recorded in `BUILDINFO.json` and
 their original text is included in `NATIVE_AND_GO_NOTICES.txt`.
 
+`SBOM.cdx.json` records exact Go modules/runtime, pinned native sources, resolved
+production web dependencies and the optional Windows helper's runtime archives.
+Release and experimental-player workflows validate the generated inventory
+against hash-checked, unmodified official CycloneDX 1.6 schemas and reject
+duplicate identities, dangling dependencies or missing graph vertices before
+publication. Source inventory does not imply every source component is linked.
+For a local packaging check, install `web` build dependencies with
+`yarn install --frozen-lockfile`, then run
+`node build/validate_sbom.cjs <package-directory>/SBOM.cdx.json`.
+
+The optional experimental player also preserves its original application source,
+Flow patch license and exact build recipe. `SOURCE_MANIFEST.json` records both
+upstream and Flow commits, checks the archived AAR bytes against the built
+inventory, and hashes the source bundle. The archive contains prebuilt decoder
+binaries; their corresponding native source/configuration/license mapping is
+still an open audit and is not established by schema validation. See the
+[source-bundle scope](build/just-player/SOURCE_BUNDLE.md). This experimental
+artifact is separate from the stable server release.
+
 ## Channels
 
 - `MatriX.145.Flow-vX.Y.Z`: stable, after acceptance evidence is recorded in
   `RELEASE_ACCEPTANCE.json` and the tagged commit is present on `master`.
-  Flow 1.0 follows the owner-approved policy: required automated gates pass;
+  Flow stable releases follow the owner-approved policy: required automated gates pass;
   unfinished field checks are explicitly disclosed in the release notes.
 - `MatriX.145.Flow-vX.Y.Z-preview.N` (or alpha/beta/rc): prerelease. Preview
   builds pass CI but may have remaining real-device or long-session gates.
@@ -45,6 +64,10 @@ These attestations are separate from Windows Authenticode publisher signing.
 No publisher signing certificate is bundled or implied.
 
 ## Windows installation
+
+The optional [Windows interface guard](WINDOWS_INTERFACE_GUARD.md) accompanies
+the Windows ZIP. It is never installed automatically. Its explicit preview,
+Administrator install/remove and verification limits are documented separately.
 
 Extract the ZIP. Keep all four PowerShell scripts together. Use an explicit
 state directory separate from the executable directory. Existing state is

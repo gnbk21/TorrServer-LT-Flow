@@ -429,7 +429,16 @@ func TestCache_TailPinSurvivesPreloadHandoff(t *testing.T) {
 	// by the standing tail pin, NOT by the now-cleared preload reserve.
 	c.ClearPreloadReserve()
 
-	c.evictIfOverCapacity()
+	// ClearPreloadReserve launches a trim asynchronously. Check that worker's
+	// eventual contract, rather than racing a second explicit trim against it.
+	// Drain it before restoring process-wide settings at test cleanup.
+	deadline := time.Now().Add(2 * time.Second)
+	for c.evicting.Load() || c.Filled() > c.capacity() {
+		if time.Now().After(deadline) {
+			t.Fatalf("eviction did not converge: filled=%d cap=%d", c.Filled(), c.capacity())
+		}
+		time.Sleep(time.Millisecond)
+	}
 
 	got := func(id int) bool {
 		c.mu.RLock()

@@ -23,7 +23,7 @@ var backupMu sync.Mutex
 func portableBackup(c *gin.Context) {
 	backup, err := sets.ExportBackup()
 	if err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": errorMessage(err)})
 		return
 	}
 	data, err := json.MarshalIndent(backup, "", "  ")
@@ -61,7 +61,7 @@ func backupPreview(c *gin.Context) {
 	}
 	backup, err := sets.ParseBackup(data)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": errorMessage(err)})
 		return
 	}
 	keys := []string{}

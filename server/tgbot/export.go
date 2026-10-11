@@ -23,12 +23,11 @@ func cmdExport(c tele.Context) error {
 
 	var magnets strings.Builder
 	for _, t := range torrents {
-		hash := t.Hash().HexString()
 		title := t.Title
 		if title == "" {
 			title = t.Name()
 		}
-		magnet := fmt.Sprintf("magnet:?xt=urn:btih:%s", hash)
+		magnet := t.Hash().Magnet()
 		if title != "" {
 			magnet += "&dn=" + url.QueryEscape(title)
 		}

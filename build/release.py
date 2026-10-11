@@ -10,6 +10,7 @@ import re
 import shlex
 import subprocess
 import zipfile
+from sbom import generate as generate_sbom
 
 REPOSITORY = "gnbk21/TorrServer-LT-Flow"
 PLATFORMS = ("windows-amd64", "linux-amd64", "linux-arm64", "linux-armv7",
@@ -94,6 +95,24 @@ def module_notices(binaries, native_root):
     return "\n\n".join(f"{'=' * 72}\n{name}\n{'=' * 72}\n{text}" for name, text in sections)
 
 
+def validate_guard(helper, metadata, root, commit):
+    if (metadata.get("schema_version") != 1 or metadata.get("source_commit") != commit
+            or metadata.get("name") != helper.name or metadata.get("executable_sha256") != digest(helper)
+            or metadata.get("source_sha256") != digest(root / "build/windows-interface-guard.cpp")):
+        raise ValueError("Windows interface guard source/binary identity mismatch")
+    compiler = metadata.get('compiler', {})
+    archives = metadata.get('runtime_archives', [])
+    expected = {'libstdc++.a','libgcc.a','libgcc_eh.a','libmingw32.a','libmingwex.a'}
+    # Debian MinGW reports e.g. "13-win32" from -dumpfullversion. Retain its
+    # thread-model suffix in provenance rather than rejecting or truncating it.
+    if (compiler.get('target') != 'x86_64-w64-mingw32'
+        or not re.fullmatch(r'[0-9]+(?:\.[0-9]+)*(?:-(?:win32|posix))?',compiler.get('version',''))
+        or not isinstance(archives,list) or len(archives)!=len(expected)
+        or any(not isinstance(entry,dict) or not re.fullmatch(r'[a-f0-9]{64}',entry.get('sha256','')) for entry in archives)
+        or {entry.get('name') for entry in archives} != expected):
+        raise ValueError('Incomplete Windows interface guard runtime inventory')
+
+
 def package(artifact_dir, output, tag, commit, native_root):
     channel = classify(tag)
     if not re.fullmatch(r"[a-f0-9]{40}", commit):
@@ -114,11 +133,17 @@ def package(artifact_dir, output, tag, commit, native_root):
             binaries.append(binary)
             files[name] = {"sha256": digest(binary), "size": binary.stat().st_size}
             (output / name).write_bytes(binary.read_bytes())
+    helper = find_binary(artifact_dir, "FlowNetworkGuard-windows-amd64.exe")
+    helper_metadata = json.loads(find_binary(artifact_dir, "FlowNetworkGuard-build.json").read_text(encoding="utf-8"))
+    validate_guard(helper, helper_metadata, root, commit)
+    (output / helper.name).write_bytes(helper.read_bytes())
+    files[helper.name] = {"sha256": digest(helper), "size": helper.stat().st_size, "optional": True}
     base_url = f"https://github.com/{REPOSITORY}/releases/download/{tag}/"
     provenance = {"schema_version": 1, "repository": REPOSITORY, "source_commit": commit,
                   "version": tag, "channel": channel, "binaries": files,
                   "source_url": f"https://github.com/{REPOSITORY}/tree/{commit}"}
     provenance["native_build_pins"] = (root / "build/_common.sh").read_text(encoding="utf-8")
+    provenance["windows_interface_guard"] = helper_metadata
     provenance["native_cache_extension"] = {"version": 2, "declarations_sha256": digest(root / "build/patch_libtorrent_header.py"), "implementation_sha256": digest(root / "server/lt/lt_shim.cpp")}
     runtime_notices = {platform: find_binary(artifact_dir, f"RUNTIME_NOTICES-{platform}.txt") for platform in ("windows-amd64", "android-arm64", "android-armv7")}
     provenance["toolchain_runtime_notices"] = {platform: {"sha256": digest(path), "size": path.stat().st_size} for platform, path in runtime_notices.items()}
@@ -132,11 +157,15 @@ def package(artifact_dir, output, tag, commit, native_root):
     (output / "NATIVE_AND_GO_NOTICES.txt").write_text(notices, encoding="utf-8")
     for name in ("LICENSE", "DISTRIBUTION.md"):
         (output / name).write_bytes((root / name).read_bytes())
+    (output / "WINDOWS_INTERFACE_GUARD.md").write_bytes((root / "WINDOWS_INTERFACE_GUARD.md").read_bytes())
     (output / "THIRD_PARTY_NOTICES.txt").write_bytes((root / "server/web/pages/template/pages/THIRD_PARTY_NOTICES.txt").read_bytes())
+    build_epoch = int(subprocess.check_output(["git", "show", "-s", "--format=%ct", commit], cwd=root, text=True).strip())
+    timestamp = datetime.datetime.fromtimestamp(build_epoch, datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
+    (output / "SBOM.cdx.json").write_text(json.dumps(generate_sbom(root, binaries, tag, commit, timestamp, native_root, helper_metadata), indent=2)+'\n', encoding='utf-8')
     (output / "FlowTray.ps1").write_bytes((root / "tray/FlowTray.ps1").read_bytes())
     for name in ("Install-Flow.ps1", "Update-Flow.ps1", "FlowRelease.ps1"):
         (output / name).write_bytes((root / "distribution" / name).read_bytes())
-    documents = ("LICENSE", "DISTRIBUTION.md", "BUILDINFO.json", "NATIVE_AND_GO_NOTICES.txt", "THIRD_PARTY_NOTICES.txt")
+    documents = ("LICENSE", "DISTRIBUTION.md", "BUILDINFO.json", "NATIVE_AND_GO_NOTICES.txt", "THIRD_PARTY_NOTICES.txt", "SBOM.cdx.json")
     packages = {}
     for platform in PLATFORMS:
         name = f"TorrServer-Flow-{platform}-{tag}.zip"
@@ -152,6 +181,7 @@ def package(artifact_dir, output, tag, commit, native_root):
                 if binary.name.startswith(f"TorrServer-LT-{platform}"):
                     contents.append((binary, True))
             if platform.startswith("windows"):
+                contents.extend([(output / helper.name, True), (output / "WINDOWS_INTERFACE_GUARD.md", False)])
                 for script in ("FlowTray.ps1", "Install-Flow.ps1", "Update-Flow.ps1", "FlowRelease.ps1"):
                     contents.append((output / script, False))
             for path, executable in sorted(contents, key=lambda item: item[0].name):

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { certificatesApi } from "../../api/certificates";
+import { useVisibilityGate } from "../../hooks/queries";
 import { Button } from "../common/Button";
 import { Modal } from "../common/Modal";
 import { Loading, RequestError } from "../common/RequestState";
@@ -17,10 +18,11 @@ export function Certificates({
 }) {
   const { t } = useTranslation();
   const cache = useQueryClient();
+  const enabled = useVisibilityGate(["certificates"], visible);
   const query = useQuery({
     queryKey: ["certificates"],
     queryFn: ({ signal }) => certificatesApi.status(signal),
-    enabled: visible,
+    enabled,
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();

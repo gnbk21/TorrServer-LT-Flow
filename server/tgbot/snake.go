@@ -31,7 +31,7 @@ const (
 )
 
 func cmdSnake(c tele.Context) error {
-	args := c.Args()
+	args := callbackArgs(c)
 	hash := ""
 	cols, rows := 20, 3
 
@@ -297,7 +297,7 @@ func parseSnakeData(data string) (hash string, cols, rows int) {
 }
 
 func snakeKeyboard(uid int64, hash string, cols, rows int, active bool) *tele.ReplyMarkup {
-	data := snakeData(hash, cols, rows)
+	data := snakeData(callbackHash(hash), cols, rows)
 	if active {
 		return &tele.ReplyMarkup{InlineKeyboard: [][]tele.InlineButton{
 			{

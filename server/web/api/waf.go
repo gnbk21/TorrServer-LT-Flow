@@ -86,7 +86,7 @@ func updateWAF(c *gin.Context) {
 
 	var req wafUpdateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": errorMessage(err)})
 		return
 	}
 
@@ -97,7 +97,7 @@ func updateWAF(c *gin.Context) {
 		DefaultReferersEnabled: req.DefaultReferersEnabled,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errorMessage(err)})
 		return
 	}
 	c.JSON(http.StatusOK, snapshotToResponse(snap))

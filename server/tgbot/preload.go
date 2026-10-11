@@ -11,7 +11,7 @@ import (
 )
 
 func cmdPreload(c tele.Context) error {
-	args := c.Args()
+	args := callbackArgs(c)
 	if len(args) < 2 {
 		return c.Send(tr(c.Sender().ID, "preload_usage"))
 	}

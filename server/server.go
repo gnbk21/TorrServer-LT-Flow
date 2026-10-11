@@ -3,6 +3,7 @@ package server
 import (
 	"os"
 	"path/filepath"
+	"server/flow"
 	"strconv"
 
 	"server/tgbot"
@@ -91,7 +92,7 @@ func cleanCache() {
 	log.TLogln("Remove unused cache in dir:", settings.BTsets().TorrentsSavePath)
 	keep := map[string]bool{}
 	for _, d := range dirs {
-		if len(d.Name()) != 40 {
+		if !flow.ValidInfoHash(d.Name()) {
 			// Not a hash
 			continue
 		}

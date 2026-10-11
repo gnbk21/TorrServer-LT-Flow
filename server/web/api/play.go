@@ -35,8 +35,14 @@ func play(c *gin.Context) {
 		abortWithJSONError(c, http.StatusNotFound, errors.New("no infohash or file index in link"))
 		return
 	}
+	// Match /stream's source gate before parsing. Credential-free playback
+	// accepts torrent identities, never remote fetches or local file paths.
+	if err := utils.TestLink(hash, !notAuth); err != nil {
+		abortWithJSONError(c, http.StatusBadRequest, errors.New("wrong link"))
+		return
+	}
 
-	spec, err := utils.ParseLink(hash)
+	spec, err := utils.ParseLinkContext(c.Request.Context(), hash)
 	if err != nil {
 		abortWithJSONError(c, http.StatusInternalServerError, err)
 		return

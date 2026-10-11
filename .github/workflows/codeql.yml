@@ -1,0 +1,116 @@
+name: Flow CodeQL
+on:
+  pull_request:
+    branches: [develop, master]
+    paths-ignore: ['**/*.md']
+  push:
+    branches: [develop, master]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  windows-guard:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          languages: cpp
+          build-mode: manual
+          queries: security-extended
+      - name: Extract the real Windows WFP helper
+        shell: pwsh
+        run: ./build/build-windows-interface-guard.ps1 -BuildAcceptanceProbe
+      - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          category: /windows-interface-guard
+  web:
+    uses: ./.github/workflows/build-web.yml
+    with:
+      artifact-name: flow-web-codeql
+  interpreted:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+      - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          category: /language:${{ matrix.language }}
+  native:
+    needs: web
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: _src
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: _deps/linux-amd64
+          key: codeql-native-${{ runner.os }}-${{ hashFiles('build/_common.sh', 'build/_deps.sh', 'build/native-patches/**') }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: flow-web-codeql
+          path: server/web/pages/template
+      - name: Prepare pinned native dependencies
+        run: bash build/linux-amd64.sh
+      - name: Native protocol and cache regressions
+        env:
+          CGO_ENABLED: '1'
+          CGO_CXXFLAGS: -DTSL_HAVE_LT_INTERNALS
+          FLOW_REQUIRE_CACHE_EXTENSION: '1'
+          PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
+        run: |
+          g++ -std=c++17 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer build/test_disk_upload.cpp -o _out/test-disk-upload -L"$PWD/_deps/linux-amd64/lib" $(pkg-config --cflags --libs libtorrent-rasterbar) -pthread
+          env -u LD_PRELOAD _out/test-disk-upload
+          clang++ -std=c++17 -O1 -g -fsanitize=fuzzer,address,undefined -fno-omit-frame-pointer build/test_torrent_parser_fuzz.cpp server/lt/lt_shim.cpp server/lt/lt_disk_io.cpp -o _out/test-torrent-parser-fuzz -L"$PWD/_deps/linux-amd64/lib" $(pkg-config --cflags --libs libtorrent-rasterbar) -pthread
+          mkdir -p _out/parser-corpus
+          printf 'd4:infod6:lengthi100e4:name4:test12:piece lengthi16384e6:pieces20:00000000000000000000ee' > _out/parser-corpus/v1
+          printf 'magnet:?xt=urn:btmh:1220abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd' > _out/parser-corpus/v2-magnet
+          env -u LD_PRELOAD _out/test-torrent-parser-fuzz _out/parser-corpus -max_total_time=15 -timeout=3 -max_len=65536 -rss_limit_mb=2048
+          cd server
+          go test -count=1 -timeout 180s ./lt ./flow ./settings ./netpolicy ./torr ./torr/storage/torrstor ./web/api ./mcp ./tgbot
+          go test ./flow -run '^$' -fuzz '^FuzzInfoHash$' -fuzztime=10s -parallel=2
+          go test ./torr/storage/torrstor -run '^$' -fuzz '^FuzzStorageWriteBounds$' -fuzztime=15s -parallel=2
+      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          languages: go,cpp
+          build-mode: manual
+          queries: security-extended
+      - name: Extract Go and the real native bridge
+        env:
+          GOCACHE: ${{ runner.temp }}/flow-codeql-go-cache
+        run: bash build/linux-amd64.sh
+      - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          category: /native-go-cpp

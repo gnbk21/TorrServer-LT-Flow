@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal } from "../common/Modal";
 import { Button } from "../common/Button";
@@ -58,6 +58,8 @@ export function AddTorrentModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
   const [result, setResult] = useState("");
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const submitting = useRef(false);
   const chooseFiles = async (chosen: File[]) => {
     try {
       const imports = chosen.filter((file) => /\.(txt|json)$/i.test(file.name));
@@ -73,13 +75,20 @@ export function AddTorrentModal({
     }
   };
   const submit = async () => {
+    if (submitting.current) return;
+    submitting.current = true;
     setBusy(true);
     setError(undefined);
+    setResult("");
+    setProgress({ done: 0, total: 0 });
     let count = 0;
     try {
       const entries = parseImport(text);
       if (!entries.length && !files.length)
         throw new Error("torrent.sourceRequired");
+      const total = entries.length + files.length;
+      let done = 0;
+      setProgress({ done: 0, total });
       const failedEntries: AddTorrentRequest[] = [];
       const failedFiles: File[] = [];
       for (const row of entries) {
@@ -96,6 +105,7 @@ export function AddTorrentModal({
           failedEntries.push(row);
           setError(e);
         }
+        setProgress({ done: ++done, total });
       }
       for (const file of files) {
         try {
@@ -113,6 +123,7 @@ export function AddTorrentModal({
           failedFiles.push(file);
           setError(e);
         }
+        setProgress({ done: ++done, total });
       }
       // Keep only failures so retrying a partial batch never adds successes again.
       setText(
@@ -126,6 +137,7 @@ export function AddTorrentModal({
       setResult(t("torrent.addedCount", { count }));
       onSuccess();
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   };
@@ -148,6 +160,7 @@ export function AddTorrentModal({
         <label className="field">
           {t("ImportLibraryHint")}
           <textarea
+            disabled={busy}
             rows={4}
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -175,11 +188,16 @@ export function AddTorrentModal({
         </label>
         <label className="field">
           {t("torrent.title")}
-          <input value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input
+            disabled={busy}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
         </label>
         <label className="field">
           {t("Category")}
           <input
+            disabled={busy}
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           />
@@ -187,6 +205,7 @@ export function AddTorrentModal({
         <label className="field">
           {t("torrent.poster")}
           <input
+            disabled={busy}
             type="url"
             value={poster}
             onChange={(e) => setPoster(e.target.value)}
@@ -194,6 +213,7 @@ export function AddTorrentModal({
         </label>
         <label>
           <input
+            disabled={busy}
             type="checkbox"
             checked={save}
             onChange={(e) => setSave(e.target.checked)}
@@ -204,6 +224,9 @@ export function AddTorrentModal({
           <PosterSearch title={title} onSelect={setPoster} />
         </Suspense>
         {!!error && <RequestError error={error} />}{" "}
+        {busy && progress.total > 0 && (
+          <p role="status">{t("torrent.importProgress", progress)}</p>
+        )}
         {result && <p role="status">{result}</p>}
         <div className="actions">
           <Button onClick={onClose} disabled={busy}>

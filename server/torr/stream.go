@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -41,6 +42,11 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		http.Error(resp, "no torrent", http.StatusInternalServerError)
 		return errors.New("torr.Stream: nil torrent")
 	}
+	if !t.beginStream() {
+		http.Error(resp, "torrent is closing; retry playback", http.StatusServiceUnavailable)
+		return errors.New("torr.Stream: torrent closing")
+	}
+	defer t.endStream()
 	if !t.GotInfo() {
 		http.NotFound(resp, req)
 		return errors.New("torr.Stream: torrent has no metadata")
@@ -95,7 +101,7 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		http.Error(resp, "no reader (cache not yet open)", http.StatusServiceUnavailable)
 		return errors.New("torr.Stream: NewReader returned nil")
 	}
-	if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+	if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 		t.mu.Lock()
 		bitrate, duration, probeFile := t.BitRate, t.DurationSeconds, t.ProbeFileID
 		t.mu.Unlock()
@@ -117,6 +123,11 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 	// playback position.
 	reader.SetContext(req.Context())
 	classification, hint, flowSeq := t.flowStart(fileID, file, group, req)
+	if group != torrstor.ProbeReaderGroup {
+		if sessionID := t.FlowSessionID(fileID, group); sessionID != "" {
+			resp.Header().Set("X-Flow-Session", sessionID)
+		}
+	}
 	started := time.Now()
 	var recorder *flow.ResponseRecorder
 	if sets.CurrentFlow().MetricsEnabled {
@@ -156,9 +167,7 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 	etag := hex.EncodeToString([]byte(t.Hash().HexString() + "/" + file.Path))
 	resp.Header().Set("ETag", httptoo.EncodeQuotedString(etag))
 
-	if mime, err := mt.MimeTypeByPath(file.Path); err == nil && mime.IsMedia() {
-		resp.Header().Set("content-type", mime.String())
-	}
+	mt.SetStreamHeaders(resp.Header(), file.Path)
 
 	if req.Header.Get("getContentFeatures.dlna.org") != "" {
 		resp.Header().Set("contentFeatures.dlna.org", dlna.ContentFeatures{
@@ -181,9 +190,13 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		)
 	}
 
-	buffered := newBufferedStreamReader(reader, streamBufferSize)
-	buffered.ctx = req.Context()
-	http.ServeContent(resp, req, file.Path, time.Unix(t.Timestamp, 0), buffered)
+	var transport io.ReadSeeker = reader
+	if size := sets.CurrentFlow().StreamTransportBufferKiB << 10; size > 0 {
+		buffered := newBufferedStreamReader(reader, size)
+		buffered.ctx = req.Context()
+		transport = buffered
+	}
+	http.ServeContent(resp, req, file.Path, time.Unix(t.Timestamp, 0), transport)
 
 	if sets.BTsets() != nil && sets.BTsets().EnableDebug {
 		log.TLogln("torr.Stream: disconnect", "id=", streamID, "remote=", req.RemoteAddr)

@@ -1,6 +1,38 @@
 package torr
 
-import "testing"
+import (
+	"net/http"
+	"net/http/httptest"
+	"server/settings"
+	"strings"
+	"sync/atomic"
+	"testing"
+)
+
+func TestPosterSearchReadBoundAndUnavailableInterface(t *testing.T) {
+	previous := settings.BTsets()
+	settings.StoreBTsets(&settings.BTSets{Flow: settings.DefaultFlowSettings()})
+	t.Cleanup(func() { settings.StoreBTsets(previous) })
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		_, _ = w.Write([]byte(`{"results":[]}` + strings.Repeat(" ", 4<<20)))
+	}))
+	defer srv.Close()
+	cfg := settings.TMDBConfig{APIURL: srv.URL}
+	if _, err := searchTMDBPoster(cfg, "owned fixture", 0, "en"); err == nil || !strings.Contains(err.Error(), "exceeds 4 MiB") {
+		t.Fatalf("response bound not enforced: %v", err)
+	}
+	flow := settings.DefaultFlowSettings()
+	flow.TorrentInterface, flow.RequireTorrentInterface = "Flow-missing-tmdb-interface-418", true
+	settings.StoreBTsets(&settings.BTSets{Flow: flow})
+	if _, err := searchTMDBPoster(cfg, "owned fixture", 0, "en"); err == nil {
+		t.Fatal("unavailable binding bypassed")
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("unbound request reached endpoint: %d", calls.Load())
+	}
+}
 
 func TestCleanPosterQuery(t *testing.T) {
 	cases := []struct {

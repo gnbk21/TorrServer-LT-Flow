@@ -88,13 +88,37 @@
       "windows_executable_sha256": "fb2c5ddb010085127a3f30058a8507309fc7160004642b494c8e7a75dc945420",
       "container_index_digest": "sha256:abfeb6055e3a096808a6168207c5e44116f4b2c6152777533e420e00c1877484",
       "physical_field_checks_passed": false
+    },
+    {
+      "scope": "Flow 1.1 final runtime source, including native/platform/web/Windows/inventory and 72 high-bitrate + 80 profile + 80 transport integrity trials",
+      "source_commit": "0b6da77a0c82d393ba12af2496aecdac4fb3347c",
+      "ci_run": 38137745954,
+      "result": "passed",
+      "url": "https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/38137745954"
+    },
+    {
+      "scope": "Flow 1.1 final runtime macOS, portable and CodeQL execution",
+      "source_commit": "0b6da77a0c82d393ba12af2496aecdac4fb3347c",
+      "ci_runs": [
+        38137745936,
+        38137745870,
+        38137745884
+      ],
+      "result": "passed",
+      "security_review": "RELEASE_1_1_SECURITY_REVIEW.md; scan execution is not a clean-alert claim"
+    },
+    {
+      "scope": "Owned real Windows final-source HTTP/disk and hybrid alias removal",
+      "source_commit": "0b6da77a0c82d393ba12af2496aecdac4fb3347c",
+      "executable_sha256": "ebebb25826b83055e90e38a94b1d383fda9b7cee2f10269c8676b30eb5811bf7",
+      "result": "passed"
     }
   ],
   "remaining": [],
   "publication_policy": {
     "owner_authorized": true,
     "authorization": "Yes, publish with that note (Recommended)",
-    "policy": "Publish the first stable release as Latest after automated gates pass, while explicitly disclosing unfinished field validation.",
+    "policy": "Publish stable releases as Latest after automated gates pass, while explicitly disclosing unfinished field and resource validation authorized by the owner.",
     "field_checks_are_not_passed": true,
     "tagged_gate_required": "ts_release.yml rebuilds and verifies the exact tagged source before publication."
   },
@@ -102,6 +126,10 @@
     "Representative real-phone playback matrix",
     "Multi-hour resource acceptance",
     "Windows boot, sleep and network recovery acceptance",
-    "Representative public-swarm comparisons and broader Android/player coverage"
-  ]
+    "Representative public-swarm comparisons and broader Android/player coverage",
+    "Eight-hour convergence attempt interrupted after 15784 seconds and 965 cycles; no final convergence/allocation-release result",
+    "Independent optional player decoder rebuild/redistribution audit; APK excluded from stable assets",
+    "Shared OS DNS leak protection and complete native profiling attribution"
+  ],
+  "release_target": "MatriX.145.Flow-v1.1.0"
 }

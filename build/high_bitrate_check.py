@@ -17,10 +17,24 @@ import socket
 import struct
 import subprocess
 import time
+import urllib.request
 from urllib.parse import urlencode
 
 from controlled_peer import LocalSwarm, PeerPlan
 from playback_harness import MIB, OwnedServer, range_read, upload
+import native_profiling
+
+
+def capture_go_profile(server, kind, seconds):
+    """Bounded profiling of this owned loopback process; never a user server."""
+    with urllib.request.urlopen(server.profile_base+f'/debug/pprof/{kind}?seconds={seconds}',
+                                timeout=seconds+15) as response:
+        data = response.read(32*MIB+1)
+    if len(data) > 32*MIB:
+        raise ValueError('Owned Go profiling result exceeds 32 MiB')
+    path = server.state/f'{kind}.pprof'
+    path.write_bytes(data)
+    return {'kind':kind, 'bytes':len(data), 'sha256':hashlib.sha256(data).hexdigest()}
 
 
 def cpu_seconds(process):
@@ -147,7 +161,8 @@ def paced(server, info_hash, index, source, rate, seconds, bursts):
 
 def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, preload=False,
         *, reqq=512, strict=False, latency_ms=0, piece_mb=4, disk=False,
-        capacity_aware=False, urgent_horizon=False, burst_hints=False, startup_mb=32):
+        capacity_aware=False, urgent_horizon=False, burst_hints=False, startup_mb=32, transport_kib=1024,
+        capture_go=False, capture_native=None, perfetto_tools=None):
     report = {'profile': profile, 'case': case, 'cache_mb': cache_mb,
               'nominal_demand_mbps': rate*8/1_000_000,
               'piece_bytes': piece_mb*MIB, 'requested_seconds': seconds,
@@ -159,8 +174,8 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
         plans = [PeerPlan(rate=int(1.7*rate), request_queue=reqq, strict_request_queue=strict, request_latency_ms=latency_ms)] + [PeerPlan(rate=rate//20, request_queue=reqq, strict_request_queue=strict, request_latency_ms=latency_ms) for _ in range(7)]
     report.update(peer_advertised_request_queue=reqq, strict_peer_capacity=strict, request_latency_ms=latency_ms,
                   storage_backend='disk' if disk else 'ram', capacity_aware=capacity_aware,
-                  urgent_horizon=urgent_horizon, burst_hints=burst_hints, startup_reserve_mb=startup_mb)
-    server = OwnedServer(executable, root, extra_settings={
+                  urgent_horizon=urgent_horizon, burst_hints=burst_hints, startup_reserve_mb=startup_mb, transport_buffer_kib=transport_kib)
+    server = OwnedServer(executable, root, profile=capture_go, extra_settings={
         'CacheSize': cache_mb*MIB, 'PreloadCache': 10,
         'UseDisk': disk, 'TorrentsSavePath': str((root/'cache').resolve()) if disk else '',
         'Flow': {'SwarmProfile': profile, 'BootstrapHeadMB': 4,
@@ -168,7 +183,8 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                  'StartupBufferMaxMB': startup_mb, 'StartupBufferSeconds': 2,
                  'WarmSessionTimeoutSec': 30, 'GlobalCacheBudgetMB': cache_mb,
                  'CapacityAwareRequests': capacity_aware, 'AdaptiveUrgentHorizon': urgent_horizon,
-                 'ContainerBurstHints': burst_hints, 'DiagnosticHistory': False}})
+                 'ContainerBurstHints': burst_hints, 'DiagnosticHistory': False,
+                 'StreamTransportBufferKiB': transport_kib}})
     swarm, cpu_start, playback_start = None, None, None
     try:
         report['ready_ms'] = server.ready()
@@ -181,7 +197,8 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
             info_hash = swarm.info_hash.hex()
             if preload:
                 started = time.monotonic()
-                server.json('/stream/generated?'+urlencode({'link': info_hash, 'index': index, 'preload': '', 'stat': ''}), timeout=90)
+                path = '/stream/generated?'+urlencode({'link': info_hash, 'index': index, 'preload': '', 'stat': ''})
+                server.json(path, timeout=90)
                 deadline = started+90
                 while True:
                     status = server.json('/torrents', {'action': 'get', 'hash': info_hash})
@@ -198,7 +215,11 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                 elapsed = playback_start-swarm.started
                 plans[0].outages = [(elapsed+16, elapsed+19), (elapsed+32, elapsed+35)]
                 report['outages_relative_to_playback_s'] = [[16,19],[32,35]]
-            with ThreadPoolExecutor(max_workers=1) as pool:
+            with ThreadPoolExecutor(max_workers=1 + (2 if capture_go else 0) + bool(capture_native)) as pool:
+                captures = [pool.submit(capture_go_profile, server, kind, duration)
+                            for kind, duration in [('profile',min(30, seconds)), ('trace',min(5, seconds))]] if capture_go else []
+                native_capture = pool.submit(native_profiling.capture, server, capture_native,
+                    min(30, seconds), perfetto_tools) if capture_native else None
                 pending = pool.submit(paced, server, info_hash, index, swarm.data,
                                       rate, seconds, case == 'bursts')
                 while not pending.done():
@@ -210,12 +231,23 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                         'cache_size': max((s['cache_size'] for s in sessions), default=0),
                         'sessions': sessions,
                         'storage_io': status.get('storage_io'),
+                        'redundant_bytes': status.get('sparse', {}).get('redundant_bytes'),
                         'urgent': status.get('sparse', {}).get('urgent'),
                         'urgent_truncated': status.get('sparse', {}).get('urgent_truncated')})
                     if len(report['samples']) % 5 == 1:
                         report['samples'][-1]['memory'] = server.json('/runtime/status')['memory']
                     time.sleep(1)
                 report['delivery'] = pending.result()
+                if capture_go:
+                    report['go_profiles'] = [task.result() for task in captures]
+                if native_capture:
+                    report['native_profile'] = native_capture.result()
+                    report['profiling_affects_measurement'] = True
+            if capture_go:
+                report['go_profiles'] += [capture_go_profile(server, kind, 1)
+                    for kind in ('heap','allocs','mutex','block','goroutine')]
+                report['profiling_scope'] = 'Owned Go runtime during paced delivery; native CPU is not attributed by these profiles'
+                report['profiling_affects_measurement'] = True
             cpu_end = cpu_seconds(server.process)
             report['cpu_seconds'] = cpu_end-cpu_start if cpu_start is not None and cpu_end is not None else None
             report['playback_wall_seconds'] = time.monotonic()-playback_start
@@ -232,10 +264,31 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
             if report['peak_observed_cache_bytes'] > (cache_mb+2*piece_mb)*MIB:
                 raise AssertionError('Observed cache exceeded budget plus two-piece concurrency allowance')
             report['ranges'] = []
+            if strict and latency_ms and capacity_aware:
+                report['request_age_probes'] = []
             for start, cancel in ((len(swarm.data)//2, False), (0, False),
                                   (len(swarm.data)-65536, False), (len(swarm.data)//3, True), (0, False)):
-                report['ranges'].append(range_read(server, info_hash, index,
-                    swarm.data, start, min(len(swarm.data)-1, start+65535), cancel))
+                if strict and latency_ms and capacity_aware:
+                    # Urgent diagnostics describe active reader windows; the
+                    # detached preload has no such window. Sample an uncached
+                    # seek while its real delayed requests are outstanding.
+                    with ThreadPoolExecutor(max_workers=1) as pool:
+                        task = pool.submit(range_read, server, info_hash, index,
+                            swarm.data, start, min(len(swarm.data)-1, start+65535), cancel)
+                        while not task.done():
+                            sparse = server.json('/flow/status/'+info_hash, timeout=5).get('sparse') or {}
+                            oldest = max((p.get('oldest_request_age_ms', -1)
+                                          for p in sparse.get('urgent') or []), default=-1)
+                            if len(report['request_age_probes']) < 256:
+                                report['request_age_probes'].append({
+                                    'phase': 'seek', 'start': start,
+                                    'elapsed_s': time.monotonic()-swarm.started,
+                                    'oldest_request_age_ms': oldest})
+                            time.sleep(.05)
+                        report['ranges'].append(task.result())
+                else:
+                    report['ranges'].append(range_read(server, info_hash, index,
+                        swarm.data, start, min(len(swarm.data)-1, start+65535), cancel))
             deadline = time.monotonic()+5
             while True:
                 status = server.json('/flow/status/'+info_hash)
@@ -246,6 +299,10 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                     raise AssertionError('Readers leaked after cancellation')
                 time.sleep(.2)
             report['active_readers_after_cancellation'] = active
+            report['native_redundant_bytes'] = status.get('sparse', {}).get('redundant_bytes')
+            seeks = sorted(item['ttfb_ms'] for item in report['ranges'] if not item.get('cancelled'))
+            report['seek_ttfb_p95_ms'] = seeks[min(len(seeks)-1, int(len(seeks)*.95))]
+            report['seek_ttfb_p99_ms'] = seeks[min(len(seeks)-1, int(len(seeks)*.99))]
             report['runtime'] = server.json('/runtime/status')
             report['swarm'] = swarm.status()
             report['passed'] = True
@@ -295,7 +352,14 @@ if __name__ == '__main__':
     parser.add_argument('--urgent-horizon', action='store_true')
     parser.add_argument('--burst-hints', action='store_true')
     parser.add_argument('--startup-mb', type=int, default=32)
+    parser.add_argument('--capture-go', action='store_true', help='Collect Go CPU, trace, allocation, lock and wait evidence; keep separate from timing comparisons')
+    parser.add_argument('--capture-native', choices=('etw', 'perfetto'), help='Native CPU capture on an explicitly isolated CI runner only')
+    parser.add_argument('--perfetto-tools', type=Path)
     args = parser.parse_args()
+    if args.capture_native:
+        native_profiling.validate(args.capture_native)
+        if args.capture_native == 'perfetto' and args.perfetto_tools is None:
+            parser.error('--perfetto-tools is required for Perfetto capture')
     if not 10 <= args.seconds <= 120 or not 10 <= args.mbps <= 200 or not 64 <= args.cache_mb <= 2048:
         parser.error('seconds 10..120, Mbps 10..200 and cache 64..2048 MiB required')
     if not args.executable.is_file():
@@ -323,7 +387,9 @@ if __name__ == '__main__':
                                     args.profile, case, int(args.mbps*1_000_000/8), args.seconds, args.cache_mb, args.preload,
                                     reqq=args.reqq, strict=args.strict_reqq, latency_ms=args.latency_ms,
                                     piece_mb=args.piece_mb, disk=args.disk, capacity_aware=args.capacity_aware,
-                                    urgent_horizon=args.urgent_horizon, burst_hints=args.burst_hints, startup_mb=args.startup_mb))
+                                    urgent_horizon=args.urgent_horizon, burst_hints=args.burst_hints, startup_mb=args.startup_mb,
+                                    capture_go=args.capture_go, capture_native=args.capture_native,
+                                    perfetto_tools=args.perfetto_tools))
         (args.output/'report.json').write_text(json.dumps(results, indent=2)+'\n', encoding='utf-8')
         gc.collect() # local peer handler classes contain owner cycles with fixture bytes
     raise SystemExit(0 if all(case['passed'] for case in results['cases']) else 1)

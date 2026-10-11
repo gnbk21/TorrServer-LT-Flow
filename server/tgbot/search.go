@@ -19,7 +19,7 @@ func cmdSearch(c tele.Context) error {
 		return c.Send(tr(c.Sender().ID, "search_disabled_rutor"))
 	}
 
-	args := c.Args()
+	args := callbackArgs(c)
 	if len(args) == 0 {
 		return c.Send(tr(c.Sender().ID, "search_usage"))
 	}
@@ -54,7 +54,7 @@ func cmdSearchRutor(c tele.Context) error {
 		return c.Send(tr(c.Sender().ID, "search_disabled_rutor"))
 	}
 
-	args := c.Args()
+	args := callbackArgs(c)
 	if len(args) == 0 {
 		return c.Send(tr(c.Sender().ID, "rutor_usage"))
 	}
@@ -76,7 +76,7 @@ func cmdTorznab(c tele.Context) error {
 		return c.Send(tr(c.Sender().ID, "search_disabled_torznab"))
 	}
 
-	args := c.Args()
+	args := callbackArgs(c)
 	if len(args) == 0 {
 		return c.Send(tr(c.Sender().ID, "torznab_usage"))
 	}
@@ -105,7 +105,7 @@ func cmdJacRed(c tele.Context) error {
 		return c.Send(tr(c.Sender().ID, "search_disabled_jacred"))
 	}
 
-	args := c.Args()
+	args := callbackArgs(c)
 	if len(args) == 0 {
 		return c.Send(tr(c.Sender().ID, "jacred_usage"))
 	}

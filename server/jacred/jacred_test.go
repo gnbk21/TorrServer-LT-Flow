@@ -4,8 +4,27 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"server/settings"
+	"sync/atomic"
 	"testing"
 )
+
+func TestEndpointDoesNotBypassUnavailableInterface(t *testing.T) {
+	previous := settings.BTsets()
+	flow := settings.DefaultFlowSettings()
+	flow.TorrentInterface, flow.RequireTorrentInterface = "Flow-missing-jacred-interface-418", true
+	settings.StoreBTsets(&settings.BTSets{Flow: flow})
+	t.Cleanup(func() { settings.StoreBTsets(previous) })
+	var called atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called.Store(true) }))
+	defer srv.Close()
+	if err := Test(context.Background(), srv.URL, ""); err == nil {
+		t.Fatal("binding was bypassed")
+	}
+	if called.Load() {
+		t.Fatal("indexer request bypassed the selected interface")
+	}
+}
 
 func TestParseItemsMapsFields(t *testing.T) {
 	body := []byte(`[

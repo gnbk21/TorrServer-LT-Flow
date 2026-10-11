@@ -10,8 +10,17 @@ on:
   # reuses this workflow through ts_release.yml's workflow_call.
   pull_request:
     branches: [master, develop]
+    paths-ignore: ['**/*.md']
   workflow_dispatch:
     inputs:
+      profile_source_run_id:
+        description: 'Capture native CPU using symbol fixtures from an existing build; skips rebuilding'
+        type: string
+        default: ''
+      capacity_case:
+        description: 'Repeat a strict-cap case using profile_source_run_id fixtures instead of capturing CPU'
+        type: string
+        default: ''
       evaluate_pgo:
         description: 'Compare an opt-in Go PGO build using generated playback fixtures'
         type: boolean
@@ -37,15 +46,85 @@ on:
         default: false
 
 concurrency:
-  group: build-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: build-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ inputs.profile_source_run_id || 'full' }}
+  # Keep long native comparisons and rollback evidence intact across checkpoints.
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
+  release-inventory:
+    needs: [cross, sources, web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: server/go.mod
+          cache: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+      - working-directory: web
+        run: yarn install --frozen-lockfile
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: _src
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
+      - run: bash build/_fetch_sources.sh
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: TorrServer-LT-*
+          path: inventory-binaries
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: flow-interface-guard-windows
+          path: inventory-binaries/interface-guard
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: flow-web-cross
+          path: server/web/pages/template
+      - name: Validate actual cross-platform binary and dependency inventory
+        env:
+          FLOW_VERSION: ${{ inputs.version || format('MatriX.145.Flow-dev-{0}', github.sha) }}
+        run: |
+          python3 build/sbom.py --artifacts inventory-binaries --native-sources _src --output inventory/SBOM.cdx.json --tag "$FLOW_VERSION" --commit "$GITHUB_SHA"
+          node build/validate_sbom.cjs inventory/SBOM.cdx.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: flow-cross-inventory
+          path: inventory/SBOM.cdx.json
+          if-no-files-found: error
+  upgrade-profile-comparison:
+    if: github.event_name == 'pull_request' && github.head_ref == 'feature/flow-upgrade'
+    needs: [cross]
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/upgrade-benchmarks.yml
+    with:
+      candidate_run_id: ${{ format('{0}', github.run_id) }}
+      comparison: profiles
+  upgrade-transport-comparison:
+    if: github.event_name == 'pull_request' && github.head_ref == 'feature/flow-upgrade'
+    needs: [cross]
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/upgrade-benchmarks.yml
+    with:
+      candidate_run_id: ${{ format('{0}', github.run_id) }}
+      comparison: transport
   windows-network-notifications:
+    if: ${{ !inputs.profile_source_run_id }}
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
@@ -61,20 +140,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _src
           key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: flow-web-cross
           path: server/web/pages/template
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: TorrServer-LT-linux-amd64
           path: _out/sparse-current
@@ -85,7 +164,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg cmake pkg-config
           bash build/sparse_native_layers.sh 2>&1 | tee _out/sparse-native-layers-build.log
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: flow-sparse-native-layers
@@ -97,6 +176,7 @@ jobs:
             _out/sparse-native-layers-build.log
           if-no-files-found: error
   web:
+    if: ${{ !inputs.profile_source_run_id }}
     uses: ./.github/workflows/build-web.yml
     with:
       artifact-name: flow-web-cross
@@ -104,11 +184,12 @@ jobs:
   # Fetch Boost + libtorrent once and cache _src, so the matrix below doesn't
   # download Boost (~120 MB) and clone libtorrent six times in parallel.
   sources:
+    if: ${{ !inputs.profile_source_run_id }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _src
           key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
@@ -117,12 +198,13 @@ jobs:
         run: bash build/_fetch_sources.sh
 
   native-streaming-tests:
+    name: Native queue and deadline simulations
     needs: sources
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _src
           key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
@@ -154,16 +236,16 @@ jobs:
           - android-arm64
           - android-armv7
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Download freshly generated web UI
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: flow-web-cross
           path: server/web/pages/template
 
       - name: Restore Boost + libtorrent sources
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _src
           key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
@@ -171,14 +253,14 @@ jobs:
       # Cache the per-target install tree (lib + headers + .pc). With it present
       # build_libtorrent short-circuits and only the Go binary is relinked.
       - name: Cache libtorrent install tree
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _deps/${{ matrix.target }}
           key: deps-${{ matrix.target }}-boost1.85.0-lt2.1.2-ossl3.5.7-flowsparse-pcfold2-${{ hashFiles('build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
           restore-keys: deps-${{ matrix.target }}-boost1.85.0-lt2.1.2-ossl3.5.7-
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: server/go.mod
           cache: true
@@ -198,7 +280,7 @@ jobs:
       - name: Preserve static toolchain runtime notices
         if: matrix.target == 'windows-amd64' || startsWith(matrix.target, 'android-')
         run: python3 build/runtime_notices.py --target '${{ matrix.target }}' --output '_out/RUNTIME_NOTICES-${{ matrix.target }}.txt'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'windows-amd64' || startsWith(matrix.target, 'android-')
         with:
           name: flow-runtime-notices-${{ matrix.target }}
@@ -240,7 +322,7 @@ jobs:
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
         run: |
-          go test -count=1 -timeout 180s ./console/ ./log/ ./diagnostics/ ./flow/ ./netpolicy/ ./netchange/ ./ffprobe/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/pages/template/ ./dlna/ ./web/sslcerts/ ./torr/utils/ ./cmd/
+          go test -count=1 -timeout 180s ./ ./mimetype/ ./torznab/ ./jacred/ ./console/ ./log/ ./diagnostics/ ./flow/ ./netpolicy/ ./netchange/ ./ffprobe/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/msx/ ./web/pages/template/ ./dlna/ ./web/sslcerts/ ./torr/utils/ ./cmd/
           GST_E2E_MKV="$GITHUB_WORKSPACE/_out/gst-e2e.mkv" go test -tags gst -count=1 -timeout 180s ./gstreamer/
 
       - name: Go vet
@@ -268,7 +350,7 @@ jobs:
           FLOW_CONTRACT_OUTPUT: ${{ github.workspace }}/_out/api-contracts.json
         run: go test ./web/api -run '^TestExportFrontendContracts$' -count=1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         if: matrix.target == 'linux-amd64'
         with:
           node-version: '24'
@@ -282,7 +364,7 @@ jobs:
         run: |
           yarn install --frozen-lockfile
           yarn vitest run src/api/contracts.test.ts
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'linux-amd64'
         with:
           name: flow-api-contracts
@@ -300,7 +382,7 @@ jobs:
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
         run: |
-          go test -race -count=1 -timeout 180s ./console/ ./log/ ./flow/ ./netpolicy/ ./netchange/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/sslcerts/ ./torr/utils/ ./mcp/ ./tgbot/
+          go test -race -count=1 -timeout 180s ./ ./mimetype/ ./torznab/ ./jacred/ ./console/ ./log/ ./flow/ ./netpolicy/ ./netchange/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/msx/ ./web/sslcerts/ ./torr/utils/ ./mcp/ ./tgbot/
           go test -race -tags gst -count=1 -timeout 180s ./gstreamer/
           go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
           govulncheck ./...
@@ -333,7 +415,7 @@ jobs:
           go test ./torr -run '^$' -fuzz '^FuzzTrackerURLRedaction$' -fuzztime=100000x -timeout=180s -parallel=2
       - name: Retain minimized fuzz failures
         if: failure() && matrix.target == 'linux-amd64'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: flow-fuzz-failures
           path: server/**/testdata/fuzz/**
@@ -348,7 +430,7 @@ jobs:
       - name: Console presentation and command compatibility
         if: matrix.target == 'linux-amd64'
         run: python3 build/console_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/console-check
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always() && matrix.target == 'linux-amd64'
         with:
           name: flow-console-check
@@ -381,9 +463,10 @@ jobs:
           python3 build/webseed_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/webseed-check
           python3 build/adaptive_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/adaptive-check
           python3 build/request_capacity_check.py --executable _out/TorrServer-LT-linux-amd64 --output _out/request-capacity
+          python3 build/request_cancel_check.py --executable _out/TorrServer-LT-linux-amd64 --output _out/request-cancel
           python3 build/sparse_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/sparse-check
           python3 build/sparse_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/sparse-rate-check --rate-aware --cases below complementary late-have
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always() && matrix.target == 'linux-amd64'
         with:
           name: flow-controlled-playback
@@ -409,23 +492,26 @@ jobs:
             _out/sparse-rate-check/*/server-output.log
             _out/discovery-check/*/server-output.log
             _out/maintenance-check/report.json
-              _out/upstream-tls-check/report.json
-              _out/upstream-tls-check/*/server-output.log
+            _out/upstream-tls-check/report.json
+            _out/upstream-tls-check/*/server-output.log
             _out/adaptive-check/report.json
             _out/adaptive-check/state/server-output.log
             _out/request-capacity/**/report.json
             _out/request-capacity/report.json
             _out/request-capacity/**/server-output.log
+            _out/request-cancel/**/report.json
+            _out/request-cancel/report.json
+            _out/request-cancel/**/server-output.log
             _out/library-upsert-benchmark.txt
           if-no-files-found: warn
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: TorrServer-LT-${{ matrix.target }}
           path: _out/TorrServer-LT-${{ matrix.target }}*
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'windows-amd64'
         with:
           name: TorrServer-Flow-Tray
@@ -438,34 +524,53 @@ jobs:
           TS_VERSION: ${{ inputs.version || format('MatriX.145.Flow-dev-{0}', github.sha) }}
         run: |
           cp _out/TorrServer-LT-linux-amd64 _out/TorrServer-LT-linux-amd64-baseline
-          python3 build/playback_harness.py --executable _out/TorrServer-LT-linux-amd64-baseline --output _out/pgo-training --fixtures _out/controlled-playback/fixtures --cases fast --profile --debug
+          python3 build/high_bitrate_check.py --executable _out/TorrServer-LT-linux-amd64-baseline --output _out/pgo-training --profile adaptive --mbps 120 --seconds 60 --cache-mb 512 --preload --capture-go --cases healthy outages mixed-peers bursts
           # Keep runtime-recorded Go symbols. Local re-symbolization of the
           # stripped release ELF can assign incorrect function names to PCs.
-          go tool pprof -symbolize=none -top _out/pgo-training/fast/profile.pprof > _out/pgo-training/cpu-top.txt
-          TS_PGO_PROFILE="$PWD/_out/pgo-training/fast/profile.pprof" bash build/linux-amd64.sh
-          python3 build/pgo_compare.py --baseline _out/TorrServer-LT-linux-amd64-baseline --candidate _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/pgo-comparison
-      - uses: actions/upload-artifact@v4
+          go tool pprof -symbolize=none -proto _out/pgo-training/{healthy,outages,mixed-peers,bursts}/profile.pprof > _out/pgo-training/representative.pprof
+          go tool pprof -symbolize=none -top _out/pgo-training/representative.pprof > _out/pgo-training/cpu-top.txt
+          TS_PGO_PROFILE="$PWD/_out/pgo-training/representative.pprof" bash build/linux-amd64.sh
+          python3 build/pgo_compare.py --baseline _out/TorrServer-LT-linux-amd64-baseline --candidate _out/TorrServer-LT-linux-amd64 --fixture _out/pgo-training/fixture/generated.ts --output _out/pgo-comparison
+          # Restore the ordinary build: PGO evaluation never alters published
+          # binaries or the update/rollback lifecycle candidate below.
+          cp _out/TorrServer-LT-linux-amd64-baseline _out/TorrServer-LT-linux-amd64
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always() && matrix.target == 'linux-amd64' && inputs.evaluate_pgo
         with:
           name: flow-pgo-evaluation
           path: |
             _out/pgo-training/cpu-top.txt
-            _out/pgo-training/fast/*.pprof
+            _out/pgo-training/**/*.pprof
+            _out/pgo-training/representative.pprof
             _out/pgo-training/report.json
-            _out/pgo-training/fast/failure.json
-            _out/pgo-training/fast/server-output.log
+            _out/pgo-training/**/report.json
+            _out/pgo-training/**/server-output.log
             _out/pgo-comparison/report.json
             _out/pgo-comparison/*/failure.json
             _out/pgo-comparison/*/server-output.log
 
       # Primary artifacts are already uploaded. Build a differently stamped
       # native fixture for updater lifecycle tests; never publish this fixture.
+      - name: Build optional Windows interface guard
+        if: matrix.target == 'windows-amd64'
+        run: |
+          x86_64-w64-mingw32-g++ -std=c++17 -O2 -Wall -Wextra -Werror -static -static-libgcc -static-libstdc++ -municode -D_WIN32_WINNT=0x0A00 -DUNICODE -D_UNICODE build/windows-interface-guard.cpp -o _out/FlowNetworkGuard-windows-amd64.exe -lfwpuclnt -liphlpapi -ladvapi32 -lole32 -lws2_32
+          python3 build/guard_manifest.py --binary _out/FlowNetworkGuard-windows-amd64.exe --output _out/FlowNetworkGuard-build.json --compiler x86_64-w64-mingw32-g++
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: matrix.target == 'windows-amd64'
+        with:
+          name: flow-interface-guard-windows
+          path: |
+            _out/FlowNetworkGuard-windows-amd64.exe
+            _out/FlowNetworkGuard-build.json
+          if-no-files-found: error
+
       - name: Build update lifecycle fixture
         if: matrix.target == 'windows-amd64'
         env:
           TS_VERSION: MatriX.145.Flow-v0.0.0-rc.0
         run: bash build/windows-amd64.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'windows-amd64'
         with:
           name: flow-windows-update-fixture
@@ -480,12 +585,46 @@ jobs:
         env:
           TS_VERSION: MatriX.145.Flow-v0.0.0-rc.1
         run: bash build/windows-amd64.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'windows-amd64' && inputs.version == ''
         with:
           name: flow-windows-update-candidate
           path: _out/TorrServer-LT-windows-amd64.exe
           if-no-files-found: error
+
+      # Ordinary and updater artifacts above retain their original stripping.
+      # Keep symbols only in a separate, unpublished profiler fixture.
+      - name: Build symbol-preserving native profiler fixture
+        if: matrix.target == 'linux-amd64' || matrix.target == 'windows-amd64'
+        env:
+          TS_PROFILE_SYMBOLS: '1'
+          TS_VERSION: ${{ format('MatriX.145.Flow-profile-{0}', github.sha) }}
+        run: bash build/${{ matrix.target }}.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: matrix.target == 'linux-amd64' || matrix.target == 'windows-amd64'
+        with:
+          name: flow-native-profile-${{ matrix.target }}
+          path: _out/TorrServer-LT-${{ matrix.target }}${{ matrix.target == 'windows-amd64' && '.exe' || '' }}
+          if-no-files-found: error
+
+  native-profiling:
+    needs: cross
+    if: ${{ always() && !inputs.capacity_case && (inputs.profile_source_run_id || needs.cross.result == 'success') }}
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/native-profile.yml
+    with:
+      source_run_id: ${{ inputs.profile_source_run_id || format('{0}', github.run_id) }}
+  request-capacity-diagnostics:
+    if: inputs.profile_source_run_id && inputs.capacity_case
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/request-capacity.yml
+    with:
+      source_run_id: ${{ inputs.profile_source_run_id }}
+      case: ${{ inputs.capacity_case }}
 
   high-bitrate-comparison:
     needs: cross
@@ -504,8 +643,8 @@ jobs:
           - {mbps: 90, case: bursts, cache: 512, piece: 4, backend: ram}
           - {mbps: 120, case: bursts, cache: 2048, piece: 4, backend: disk}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: TorrServer-LT-linux-amd64
           path: _out
@@ -514,8 +653,8 @@ jobs:
           chmod +x _out/TorrServer-LT-linux-amd64
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
-          python3 build/high_bitrate_matrix.py --executable _out/TorrServer-LT-linux-amd64 --output _out/high-bitrate --mbps '${{ matrix.mbps }}' --cases '${{ matrix.case }}' --cache-mb '${{ matrix.cache }}' --piece-mb '${{ matrix.piece }}' ${{ matrix.backend == 'disk' && '--disk' || '' }}
-      - uses: actions/upload-artifact@v4
+          python3 build/high_bitrate_matrix.py --executable _out/TorrServer-LT-linux-amd64 --output _out/high-bitrate --mbps '${{ matrix.mbps }}' --cases '${{ matrix.case }}' --cache-mb '${{ matrix.cache }}' --piece-mb '${{ matrix.piece }}' --rotations 3 --experiments ${{ matrix.backend == 'disk' && '--disk' || '' }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: high-bitrate-${{ matrix.mbps }}-${{ matrix.case }}-${{ matrix.backend }}
@@ -529,26 +668,40 @@ jobs:
     needs: cross
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
       - name: Build read-only SCM policy probe
         working-directory: server
         run: go build -o ../service-recovery-probe.exe ../build/service_recovery_probe_windows.go
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: TorrServer-LT-windows-amd64
           path: service-binary
+      - name: Cold cancellation and late disk completion regression
+        run: python build/request_cancel_check.py --executable ./service-binary/TorrServer-LT-windows-amd64.exe --output ./request-cancel
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: flow-interface-guard-windows
+          path: interface-guard
+      - name: Isolated per-executable WFP installation, protocol and removal checks
+        env:
+          FLOW_ISOLATED_WFP: github-hosted
+        shell: pwsh
+        run: ./build/test-windows-interface-guard.ps1 -Guard ./interface-guard/FlowNetworkGuard-windows-amd64.exe -OutputDirectory ./interface-guard-check -InstallFixture
       - name: Restricted account lifecycle
         shell: pwsh
         run: ./build/test-windows-service.ps1 -Executable ./service-binary/TorrServer-LT-windows-amd64.exe -OutputDirectory ./service-test-state -RecoveryProbe ./service-recovery-probe.exe
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: flow-windows-update-fixture
           path: update-fixture
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         if: inputs.version == ''
         with:
           name: flow-windows-update-candidate
@@ -559,7 +712,7 @@ jobs:
       - name: Restricted service update and migration rollback
         shell: pwsh
         run: ./build/test-windows-update.ps1 -Baseline ./update-fixture/TorrServer-LT-windows-amd64.exe -Candidate '${{ inputs.version != '' && './service-binary/TorrServer-LT-windows-amd64.exe' || './update-candidate/TorrServer-LT-windows-amd64.exe' }}' -OutputDirectory ./service-update-test-state -Commit '${{ github.sha }}' -AsService
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: flow-windows-service-check
@@ -568,9 +721,13 @@ jobs:
             service-test-state/recovery-display.txt
             service-test-state/recovery-policy.json
             service-test-state/flow.log
+            interface-guard-check/report.json
             update-test-state/report.json
             service-update-test-state/report.json
             service-update-test-state/state/flow.log
+            request-cancel/**/report.json
+            request-cancel/report.json
+            request-cancel/**/server-output.log
 
   # Development master images retain their separate channel. Release images
   # publish only from ts_release.yml after every native/package gate passes.

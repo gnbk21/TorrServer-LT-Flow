@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, it, expect, vi } from "vitest";
-import { render, waitFor, cleanup } from "@testing-library/react";
+import { render, waitFor, cleanup, fireEvent } from "@testing-library/react";
 import VideoPlayer from "./VideoPlayer";
 import { integrationsApi } from "../../api/integrations";
 import { api } from "../../api/client";
@@ -88,6 +88,7 @@ it("waits for cold discovery and cancels it when the player closes", async () =>
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 it("uses GST for MKV with the server audio preference and destroys HLS on close", async () => {
   vi.mocked(integrationsApi.getGst).mockResolvedValue({
@@ -139,4 +140,39 @@ it("closing before GST discovery finishes cannot start a late player or heartbea
   await Promise.resolve();
   expect(engine.loadSource).not.toHaveBeenCalled();
   expect(api.get).not.toHaveBeenCalled();
+});
+
+it("uses an owned VTT blob for subtitles and revokes it when closed", async () => {
+  vi.mocked(integrationsApi.getGst).mockResolvedValue({ built_in: false });
+  const create = vi.fn<(blob: Blob) => string>(
+    () => "blob:http://localhost/owned-subtitle",
+  );
+  const revoke = vi.fn();
+  vi.stubGlobal(
+    "URL",
+    class extends URL {
+      static override createObjectURL = create;
+      static override revokeObjectURL = revoke;
+    },
+  );
+  const view = render(
+    <QueryClientProvider client={new QueryClient()}>
+      <VideoPlayer {...props} />
+    </QueryClientProvider>,
+  );
+  const file = new File(["<script>untrusted</script>"], "owned.vtt", {
+    type: "text/html",
+  });
+  fireEvent.change(document.querySelector('input[type="file"]')!, {
+    target: { files: [file] },
+  });
+  await waitFor(() => expect(create).toHaveBeenCalledOnce());
+  expect(create.mock.calls[0]![0]).toBeInstanceOf(Blob);
+  expect(create.mock.calls[0]![0].type).toBe("text/vtt");
+  expect(document.querySelector("track")).toHaveAttribute(
+    "src",
+    "blob:http://localhost/owned-subtitle",
+  );
+  view.unmount();
+  expect(revoke).toHaveBeenCalledWith("blob:http://localhost/owned-subtitle");
 });

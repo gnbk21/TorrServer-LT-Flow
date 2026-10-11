@@ -18,7 +18,7 @@ type PieceReservation struct {
 func PreparationReserved(ranges []PieceReservation) (int64, error) {
 	byHash := make(map[string][]PieceReservation)
 	for _, r := range ranges {
-		if len(r.Hash) != 40 || r.First < 0 || r.Last < r.First || r.PieceLength <= 0 || r.TotalSize <= 0 || int64(r.Last) > (r.TotalSize-1)/r.PieceLength {
+		if !ValidInfoHash(r.Hash) || r.First < 0 || r.Last < r.First || r.PieceLength <= 0 || r.TotalSize <= 0 || int64(r.Last) > (r.TotalSize-1)/r.PieceLength {
 			return 0, errors.New("invalid preparation geometry")
 		}
 		byHash[r.Hash] = append(byHash[r.Hash], r)

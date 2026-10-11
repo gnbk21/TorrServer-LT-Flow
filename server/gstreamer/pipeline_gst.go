@@ -411,7 +411,7 @@ func prependEnvPaths(key string, values []string) {
 	}
 
 	separator := string(os.PathListSeparator)
-	parts := make([]string, 0, len(values)+1)
+	parts := make([]string, 0, len(values))
 	for _, value := range values {
 		parts = appendUniqueEnvPath(parts, value)
 	}

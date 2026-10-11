@@ -8,7 +8,7 @@ import (
 )
 
 func deleteTorrent(c tele.Context) {
-	args := c.Args()
+	args := callbackArgs(c)
 	if len(args) < 2 {
 		return
 	}

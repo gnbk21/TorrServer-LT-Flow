@@ -1,0 +1,48 @@
+import groovy.json.JsonOutput
+import java.security.MessageDigest
+
+// Run after assembling the exact optional APK. No guessed versions or external
+// license lookup: retain resolved graph identities and hashes of used artifacts.
+gradle.projectsEvaluated {
+    def app = gradle.rootProject.project(':app')
+    def configuration = app.configurations.getByName('latestUniversalDebugRuntimeClasspath')
+    // Match AGP's runtime class artifact selection. A plain legacy resolved
+    // artifact query is ambiguous for libraries exposing AAR/jar/locale variants.
+    def runtimeView = configuration.incoming.artifactView {
+        attributes.attribute(org.gradle.api.artifacts.type.ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'android-classes-jar')
+    }
+    app.tasks.register('flowInventory') {
+        dependsOn(runtimeView.files)
+        doLast {
+            def hashFile = { File file ->
+                def hash = MessageDigest.getInstance('SHA-256')
+                file.withInputStream { stream ->
+                    byte[] buffer = new byte[65536]
+                    int count
+                    while ((count = stream.read(buffer)) != -1) hash.update(buffer, 0, count)
+                }
+                hash.digest().encodeHex().toString()
+            }
+            def graph = configuration.incoming.resolutionResult
+            def components = graph.allComponents.collect { item ->
+                [id: item.id.displayName, group: item.moduleVersion?.group,
+                 name: item.moduleVersion?.name, version: item.moduleVersion?.version,
+                 dependencies: item.dependencies.findAll { it instanceof org.gradle.api.artifacts.result.ResolvedDependencyResult }
+                    .collect { it.selected.id.displayName }.sort()]
+            }.sort { it.id }
+            def artifacts = runtimeView.artifacts.artifacts.collect { artifact ->
+                [component: artifact.id.componentIdentifier.displayName, name: artifact.file.name,
+                 file: artifact.file.absolutePath, sha256: hashFile(artifact.file)]
+            }.sort { it.name }
+            // Gradle fileTree artifacts are not guaranteed to occur in the
+            // module graph. Preserve every bundled AAR as explicit evidence.
+            def bundled = app.fileTree(dir: 'libs', include: ['lib-*.aar']).files.collect { file ->
+                [name: file.name, file: file.absolutePath, sha256: hashFile(file)]
+            }.sort { it.name }
+            def destination = gradle.rootProject.file('flow-resolved-dependencies.json')
+            destination.text = JsonOutput.prettyPrint(JsonOutput.toJson(
+                [schema_version: 1, root: graph.root.id.displayName, components: components,
+                 artifacts: artifacts, bundled: bundled]))
+        }
+    }
+}

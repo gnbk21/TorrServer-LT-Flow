@@ -4,8 +4,28 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"server/settings"
+	"strings"
+	"sync/atomic"
 	"testing"
 )
+
+func TestCapsDoesNotBypassUnavailableInterface(t *testing.T) {
+	previous := settings.BTsets()
+	flow := settings.DefaultFlowSettings()
+	flow.TorrentInterface, flow.RequireTorrentInterface = "Flow-missing-torznab-interface-418", true
+	settings.StoreBTsets(&settings.BTSets{Flow: flow})
+	t.Cleanup(func() { settings.StoreBTsets(previous) })
+	var called atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called.Store(true) }))
+	defer srv.Close()
+	if _, err := FetchCaps(context.Background(), srv.URL, ""); err == nil || !strings.Contains(err.Error(), "interface is unavailable") {
+		t.Fatalf("binding was bypassed: %v", err)
+	}
+	if called.Load() {
+		t.Fatal("indexer request bypassed the selected interface")
+	}
+}
 
 func TestNormalizeHost(t *testing.T) {
 	tests := []struct {

@@ -2,12 +2,10 @@ import { redactDiagnostic } from "../lib/redact";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  useFlows,
-  useLibrary,
+  useActive,
   useRuntime,
   useNetwork,
   useSettings,
-  queryClient,
 } from "../hooks/queries";
 import { FlowHealthPanel } from "../components/flow/FlowHealthPanel";
 import { ResourceStatus } from "../components/flow/ResourceStatus";
@@ -111,61 +109,57 @@ function SessionCard({
 }
 export default function Dashboard() {
   const { t } = useTranslation();
-  const library = useLibrary();
+  const activity = useActive();
   const runtime = useRuntime();
   const network = useNetwork();
   const settings = useSettings();
   const [gstOpen, setGstOpen] = useState(false);
-  const live = (library.data || []).filter(
-    (row) =>
-      row.stat >= 1 &&
-      row.stat <= 3 &&
-      ((row.active_readers ?? 1) > 0 ||
-        row.stat === 2 ||
-        row.warm_idle ||
-        queryClient
-          .getQueryData<FlowStatusResponse>(["flow", row.hash])
-          ?.sessions?.some(
-            (s) => s.state === "WARM_IDLE" || s.active_readers > 0,
-          )),
-  );
-  const flows = useFlows(live.map((row) => row.hash));
-  const active = flows.flatMap((query, index) =>
-    (query.data?.sessions || [])
-      .filter((s) => s.active_readers > 0 || s.state === "WARM_IDLE")
+  const items = activity.data?.items || [];
+  const active = items.flatMap(({ torrent, status }) =>
+    (status.sessions || [])
+      .filter(
+        (session) =>
+          session.active_readers > 0 || session.state === "WARM_IDLE",
+      )
       .map((session) => ({
-        status: query.data!,
+        status,
         session,
-        sampledAt: query.dataUpdatedAt,
-        torrent: live[index],
+        torrent,
+        sampledAt: activity.dataUpdatedAt,
         title: [
-          live[index]?.title || query.data!.hash,
-          live[index]?.file_stats?.find(
-            (file) => file.id === session.file_index,
-          )?.path,
+          torrent.title || status.hash,
+          torrent.file_stats?.find((file) => file.id === session.file_index)
+            ?.path,
         ]
           .filter(Boolean)
           .join(" · "),
       })),
   );
-  const unmeasured = live.filter(
-    (row, index) =>
-      (row.active_readers ?? 0) > 0 &&
-      !flows[index]?.data?.sessions?.some(
-        (session) => session.active_readers > 0,
-      ),
-  );
+  const unmeasured = items
+    .filter(
+      ({ torrent, status }) =>
+        (torrent.active_readers ?? 0) > 0 &&
+        !status.sessions?.some((session) => session.active_readers > 0),
+    )
+    .map((item) => item.torrent);
   const [unmeasuredFiles, setUnmeasuredFiles] = useState<Torrent>();
   const bt = runtime.data?.bt;
   return (
-    <div className="space-y-5">
+    <div
+      className="space-y-5"
+      aria-busy={activity.isPending || runtime.isPending}
+    >
       <h1 className="text-2xl font-semibold">{t("nav.dashboard")}</h1>
-      {(library.isPending || runtime.isPending) && <Loading />}
-      {library.error && (
+      {(activity.isPending || runtime.isPending) && (
+        <span role="status" className="sr-only">
+          {t("Loading")}
+        </span>
+      )}
+      {activity.error && (
         <RequestError
-          error={library.error}
-          stale={!!library.data}
-          retry={() => library.refetch()}
+          error={activity.error}
+          stale={!!activity.data}
+          retry={() => activity.refetch()}
         />
       )}{" "}
       {runtime.error && (
@@ -193,8 +187,12 @@ export default function Dashboard() {
             </section>
           ))}
         </>
+      ) : activity.isPending ? (
+        <section className="panel min-h-52 flex items-center" role="status">
+          {t("Loading")}
+        </section>
       ) : (
-        <section className="panel space-y-3">
+        <section className="panel min-h-52 space-y-3">
           <h2 className="text-xl">{t("dashboard.idle")}</h2>
           <p className="text-slate-300">{t("dashboard.idleHint")}</p>
           <div className="actions">
@@ -213,15 +211,6 @@ export default function Dashboard() {
           </div>
         </section>
       )}
-      {flows
-        .filter((query) => query.error)
-        .map((query, index) => (
-          <RequestError
-            key={index}
-            error={query.error}
-            retry={() => query.refetch()}
-          />
-        ))}
       <section className="panel space-y-4">
         <h2 className="font-semibold">{t("dashboard.server")}</h2>
         <ResourceStatus status={runtime.data} />

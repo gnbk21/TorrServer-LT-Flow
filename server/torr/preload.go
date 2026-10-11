@@ -129,10 +129,11 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	}
 	probeCached := t.restoreProbe(index, false)
 
-	cache := torrstor.Global().CacheByHash([20]byte(t.Hash()))
+	cache := torrstor.Global().CacheByHash(t.StorageHash())
 	if cache == nil || cache.PieceLength <= 0 {
 		return
 	}
+	t.registerReuseMetadata(cache)
 	plen := cache.PieceLength
 
 	headBytes := size
@@ -508,6 +509,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	defer tick.Stop()
 	var startupSupply flow.DeliveryMeter
 	startupSeen := make(map[int]bool)
+	reuseCursor := 0
 	for {
 		snap := cache.PiecesSnapshot()
 		var newHeadBytes int64
@@ -526,6 +528,15 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 		}
 		var got int64
 		done := 0
+		// Bound lookup work per tick and keep the ordinary swarm priorities.
+		// Reuse is limited to this preload's actual missing head/index demand.
+		for checked := 0; checked < min(8, len(gatePieces)); checked++ {
+			piece := gatePieces[reuseCursor%len(gatePieces)]
+			reuseCursor++
+			if !cache.Have(piece) && cache.TryReusePiece(ctx, lh, piece) {
+				break
+			}
+		}
 		for _, p := range gatePieces {
 			st, ok := snap[p]
 			if !ok {
@@ -551,7 +562,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 			if got > 0 && !firstBlock {
 				t.flowStartup.FirstUsefulBlockMs = time.Since(t.flowStartupStarted).Milliseconds()
 				firstBlock = true
-				t.historyEvent(flow.HistoryEvent{Type: "first_block", File: index, ElapsedMs: t.flowStartup.FirstUsefulBlockMs, Bytes: got})
+				t.historyEvent(flow.HistoryEvent{Type: "first_block", File: index, OperationMeasured: true, ElapsedMs: t.flowStartup.FirstUsefulBlockMs, Bytes: got})
 			}
 			t.mu.Unlock()
 			if !firstBlock {
@@ -873,7 +884,7 @@ func (t *Torrent) probeMediaInfo(index int) {
 			if success {
 				stage = "READY"
 			}
-			t.historyEvent(flow.HistoryEvent{Type: "probe", Stage: stage, File: index, ElapsedMs: time.Since(probeBegan).Milliseconds()})
+			t.historyEvent(flow.HistoryEvent{Type: "probe", Stage: stage, File: index, OperationMeasured: true, ElapsedMs: time.Since(probeBegan).Milliseconds()})
 		}
 	}()
 	defer func() {
@@ -944,7 +955,7 @@ func (t *Torrent) probeMediaInfo(index int) {
 	}
 	t.mu.Unlock()
 	if file := t.fileByID(index); file != nil {
-		if cache := torrstor.Global().CacheByHash([20]byte(t.Hash())); cache != nil {
+		if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 			cache.UpdateFlowMediaEstimate(file.Index,
 				flow.MediaEstimate(file.Length, data.Format.DurationSeconds, data.Format.BitRate))
 		}
@@ -1065,7 +1076,7 @@ func PreloadOnPlay(reqCtx context.Context, torr *Torrent, index int) {
 	}
 	torr.preloadGateMu.Unlock()
 
-	if cache := torrstor.Global().CacheByHash([20]byte(torr.Hash())); cache != nil && cache.PieceLength > 0 {
+	if cache := torrstor.Global().CacheByHash(torr.StorageHash()); cache != nil && cache.PieceLength > 0 {
 		if f := torr.fileByID(index); f != nil {
 			if hl := preloadHeadLastPiece(f, cache.PieceLength, cache.NumPieces); headRangeResident(cache, int(f.Offset/cache.PieceLength), hl) {
 				dbg("skip: head already resident, headLast", hl)
@@ -1159,25 +1170,13 @@ func waitBounded(reqCtx context.Context, done <-chan struct{}) {
 	}
 }
 
-// fileByID resolves the 1-based API file id (FileStats.Id) to its *File, the
-// same two-step mapping Stream and Preload use (id -> path -> file).
+// fileByID resolves the legacy one-based native index from immutable metadata.
+// Live metrics need one file, not a full native status/tree reconstruction.
 func (t *Torrent) fileByID(index int) *File {
-	if t == nil {
-		return nil
-	}
-	var path string
-	for _, fs := range t.Status().FileStats {
-		if fs.Id == index {
-			path = fs.Path
-			break
-		}
-	}
-	if path == "" {
-		return nil
-	}
-	for _, ff := range t.Files() {
-		if ff.Path == path {
-			return ff
+	if snapshot := t.fileSnapshot(); snapshot != nil {
+		if file := snapshot.byID[index]; file != nil {
+			copy := *file
+			return &copy
 		}
 	}
 	return nil

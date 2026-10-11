@@ -11,6 +11,7 @@ package torrstor
 import (
 	"errors"
 	"io"
+	"server/flow"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -24,12 +25,18 @@ import (
 type Storage struct {
 	diskFiles         *diskHandles
 	mu                sync.RWMutex
-	caches            map[int64]*Cache    // by libtorrent storage_id
-	byHash            map[[20]byte]*Cache // by info hash for Reader lookup from torr
-	resumes           map[[20]byte]verifiedResume
-	preparations      map[[20]byte]PreparationStorage
-	verifiedReads     map[[20]byte]bool
+	caches            map[int64]*Cache         // by libtorrent storage_id
+	byHash            map[flow.InfoHash]*Cache // by info hash for Reader lookup from torr
+	resumes           map[flow.InfoHash]verifiedResume
+	preparations      map[flow.InfoHash]PreparationStorage
+	verifiedReads     map[flow.InfoHash]bool
 	networkRecovering atomic.Bool
+	nextMu            sync.Mutex
+	nextOwner         *Cache
+	nextUntil         time.Time
+	reuseMu           sync.Mutex
+	reuseEntries      []reuseEntry
+	reuseLayerBytes   int
 }
 
 type verifiedResume struct {
@@ -40,13 +47,13 @@ type verifiedResume struct {
 // SetVerifiedResume is called before native addition. The consumed state shares
 // the same verified have-bitmap with native and Go readers; it is never inferred
 // from file size in a disk callback.
-func (s *Storage) SetVerifiedResume(hash [20]byte, bitmap []byte, totalSize int64) {
+func (s *Storage) SetVerifiedResume(hash flow.InfoHash, bitmap []byte, totalSize int64) {
 	s.mu.Lock()
 	s.resumes[hash] = verifiedResume{append([]byte(nil), bitmap...), totalSize}
 	s.mu.Unlock()
 }
 
-func (s *Storage) ClearVerifiedResume(hash [20]byte) {
+func (s *Storage) ClearVerifiedResume(hash flow.InfoHash) {
 	s.mu.Lock()
 	delete(s.resumes, hash)
 	delete(s.verifiedReads, hash)
@@ -55,11 +62,11 @@ func (s *Storage) ClearVerifiedResume(hash [20]byte) {
 
 // Mirror bytes must pass native piece hashes before external readers see them.
 // This is sticky for the handle lifetime, including in-flight removed mirrors.
-func (s *Storage) RequireVerifiedReads(hash [20]byte) {
+func (s *Storage) RequireVerifiedReads(hash flow.InfoHash) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.verifiedReads == nil {
-		s.verifiedReads = make(map[[20]byte]bool)
+		s.verifiedReads = make(map[flow.InfoHash]bool)
 	}
 	s.verifiedReads[hash] = true
 	if c := s.byHash[hash]; c != nil {
@@ -72,9 +79,9 @@ func NewStorage() *Storage {
 	return &Storage{
 		diskFiles:    newDiskHandles(64),
 		caches:       map[int64]*Cache{},
-		byHash:       map[[20]byte]*Cache{},
-		resumes:      map[[20]byte]verifiedResume{},
-		preparations: map[[20]byte]PreparationStorage{},
+		byHash:       map[flow.InfoHash]*Cache{},
+		resumes:      map[flow.InfoHash]verifiedResume{},
+		preparations: map[flow.InfoHash]PreparationStorage{},
 	}
 }
 
@@ -94,7 +101,13 @@ func Global() *Storage {
 // Already-running sessions keep their original disk_io.
 func (s *Storage) Install() error {
 	return lt.RegisterStorageCallbacks(lt.StorageCallbacks{
-		Open:       s.callbackOpen,
+		Open:     func(id int64, h [20]byte, n int, sz int64) { s.callbackOpen(id, flow.V1Hash(h), n, sz) },
+		OpenFull: s.callbackOpenDeferred,
+		Ready: func(id int64) {
+			if c := s.lookup(id); c != nil {
+				c.scanLocalPieces()
+			}
+		},
 		Close:      s.callbackClose,
 		Deleted:    s.callbackDeleted,
 		Read:       s.callbackRead,
@@ -103,6 +116,7 @@ func (s *Storage) Install() error {
 		Prune:      s.callbackPrune,
 		Evict:      s.callbackEvict,
 		Size:       s.callbackSize,
+		Geometry:   s.callbackGeometry,
 		ClearPiece: s.callbackClearPiece,
 	})
 }
@@ -114,7 +128,7 @@ func (s *Storage) Uninstall() error {
 
 // CacheByHash returns the live Cache for the given v1 info hash, or nil
 // if no torrent with that hash is currently registered.
-func (s *Storage) CacheByHash(hash [20]byte) *Cache {
+func (s *Storage) CacheByHash(hash flow.InfoHash) *Cache {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.byHash[hash]
@@ -172,7 +186,14 @@ func (s *Storage) Allocations() AllocationStatus {
 
 // ----- lt.StorageCallbacks dispatch -----
 
-func (s *Storage) callbackOpen(storage int64, hash [20]byte, numPieces int, pieceLength int64) {
+func (s *Storage) callbackOpen(storage int64, hash flow.InfoHash, numPieces int, pieceLength int64) {
+	s.callbackOpenDeferred(storage, hash, numPieces, pieceLength)
+	if c := s.lookup(storage); c != nil {
+		c.scanLocalPieces()
+	}
+}
+
+func (s *Storage) callbackOpenDeferred(storage int64, hash flow.InfoHash, numPieces int, pieceLength int64) {
 	c := newCache(s, storage, hash, numPieces, pieceLength)
 	s.mu.Lock()
 	c.flowReconnect.Store(s.networkRecovering.Load())
@@ -185,7 +206,6 @@ func (s *Storage) callbackOpen(storage int64, hash [20]byte, numPieces int, piec
 		c.diskRoot = plan.Root
 		c.preparation = clonePreparationRanges(plan.Ranges)
 	}
-	c.scanLocalPieces()
 	s.caches[storage] = c
 	s.byHash[hash] = c
 	s.mu.Unlock()
@@ -195,8 +215,15 @@ func (s *Storage) callbackOpen(storage int64, hash [20]byte, numPieces int, piec
 }
 
 func (s *Storage) callbackClose(storage int64) {
-	s.mu.Lock()
+	s.mu.RLock()
 	c := s.caches[storage]
+	s.mu.RUnlock()
+	if c != nil {
+		// Keep ownership visible until all piece operations and shared disk
+		// handles have drained. Cleanup uses absence as its removal fence.
+		c.close()
+	}
+	s.mu.Lock()
 	if c != nil {
 		// Disk callbacks can finish after the same hash was re-added with a
 		// different storage ID. Only the current owner may remove its lookup
@@ -205,12 +232,11 @@ func (s *Storage) callbackClose(storage int64) {
 			delete(s.byHash, c.InfoHash)
 			delete(s.verifiedReads, c.InfoHash)
 		}
-		delete(s.caches, storage)
+		if s.caches[storage] == c {
+			delete(s.caches, storage)
+		}
 	}
 	s.mu.Unlock()
-	if c != nil {
-		c.close()
-	}
 }
 
 func (s *Storage) callbackDeleted(storage int64) {
@@ -259,6 +285,19 @@ func (s *Storage) callbackEvict(storage int64, piece int) bool {
 func (s *Storage) callbackSize(storage int64, totalSize int64) {
 	if c := s.lookup(storage); c != nil {
 		c.totalSize.Store(totalSize)
+	}
+}
+
+func (s *Storage) callbackGeometry(storage int64, sizes []lt.PieceSize) {
+	if c := s.lookup(storage); c != nil {
+		layout := make(map[int]int64, len(sizes))
+		for _, entry := range sizes {
+			if entry.Piece < 0 || entry.Piece >= c.NumPieces || entry.Size <= 0 || entry.Size > c.PieceLength {
+				return
+			}
+			layout[entry.Piece] = entry.Size
+		}
+		c.pieceSizes.Store(&layout)
 	}
 }
 

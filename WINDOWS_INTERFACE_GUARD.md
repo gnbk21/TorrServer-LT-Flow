@@ -1,0 +1,97 @@
+# Optional Windows interface guard
+
+`FlowNetworkGuard-windows-amd64.exe` creates an explicit Windows Filtering
+Platform (WFP) policy for the executable path you select. It is separate from
+Flow's source-interface binding. Nothing installs or elevates it automatically.
+
+## Scope and limits
+
+- The selected executable's new IPv4/IPv6 TCP and UDP connections use the
+  selected interface. Public connections on other interfaces are blocked.
+- Local/private addresses, loopback, IPv4 link-local and local discovery
+  multicast remain permitted so the phone can reach the server. Existing
+  Windows firewall restrictions still apply. LAN proxies and private-address
+  destinations are deliberately outside the public-address restriction.
+- Rules are persistent, apply to this **path**, and survive helper exit and
+  reboot. Moving or renaming Flow requires removing the old policy and
+  installing a policy for the new path. Replacing the binary at the same path
+  retains the policy. Other executables and system services are unaffected.
+- This also restricts other Internet operations performed by that executable,
+  including updates and searches. Already-open connections should be closed
+  before installation; start Flow after installation to test new connections.
+- The guard does **not** filter shared Windows DNS services. Interface binding
+  and an installed filter set alone do not prove DNS or complete leak
+  protection. Both verification flags remain false. Physical adapter loss,
+  reconnect, VPN routing and protocol tests remain separate acceptance checks.
+
+Use it only after inspecting the preview and understanding these limits.
+Installation/removal require an Administrator terminal; preview does not.
+
+## Preview, install, inspect, undo
+
+Find your intended adapter's `ifIndex` with `Get-NetAdapter`. Replace `N` below
+with that number and replace the executable path with the one you launch.
+
+```powershell
+.\FlowNetworkGuard-windows-amd64.exe preview --exe 'C:\Flow\TorrServer-LT-windows-amd64.exe' --interface-index N
+.\FlowNetworkGuard-windows-amd64.exe install --exe 'C:\Flow\TorrServer-LT-windows-amd64.exe' --interface-index N
+.\FlowNetworkGuard-windows-amd64.exe status --exe 'C:\Flow\TorrServer-LT-windows-amd64.exe'
+.\FlowNetworkGuard-windows-amd64.exe remove --exe 'C:\Flow\TorrServer-LT-windows-amd64.exe'
+```
+
+Installation replaces only this helper's owned filters for the exact executable
+in one WFP transaction. Failure rolls back that transaction. Repeated install
+does not accumulate duplicate filters. Remove leaves other executable policies
+intact. If the old executable was deleted and its path cannot be resolved,
+`remove-all-owned` explicitly removes **all** policies owned by this helper;
+it does not delete unrelated Windows firewall filters.
+
+Status reports installed filter count and configuration completeness. It is
+not a packet capture or a claim that every protocol has been verified. Error
+output contains Windows error numbers, without executable paths or credentials.
+
+## Build and test
+
+Production builds use the same MinGW-w64/GCC runtime and original runtime
+notices as Flow's Windows native build. The release records helper binary and
+source SHA-256 values, source commit and provenance. The source is covered by
+the repository's GPL-3.0 license.
+
+Local MSVC/Windows SDK compilation and preview checks:
+
+```powershell
+.\build\build-windows-interface-guard.ps1
+.\build\test-windows-interface-guard.ps1 -Guard .tools\windows-interface-guard\FlowNetworkGuard-windows-amd64.exe
+```
+
+The `-InstallFixture` test switch installs filters for generated probe binaries
+only. CI runs it on a disposable Windows runner, verifies loopback playback
+connections, blocked public fallback, repeated installation, removal and
+isolation between two executable paths. The disposable runner receives an owned
+ActiveStore documentation-address IPv6 source and a single `/128` on-link test
+route, allowing classification without public IPv6 service. Only the probe
+explicitly binds that source; `SkipAsSource` prevents automatic selection and
+DNS registration. Cleanup removes only owned entries and restores any changed
+IPv6 DHCP setting. Both IPv4 and IPv6 TCP/UDP drop evidence and loopback delivery
+are required; an unavailable family fails this controlled check. Real VPN/adapter
+loss, public IPv6 service and system DNS protection remain separate checks.
+Do not run that switch on a normal workstation merely to view a preview. It is
+never invoked by the server or installer.
+
+Installation fixtures require explicit GitHub-hosted CI environment gates.
+The unpublished Windows SDK drop probe reads only the fixture's recent WFP
+events and exports TCP/UDP counts attributed to that exact executable, synthetic
+destination and Flow-owned block filter. It requires enabled WFP diagnostic
+events and never changes collection settings. A successful UDP socket write is
+not treated as evidence of delivery: the kernel classification/drop record is
+the enforcement gate. Missing drop evidence fails the check. Local preview
+and compilation remain available without installation or diagnostic access.
+
+The probe uses the documented [event enumeration filter](https://learn.microsoft.com/en-us/windows/win32/api/fwpmtypes/ns-fwpmtypes-fwpm_net_event_enum_template0)
+and [WFP drop logging](https://learn.microsoft.com/en-us/windows/win32/fwp/logging).
+
+WFP uses Microsoft's documented [application and interface conditions](https://learn.microsoft.com/en-us/windows/win32/fwp/filtering-condition-identifiers-)
+and [filter arbitration](https://learn.microsoft.com/en-us/windows/win32/fwp/filter-arbitration).
+Selected-interface/LAN permits have higher weights within the helper's own
+sublayer than its fallback blocks; restrictions in other firewall sublayers
+can still block connections.

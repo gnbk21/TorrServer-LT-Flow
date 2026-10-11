@@ -1,0 +1,9 @@
+<resources>
+    <string name="flow_diagnostics_title">Diagnosticare Flow</string>
+    <string name="flow_diagnostics_enable">Înregistrează diagnosticarea redării</string>
+    <string name="flow_diagnostics_hint">Dezactivat implicit. Activ la următoarea redare. Un singur raport privat limitat, cu măsurători numerice Media3; fără încărcare automată.</string>
+    <string name="flow_diagnostics_export">Exportă raportul</string>
+    <string name="flow_diagnostics_export_hint">Alege un fișier JSON. Rapoartele exclud numele videoclipurilor, adresele și datele de acces.</string>
+    <string name="flow_diagnostics_exported">Raport exportat</string>
+    <string name="flow_diagnostics_unavailable">Niciun raport disponibil sau export nereușit</string>
+</resources>

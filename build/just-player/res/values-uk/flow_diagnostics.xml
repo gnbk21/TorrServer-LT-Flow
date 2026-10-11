@@ -1,0 +1,9 @@
+<resources>
+    <string name="flow_diagnostics_title">Діагностика Flow</string>
+    <string name="flow_diagnostics_enable">Записувати діагностику відтворення</string>
+    <string name="flow_diagnostics_hint">Типово вимкнено. Вмикається під час наступного відтворення. Один обмежений приватний звіт із числовими вимірюваннями Media3; без автоматичного надсилання.</string>
+    <string name="flow_diagnostics_export">Експорт звіту</string>
+    <string name="flow_diagnostics_export_hint">Виберіть JSON-файл. Звіти не містять назв відео, адрес і облікових даних.</string>
+    <string name="flow_diagnostics_exported">Звіт експортовано</string>
+    <string name="flow_diagnostics_unavailable">Звіт відсутній або експорт не вдався</string>
+</resources>

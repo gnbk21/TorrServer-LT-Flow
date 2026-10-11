@@ -2,6 +2,7 @@ package torr
 
 import (
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -95,5 +96,34 @@ func TestWarmExpiryIgnoresStatusPollExtension(t *testing.T) {
 	tor.warmIdleSince = now.Add(-599 * time.Second)
 	if tor.expired(now) {
 		t.Fatal("warm session expired too soon")
+	}
+}
+
+func TestStreamAdmissionAndIdleExpiryCannotBothWin(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		tor := &Torrent{Stat: state.TorrentWorking, expiredTime: time.Now().Add(-time.Hour)}
+		start := make(chan struct{})
+		var workers sync.WaitGroup
+		workers.Add(2)
+		var admitted, claimed bool
+		go func() { defer workers.Done(); <-start; admitted = tor.beginStream() }()
+		go func() { defer workers.Done(); <-start; claimed = tor.claimExpiration(time.Now()) }()
+		close(start)
+		workers.Wait()
+		if admitted == claimed {
+			t.Fatal("admission and removal were not mutually exclusive")
+		}
+		if admitted {
+			if tor.expired(time.Now()) {
+				t.Fatal("in-flight HTTP setup expired before a reader existed")
+			}
+			tor.endStream()
+			if !tor.claimExpiration(time.Now()) {
+				t.Fatal("released request kept idle torrent alive")
+			}
+		}
+		if tor.beginStream() {
+			t.Fatal("closing torrent accepted a new stream")
+		}
 	}
 }

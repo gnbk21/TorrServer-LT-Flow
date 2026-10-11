@@ -8,6 +8,8 @@ export interface TorrentFile {
 
 export interface Torrent {
   hash: string;
+  info_hash_v1?: string;
+  info_hash_v2?: string;
   name?: string;
   torrs_hash?: string;
   title: string;

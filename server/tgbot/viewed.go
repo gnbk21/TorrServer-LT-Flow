@@ -10,7 +10,7 @@ import (
 )
 
 func cmdViewed(c tele.Context) error {
-	args := c.Args()
+	args := callbackArgs(c)
 	if len(args) == 0 {
 		return c.Send(tr(c.Sender().ID, "viewed_usage"))
 	}

@@ -154,5 +154,5 @@ func capabilityPlayback(c *gin.Context) {
 func ExposureSummary() gin.H {
 	f := sets.CurrentFlow()
 	policy := netpolicy.Snapshot()
-	return gin.H{"http_auth": sets.HttpAuth, "legacy_playback": !f.RequirePlaybackToken, "security_profile": f.SecurityProfile, "management_rate_limit": f.ManagementRateLimit, "explicit_origin_policy": f.ManagementOrigins != "" || f.SecurityProfile == "restricted", "listen_addresses": sets.IPs, "http_port": sets.Port, "https": sets.Ssl, "torrent_interface": policy, "vpn_leak_protection_verified": false}
+	return gin.H{"http_auth": sets.HttpAuth, "legacy_playback": !f.RequirePlaybackToken, "security_profile": f.SecurityProfile, "management_rate_limit": f.ManagementRateLimit, "explicit_origin_policy": f.ManagementOrigins != "" || f.SecurityProfile == "restricted", "listen_addresses": sets.IPs, "http_port": sets.Port, "https": sets.Ssl, "torrent_interface": policy, "windows_guard": netpolicy.GuardSnapshot(), "vpn_leak_protection_verified": false}
 }

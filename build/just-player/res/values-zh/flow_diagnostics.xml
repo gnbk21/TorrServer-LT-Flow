@@ -1,0 +1,9 @@
+<resources>
+    <string name="flow_diagnostics_title">Flow 诊断</string>
+    <string name="flow_diagnostics_enable">记录播放诊断</string>
+    <string name="flow_diagnostics_hint">默认关闭。下次播放时启用。仅保留一份有大小限制的私有报告，包含 Media3 数值测量结果；不会自动上传。</string>
+    <string name="flow_diagnostics_export">导出播放报告</string>
+    <string name="flow_diagnostics_export_hint">自行选择 JSON 文件。报告不含视频名称、地址或凭据。</string>
+    <string name="flow_diagnostics_exported">报告已导出</string>
+    <string name="flow_diagnostics_unavailable">报告不可用或导出失败</string>
+</resources>

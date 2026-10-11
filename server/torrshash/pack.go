@@ -4,9 +4,15 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/hex"
+	"errors"
 	"io"
 	"strings"
 )
+
+const maxTokenBytes = 1 << 20
+const maxTokenFields = 256
+const maxEncodedTokenBytes = 24 << 10
+const maxCompressedTokenBytes = 16 << 10
 
 func Pack(hash *TorrsHash) (string, error) {
 	data, err := pack(hash)
@@ -21,7 +27,11 @@ func PackBytes(hash *TorrsHash) ([]byte, error) {
 }
 
 func Unpack(token string) (*TorrsHash, error) {
-	data := Decode62(strings.TrimSpace(token))
+	token = strings.TrimSpace(token)
+	if len(token) > maxEncodedTokenBytes || !IsBase62(token) {
+		return nil, errors.New("invalid or oversized torrent token")
+	}
+	data := Decode62(token)
 	return UnpackBytes(data)
 }
 
@@ -30,13 +40,29 @@ func UnpackBytes(data []byte) (*TorrsHash, error) {
 }
 
 func pack(t *TorrsHash) ([]byte, error) {
+	if t == nil || len(t.Fields) > maxTokenFields {
+		return nil, errors.New("invalid torrent token")
+	}
+	hashBytes, err := hex.DecodeString(strings.TrimSpace(t.Hash))
+	if err != nil || len(hashBytes) != 20 {
+		return nil, errors.New("compact torrent tokens require a v1 SHA-1 identity; use a magnet for v2")
+	}
+	total := 20
+	for _, f := range t.Fields {
+		if f == nil {
+			return nil, errors.New("nil torrent token field")
+		}
+		total += 3 + len(f.Value)
+		if total > maxTokenBytes {
+			return nil, errors.New("torrent token exceeds limit")
+		}
+	}
 	buf := new(bytes.Buffer)
 	zw, err := zlib.NewWriterLevel(buf, zlib.BestCompression)
 	if err != nil {
 		return nil, err
 	}
 
-	hashBytes, _ := hex.DecodeString(strings.TrimSpace(t.Hash))
 	_, err = zw.Write(hashBytes)
 	if err != nil {
 		return nil, err
@@ -50,18 +76,25 @@ func pack(t *TorrsHash) ([]byte, error) {
 	}
 
 	err = zw.Close()
+	if buf.Len() > maxCompressedTokenBytes {
+		return nil, errors.New("compressed torrent token exceeds limit")
+	}
 	return buf.Bytes(), err
 }
 
 func unpack(data []byte) (*TorrsHash, error) {
+	if len(data) > maxCompressedTokenBytes {
+		return nil, errors.New("torrent token exceeds limit")
+	}
 	zr, err := zlib.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
 	defer zr.Close()
+	reader := &io.LimitedReader{R: zr, N: maxTokenBytes + 1}
 
 	hashBuf := make([]byte, 20)
-	if _, err = io.ReadFull(zr, hashBuf); err != nil {
+	if _, err = io.ReadFull(reader, hashBuf); err != nil {
 		return nil, err
 	}
 
@@ -69,7 +102,10 @@ func unpack(data []byte) (*TorrsHash, error) {
 	th.Hash = hex.EncodeToString(hashBuf)
 
 	for {
-		field, err := ReadField(zr)
+		field, err := ReadField(reader)
+		if reader.N <= 0 {
+			return nil, errors.New("expanded torrent token exceeds limit")
+		}
 		if err == nil && field == nil {
 			//End on read
 			return th, nil
@@ -78,6 +114,9 @@ func unpack(data []byte) (*TorrsHash, error) {
 			return th, err
 		}
 
+		if len(th.Fields) >= maxTokenFields {
+			return nil, errors.New("too many torrent token fields")
+		}
 		th.Fields = append(th.Fields, field)
 	}
 }

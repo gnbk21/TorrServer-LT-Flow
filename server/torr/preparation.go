@@ -89,11 +89,13 @@ func newPreparationManager(bt *BTServer) *preparationManager {
 			return p
 		}
 		metadata, e := lt.ParseTorrentBytes(j.Spec.InfoBytes)
-		if e != nil || metadata.InfoHash != j.Hash || metadata.TotalSize != j.TotalSize || metadata.PieceLength != j.PieceLength || len(metadata.PieceHashes) != metadata.NumPieces*40 {
+		if e != nil || (metadata.InfoHash != j.Hash && metadata.InfoHashV2 != j.Hash) || metadata.TotalSize != j.TotalSize || metadata.PieceLength != j.PieceLength || (len(metadata.PieceHashes) != metadata.NumPieces*40 && len(metadata.V2Files) == 0) {
 			p.failure = "STATE_READ"
 			p.jobs = make(map[string]*preparationRecord)
 			return p
 		}
+		j.Spec.InfoHashV1 = metadata.InfoHashV1
+		j.Spec.InfoHashV2 = metadata.InfoHashV2
 		if j.StorageRoot != "" {
 			if !filepath.IsAbs(j.StorageRoot) || filepath.Clean(j.StorageRoot) != j.StorageRoot {
 				p.failure = "STATE_READ"
@@ -167,7 +169,16 @@ func (p *preparationManager) configure(hash Hash) error {
 			ranges[id] = torrstor.PreparationRange{First: j.First, Last: j.Last, Active: j.State == "downloading" && j.SchedulingReason == ""}
 		}
 	}
-	return torrstor.Global().ConfigurePreparation(hash, torrstor.PreparationStorage{Root: p.root, Ranges: ranges})
+	storageHash := hash
+	for _, j := range p.jobs {
+		if j.Spec.InfoHash == hash {
+			if !NewHashFromHex(j.Spec.InfoHashV1).IsZero() {
+				storageHash = NewHashFromHex(j.Spec.InfoHashV1)
+			}
+			break
+		}
+	}
+	return torrstor.Global().ConfigurePreparation(storageHash, torrstor.PreparationStorage{Root: p.root, Ranges: ranges})
 }
 
 // Library deletion must stop durable jobs before removing their torrent. The
@@ -228,6 +239,10 @@ func PrepareEpisode(hashText string, index int, action string) error {
 	if err := hash.UnmarshalText([]byte(hashText)); err != nil || hash.IsZero() || index < 1 {
 		return errors.New("invalid episode")
 	}
+	if existing := GetTorrentInfo(hashText); existing != nil {
+		hash = existing.Hash()
+		hashText = hash.HexString()
+	}
 	if settings.ReadOnly {
 		return errors.New("preparation requires writable state")
 	}
@@ -255,9 +270,11 @@ func PrepareEpisode(hashText string, index int, action string) error {
 		spec.InfoBytes = append([]byte(nil), spec.InfoBytes...)
 		t.mu.Unlock()
 		metadata, err := lt.ParseTorrentBytes(spec.InfoBytes)
-		if err != nil || !metadata.HasMetadata || len(metadata.PieceHashes) != metadata.NumPieces*40 {
-			return errors.New("import original v1 torrent or wait for metadata")
+		if err != nil || !metadata.HasMetadata || (len(metadata.PieceHashes) != metadata.NumPieces*40 && len(metadata.V2Files) == 0) {
+			return errors.New("import original torrent or wait for metadata")
 		}
+		spec.InfoHashV1 = metadata.InfoHashV1
+		spec.InfoHashV2 = metadata.InfoHashV2
 		handle := t.LTHandle()
 		if handle == nil {
 			fresh, e := NewTorrent(&spec, p.bt)
@@ -372,7 +389,7 @@ func (p *preparationManager) tick() {
 	foreground := false
 	for _, t := range p.bt.ListTorrents() {
 		if t != nil {
-			if c := torrstor.Global().CacheByHash([20]byte(t.Hash())); c != nil && c.StreamingReaders() > 0 {
+			if c := torrstor.Global().CacheByHash(t.StorageHash()); c != nil && c.StreamingReaders() > 0 {
 				foreground = true
 				break
 			}
@@ -414,7 +431,7 @@ func (p *preparationManager) tick() {
 	cleaning := make(map[Hash]bool)
 	diskFailure := make(map[Hash]bool)
 	for _, j := range p.jobs {
-		if c := torrstor.Global().CacheByHash(j.Spec.InfoHash); c != nil && c.PreparationError() {
+		if c := torrstor.Global().CacheByHash(j.Spec.StorageHash()); c != nil && c.PreparationError() {
 			diskFailure[j.Spec.InfoHash] = true
 		}
 		if j.State == "cleaning" {
@@ -443,7 +460,7 @@ func (p *preparationManager) tick() {
 			continue
 		}
 		t.preparationHold.Store(true)
-		c := torrstor.Global().CacheByHash(j.Spec.InfoHash)
+		c := torrstor.Global().CacheByHash(j.Spec.StorageHash())
 		if c == nil {
 			continue
 		}
@@ -498,7 +515,7 @@ func preparationFree(root string) (uint64, bool) {
 // native Remove fence joins disk work before files can be removed. Other jobs
 // for the same torrent keep their pieces; they are restored on the next tick.
 func (p *preparationManager) cleanup(j *preparationRecord) bool {
-	c := torrstor.Global().CacheByHash(j.Spec.InfoHash)
+	c := torrstor.Global().CacheByHash(j.Spec.StorageHash())
 	if c != nil && !c.BeginPreparationCleanup() {
 		j.ErrorCode = "PLAYBACK_ACTIVE"
 		return false
@@ -522,7 +539,7 @@ func (p *preparationManager) cleanup(j *preparationRecord) bool {
 		if shared {
 			continue
 		}
-		if err := os.Remove(filepath.Join(p.root, j.Hash, strconv.Itoa(i))); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(filepath.Join(p.root, j.Spec.StorageHash().HexString(), strconv.Itoa(i))); err != nil && !os.IsNotExist(err) {
 			j.ErrorCode = "DISK_REMOVE"
 			return false
 		}

@@ -69,6 +69,15 @@ export function ResourceStatus({ status }: { status?: RuntimeStatus }) {
               <p>{t("runtime.bindingLimit")}</p>
             </>
           )}
+          {exposure.windows_guard?.supported && (
+            <p>
+              {t(
+                exposure.windows_guard.available
+                  ? "runtime.guardAvailable"
+                  : "runtime.guardUnavailable",
+              )}
+            </p>
+          )}
         </details>
       )}
     </div>

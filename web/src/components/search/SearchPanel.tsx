@@ -1,4 +1,4 @@
-import { useFlow } from "../../hooks/queries";
+import { useFlow, useVisibilityGate } from "../../hooks/queries";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -36,14 +36,16 @@ export function SearchPanel({
   const sources = (Object.keys(enabledSources) as SearchSource[]).filter(
     (key) => enabledSources[key],
   );
+  const metadataVisible = useVisibilityGate(
+    ["prepare", added?.hash],
+    !!added && stage !== "PLAYABLE",
+  );
   const info = useQuery({
     queryKey: ["prepare", added?.hash],
     queryFn: ({ signal }) => torrentsApi.get(added!.hash, signal),
-    enabled: !!added,
+    enabled: metadataVisible,
     refetchInterval: (q) =>
-      !document.hidden && q.state.data?.stat !== 5 && stage !== "PLAYABLE"
-        ? 1500
-        : false,
+      metadataVisible && q.state.data?.stat !== 5 ? 1500 : false,
   });
   const flow = useFlow(stage === "PREPARING" ? added?.hash : undefined);
   const run = async () => {

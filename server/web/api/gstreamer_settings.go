@@ -32,14 +32,14 @@ func GetGStreamerSettings(c *gin.Context) {
 func UpdateGStreamerSettings(c *gin.Context) {
 	var req gstreamerSettingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": errorMessage(err)})
 		return
 	}
 
 	switch req.Action {
 	case "def":
 		if err := gstreamer.ResetConfig(); err != nil {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			c.JSON(http.StatusForbidden, gin.H{"error": errorMessage(err)})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -51,10 +51,10 @@ func UpdateGStreamerSettings(c *gin.Context) {
 		}
 		if err := gstreamer.UpdateConfig(*req.Config); err != nil {
 			if err.Error() == "read-only mode" {
-				c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+				c.JSON(http.StatusForbidden, gin.H{"error": errorMessage(err)})
 				return
 			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": errorMessage(err)})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})

@@ -3,7 +3,11 @@ import { useTranslation } from "react-i18next";
 import { Modal } from "../common/Modal";
 import type { FlowStatusResponse } from "../../types/flow";
 import { useFlowDiagnostics } from "../../hooks/queries";
+import { useObservationTime } from "../../hooks/observationTime";
 import { RequestError } from "../common/RequestState";
+import { IncidentTimeline } from "./IncidentTimeline";
+import { PlayerEvidence } from "./PlayerEvidence";
+import { NextEpisodeWarmup } from "./NextEpisodeWarmup";
 export interface FlowDiagnosticsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -19,6 +23,15 @@ export function FlowDiagnosticsDrawer({
   const { t } = useTranslation();
   const diagnostics = useFlowDiagnostics(summary?.hash, isOpen);
   const status = diagnostics.data ?? summary;
+  const sampledAt = status?.sampled_at ? Date.parse(status.sampled_at) : NaN;
+  const now = useObservationTime(
+    isOpen,
+    sampledAt + 10_000,
+    (status?.sparse?.sampled_at_ms ?? NaN) + 5000,
+  );
+  const sampleAge = now - sampledAt;
+  const fresh =
+    Number.isFinite(sampleAge) && sampleAge >= 0 && sampleAge < 10_000;
   return (
     <Modal
       isOpen={isOpen}
@@ -38,6 +51,14 @@ export function FlowDiagnosticsDrawer({
         <p>{t("flow.noMetrics")}</p>
       ) : (
         <div className="space-y-5">
+          <IncidentTimeline status={status} />
+          <PlayerEvidence status={status} />
+          {status.next_episode_warmup && (
+            <NextEpisodeWarmup
+              key={`${status.hash}:${status.next_episode_warmup.current_file_index}`}
+              status={status}
+            />
+          )}
           {status.storage_io && (
             <section className="panel">
               <h3 className="font-semibold">{t("flow.ioTitle")}</h3>
@@ -57,8 +78,8 @@ export function FlowDiagnosticsDrawer({
               <h3 className="font-semibold">{t("flow.sparseTitle")}</h3>
               {!status.sparse.known ||
               !status.sparse.sampled_at_ms ||
-              Date.now() - status.sparse.sampled_at_ms < 0 ||
-              Date.now() - status.sparse.sampled_at_ms >= 5000 ? (
+              now - status.sparse.sampled_at_ms < 0 ||
+              now - status.sparse.sampled_at_ms >= 5000 ? (
                 <p>{t("flow.sparseUnknown")}</p>
               ) : (
                 <div className="space-y-2 mt-2 text-sm">
@@ -185,9 +206,7 @@ export function FlowDiagnosticsDrawer({
                             })
                           : typeof value === "object" && value !== null
                             ? redactDiagnostic(JSON.stringify(value))
-                            : typeof value === "object" && value !== null
-                              ? redactDiagnostic(JSON.stringify(value))
-                              : redactDiagnostic(value)}
+                            : redactDiagnostic(value)}
                     </dd>
                   </div>
                 ))}
@@ -203,11 +222,36 @@ export function FlowDiagnosticsDrawer({
               <p className="mt-2 text-sm text-slate-400">
                 {t("flow.reserveHint")}
               </p>
+              {s.wait_explanation && !fresh && (
+                <p className="mt-3 text-sm">{t("flow.sparseUnknown")}</p>
+              )}
+              {s.wait_explanation && fresh && (
+                <div className="mt-3 space-y-2 text-sm">
+                  <p>
+                    {t(`flow.sparseReasons.${s.wait_explanation.reason}`, {
+                      defaultValue: t("flow.sparseUnknown"),
+                    })}
+                  </p>
+                  <p>
+                    {t("flow.waitConfidence", {
+                      confidence: t(
+                        `flow.confidence.${s.wait_explanation.confidence}`,
+                      ),
+                    })}
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {s.wait_explanation.actions.map((action) => (
+                      <li key={action}>{t(`flow.waitActions.${action}`)}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
                 {Object.entries(s)
                   .filter(
                     ([k]) =>
                       k !== "traces" &&
+                      k !== "wait_explanation" &&
                       k !== "file_index" &&
                       k !== "required_piece_suppliers",
                   )

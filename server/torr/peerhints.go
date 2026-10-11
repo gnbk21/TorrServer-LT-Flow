@@ -84,7 +84,7 @@ func (t *Torrent) savePeerHints(handle *lt.Torrent, private bool) {
 	var files []saved
 	for _, entry := range entries {
 		stem := strings.TrimSuffix(entry.Name(), ".json")
-		if len(stem) != 40 || NewHashFromHex(stem).IsZero() || entry.IsDir() {
+		if (len(stem) != 40 && len(stem) != 64) || NewHashFromHex(stem).IsZero() || entry.IsDir() {
 			continue
 		}
 		info, e := entry.Info()

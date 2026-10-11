@@ -1,0 +1,9 @@
+<resources>
+    <string name="flow_diagnostics_title">Flow diagnostics</string>
+    <string name="flow_diagnostics_enable">Record playback diagnostics</string>
+    <string name="flow_diagnostics_hint">Off by default. Enabled on the next playback. Keeps one bounded private report with numeric Media3 measurements; no automatic upload.</string>
+    <string name="flow_diagnostics_export">Export playback report</string>
+    <string name="flow_diagnostics_export_hint">Choose a JSON file yourself. Reports exclude video names, addresses and credentials.</string>
+    <string name="flow_diagnostics_exported">Report exported</string>
+    <string name="flow_diagnostics_unavailable">No report available, or export failed</string>
+</resources>

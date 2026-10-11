@@ -1,0 +1,47 @@
+--- a/include/libtorrent/aux_/bt_peer_connection.hpp
++++ b/include/libtorrent/aux_/bt_peer_connection.hpp
+@@ -376,6 +376,10 @@
+ 		bool m_supports_dht_port:1;
+ 		bool m_supports_fast:1;
+ 
++		// Non-FAST cancellation has no acknowledgement. Replies may belong to
++		// an old cancelled request even after the same block was requested again.
++		bool m_flow_cancelled_request = false;
++
+ 		// this is set to true when we send the bitfield message.
+ 		// for magnet links we can't do that right away,
+ 		// since we don't know how many pieces there are in
+--- a/src/bt_peer_connection.cpp
++++ b/src/bt_peer_connection.cpp
+@@ -1108,6 +1108,17 @@
+ 		incoming_piece_fragment(piece_bytes);
+ 		if (!m_recv_buffer.packet_finished()) return;
+ 
++		// An old non-FAST reply can be indistinguishable from a replacement
++		// request for the same block. Cancel any remotely queued replacement
++		// before incoming_piece releases local credit and schedules more work.
++		// Do not call write_cancel here: its synthetic reject would release
++		// local credit twice. Ordered transport puts the cancel before refills.
++		if (m_flow_cancelled_request && !m_supports_fast
++			&& m_settings.get_bool(settings_pack::flow_capacity_aware_requests)
++			&& validate_piece_request(p))
++			send_message(msg_cancel, counters::num_outgoing_cancel
++				, static_cast<int>(p.piece), p.start, p.length);
++
+ 		incoming_piece(p, recv_buffer.data() + header_size);
+ 		maybe_send_hash_request();
+ 	}
+@@ -2289,7 +2300,12 @@
+ 		send_message(msg_cancel, counters::num_outgoing_cancel
+ 			, static_cast<int>(r.piece), r.start, r.length);
+ 
+-		if (!m_supports_fast) incoming_reject_request(r);
++		if (!m_supports_fast)
++		{
++			if (m_settings.get_bool(settings_pack::flow_capacity_aware_requests))
++				m_flow_cancelled_request = true;
++			incoming_reject_request(r);
++		}
+ 
+ #ifndef TORRENT_DISABLE_EXTENSIONS
+ 		extension_notify(&peer_plugin::sent_cancel, r);

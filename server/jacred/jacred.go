@@ -12,13 +12,14 @@ import (
 	"time"
 
 	"server/log"
+	"server/netpolicy"
 	"server/rutor/models"
 	"server/settings"
 )
 
 const httpTimeout = 30 * time.Second
 
-var httpClient = &http.Client{Timeout: httpTimeout}
+var httpClient = &http.Client{Timeout: httpTimeout, Transport: netpolicy.HTTPTransport()}
 
 // flexInt tolerates a JSON value that is either a number or a numeric string.
 // JacRed serializes torrents straight from its flat-file DB, where a numeric
