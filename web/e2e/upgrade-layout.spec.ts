@@ -77,3 +77,50 @@ for (const language of ["en", "ru", "ua", "bg", "fr", "ro", "zh"])
         await page.evaluate(() => document.activeElement?.tagName !== "BODY"),
       ).toBe(true);
     });
+
+for (const [width, height] of [
+  [375, 812],
+  [812, 375],
+]) {
+  test(`mobile settings actions stay above navigation ${width}x${height}`, async ({
+    page,
+  }) => {
+    await upgradeFixture(page);
+    await page.setViewportSize({ width, height });
+    await page.addInitScript(() => localStorage.setItem("i18nextLng", "en"));
+    await page.goto("/#/settings");
+    await page.getByRole("tab", { name: "Flow", exact: true }).click();
+    await page
+      .getByRole("checkbox", { name: /^Show advanced settings/ })
+      .check();
+    await expect(page.locator("#Flow__SwarmProfile")).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const actions = page.locator(".actions.sticky");
+    const navigation = page.locator("nav.lg\\:hidden");
+    await expect
+      .poll(async () => {
+        const actionBounds = await actions.boundingBox();
+        const navBounds = await navigation.boundingBox();
+        return (
+          !!actionBounds &&
+          !!navBounds &&
+          actionBounds.y + actionBounds.height <= navBounds.y
+        );
+      })
+      .toBe(true);
+    const submit = page.getByRole("button", {
+      name: "Apply settings",
+      exact: true,
+    });
+    await expect(submit).toHaveAttribute("form", "flow-settings-form");
+    expect(
+      await submit.evaluate(
+        (element) => (element as HTMLButtonElement).form?.id,
+      ),
+    ).toBe("flow-settings-form");
+    await page.locator("#Flow__SwarmProfile").selectOption("adaptive");
+    await expect(submit).toBeEnabled();
+    await submit.click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+  });
+}

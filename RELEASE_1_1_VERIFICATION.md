@@ -1,6 +1,6 @@
 # Flow 1.1 verification
 
-Release target: `MatriX.145.Flow-v1.1.2`. Pre-tag runtime-source gates passed.
+Release target: `MatriX.145.Flow-v1.1.3`. Pre-tag runtime-source gates passed.
 The merged tag rebuild found a poster timeout race; its correction requires
 fresh tagged gates and downloaded publication checks;
 this document does not yet record a published or fully verified package.
@@ -172,7 +172,7 @@ is preserved. Decode failures now recognize wrapped deadline, cancellation
 and network timeout errors while still rejecting malformed images. A
 deterministic regression covers timeout with an uncancelled context. Local
 unit execution is blocked by the absent native CGo library; fresh tagged CI
-executes the test. Flow 1.1 publication uses corrected patch tag v1.1.2.
+executes the test. Flow 1.1 publication uses corrected patch tag v1.1.3.
 
 The intermediate v1.1.1 candidate (`f564b6a9`, run `38144215472`) was
 withdrawn before publication when review found that image format sniffing can
@@ -181,3 +181,31 @@ correction retains the original read error without copying or buffering the
 response. The deterministic regression checks the actual decoder
 transformation and retains rejection of ordinary malformed input. The bounded
 body size, dimensions, interface policy and request deadlines are unchanged.
+
+## Mobile settings action-panel correction
+
+The unpublished v1.1.2 candidate (`d9099f8d`, run `38144407771`) passed native
+Linux units/race/fuzz/contracts/controlled playback, macOS, web, inventory
+and profiling gates, and final-source CodeQL `38144405506`. Its scan retained
+the same 30 reviewed findings. The high-bitrate/Windows gates were still running
+when the candidate was withdrawn; the overall workflow is not a pass.
+
+Actual embedded-UI review found that the settings form top constrained its
+110-pixel sticky action panel to y=667 on a 375x812 viewport, overlapping
+bottom navigation at y=747. The panel now belongs to the enclosing settings
+page, and the external submit button remains explicitly linked to the form.
+Both portrait/landscape bounds and actual confirmation submission passed the
+new regressions. Type checking, lint, production build, 104 local unit tests
+and all 97 browser scenarios passed. One local native-contract unit is skipped
+without exported DTOs; native CI validates the actual API contract separately.
+An initial Vitest run executed no tests because sandbox temporary-cache rename
+was denied; rerunning with workspace-owned temporary files passed.
+
+The d9099f8d Windows artifact also passed exact Range/header/disk cleanup, live
+and DB-only hybrid removal, and embedded UI checks. Its SHA-256 is
+`eb821ebcc561d4436de06c8ee7ca95831b5592467b5a8f79703928d439523195`.
+Both Linux source vulnerability scans reported no vulnerabilities. The stripped
+Windows scan retains GO-2026-5932; its resolved Windows CGo import graph has
+511 packages and excludes OpenPGP. This is not a clean symbol-level Windows
+reachability result. Final v1.1.3 publication still requires its tagged gates
+and downloaded distribution verification. All earlier tags remain unchanged.

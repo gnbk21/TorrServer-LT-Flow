@@ -2,11 +2,11 @@
 
 TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps the libtorrent engine, existing media cache and HTTP API, and adds a modern embedded web interface.
 
-> **Flow 1.1:** dashboard/library improvements, streaming resilience, native v2/hybrid support and release hardening. [Download](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.2), [release notes](RELEASE_1_1_NOTES.md), and [verification/field limits](RELEASE_1_1_VERIFICATION.md). Legacy remains the default; experiments remain off. Physical phone/network recovery checks are disclosed separately.
+> **Flow 1.1:** dashboard/library improvements, streaming resilience, native v2/hybrid support and release hardening. [Download](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.3), [release notes](RELEASE_1_1_NOTES.md), and [verification/field limits](RELEASE_1_1_VERIFICATION.md). Legacy remains the default; experiments remain off. Physical phone/network recovery checks are disclosed separately.
 
 ## Run on Windows
 
-1. Open [Flow 1.1](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.2), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.2.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
+1. Open [Flow 1.1](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.3), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.3.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
 2. In PowerShell, run the standard executable from the extracted folder, using a separate data directory for Flow:
 
    ```powershell

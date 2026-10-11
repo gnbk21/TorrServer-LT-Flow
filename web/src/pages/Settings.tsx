@@ -519,7 +519,11 @@ export default function Settings() {
           }
         />
       </div>
-      <form onSubmit={handleSubmit(submit)} className="space-y-5">
+      <form
+        id="flow-settings-form"
+        onSubmit={handleSubmit(submit)}
+        className="space-y-5"
+      >
         {tab === "flow" && (
           <p className="panel text-sm">{t("settings.flowHint")}</p>
         )}
@@ -712,30 +716,31 @@ export default function Settings() {
             );
           })}
         </div>
-        <div className="actions sticky bottom-20 lg:bottom-3 panel">
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={
-              !formState.isDirty ||
-              saving ||
-              !draftRevision ||
-              !!configuration.data?.applying ||
-              conflict ||
-              integrationDirty ||
-              certificateDirty
-            }
-          >
-            {t("settings.apply")}
-          </Button>
-          <Button disabled={!formState.isDirty || saving} onClick={discard}>
-            {t("settings.discard")}
-          </Button>
-          <p className="text-xs text-slate-400" role="status">
-            {t(dirty ? "settings.unsaved" : "settings.savedState")}
-          </p>
-        </div>
       </form>
+      <div className="actions sticky bottom-20 lg:bottom-3 panel">
+        <Button
+          type="submit"
+          form="flow-settings-form"
+          variant="primary"
+          disabled={
+            !formState.isDirty ||
+            saving ||
+            !draftRevision ||
+            !!configuration.data?.applying ||
+            conflict ||
+            integrationDirty ||
+            certificateDirty
+          }
+        >
+          {t("settings.apply")}
+        </Button>
+        <Button disabled={!formState.isDirty || saving} onClick={discard}>
+          {t("settings.discard")}
+        </Button>
+        <p className="text-xs text-slate-400" role="status">
+          {t(dirty ? "settings.unsaved" : "settings.savedState")}
+        </p>
+      </div>
       <IntegrationSettings tab={tab} onDirty={setIntegrationDirty} />
       {tab === "advanced" && <MaintenancePanel dirty={dirty} />}
       {tab === "advanced" && (

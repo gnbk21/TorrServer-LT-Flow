@@ -1,12 +1,14 @@
 # TorrServer-Flow 1.1
 
-Version: `MatriX.145.Flow-v1.1.2`.
+Version: `MatriX.145.Flow-v1.1.3`.
 
 ## Changes since 1.0.1
 
 - Updated dashboard and torrent library: playback focus, incident timeline,
   card/list views, restored navigation state, paginated full-library search,
   compact live projections and less background polling.
+- Mobile settings actions stay above navigation, including their status text;
+  Apply remains associated with the original settings form.
 - Consistent light/dark/system themes, density preferences, responsive controls,
   keyboard focus, settings search, draft/conflict protection and seven languages.
 - Streaming resilience: bounded interruption/burst reserves, recovery hysteresis,
@@ -41,7 +43,7 @@ Streaming preserves the original video quality and needs no paid provider or
 full-episode download. The existing piece store remains the only media cache.
 
 On Windows, download and extract
-`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.2.zip`, stop the old server,
+`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.3.zip`, stop the old server,
 keep its executable and state for rollback, then run:
 
 ```powershell
