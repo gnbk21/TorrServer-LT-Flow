@@ -49,8 +49,13 @@ SSL_SRC_DIR="$SRC_DIR/openssl-${OPENSSL_VERSION}"
 ensure_b2() {
     # NB: `b2 --version` prints the banner but exits NON-zero (observed with
     # B2 5.1.0), so judge runnability by the banner text, not the exit code.
-    if [[ ! -x "$BOOST_DIR/b2" ]] \
-        || ! "$BOOST_DIR/b2" --version 2>/dev/null | grep -q '^B2 '; then
+    local banner=''
+    if [[ -x "$BOOST_DIR/b2" ]]; then
+        banner=$("$BOOST_DIR/b2" --version 2>/dev/null || true)
+    fi
+    # Test the captured output independently: pipefail would otherwise treat
+    # the intentionally nonzero version exit as a broken host executable.
+    if ! grep -q '^B2 ' <<< "$banner"; then
         log "bootstrapping host b2"
         ( cd "$BOOST_DIR" && ./bootstrap.sh >/dev/null )
     fi

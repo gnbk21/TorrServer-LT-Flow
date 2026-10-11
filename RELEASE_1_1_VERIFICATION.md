@@ -53,3 +53,10 @@ Follow-up local checks: media MIME/byte-range, Flow, logging and console tests;
 44 Python tests; actionlint; both real native patch application, repeatability,
 hardlink isolation and drift tests passed. Packages importing libtorrent cannot
 run on this host without a native compiler and remain assigned to CI.
+
+The final host-tool follow-up passes all 45 Python tests, including an actual
+Bash check that valid B2 is reused despite its nonzero version exit, and that
+missing/wrong-host tools are bootstrapped. Native/race gates now explicitly
+include root cache cleanup, MIME, Torznab and JacRed tests. New endpoint tests
+exercise unavailable-interface routing, TMDB response limits, oversized
+configured certificates and preservation of existing MSX sharing on bad input.

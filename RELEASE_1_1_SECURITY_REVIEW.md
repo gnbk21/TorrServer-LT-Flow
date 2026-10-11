@@ -83,3 +83,10 @@ none was dismissed using that approval. The fixes above require a new scan.
 This review distinguishes retained capabilities and build-tool scope from
 corrected runtime defects. Open findings and fresh scan results must remain
 visible in the final release verification; scan success does not erase alerts.
+
+The host-tool probe also had a build-cache defect: `pipefail` treated a valid
+B2 version banner with a nonzero exit as a broken executable. The probe now
+tests captured output independently. Real Bash regressions cover reusable,
+wrong-host and missing tools. This avoids unnecessary bootstrap during native
+bridge extraction; disappearance of a B2 finding in a later runtime scan would
+not establish a fix in upstream B2 source.
