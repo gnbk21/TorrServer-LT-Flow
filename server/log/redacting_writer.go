@@ -7,7 +7,7 @@ import "io"
 type redactingWriter struct{ destination io.Writer }
 
 func (w redactingWriter) Write(input []byte) (int, error) {
-	output := []byte(RedactSecrets(string(input)))
+	output := []byte(safeLogEntry(RedactSecrets(string(input))) + "\n")
 	n, err := w.destination.Write(output)
 	if err != nil {
 		return 0, err

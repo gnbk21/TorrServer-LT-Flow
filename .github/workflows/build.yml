@@ -50,38 +50,41 @@ concurrency:
   # Keep long native comparisons and rollback evidence intact across checkpoints.
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   release-inventory:
     needs: [cross, sources, web]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: server/go.mod
           cache: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
           cache: yarn
           cache-dependency-path: web/yarn.lock
       - working-directory: web
         run: yarn install --frozen-lockfile
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _src
           key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
       - run: bash build/_fetch_sources.sh
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: TorrServer-LT-*
           path: inventory-binaries
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: flow-interface-guard-windows
           path: inventory-binaries/interface-guard
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: flow-web-cross
           path: server/web/pages/template
@@ -91,7 +94,7 @@ jobs:
         run: |
           python3 build/sbom.py --artifacts inventory-binaries --native-sources _src --output inventory/SBOM.cdx.json --tag "$FLOW_VERSION" --commit "$GITHUB_SHA"
           node build/validate_sbom.cjs inventory/SBOM.cdx.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: flow-cross-inventory
           path: inventory/SBOM.cdx.json
@@ -120,8 +123,8 @@ jobs:
     if: ${{ !inputs.profile_source_run_id }}
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
@@ -137,20 +140,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _src
           key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: flow-web-cross
           path: server/web/pages/template
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: TorrServer-LT-linux-amd64
           path: _out/sparse-current
@@ -161,7 +164,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg cmake pkg-config
           bash build/sparse_native_layers.sh 2>&1 | tee _out/sparse-native-layers-build.log
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: flow-sparse-native-layers
@@ -184,9 +187,9 @@ jobs:
     if: ${{ !inputs.profile_source_run_id }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _src
           key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
@@ -200,8 +203,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _src
           key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
@@ -233,16 +236,16 @@ jobs:
           - android-arm64
           - android-armv7
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Download freshly generated web UI
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: flow-web-cross
           path: server/web/pages/template
 
       - name: Restore Boost + libtorrent sources
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _src
           key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
@@ -250,14 +253,14 @@ jobs:
       # Cache the per-target install tree (lib + headers + .pc). With it present
       # build_libtorrent short-circuits and only the Go binary is relinked.
       - name: Cache libtorrent install tree
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _deps/${{ matrix.target }}
           key: deps-${{ matrix.target }}-boost1.85.0-lt2.1.2-ossl3.5.7-flowsparse-pcfold2-${{ hashFiles('build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
           restore-keys: deps-${{ matrix.target }}-boost1.85.0-lt2.1.2-ossl3.5.7-
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: server/go.mod
           cache: true
@@ -277,7 +280,7 @@ jobs:
       - name: Preserve static toolchain runtime notices
         if: matrix.target == 'windows-amd64' || startsWith(matrix.target, 'android-')
         run: python3 build/runtime_notices.py --target '${{ matrix.target }}' --output '_out/RUNTIME_NOTICES-${{ matrix.target }}.txt'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'windows-amd64' || startsWith(matrix.target, 'android-')
         with:
           name: flow-runtime-notices-${{ matrix.target }}
@@ -347,7 +350,7 @@ jobs:
           FLOW_CONTRACT_OUTPUT: ${{ github.workspace }}/_out/api-contracts.json
         run: go test ./web/api -run '^TestExportFrontendContracts$' -count=1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         if: matrix.target == 'linux-amd64'
         with:
           node-version: '24'
@@ -361,7 +364,7 @@ jobs:
         run: |
           yarn install --frozen-lockfile
           yarn vitest run src/api/contracts.test.ts
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'linux-amd64'
         with:
           name: flow-api-contracts
@@ -412,7 +415,7 @@ jobs:
           go test ./torr -run '^$' -fuzz '^FuzzTrackerURLRedaction$' -fuzztime=100000x -timeout=180s -parallel=2
       - name: Retain minimized fuzz failures
         if: failure() && matrix.target == 'linux-amd64'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: flow-fuzz-failures
           path: server/**/testdata/fuzz/**
@@ -427,7 +430,7 @@ jobs:
       - name: Console presentation and command compatibility
         if: matrix.target == 'linux-amd64'
         run: python3 build/console_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/console-check
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always() && matrix.target == 'linux-amd64'
         with:
           name: flow-console-check
@@ -463,7 +466,7 @@ jobs:
           python3 build/request_cancel_check.py --executable _out/TorrServer-LT-linux-amd64 --output _out/request-cancel
           python3 build/sparse_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/sparse-check
           python3 build/sparse_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/sparse-rate-check --rate-aware --cases below complementary late-have
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always() && matrix.target == 'linux-amd64'
         with:
           name: flow-controlled-playback
@@ -502,13 +505,13 @@ jobs:
             _out/library-upsert-benchmark.txt
           if-no-files-found: warn
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: TorrServer-LT-${{ matrix.target }}
           path: _out/TorrServer-LT-${{ matrix.target }}*
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'windows-amd64'
         with:
           name: TorrServer-Flow-Tray
@@ -531,7 +534,7 @@ jobs:
           # Restore the ordinary build: PGO evaluation never alters published
           # binaries or the update/rollback lifecycle candidate below.
           cp _out/TorrServer-LT-linux-amd64-baseline _out/TorrServer-LT-linux-amd64
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always() && matrix.target == 'linux-amd64' && inputs.evaluate_pgo
         with:
           name: flow-pgo-evaluation
@@ -553,7 +556,7 @@ jobs:
         run: |
           x86_64-w64-mingw32-g++ -std=c++17 -O2 -Wall -Wextra -Werror -static -static-libgcc -static-libstdc++ -municode -D_WIN32_WINNT=0x0A00 -DUNICODE -D_UNICODE build/windows-interface-guard.cpp -o _out/FlowNetworkGuard-windows-amd64.exe -lfwpuclnt -liphlpapi -ladvapi32 -lole32 -lws2_32
           python3 build/guard_manifest.py --binary _out/FlowNetworkGuard-windows-amd64.exe --output _out/FlowNetworkGuard-build.json --compiler x86_64-w64-mingw32-g++
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'windows-amd64'
         with:
           name: flow-interface-guard-windows
@@ -567,7 +570,7 @@ jobs:
         env:
           TS_VERSION: MatriX.145.Flow-v0.0.0-rc.0
         run: bash build/windows-amd64.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'windows-amd64'
         with:
           name: flow-windows-update-fixture
@@ -582,7 +585,7 @@ jobs:
         env:
           TS_VERSION: MatriX.145.Flow-v0.0.0-rc.1
         run: bash build/windows-amd64.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'windows-amd64' && inputs.version == ''
         with:
           name: flow-windows-update-candidate
@@ -597,7 +600,7 @@ jobs:
           TS_PROFILE_SYMBOLS: '1'
           TS_VERSION: ${{ format('MatriX.145.Flow-profile-{0}', github.sha) }}
         run: bash build/${{ matrix.target }}.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'linux-amd64' || matrix.target == 'windows-amd64'
         with:
           name: flow-native-profile-${{ matrix.target }}
@@ -640,8 +643,8 @@ jobs:
           - {mbps: 90, case: bursts, cache: 512, piece: 4, backend: ram}
           - {mbps: 120, case: bursts, cache: 2048, piece: 4, backend: disk}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: TorrServer-LT-linux-amd64
           path: _out
@@ -651,7 +654,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
           python3 build/high_bitrate_matrix.py --executable _out/TorrServer-LT-linux-amd64 --output _out/high-bitrate --mbps '${{ matrix.mbps }}' --cases '${{ matrix.case }}' --cache-mb '${{ matrix.cache }}' --piece-mb '${{ matrix.piece }}' --rotations 3 --experiments ${{ matrix.backend == 'disk' && '--disk' || '' }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: high-bitrate-${{ matrix.mbps }}-${{ matrix.case }}-${{ matrix.backend }}
@@ -665,24 +668,24 @@ jobs:
     needs: cross
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.14'
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
       - name: Build read-only SCM policy probe
         working-directory: server
         run: go build -o ../service-recovery-probe.exe ../build/service_recovery_probe_windows.go
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: TorrServer-LT-windows-amd64
           path: service-binary
       - name: Cold cancellation and late disk completion regression
         run: python build/request_cancel_check.py --executable ./service-binary/TorrServer-LT-windows-amd64.exe --output ./request-cancel
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: flow-interface-guard-windows
           path: interface-guard
@@ -694,11 +697,11 @@ jobs:
       - name: Restricted account lifecycle
         shell: pwsh
         run: ./build/test-windows-service.ps1 -Executable ./service-binary/TorrServer-LT-windows-amd64.exe -OutputDirectory ./service-test-state -RecoveryProbe ./service-recovery-probe.exe
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: flow-windows-update-fixture
           path: update-fixture
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         if: inputs.version == ''
         with:
           name: flow-windows-update-candidate
@@ -709,7 +712,7 @@ jobs:
       - name: Restricted service update and migration rollback
         shell: pwsh
         run: ./build/test-windows-update.ps1 -Baseline ./update-fixture/TorrServer-LT-windows-amd64.exe -Candidate '${{ inputs.version != '' && './service-binary/TorrServer-LT-windows-amd64.exe' || './update-candidate/TorrServer-LT-windows-amd64.exe' }}' -OutputDirectory ./service-update-test-state -Commit '${{ github.sha }}' -AsService
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: flow-windows-service-check

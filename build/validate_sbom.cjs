@@ -72,13 +72,34 @@ function validate(document) {
     components: refs.size, dependency_vertices: vertices.size };
 }
 
-module.exports = { validate };
+function readInventory(file) {
+  const maximum = 16 * 1024 * 1024;
+  const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
+  try {
+    const stat = fs.fstatSync(descriptor);
+    if (!stat.isFile()) throw new Error('Inventory must be a regular file');
+    if (stat.size > maximum) throw new Error('Inventory exceeds the 16 MiB validation limit');
+    // Inspect and read the same opened file. Bound the actual read as well:
+    // another process can grow a file after fstat, without replacing its name.
+    const buffer = Buffer.alloc(maximum + 1);
+    let length = 0;
+    while (length < buffer.length) {
+      const read = fs.readSync(descriptor, buffer, length, buffer.length - length, null);
+      if (read === 0) break;
+      length += read;
+    }
+    if (length > maximum) throw new Error('Inventory exceeds the 16 MiB validation limit');
+    return JSON.parse(buffer.toString('utf8', 0, length));
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
+module.exports = { validate, readInventory };
 if (require.main === module) {
   try {
     if (process.argv.length !== 3) throw new Error('Usage: node build/validate_sbom.cjs <inventory.json>');
-    const file = process.argv[2];
-    if (fs.statSync(file).size > 16 * 1024 * 1024) throw new Error('Inventory exceeds the 16 MiB validation limit');
-    console.log(JSON.stringify(validate(JSON.parse(fs.readFileSync(file, 'utf8')))));
+    console.log(JSON.stringify(validate(readInventory(process.argv[2]))));
   } catch (error) {
     // Parser/filesystem errors can include input or host paths; report their class.
     console.error(error instanceof SyntaxError ? 'Invalid inventory JSON' :

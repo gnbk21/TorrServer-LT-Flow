@@ -32,3 +32,15 @@ func TestRedactSecretsCoversPathQueryUserinfoAndCapabilities(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestSafeLogEntryEscapesForgedRecordsAndTerminalControls(t *testing.T) {
+	input := "episode\r\n[ERROR] forged\x1b[2J\u2028hidden\u202e\x00\n"
+	got := safeLogEntry(input)
+	if strings.ContainsAny(got, "\r\n\x1b\x00\u2028\u202e") ||
+		!strings.Contains(got, `episode\r\n[ERROR] forged\x1b[2J`) {
+		t.Fatalf("unsafe record: %q", got)
+	}
+	if got := safeLogEntry("ordinary episode 日本語\n"); got != "ordinary episode 日本語" {
+		t.Fatalf("ordinary text changed: %q", got)
+	}
+}

@@ -19,8 +19,8 @@ jobs:
       security-events: write
       actions: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
         with:
           languages: cpp
           build-mode: manual
@@ -28,7 +28,7 @@ jobs:
       - name: Extract the real Windows WFP helper
         shell: pwsh
         run: ./build/build-windows-interface-guard.ps1 -BuildAcceptanceProbe
-      - uses: github/codeql-action/analyze@v4
+      - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
         with:
           category: /windows-interface-guard
   web:
@@ -46,12 +46,12 @@ jobs:
       matrix:
         language: [javascript-typescript, actions]
     steps:
-      - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
         with:
           languages: ${{ matrix.language }}
           queries: security-extended
-      - uses: github/codeql-action/analyze@v4
+      - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
         with:
           category: /language:${{ matrix.language }}
   native:
@@ -63,20 +63,20 @@ jobs:
       security-events: write
       actions: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _src
           key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _deps/linux-amd64
           key: codeql-native-${{ runner.os }}-${{ hashFiles('build/_common.sh', 'build/_deps.sh', 'build/native-patches/**') }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: flow-web-codeql
           path: server/web/pages/template
@@ -102,7 +102,7 @@ jobs:
           go test -count=1 -timeout 180s ./lt ./flow ./settings ./netpolicy ./torr ./torr/storage/torrstor ./web/api ./mcp ./tgbot
           go test ./flow -run '^$' -fuzz '^FuzzInfoHash$' -fuzztime=10s -parallel=2
           go test ./torr/storage/torrstor -run '^$' -fuzz '^FuzzStorageWriteBounds$' -fuzztime=15s -parallel=2
-      - uses: github/codeql-action/init@v4
+      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
         with:
           languages: go,cpp
           build-mode: manual
@@ -111,6 +111,6 @@ jobs:
         env:
           GOCACHE: ${{ runner.temp }}/flow-codeql-go-cache
         run: bash build/linux-amd64.sh
-      - uses: github/codeql-action/analyze@v4
+      - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
         with:
           category: /native-go-cpp

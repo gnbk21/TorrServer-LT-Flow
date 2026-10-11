@@ -3,6 +3,7 @@ package log
 import (
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -24,4 +25,23 @@ func RedactSecrets(s string) string {
 	s = capabilityPath.ReplaceAllString(s, "/flow/play/[redacted]")
 	s = authorizationValue.ReplaceAllString(s, "${1}[redacted]")
 	return sensitiveValue.ReplaceAllString(s, "${1}[redacted]")
+}
+
+// Each caller creates one timestamped record. Escape embedded line separators
+// and terminal controls so remote titles/errors cannot forge another record.
+func safeLogEntry(s string) string {
+	s = strings.TrimSuffix(s, "\n")
+	s = strings.ReplaceAll(s, "\r", `\r`)
+	s = strings.ReplaceAll(s, "\n", `\n`)
+	var output strings.Builder
+	for _, r := range s {
+		if r < 0x20 || r == 0x7f || r == '\u2028' || r == '\u2029' ||
+			(r >= '\u202a' && r <= '\u202e') || (r >= '\u2066' && r <= '\u2069') {
+			escaped := strconv.QuoteRune(r)
+			output.WriteString(escaped[1 : len(escaped)-1])
+		} else {
+			output.WriteRune(r)
+		}
+	}
+	return output.String()
 }

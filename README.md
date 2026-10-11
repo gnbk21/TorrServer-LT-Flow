@@ -2,11 +2,11 @@
 
 TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps the libtorrent engine, existing media cache and HTTP API, and adds a modern embedded web interface.
 
-> **Flow 1.0:** the first full release combines Flow's streaming and modern interface with the useful LT 1.2.1 / 1.2.2 fixes. [Download](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.0.1), [release notes](RELEASE_1_0_NOTES.md), and [verification/field limits](RELEASE_1_0_VERIFICATION.md). Legacy remains the default profile; experimental options remain off. Phone/player coverage, multi-hour resources and physical Windows recovery checks remain incomplete and are disclosed in this owner-approved release.
+> **Flow 1.1:** dashboard/library improvements, streaming resilience, native v2/hybrid support and release hardening. [Download](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.0), [release notes](RELEASE_1_1_NOTES.md), and [verification/field limits](RELEASE_1_1_VERIFICATION.md). Legacy remains the default; experiments remain off. Physical phone/network recovery checks are disclosed separately.
 
 ## Run on Windows
 
-1. Open [Flow 1.0](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.0.1), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.0.1.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
+1. Open [Flow 1.1](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.0), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.0.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
 2. In PowerShell, run the standard executable from the extracted folder, using a separate data directory for Flow:
 
    ```powershell
@@ -70,17 +70,17 @@ retains local credentials. The library renders 50 cards per page while searching
 all entries. See [distribution guidance](DISTRIBUTION.md) and
 [measurements](MEASUREMENTS.md) for usage and verification limits.
 
-On the upgrade branch, library exports retain JSON, magnet and compact-link
+Library exports retain JSON, magnet and compact-link
 formats while excluding credentials, private trackers, posters and custom client
 data. Private torrents still need their original tracker configuration. v2
 torrents and older servers use magnets in compact-link exports. Full local
 metadata remains available through the existing API; export does not alter it.
 
-Flow settings are in the web interface's **Flow** tab and under `BitTorr.Flow` in `settings.json`. Flow is enabled by default. Flow 1.0 applies safe runtime changes immediately and offers **Apply when idle** for changes requiring an engine restart. `GET /flow/status/<torrent-hash>` exposes per-torrent diagnostics; `/flow/network` reports network readiness. Both follow the server's HTTP authentication setting. See [FLOW.md](FLOW.md) for defaults, endpoint behavior, and the comparison procedure.
+Flow settings are in the web interface's **Flow** tab and under `BitTorr.Flow` in `settings.json`. Flow is enabled by default. Flow 1.1 applies safe runtime changes immediately and offers **Apply when idle** for changes requiring an engine restart. `GET /flow/status/<torrent-hash>` exposes per-torrent diagnostics; `/flow/network` reports network readiness. Both follow the server's HTTP authentication setting. See [FLOW.md](FLOW.md) for defaults, endpoint behavior, and the comparison procedure.
 
 ## Adaptive reliability
 
-Flow 1.0 includes verified useful-delivery rates, confidence and
+Flow 1.1 includes verified useful-delivery rates, confidence and
 buffer risk; shared active/warm RAM budgets; preparation scheduling; Windows
 network notifications and recovery; configuration revisions, idle application
 and last-known-good recovery. Settings shows unsaved, saved and effective values.
@@ -93,7 +93,7 @@ for verification and remaining device gates.
 
 ## Weak swarms and episode preparation
 
-Flow 1.0 includes:
+Flow 1.1 includes:
 
 - **Availability diagnostics** distinguish metadata, discovery, connection,
   choke, missing connected-peer pieces, throughput and local cache waits.
@@ -144,7 +144,7 @@ Select a profile in **Settings → Flow → Swarm profile**. `connection_speed` 
 | **Custom** | Starts from Conservative and applies only positive values entered for connection speed, connect boost, peer connect timeout, piece timeout, request queue time, and minimum reconnect time. `0` leaves that field at libtorrent's default. Use it for controlled experiments. |
 
 All profiles retain your cache, proxy, upload, and active-torrent settings.
-Flow 1.0 also preserves healthy peers while a
+Flow 1.1 also preserves healthy peers while a
 lazy/warm torrent has no requested pieces; Conservative uses libtorrent defaults
 for swarm tuning with these shared streaming lifecycle controls. Startup preload
 sets piece priorities without pausing and disconnecting the swarm. Applying a
@@ -156,10 +156,10 @@ The experimental **Adaptive Streaming** profile implements the reserve-aware
 candidate described in [the investigation](STREAMING_PROFILE_RESEARCH.md).
 Initial comparisons rejected narrower deadline sets and global priority
 restoration as defaults, so the full streaming ramp remains. Neither full episode
-preparation nor a paid provider is required. Flow 1.0 includes this profile;
+preparation nor a paid provider is required. Flow 1.1 includes this profile;
 broader real-phone and public-swarm comparisons remain pending.
 
-Flow 1.0 includes bounded asynchronous storage I/O, verified-contiguous
+Flow 1.1 includes bounded asynchronous storage I/O, verified-contiguous
 buffer and urgent-request-age diagnostics, a phone/LAN transfer check, and three
 independent opt-in experiments: peer-capacity limits, a demand-sized urgent
 horizon and resident MKV/MP4 burst hints. An optional separate Flow Player build
@@ -211,7 +211,7 @@ keeps external links on HTTPS. Upload private keys over HTTPS; path selection is
 preferable for certificates maintained by certbot/acme.sh. Renewal files are
 picked up automatically. Port/mode changes require a restart.
 
-Flow 1.0 also adds a lazy, bounded 1 MiB HTTP transport buffer. Scheduling still
+Flow 1.1 also adds a lazy, bounded 1 MiB HTTP transport buffer. Scheduling still
 tracks bytes delivered to the client, not bytes prefetched into that buffer;
 Range/seek/cancellation semantics and the single native piece cache are retained.
 This reduces source-read calls, not a guarantee of higher torrent throughput.
@@ -221,7 +221,7 @@ streaming remains the primary path and does not require GStreamer.
 
 ## Startup diagnostics
 
-Flow 1.0 returns explicit preload requests when the buffer
+Flow 1.1 returns explicit preload requests when the buffer
 is ready; an owned worker keeps the existing eight-second warm handoff in the
 background. Same-file requests share that worker, and an episode switch or
 removal cancels and joins the old owner. Reader windows continue to own playback

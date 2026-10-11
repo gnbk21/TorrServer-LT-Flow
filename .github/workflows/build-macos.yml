@@ -27,6 +27,9 @@ on:
         type: string
         default: ''
 
+permissions:
+  contents: read
+
 jobs:
   web:
     uses: ./.github/workflows/build-web.yml
@@ -47,10 +50,10 @@ jobs:
           - arch: amd64
             artifact: TorrServer-LT-darwin-amd64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Download freshly generated web UI
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: flow-web-macos
           path: server/web/pages/template
@@ -65,7 +68,7 @@ jobs:
       # fetched by the linux matrix are reused here (the cache is not
       # OS-partitioned — it is a plain tar of the source trees).
       - name: Cache Boost + libtorrent sources
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _src
           key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
@@ -73,14 +76,14 @@ jobs:
       # Per-arch install tree (lib + headers + .pc). With it present the b2
       # step short-circuits and only the Go binaries are relinked.
       - name: Cache libtorrent install tree
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _deps/darwin-${{ matrix.arch }}
           key: deps-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.7-flowsparse-pcfold2-${{ hashFiles('build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
           restore-keys: deps-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.7-
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: server/go.mod
           cache: true
@@ -116,7 +119,7 @@ jobs:
           _out/${{ matrix.artifact }} --version
           _out/${{ matrix.artifact }}-gst --version
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.artifact }}
           path: _out/${{ matrix.artifact }}*

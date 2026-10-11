@@ -31,7 +31,7 @@ jobs:
       matrix:
         scenario: [healthy, outages, mixed-peers, bursts]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Validate immutable candidate build identity
         env:
           GH_TOKEN: ${{ github.token }}
@@ -42,7 +42,7 @@ jobs:
           # PR checkouts use the reviewed merge commit; headSha identifies the
           # source branch and github.sha stamps the candidate build metadata.
           [[ "$actual" == "${{ github.event.pull_request.head.sha || github.sha }}" ]]
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: TorrServer-LT-linux-amd64
           path: _out/candidate
@@ -78,7 +78,7 @@ jobs:
             experiments) options+=(--experiments) ;;
           esac
           python3 build/high_bitrate_matrix.py --executable _out/candidate/TorrServer-LT-linux-amd64 --output _out/measurements --mbps 120 --seconds 60 --rotations 5 --cases "$SCENARIO" "${options[@]}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: upgrade-${{ inputs.comparison }}-${{ matrix.scenario }}

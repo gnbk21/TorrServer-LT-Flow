@@ -194,7 +194,7 @@ func Close() {
 }
 
 func TLogln(v ...interface{}) {
-	log.Print(RedactSecrets(RedactInternalMediaKey(fmt.Sprintln(v...))))
+	log.Print(safeLogEntry(RedactSecrets(RedactInternalMediaKey(fmt.Sprintln(v...)))))
 }
 
 var internalMediaKey = regexp.MustCompile(`probe_key=[A-Za-z0-9%_-]+`)
@@ -205,7 +205,7 @@ func RedactInternalMediaKey(s string) string {
 
 func WebLogln(v ...interface{}) {
 	if webLog != nil {
-		webLog.Print(RedactSecrets(fmt.Sprintln(v...)))
+		webLog.Print(safeLogEntry(RedactSecrets(fmt.Sprintln(v...))))
 	}
 }
 

@@ -253,7 +253,10 @@ export default function VideoPlayer({
           accept=".vtt,text/vtt"
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) setSubtitle(URL.createObjectURL(file));
+            if (file)
+              setSubtitle(
+                URL.createObjectURL(new Blob([file], { type: "text/vtt" })),
+              );
           }}
         />
       </label>

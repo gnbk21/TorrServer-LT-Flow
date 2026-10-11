@@ -32,7 +32,7 @@ artifact is separate from the stable server release.
 
 - `MatriX.145.Flow-vX.Y.Z`: stable, after acceptance evidence is recorded in
   `RELEASE_ACCEPTANCE.json` and the tagged commit is present on `master`.
-  Flow 1.0 follows the owner-approved policy: required automated gates pass;
+  Flow stable releases follow the owner-approved policy: required automated gates pass;
   unfinished field checks are explicitly disclosed in the release notes.
 - `MatriX.145.Flow-vX.Y.Z-preview.N` (or alpha/beta/rc): prerelease. Preview
   builds pass CI but may have remaining real-device or long-session gates.
