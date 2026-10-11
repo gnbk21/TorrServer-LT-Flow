@@ -42,7 +42,8 @@ trial 1 never requested the cold target within the unchanged 10-second limit.
 Owned Windows reproduction showed the target available and urgent but normal
 ahead requests refilling the strict 64-block queue first. The new native patch
 gives deferred deadline scheduling newly available credit before normal refill;
-it changes only the opt-in capacity experiment. It is pending native gates.
+it changes only the opt-in capacity experiment. The corrected Windows executable
+passed all six cold-seek trials; final-source platform gates remain separate.
 
 The full CodeQL run `38133894549` passed scan execution, closed the corrected
 log alerts, and produced additional findings reviewed in the security document.
@@ -68,3 +69,45 @@ engine lock and uses the hybrid's native storage digest. A held real file
 descriptor regression checks that close cannot expose absent ownership early
 and cannot remove a newly registered replacement. These native-linked checks
 are pending the final-source CI run.
+
+## Verified checkpoints before publication
+
+- Runtime fixes are frozen at feature source
+  `0b6da77a0c82d393ba12af2496aecdac4fb3347c`. Documentation updates do not
+  change runtime code; the final tag still rebuilds the exact published tree.
+- At checkpoint `8f7b5f4e`, Linux amd64 native units, race/fuzz/security and the
+  complete controlled playback/resource-cycle step passed in
+  [run 38136308932](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/38136308932).
+  All six cross targets built. The obsolete overall workflow was cancelled
+  after that job finished to release the final-source build queue; it is not
+  recorded as a successful full workflow.
+- The downloaded Windows executable from that checkpoint has SHA-256
+  `b00e7934a02d835b8e75f5173deb6a6cb668114ba2f5e72721f819b1c37a0e6b`.
+  Six fresh-state cold A/B/A trials passed: three ordinary and three with
+  positively exercised late replies, zero peer queue overflows, and verified
+  original Range bytes within the unchanged 10-second target limit.
+- An additional owned Windows HTTP check against the same executable passed
+  malformed/traversal removal rejection with an unrelated file preserved,
+  plus HTML/SVG/unknown-format binary download headers, `nosniff`, and exact
+  206 Range bytes. This predates the final disk-ownership/WebVTT edits and
+  does not substitute for their final-source tests.
+- Both macOS architectures and arm64 native unit tests passed at final runtime
+  source in [run 38137745936](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/38137745936).
+  Portable branch checks passed in
+  [run 38137745870](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/38137745870).
+  Optional player packaging passed in
+  [run 38137745782](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/38137745782);
+  independent decoder rebuilding remains unverified and its APK remains
+  excluded from the stable server assets.
+- Final runtime source CodeQL passed every category and the web gate in
+  [run 38137745884](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/38137745884).
+  The PR-ref query retains 30 reviewed open findings. Scan execution is not a
+  clean-alert claim; their boundaries and the seven separately approved
+  dispositions are recorded in `RELEASE_1_1_SECURITY_REVIEW.md`.
+- Final-source Windows executable SHA-256:
+  `ebebb25826b83055e90e38a94b1d383fda9b7cee2f10269c8676b30eb5811bf7`.
+  An owned real-engine test passed invalid removal rejection, original-byte
+  HTML/SVG/unknown-format Range downloads, native WebVTT Range MIME, `nosniff`,
+  and successful disk-cache removal while preserving an unrelated file.
+  Its receipt is `.tools/upgrade-0b6da-stream-boundaries/report.json`; this is
+  controlled HTTP/storage evidence, not phone decoding or tagged identity.

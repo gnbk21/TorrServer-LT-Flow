@@ -94,3 +94,25 @@ tests captured output independently. Real Bash regressions cover reusable,
 wrong-host and missing tools. This avoids unnecessary bootstrap during native
 bridge extraction; disappearance of a B2 finding in a later runtime scan would
 not establish a fix in upstream B2 source.
+
+## Final runtime source scan
+
+[Run 38137745884](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/38137745884)
+passed all four security categories and the web gate at feature source
+`0b6da77a0c82d393ba12af2496aecdac4fb3347c`, checked out as PR merge
+`dbc6774a16aef601550102391e83cc330c066be8`. The fresh PR-ref query retains
+**30 open findings**: 22 path injection, seven request forgery and one generic
+reflected-XSS sink. These are visible findings, not a clean-alert result.
+
+The new removal flow is alert 89 at `apihelper.go`: its path uses a canonical
+fixed-size storage digest under the configured cache root. Live hybrids use
+their native storage identity; DB-only metadata must match the requested v1/v2
+identity before selecting the corresponding storage digest. Native ownership
+and replacement checks precede removal. The other findings retain the reviewed
+owner-selected state/TLS/MSX/cache and source-URL boundaries above. Alert 56
+remains on the generic response sink; the production stream caller supplies
+the safe type/download/`nosniff` policy, including native WebVTT compatibility.
+
+No additional alerts were dismissed. The omitted B2 bootstrap findings still
+have the build-tool scope described above; the fresh extraction did not rebuild
+that cached host tool and does not establish an upstream B2 security fix.
