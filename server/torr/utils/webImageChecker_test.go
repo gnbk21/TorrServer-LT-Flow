@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -16,6 +17,10 @@ import (
 	"testing"
 )
 
+type failedImageReader struct{ err error }
+
+func (r failedImageReader) Read([]byte) (int, error) { return 0, r.err }
+
 func TestImageReadTimeoutBeforeContextDeadline(t *testing.T) {
 	ctx := context.Background()
 	clientTimeout := fmt.Errorf("response body: %w", &net.OpError{Op: "read", Net: "tcp", Err: os.ErrDeadlineExceeded})
@@ -26,6 +31,15 @@ func TestImageReadTimeoutBeforeContextDeadline(t *testing.T) {
 	}
 	if uncertainImageRead(ctx, io.ErrUnexpectedEOF) {
 		t.Fatal("malformed image must still be rejected")
+	}
+	readStatus := &imageReadStatus{Reader: failedImageReader{err: clientTimeout}}
+	if _, _, err := image.DecodeConfig(readStatus); !errors.Is(err, image.ErrFormat) ||
+		!uncertainImageRead(ctx, readStatus.err) || ctx.Err() != nil {
+		t.Fatal("image sniffing must not erase transport timeout classification")
+	}
+	malformed := &imageReadStatus{Reader: bytes.NewReader([]byte("not an image"))}
+	if _, _, err := image.DecodeConfig(malformed); !errors.Is(err, image.ErrFormat) || uncertainImageRead(ctx, malformed.err) {
+		t.Fatal("ordinary invalid image must remain rejected")
 	}
 }
 

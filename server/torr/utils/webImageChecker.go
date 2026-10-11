@@ -52,11 +52,11 @@ func CheckImgUrl(link string) (ok, verified bool) {
 		return false, false
 	}
 
-	limitedReader := io.LimitReader(resp.Body, 2*1024*1024)
+	readStatus := &imageReadStatus{Reader: io.LimitReader(resp.Body, 2*1024*1024)}
 
-	config, _, err := image.DecodeConfig(limitedReader)
+	config, _, err := image.DecodeConfig(readStatus)
 	if err != nil {
-		if uncertainImageRead(ctx, err) {
+		if uncertainImageRead(ctx, err) || uncertainImageRead(ctx, readStatus.err) {
 			return true, false
 		}
 		return false, false
@@ -65,6 +65,21 @@ func CheckImgUrl(link string) (ok, verified bool) {
 		return false, false
 	}
 	return true, true
+}
+
+// Image format sniffing can replace a transport read error with ErrFormat.
+// Preserve the original read failure without buffering or copying the body.
+type imageReadStatus struct {
+	io.Reader
+	err error
+}
+
+func (r *imageReadStatus) Read(p []byte) (int, error) {
+	n, err := r.Reader.Read(p)
+	if err != nil && r.err == nil {
+		r.err = err
+	}
+	return n, err
 }
 
 // A client body timeout can win the race with the request's own deadline.

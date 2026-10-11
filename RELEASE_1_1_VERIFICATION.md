@@ -1,6 +1,6 @@
 # Flow 1.1 verification
 
-Release target: `MatriX.145.Flow-v1.1.1`. Pre-tag runtime-source gates passed.
+Release target: `MatriX.145.Flow-v1.1.2`. Pre-tag runtime-source gates passed.
 The merged tag rebuild found a poster timeout race; its correction requires
 fresh tagged gates and downloaded publication checks;
 this document does not yet record a published or fully verified package.
@@ -172,4 +172,12 @@ is preserved. Decode failures now recognize wrapped deadline, cancellation
 and network timeout errors while still rejecting malformed images. A
 deterministic regression covers timeout with an uncancelled context. Local
 unit execution is blocked by the absent native CGo library; fresh tagged CI
-executes the test. Flow 1.1 publication uses corrected patch tag v1.1.1.
+executes the test. Flow 1.1 publication uses corrected patch tag v1.1.2.
+
+The intermediate v1.1.1 candidate (`f564b6a9`, run `38144215472`) was
+withdrawn before publication when review found that image format sniffing can
+hide the original body timeout. Its tag remains unchanged. The completed
+correction retains the original read error without copying or buffering the
+response. The deterministic regression checks the actual decoder
+transformation and retains rejection of ordinary malformed input. The bounded
+body size, dimensions, interface policy and request deadlines are unchanged.

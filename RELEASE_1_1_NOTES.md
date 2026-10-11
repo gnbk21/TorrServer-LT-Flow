@@ -1,6 +1,6 @@
 # TorrServer-Flow 1.1
 
-Version: `MatriX.145.Flow-v1.1.1`.
+Version: `MatriX.145.Flow-v1.1.2`.
 
 ## Changes since 1.0.1
 
@@ -41,7 +41,7 @@ Streaming preserves the original video quality and needs no paid provider or
 full-episode download. The existing piece store remains the only media cache.
 
 On Windows, download and extract
-`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.1.zip`, stop the old server,
+`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.2.zip`, stop the old server,
 keep its executable and state for rollback, then run:
 
 ```powershell
