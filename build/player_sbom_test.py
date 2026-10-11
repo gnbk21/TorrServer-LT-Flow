@@ -64,7 +64,11 @@ class PlayerInventoryTests(unittest.TestCase):
             inventory = {'bundled': [{'name': 'lib-decoder.aar', 'sha256': hashlib.sha256(b'exact built bytes').hexdigest()}]}
             commit = 'a' * 40
             (root / 'flow-patch/SOURCE_MANIFEST.json').write_text('nested file must be inventoried')
+            (root / 'a-notice.txt').write_text('lowercase path')
+            (root / 'Z-notice.txt').write_text('uppercase path')
             manifest = source_manifest(root, inventory, commit)
+            names = [item['name'] for item in manifest['files']]
+            self.assertEqual(names, sorted(names))
             self.assertEqual(manifest['flow_commit'], commit)
             self.assertFalse(manifest['native_corresponding_source_verified'])
             self.assertIn('flow-patch/SOURCE_MANIFEST.json', [item['name'] for item in manifest['files']])

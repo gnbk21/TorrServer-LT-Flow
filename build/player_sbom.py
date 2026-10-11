@@ -45,7 +45,9 @@ def source_manifest(directory, inventory, flow_commit):
                 if hashlib.file_digest(source, 'sha256').hexdigest() != artifact['sha256']:
                     raise ValueError('Archived bundled artifact differs from the built inventory')
     files = []
-    for path in sorted(directory.rglob('*')):
+    # Windows Path ordering folds case; published Linux manifests must have
+    # the same order when verified or regenerated on the owner's Windows PC.
+    for path in sorted(directory.rglob('*'), key=lambda p: p.relative_to(directory).as_posix()):
         if path.is_symlink():
             raise ValueError('Player source bundle must not contain external symlinks')
         if not path.is_file() or path == directory / 'SOURCE_MANIFEST.json':

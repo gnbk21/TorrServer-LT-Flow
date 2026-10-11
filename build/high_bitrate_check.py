@@ -197,7 +197,8 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
             info_hash = swarm.info_hash.hex()
             if preload:
                 started = time.monotonic()
-                server.json('/stream/generated?'+urlencode({'link': info_hash, 'index': index, 'preload': '', 'stat': ''}), timeout=90)
+                path = '/stream/generated?'+urlencode({'link': info_hash, 'index': index, 'preload': '', 'stat': ''})
+                server.json(path, timeout=90)
                 deadline = started+90
                 while True:
                     status = server.json('/torrents', {'action': 'get', 'hash': info_hash})
@@ -263,10 +264,31 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
             if report['peak_observed_cache_bytes'] > (cache_mb+2*piece_mb)*MIB:
                 raise AssertionError('Observed cache exceeded budget plus two-piece concurrency allowance')
             report['ranges'] = []
+            if strict and latency_ms and capacity_aware:
+                report['request_age_probes'] = []
             for start, cancel in ((len(swarm.data)//2, False), (0, False),
                                   (len(swarm.data)-65536, False), (len(swarm.data)//3, True), (0, False)):
-                report['ranges'].append(range_read(server, info_hash, index,
-                    swarm.data, start, min(len(swarm.data)-1, start+65535), cancel))
+                if strict and latency_ms and capacity_aware:
+                    # Urgent diagnostics describe active reader windows; the
+                    # detached preload has no such window. Sample an uncached
+                    # seek while its real delayed requests are outstanding.
+                    with ThreadPoolExecutor(max_workers=1) as pool:
+                        task = pool.submit(range_read, server, info_hash, index,
+                            swarm.data, start, min(len(swarm.data)-1, start+65535), cancel)
+                        while not task.done():
+                            sparse = server.json('/flow/status/'+info_hash, timeout=5).get('sparse') or {}
+                            oldest = max((p.get('oldest_request_age_ms', -1)
+                                          for p in sparse.get('urgent') or []), default=-1)
+                            if len(report['request_age_probes']) < 256:
+                                report['request_age_probes'].append({
+                                    'phase': 'seek', 'start': start,
+                                    'elapsed_s': time.monotonic()-swarm.started,
+                                    'oldest_request_age_ms': oldest})
+                            time.sleep(.05)
+                        report['ranges'].append(task.result())
+                else:
+                    report['ranges'].append(range_read(server, info_hash, index,
+                        swarm.data, start, min(len(swarm.data)-1, start+65535), cancel))
             deadline = time.monotonic()+5
             while True:
                 status = server.json('/flow/status/'+info_hash)

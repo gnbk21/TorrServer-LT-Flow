@@ -14,10 +14,11 @@ CASES += [(2000, latency, 16) for latency in (0, 250)]
 def check(args):
     args.output.mkdir(parents=True, exist_ok=False)
     fixture=args.output/'owned.bin'
-    # Large enough to sustain the test and seeks, without a decoder dependency.
+    # Twice the cache budget keeps the midpoint seek cold, so delayed urgent
+    # request age is actually exercised rather than hoping playback is uncached.
     with fixture.open('xb') as output:
         block=bytes(range(256))*4096
-        for _ in range(64): output.write(block)
+        for _ in range(128): output.write(block)
     results=[]
     cases = list(dict.fromkeys(tuple(map(int, case.split(':'))) for case in args.case)) if args.case else CASES
     for trial, (reqq,latency,piece) in ((trial, case) for trial in range(args.repeat) for case in cases):
@@ -34,7 +35,8 @@ def check(args):
             result['passed']=False
             result['capacity_error']='Native urgent/ordinary requests exceeded advertised or local cap'
         result['age_observed']=any(p.get('oldest_request_age_ms',-1)>0
-            for sample in result['samples'] for p in sample.get('urgent') or [])
+            for sample in result['samples'] for p in sample.get('urgent') or []) or any(
+                probe.get('oldest_request_age_ms', -1) > 0 for probe in result.get('request_age_probes', []))
         if latency and not result['age_observed']:
             result['passed']=False
             result['age_error']='Delayed urgent requests never exposed their actual outstanding age'

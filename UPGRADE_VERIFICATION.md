@@ -740,3 +740,32 @@ Nine wire regressions passed, including cancellation freeing a full queue
 before a replacement request. A manual diagnostic workflow repeats a selected
 case on Linux and Windows using recorded existing fixture source and binary
 hashes. The normal release gate still requires the complete capacity matrix.
+
+Targeted run `38128643902` passed ten Linux capacity/age trials. Windows passed
+four trials, then failed the age-observation requirement while respecting the
+peer cap throughout. Its paced-reader snapshots had no outstanding urgent
+requests: age is defined for active reader windows, and buffered playback can
+complete those requests between one-second samples. The controlled fixture is
+now 128 MiB against a 64 MiB cache, and the strict delayed cases additionally
+sample actual request ages during cold midpoint seeks. Three fresh Windows
+trials passed with measured seek ages of 509, 505 and 508 ms. The cap assertion
+and actual-positive-age requirement are retained; the earlier overflow remains
+unresolved pending repeated platform evidence. No native runtime was changed.
+
+### Downloaded matched decoder bundle and portable manifest ordering
+
+Android run `38127872847` passed with Flow merge source
+`eab9778e7c0987a0d5c0044e987da42996b3b503` / feature source `4e794ff1`.
+Downloaded verification matched all 83 manifest entries, 17 decoder archives,
+38 original notices and six bundled AARs. Its 125-component/125-vertex inventory
+passed the official CycloneDX schema and closed-graph check. APK SHA-256:
+`1b722e75185a258843c1e7433b9c7b77461dc8b5e873551b346754fc2e337ef1`.
+Independent decoder rebuild/redistribution compatibility remain unverified.
+
+Windows revalidation exposed differing host Path sort semantics. Manifest
+generation now explicitly sorts portable relative path strings, with a mixed
+case regression. The already published manifest's file maps and all metadata
+match; its list order is normalized only for local comparison. All 42 local
+build-tool regressions, actionlint and diff checks passed. CodeQL at `0f891b98`
+and both macOS builds at `4e794ff1` passed; full native/downstream gates remain
+separate from those results.
