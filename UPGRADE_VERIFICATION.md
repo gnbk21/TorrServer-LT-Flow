@@ -769,3 +769,60 @@ match; its list order is normalized only for local comparison. All 42 local
 build-tool regressions, actionlint and diff checks passed. CodeQL at `0f891b98`
 and both macOS builds at `4e794ff1` passed; full native/downstream gates remain
 separate from those results.
+
+### Non-FAST late-reply capacity regression and pending fix
+
+Targeted run `38129306550` passed ten fresh Linux and ten fresh Windows cold-seek
+capacity/actual-age cases. Ten additional Windows repetitions of the exact
+earlier 64 MiB workload also passed. Those passes did not explain the earlier
+overflow, so the investigation continued.
+
+A separately owned, preloaded A/B/A cold-seek fixture reproduced an overflow
+with the same runtime `78c437bd`: its non-FAST peer accepted 64 distinct queued
+requests and then received a 65th. The bounded wire trace contains 15 old
+cancelled-read completions after the same blocks were requested again. These
+old replies release replacement credit locally while the replacement remains
+queued remotely. Range bytes still passed after recovery; that is not a
+capacity pass. Evidence: `.tools/upgrade-capacity-cancel-preloaded/report.json`.
+This proves the late-reply failure mechanism under deliberate fault injection;
+the original Linux failure did not retain enough wire evidence to establish
+that it had the same cause.
+
+The pending `flow-cancel-credit.patch` reconciles that ambiguity by sending a
+matching wire cancellation before processing a complete valid reply and
+refilling requests. It activates only for the capacity experiment, on non-FAST
+connections which have issued a cancellation. The extra cancellation does not
+invoke the synthetic local rejection path. A single connection flag bounds
+state, and the ordered transport places the cancellation before refill work.
+Profiles with the experiment disabled and FAST peers retain their existing behavior.
+
+The generated peer now supports bounded late-completion injection and records
+an explicit exercised-race count. Two new real-socket fixture regressions
+check that a late reply leaves the replacement queued and that cancellation
+frees its credit. `request_cancel_check.py` requires verified offset-distinct
+Range bytes, strict queue capacity and actual fault exercise; it checks three
+normal and three late-completion trials. It is wired into full Linux builds,
+the Windows production-fixture gate and the targeted platform workflow.
+
+Local pinned-source application and repeat application of every native patch
+passed, as did source-drift refusal, Python syntax, actionlint, diff checking
+and eleven player/source/endurance unit tests. The real-socket fixture tests
+could not run under the sandbox (`WinError 10013`); the hardlink-isolation test
+also requires additional access (`WinError 5`). These are blocked tests, not
+passes. Automatic approval review for additional access and GitHub status
+retrieval failed because its usage limit was exhausted. Native compilation,
+real-engine validation of the fix, full regression and publishing therefore
+remain pending. No fixed executable or release is claimed.
+
+At checkpoint `0f891b98`, downloaded production Windows evidence passed scoped
+TCP/UDP IPv4/IPv6 WFP enforcement, LAN preservation, uninstall restoration,
+restricted service lifecycle and authenticated update/startup rollback. Its
+171-component inventory passed schema and closed-graph checks; both native
+profiling jobs and Linux native/controlled gates passed. The overall workflow
+still had comparison work pending at the last successful status retrieval.
+Shared OS DNS leak protection and physical device acceptance remain unverified.
+
+Evidence-only Markdown PR updates now avoid restarting expensive native,
+macOS and CodeQL builds. Code changes, explicit dispatch and release calls
+retain their gates. Eight-hour default-runtime endurance remains in progress;
+its intermediate samples are not acceptance evidence for the new opt-in fix.

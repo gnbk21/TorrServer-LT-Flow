@@ -178,6 +178,46 @@ class WireTests(unittest.TestCase):
             self.assertGreater(arrivals[0], .10)
             self.assertLess(arrivals[-1]-arrivals[0], .12)
 
+    def test_late_cancel_completion_keeps_replacement_queued(self):
+        with LocalSwarm([self.file], peers=[PeerPlan(request_queue=2,
+                strict_request_queue=True, request_latency_ms=250,
+                late_cancel_completion=True)], high_throughput=True) as swarm:
+            sock = self.connect(swarm)
+            self.initial(sock)
+            request = struct.pack('!III', 0, 0, 16384)
+            second = struct.pack('!III', 0, 16384, 16384)
+            packets = [b'\x06'+request, b'\x08'+request,
+                       b'\x06'+request, b'\x06'+second]
+            sock.sendall(b''.join(struct.pack('!I', len(p))+p for p in packets))
+            self.assertEqual(self.message(sock)[9:], swarm.data[:16384])
+            # The late old response did not consume the replacement's credit.
+            self.send(sock, b'\x06'+struct.pack('!III', 0, 32768, 16384))
+            with self.assertRaises(EOFError): self.message(sock)
+            peer = swarm.status()['peers'][0]
+            self.assertEqual(peer['late_cancel_completions'], 1)
+            self.assertEqual(peer['capacity_overflows'][0]['pending_count'], 2)
+
+    def test_cancel_after_late_reply_resolves_replacement_credit(self):
+        with LocalSwarm([self.file], peers=[PeerPlan(request_queue=2,
+                strict_request_queue=True, request_latency_ms=250,
+                late_cancel_completion=True)], high_throughput=True) as swarm:
+            sock = self.connect(swarm)
+            self.initial(sock)
+            request = struct.pack('!III', 0, 0, 16384)
+            second = struct.pack('!III', 0, 16384, 16384)
+            replacement = struct.pack('!III', 0, 32768, 16384)
+            packets = [b'\x06'+request, b'\x08'+request,
+                       b'\x06'+request, b'\x06'+second]
+            sock.sendall(b''.join(struct.pack('!I', len(p))+p for p in packets))
+            self.assertEqual(self.message(sock)[9:], swarm.data[:16384])
+            packets = [b'\x08'+request, b'\x06'+replacement]
+            sock.sendall(b''.join(struct.pack('!I', len(p))+p for p in packets))
+            self.assertEqual(struct.unpack('!II', self.message(sock)[1:9]), (0, 16384))
+            self.assertEqual(struct.unpack('!II', self.message(sock)[1:9]), (0, 32768))
+            peer = swarm.status()['peers'][0]
+            self.assertEqual(peer['late_cancel_completions'], 1)
+            self.assertEqual(peer['capacity_overflows'], [])
+
 
 if __name__ == '__main__':
     unittest.main()

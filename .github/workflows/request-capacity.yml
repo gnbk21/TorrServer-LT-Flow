@@ -63,6 +63,11 @@ jobs:
           chmod +x "$EXECUTABLE"
           sha256sum "$EXECUTABLE" > evidence/EXECUTABLE_SHA256.txt
           python build/request_capacity_check.py --executable "$EXECUTABLE" --output evidence/capacity --case "$CASE" --repeat 10
+      - name: Check cold cancellation and late disk completions
+        shell: bash
+        env:
+          EXECUTABLE: fixture/TorrServer-LT-${{ matrix.target }}${{ matrix.suffix }}
+        run: python build/request_cancel_check.py --executable "$EXECUTABLE" --output evidence/cancel
       - uses: actions/upload-artifact@v4
         if: always()
         with:

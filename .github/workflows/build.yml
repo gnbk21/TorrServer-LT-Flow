@@ -10,6 +10,7 @@ on:
   # reuses this workflow through ts_release.yml's workflow_call.
   pull_request:
     branches: [master, develop]
+    paths-ignore: ['**/*.md']
   workflow_dispatch:
     inputs:
       profile_source_run_id:
@@ -459,6 +460,7 @@ jobs:
           python3 build/webseed_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/webseed-check
           python3 build/adaptive_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/adaptive-check
           python3 build/request_capacity_check.py --executable _out/TorrServer-LT-linux-amd64 --output _out/request-capacity
+          python3 build/request_cancel_check.py --executable _out/TorrServer-LT-linux-amd64 --output _out/request-cancel
           python3 build/sparse_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/sparse-check
           python3 build/sparse_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/sparse-rate-check --rate-aware --cases below complementary late-have
       - uses: actions/upload-artifact@v4
@@ -494,6 +496,9 @@ jobs:
             _out/request-capacity/**/report.json
             _out/request-capacity/report.json
             _out/request-capacity/**/server-output.log
+            _out/request-cancel/**/report.json
+            _out/request-cancel/report.json
+            _out/request-cancel/**/server-output.log
             _out/library-upsert-benchmark.txt
           if-no-files-found: warn
 
@@ -661,6 +666,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
       - uses: actions/setup-go@v5
         with:
           go-version-file: server/go.mod
@@ -672,6 +680,8 @@ jobs:
         with:
           name: TorrServer-LT-windows-amd64
           path: service-binary
+      - name: Cold cancellation and late disk completion regression
+        run: python build/request_cancel_check.py --executable ./service-binary/TorrServer-LT-windows-amd64.exe --output ./request-cancel
       - uses: actions/download-artifact@v4
         with:
           name: flow-interface-guard-windows
@@ -712,6 +722,9 @@ jobs:
             update-test-state/report.json
             service-update-test-state/report.json
             service-update-test-state/state/flow.log
+            request-cancel/**/report.json
+            request-cancel/report.json
+            request-cancel/**/server-output.log
 
   # Development master images retain their separate channel. Release images
   # publish only from ts_release.yml after every native/package gate passes.

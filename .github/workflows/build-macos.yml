@@ -18,6 +18,7 @@ on:
   # workflow through ts_release.yml's workflow_call.
   pull_request:
     branches: [master, develop]
+    paths-ignore: ['**/*.md']
   workflow_dispatch:
   # Reused by ts_release.yml on a tag; `version` stamps the binaries.
   workflow_call:

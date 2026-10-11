@@ -86,6 +86,7 @@ class PeerPlan:
     request_queue: int = 0  # optional BEP 10 reqq; actual fixture cap retains headroom
     strict_request_queue: bool = False  # disconnect when the advertised cap is exceeded
     request_latency_ms: int = 0  # per-request service latency, independently pipelined
+    late_cancel_completion: bool = False  # complete an old cancelled read on same-block reissue
 
     def rate_at(self, elapsed):
         rate = self.rate
@@ -143,7 +144,7 @@ class LocalSwarm:
             if any(when < 0 or value < 1 for when, value in plan.rate_events):
                 raise ValueError("invalid variable delivery rate")
         self.started = None
-        self.peer_stats = [dict(requests=0, sent_bytes=0, connections=0, disconnects=0, requested_pieces=[], first_request_seconds={}, first_sent_seconds=None, peak_pending_requests=0, close_reasons={}, capacity_overflows=[]) for _ in self.plans]
+        self.peer_stats = [dict(requests=0, sent_bytes=0, connections=0, disconnects=0, requested_pieces=[], first_request_seconds={}, first_sent_seconds=None, peak_pending_requests=0, close_reasons={}, capacity_overflows=[], late_cancel_completions=0) for _ in self.plans]
         self.stop = threading.Event()
         self.lock = threading.Lock()
         self.sent_bytes = self.connections = self.requests = self.disconnects = self.announces = 0
@@ -189,6 +190,7 @@ class LocalSwarm:
                     if not plan.request_queue:
                         send(b"\x14\x00" + bencode(extensions))
                     incoming, pending, metadata_requests = bytearray(), [], []
+                    cancelled_responses = {}
                     # Numeric wire evidence for strict-cap failures only. Never
                     # record payload bytes or grow with playback duration.
                     wire = deque(maxlen=64)
@@ -270,6 +272,10 @@ class LocalSwarm:
                             elif packet[0] in (6, 8) and len(packet) == 13:
                                 piece, begin, count = struct.unpack('!III', packet[1:])
                                 if packet[0] == 8:
+                                    if plan.late_cancel_completion and len(cancelled_responses) < 2048:
+                                        old = next((r for r in pending if r[1:] == (piece, begin, count)), None)
+                                        if old is not None:
+                                            cancelled_responses[(piece, begin, count)] = old
                                     pending[:] = [r for r in pending if r[1:] != (piece, begin, count)]
                                     record('cancel', piece, begin, count)
                                     continue
@@ -310,6 +316,17 @@ class LocalSwarm:
                                 ready = time.monotonic()+plan.request_latency_ms/1000
                                 pending.append((ready if plan.rate_events else max(ready, next_send), piece, begin, count))
                                 record('request', piece, begin, count)
+                                if cancelled_responses.pop((piece, begin, count), None) is not None:
+                                    # The old disk read completes after the replacement was
+                                    # accepted. Its reply cannot identify which request it
+                                    # satisfies; the replacement remains remotely queued.
+                                    block = owner.data[piece*owner.piece_length+begin:piece*owner.piece_length+begin+count]
+                                    send(b'\x07' + struct.pack('!II', piece, begin) + block)
+                                    record('late-piece', piece, begin, count)
+                                    with owner.lock:
+                                        owner.sent_bytes += count
+                                        stats['sent_bytes'] += count
+                                        stats['late_cancel_completions'] += 1
                                 with owner.lock:
                                     stats['peak_pending_requests'] = max(stats['peak_pending_requests'], len(pending))
                 except socket.timeout:

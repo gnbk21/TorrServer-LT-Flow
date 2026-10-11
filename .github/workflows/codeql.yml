@@ -2,6 +2,7 @@ name: Flow CodeQL
 on:
   pull_request:
     branches: [develop, master]
+    paths-ignore: ['**/*.md']
   push:
     branches: [develop, master]
   workflow_dispatch:
