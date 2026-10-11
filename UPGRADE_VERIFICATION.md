@@ -722,3 +722,21 @@ After those fixes all 41 build-tool tests passed with the official inventory
 schema enabled. The downloaded real FDK archives both passed the content pin.
 The controlled-playback artifact list also had two over-indented TLS paths;
 their indentation is corrected so the existing TLS reports are retained.
+
+### Strict peer-capacity failure under investigation
+
+Full build `38125980709` failed the real-engine capacity gate: the peer with
+`reqq=64`, 250 ms service latency and 1 MiB pieces closed once for a queue
+overflow. Range integrity still passed after reconnection, but that does not
+satisfy the strict-cap requirement. The other eleven capacity cases passed.
+Downstream inventory, Windows production fixtures and profiling were skipped;
+the full workflow is not a pass. That source's CodeQL categories passed.
+
+Three fresh-state Windows reproductions using runtime `78c437bd` respected
+the same 64-request cap and passed byte checks. This does not clear the Linux
+failure. Strict generated peers now retain at most four overflow snapshots,
+each with at most 64 numeric request/cancel/delivery events, without payloads.
+Nine wire regressions passed, including cancellation freeing a full queue
+before a replacement request. A manual diagnostic workflow repeats a selected
+case on Linux and Windows using recorded existing fixture source and binary
+hashes. The normal release gate still requires the complete capacity matrix.

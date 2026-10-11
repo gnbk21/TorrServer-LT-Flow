@@ -140,6 +140,28 @@ class WireTests(unittest.TestCase):
             with self.assertRaises(EOFError): self.message(sock)
             self.assertEqual(swarm.status()['peers'][0]['peak_pending_requests'], 2)
             self.assertEqual(swarm.status()['peers'][0]['close_reasons'], {'queue-limit': 1})
+            evidence = swarm.status()['peers'][0]['capacity_overflows'][0]
+            self.assertEqual(evidence['pending_count'], 2)
+            self.assertEqual(evidence['unique_pending_count'], 2)
+            self.assertFalse(evidence['duplicate_request'])
+            self.assertEqual(evidence['request'], [0, 32768, 16384])
+            self.assertEqual([event[1] for event in evidence['wire']], ['request', 'request', 'overflow'])
+
+    def test_cancel_frees_strict_capacity_before_replacement_request(self):
+        with LocalSwarm([self.file], peers=[PeerPlan(request_queue=2,
+                strict_request_queue=True, request_latency_ms=150)], high_throughput=True) as swarm:
+            sock = self.connect(swarm)
+            self.initial(sock)
+            first = struct.pack('!III', 0, 0, 16384)
+            second = struct.pack('!III', 0, 16384, 16384)
+            replacement = struct.pack('!III', 0, 32768, 16384)
+            # Preserve one TCP packet's ordering: replacing cancelled work may
+            # fill the cap, but cannot produce a spurious overflow.
+            packets = [b'\x06'+first, b'\x06'+second, b'\x08'+first, b'\x06'+replacement]
+            sock.sendall(b''.join(struct.pack('!I', len(packet))+packet for packet in packets))
+            self.assertEqual(struct.unpack('!II', self.message(sock)[1:9]), (0, 16384))
+            self.assertEqual(struct.unpack('!II', self.message(sock)[1:9]), (0, 32768))
+            self.assertEqual(swarm.status()['peers'][0]['capacity_overflows'], [])
 
     def test_request_latency_is_pipelined_not_serial_per_block(self):
         with LocalSwarm([self.file], peers=[PeerPlan(rate=100*1024*1024, request_latency_ms=150,

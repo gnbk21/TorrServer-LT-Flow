@@ -6,6 +6,7 @@ messages. The server under test must download real hash-verified pieces through
 libtorrent. No production mock cache or external swarm participates.
 """
 import hashlib
+from collections import deque
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import socket
@@ -142,7 +143,7 @@ class LocalSwarm:
             if any(when < 0 or value < 1 for when, value in plan.rate_events):
                 raise ValueError("invalid variable delivery rate")
         self.started = None
-        self.peer_stats = [dict(requests=0, sent_bytes=0, connections=0, disconnects=0, requested_pieces=[], first_request_seconds={}, first_sent_seconds=None, peak_pending_requests=0, close_reasons={}) for _ in self.plans]
+        self.peer_stats = [dict(requests=0, sent_bytes=0, connections=0, disconnects=0, requested_pieces=[], first_request_seconds={}, first_sent_seconds=None, peak_pending_requests=0, close_reasons={}, capacity_overflows=[]) for _ in self.plans]
         self.stop = threading.Event()
         self.lock = threading.Lock()
         self.sent_bytes = self.connections = self.requests = self.disconnects = self.announces = 0
@@ -188,6 +189,12 @@ class LocalSwarm:
                     if not plan.request_queue:
                         send(b"\x14\x00" + bencode(extensions))
                     incoming, pending, metadata_requests = bytearray(), [], []
+                    # Numeric wire evidence for strict-cap failures only. Never
+                    # record payload bytes or grow with playback duration.
+                    wire = deque(maxlen=64)
+                    def record(event, piece, begin, count):
+                        if plan.strict_request_queue:
+                            wire.append([round(elapsed(), 6), event, piece, begin, count, len(pending)])
                     metadata_id, next_send = 0, time.monotonic()
                     while not owner.stop.is_set():
                         if not plan.online(elapsed()):
@@ -216,6 +223,7 @@ class LocalSwarm:
                             _, piece, begin, count = pending.pop(0)
                             block = owner.data[piece*owner.piece_length+begin:piece*owner.piece_length+begin+count]
                             send(b'\x07' + struct.pack('!II', piece, begin) + block)
+                            record('piece', piece, begin, count)
                             with owner.lock:
                                 owner.sent_bytes += count
                                 stats['sent_bytes'] += count
@@ -263,11 +271,21 @@ class LocalSwarm:
                                 piece, begin, count = struct.unpack('!III', packet[1:])
                                 if packet[0] == 8:
                                     pending[:] = [r for r in pending if r[1:] != (piece, begin, count)]
+                                    record('cancel', piece, begin, count)
                                     continue
                                 if choked or piece not in available:
                                     continue
                                 expected = min(owner.piece_length, len(owner.data)-piece*owner.piece_length)
                                 if len(pending) >= (plan.request_queue if plan.strict_request_queue else 2048):
+                                    record('overflow', piece, begin, count)
+                                    with owner.lock:
+                                        if plan.strict_request_queue and len(stats['capacity_overflows']) < 4:
+                                            stats['capacity_overflows'].append({
+                                                'request': [piece, begin, count],
+                                                'pending_count': len(pending),
+                                                'unique_pending_count': len({r[1:] for r in pending}),
+                                                'duplicate_request': any(r[1:] == (piece, begin, count) for r in pending),
+                                                'wire': list(wire)})
                                     close_reason = 'queue-limit'
                                     return
                                 if count == 0 or count > 32768 or begin+count > expected:
@@ -291,6 +309,7 @@ class LocalSwarm:
                                     next_send = max(next_send, time.monotonic()) + plan.delay_ms/1000 + (count/plan.rate if plan.rate else 0)
                                 ready = time.monotonic()+plan.request_latency_ms/1000
                                 pending.append((ready if plan.rate_events else max(ready, next_send), piece, begin, count))
+                                record('request', piece, begin, count)
                                 with owner.lock:
                                     stats['peak_pending_requests'] = max(stats['peak_pending_requests'], len(pending))
                 except socket.timeout:
@@ -361,5 +380,5 @@ class LocalSwarm:
         with self.lock:
             return {"sent_bytes": self.sent_bytes, "connections": self.connections, "requests": self.requests,
                     "disconnects": self.disconnects, "tracker_announces": self.announces,
-                    "peers": [dict(s, requested_pieces=list(s['requested_pieces']), first_request_seconds=dict(s['first_request_seconds']), close_reasons=dict(s['close_reasons'])) for s in self.peer_stats],
+                    "peers": [dict(s, requested_pieces=list(s['requested_pieces']), first_request_seconds=dict(s['first_request_seconds']), close_reasons=dict(s['close_reasons']), capacity_overflows=list(s['capacity_overflows'])) for s in self.peer_stats],
                     "rate_limit_bytes_per_second": self.rate, "block_delay_ms": self.delay * 1000}
