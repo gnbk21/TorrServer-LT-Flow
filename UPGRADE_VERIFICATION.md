@@ -872,4 +872,3 @@ The full retained-boundary/build-tool review is in RELEASE_1_1_SECURITY_REVIEW.m
 Local MIME/Range, Flow, log and console checks, 44 Python tests, actionlint and
 both actual patch application/isolation/drift checks pass. Native-linked Go
 packages cannot compile on this Windows host and require CI verification.
-

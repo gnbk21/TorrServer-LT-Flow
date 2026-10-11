@@ -6,9 +6,27 @@ import (
 	"image/jpeg"
 	"net/http"
 	"net/http/httptest"
+	"server/settings"
 	"sync/atomic"
 	"testing"
 )
+
+func TestPosterValidationDoesNotBypassUnavailableInterface(t *testing.T) {
+	previous := settings.BTsets()
+	flow := settings.DefaultFlowSettings()
+	flow.TorrentInterface, flow.RequireTorrentInterface = "Flow-missing-poster-interface-418", true
+	settings.StoreBTsets(&settings.BTSets{Flow: flow})
+	t.Cleanup(func() { settings.StoreBTsets(previous) })
+	var called atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called.Store(true) }))
+	defer srv.Close()
+	if ok, verified := CheckImgUrl(srv.URL); !ok || verified {
+		t.Fatal("unavailable interface should retain uncertain artwork")
+	}
+	if called.Load() {
+		t.Fatal("poster bypassed the selected interface")
+	}
+}
 
 func TestCheckImgUrl(t *testing.T) {
 	for _, link := range []string{

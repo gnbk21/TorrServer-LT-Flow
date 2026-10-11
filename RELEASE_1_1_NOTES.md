@@ -11,7 +11,8 @@ Version: `MatriX.145.Flow-v1.1.0`.
   keyboard focus, settings search, draft/conflict protection and seven languages.
 - Streaming resilience: bounded interruption/burst reserves, recovery hysteresis,
   fair concurrent readers, useful slow-peer retention and duplicate accounting.
-  The capacity experiment now reconciles late replies after seek cancellation.
+  The capacity experiment reconciles late replies after seek cancellation and
+  gives urgent cold pieces credit before normal ahead-of-playback refill.
 - Opt-in next-episode head/index warmup, limited to 32 MiB in existing spare
   cache; it yields to current playback and cancels on changes or shutdown.
 - Synchronized startup, discovery, storage, HTTP and recovery diagnostics;
@@ -21,6 +22,9 @@ Version: `MatriX.145.Flow-v1.1.0`.
   bounded identical-byte reuse. Private torrents are excluded from shared reuse.
 - Improved fetch cancellation, response cleanup, launcher synchronization,
   credential isolation, proxy destination validation and log privacy.
+- Validated cache-removal identifiers and cleanup directories, safe download
+  types for non-media torrent files, bounded certificate/artwork lookup reads,
+  and selected-interface routing for artwork and indexer requests.
 - Optional reversible Windows interface guard, with isolated TCP/UDP IPv4/IPv6,
   LAN-preservation and uninstall tests. It is never installed automatically.
 - Hardened release tooling: immutable Action pins, explicit token permissions,

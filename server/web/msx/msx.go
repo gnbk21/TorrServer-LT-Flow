@@ -214,14 +214,23 @@ func SetupRoute(r gin.IRouter) {
 		var l string
 		if e := c.BindJSON(&l); e != nil {
 			c.AbortWithError(http.StatusBadRequest, e)
-		} else if e = os.Remove(filepath.Join(settings.Path, files)); e != nil && !os.IsNotExist(e) {
-			c.AbortWithError(http.StatusInternalServerError, e)
-		} else if l != "" {
+			return
+		}
+		if l != "" {
 			if f, e := os.Stat(l); e != nil {
 				c.AbortWithError(http.StatusBadRequest, e)
+				return
 			} else if !f.IsDir() {
 				c.AbortWithError(http.StatusBadRequest, errors.New(l+" is not a directory"))
-			} else if e = os.Symlink(l, filepath.Join(settings.Path, files)); e != nil {
+				return
+			}
+		}
+		if e := os.Remove(filepath.Join(settings.Path, files)); e != nil && !os.IsNotExist(e) {
+			c.AbortWithError(http.StatusInternalServerError, e)
+			return
+		}
+		if l != "" {
+			if e := os.Symlink(l, filepath.Join(settings.Path, files)); e != nil {
 				c.AbortWithError(http.StatusInternalServerError, e)
 			}
 		}

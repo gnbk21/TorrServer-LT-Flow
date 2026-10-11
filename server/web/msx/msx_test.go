@@ -2,10 +2,13 @@ package msx
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"server/settings"
 	"strings"
 	"sync"
@@ -16,6 +19,32 @@ import (
 type trackedBody struct {
 	io.Reader
 	closed bool
+}
+
+func TestInvalidDirectoryPreservesExistingFilesEntry(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previousPath, previousAuth := settings.Path, settings.HttpAuth
+	settings.Path, settings.HttpAuth = t.TempDir(), false
+	t.Cleanup(func() { settings.Path, settings.HttpAuth = previousPath, previousAuth })
+	existing := filepath.Join(settings.Path, files)
+	if err := os.WriteFile(existing, []byte("retained"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	router := gin.New()
+	SetupRoute(router)
+	for _, target := range []string{filepath.Join(settings.Path, "missing"), existing} {
+		body, _ := json.Marshal(target)
+		request := httptest.NewRequest(http.MethodPost, "/files", strings.NewReader(string(body)))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("invalid target accepted: %d", response.Code)
+		}
+		if got, err := os.ReadFile(existing); err != nil || string(got) != "retained" {
+			t.Fatalf("existing entry lost: %q %v", got, err)
+		}
+	}
 }
 
 func (b *trackedBody) Close() error { b.closed = true; return nil }
