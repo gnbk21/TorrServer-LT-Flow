@@ -19,7 +19,7 @@ class NativeProfiling(unittest.TestCase):
             profiling.validate('etw')
             with self.assertRaises(ValueError): profiling.validate('perfetto')
 
-    def perfetto(self, csv='"samples","stacks","outside_samples"\n12,10,0\n'):
+    def perfetto(self, csv='"samples","stacks","outside_samples"\n10,10,0\n'):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name in ('tracebox', 'trace_processor_shell'): (root/name).write_bytes(b'tool')
@@ -36,11 +36,13 @@ class NativeProfiling(unittest.TestCase):
                  patch.object(profiling.os, 'getgid', return_value=1001, create=True), \
                  patch.dict(profiling.os.environ, {'FLOW_PROFILE_SOURCE_RUN': '38087989863'}), \
                  patch.object(profiling.subprocess, 'run', side_effect=run):
-                if '12,10,0' in csv:
+                if '10,10,0' in csv:
                     result = profiling.capture(server, 'perfetto', 30, root)
                     self.assertTrue(result['passed'])
                     self.assertEqual(result['samples']['outside_samples'], 0)
                     self.assertEqual(result['source_run_id'], '38087989863')
+                    self.assertTrue(result['counter_samples_may_include_other_processes'])
+                    self.assertIn('WHERE s.callsite_id IS NOT NULL', commands[2][2])
                     config = (root/'native-cpu.pbtxt').read_text()
                     self.assertIn('target_pid: 417', config)
                     self.assertIn('duration_ms: 30000', config)
@@ -56,8 +58,46 @@ class NativeProfiling(unittest.TestCase):
     def test_perfetto_pid_scope_and_decode(self): self.perfetto()
 
     def test_rejects_empty_unknown_or_foreign_samples(self):
-        for row in ('0,0,0', '12,0,0', '12,10,1'):
+        for row in ('0,0,0', '12,0,0', '12,10,1', '12,10,0'):
             self.perfetto('samples,stacks,outside_samples\n'+row+'\n')
+
+    def test_etw_structured_report_and_loss_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root/'etw-report.xml'
+            path.write_text('<Report><Section><Data name="events">12</Data>'
+                            '<Data name="lostEvents">0</Data></Section></Report>')
+            self.assertEqual(profiling.etw_events(path), {'events':12, 'lost_events':0})
+            for xml in ('Files Processed: native-cpu.etl', '<Summary/>',
+                        '<Report><Data name="events">0</Data><Data name="lostEvents">0</Data></Report>',
+                        '<Report><Data name="events">12</Data><Data name="lostEvents">1</Data></Report>',
+                        '<Report><Data name="events">12</Data></Report>'):
+                path.write_text(xml)
+                with self.assertRaises((ValueError, profiling.ET.ParseError)):
+                    profiling.etw_events(path)
+
+    def test_etw_success_uses_xml_report_and_text_summary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            server = SimpleNamespace(state=root, process=SimpleNamespace(pid=417, poll=lambda:None))
+            calls=[]
+            def command(arguments, log, timeout=45):
+                calls.append(arguments)
+                if '-stop' in arguments: (root/'native-cpu.etl').write_bytes(b'trace')
+                if '-report' in arguments:
+                    self.assertEqual(arguments[arguments.index('-f')+1], 'XML')
+                    (root/'etw-summary.txt').write_text('Files Processed: native-cpu.etl')
+                    (root/'etw-report.xml').write_text('<Report><Data name="events">12</Data>'
+                                                     '<Data name="lostEvents">0</Data></Report>')
+            with patch.object(profiling, 'validate'), \
+                 patch.object(profiling, 'os', SimpleNamespace(name='nt', environ={'SystemRoot':str(root)})), \
+                 patch.object(profiling, 'command', side_effect=command), \
+                 patch.object(profiling.time, 'monotonic', side_effect=[0, 2]):
+                result = profiling.capture(server, 'etw', 1)
+            self.assertTrue(result['passed'])
+            self.assertEqual(result['decoded_events'], 12)
+            self.assertEqual(result['lost_events'], 0)
+            self.assertEqual(calls[0][-2:], calls[1][-2:])
 
     def test_etw_stops_only_recording_it_started_even_on_process_exit(self):
         with tempfile.TemporaryDirectory() as directory:

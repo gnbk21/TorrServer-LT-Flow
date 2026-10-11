@@ -78,7 +78,8 @@ jobs:
             native-profile/**/native-cpu.*
             native-profile/**/native-samples.csv
             native-profile/**/native-profiler.log
-            native-profile/**/etw-summary.xml
+            native-profile/**/etw-summary.txt
+            native-profile/**/etw-report.xml
             native-profile/**/server-output.log
             native-profile/**/*.pprof
           if-no-files-found: error

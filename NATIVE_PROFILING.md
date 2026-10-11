@@ -8,11 +8,14 @@ HTTP buffer size or PGO setting.
 
 - Go: the owned synthetic server's loopback profiler captures CPU, runtime
   trace, heap, allocations, mutex, block and goroutine profiles.
-- Linux: pinned Perfetto v58.2 captures 99 Hz CPU samples and call stacks for
-  the exact owned process ID. It enables no system scheduling, process scan or
-  log source. Decoding must find nonzero samples/stacks and no other process.
+- Linux: pinned Perfetto v58.2 samples per-CPU timers at 99 Hz, restricting
+  call-stack collection to the exact owned process ID. Timer-only records may
+  include other processes. It enables no system scheduling, process scan or log
+  source. Decoding checks records with call stacks and requires nonzero owned
+  stacks with no foreign or unidentified process stacks.
 - Windows: built-in WPR records CPU on a disposable GitHub-hosted runner.
-  `tracerpt` must decode the ETL. Filter the recorded `owned_pid` in WPA for
+  `tracerpt -report ... -f XML` must decode the ETL to a structured report with
+  nonzero events; its separate `-summary` output is plain text. Filter the recorded `owned_pid` in WPA for
   analysis. Windows CPU recording is system-scoped and is refused on the
   workstation. It uses a unique recording instance and cleans up only that
   instance, including a failed stop or a start timeout.
@@ -57,7 +60,7 @@ Before this reusable workflow reaches the default branch, dispatch the existing
 that completed build's numeric run ID. This starts only the shared native capture
 jobs; full release/PR builds keep the complete dependency and verification gates.
 
-References: [Perfetto CPU profiling](https://perfetto.dev/docs/quickstart/callstack-sampling),
+References: [Perfetto CPU profiling](https://perfetto.dev/docs/getting-started/cpu-profiling),
 [Linux tracing cookbook](https://perfetto.dev/docs/getting-started/linux-cookbook),
 [Windows WPR commands](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/wpr-command-line-options),
 [pinned Perfetto release](https://github.com/google/perfetto/releases/tag/v58.2).

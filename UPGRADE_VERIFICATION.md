@@ -564,3 +564,34 @@ Its stamped source is PR merge `78c437bdd555f3d501da09b54b2b2ca34342d9dc`.
 Later changes so far are build tooling, fixtures and documentation; they do not
 change this runtime's Go/native behavior. The run must finish and converge before
 eight-hour acceptance can be recorded.
+
+## Native capture decoder reconciliation
+
+Targeted run `38124667870` captured both raw traces against the existing
+symbol-preserving fixtures from run `38087989863`. The Linux trace was 594,320
+bytes and the Windows trace was 12,845,056 bytes, within the unchanged size gate.
+Both jobs then exposed decoder validation defects; that failed run is not a
+passing gate.
+
+Perfetto's scope restricts call-stack unwinding, while its CPU timer still emits
+records without stacks for other processes. The validation query now selects
+records with call sites and still rejects any foreign or unidentified process
+stack. Offline decoding of the actual trace found 958 owned stacks and zero
+foreign stacks. Of those samples, 912 have named leaf frames. Only 234 stacks
+have no unwind error; 272 report `invalid_elf` and 452 `unwind_info`, so complete
+call-chain attribution is not established. Observed leaf frames include C++
+fill operations (139 samples), native SHA-1 (34), JSON serialization, Go cache
+operations and kernel work. These are sampled observations under profiling,
+not proof that a particular optimization will improve streaming.
+
+Windows `tracerpt -summary` produces text regardless of filename. Validation
+now requests a separate XML `-report`, checks its structure, requires positive
+event counts and rejects lost events. Offline decoding of the actual ETL
+returned 184,080 events with zero events lost. This proves decoding, not owned
+native function attribution or physical Windows performance. The new decoder
+and process-scope regressions pass locally; corrected CI execution is required.
+
+At `fb4082d8`, branch checks, macOS and optional Android packaging completed
+successfully. The full build and CodeQL were still running when checked. The
+fresh corrected-runtime endurance run remains in progress; elapsed time alone
+does not complete the convergence gate.

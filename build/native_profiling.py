@@ -37,6 +37,19 @@ def command(arguments, log, timeout=45):
         subprocess.run(arguments, stdout=output, stderr=subprocess.STDOUT, check=True, timeout=timeout)
 
 
+def etw_events(path):
+    evidence(path)
+    root = ET.parse(path).getroot()
+    events = root.find(".//Data[@name='events']")
+    lost = root.find(".//Data[@name='lostEvents']")
+    if root.tag != 'Report' or events is None or lost is None:
+        raise ValueError('ETW decoding returned no event report')
+    counts = {'events': int(events.text or '0'), 'lost_events': int(lost.text or '-1')}
+    if counts['events'] <= 0 or counts['lost_events'] != 0:
+        raise ValueError('ETW decoding is empty or reports lost events')
+    return counts
+
+
 def capture(server, kind, seconds, tools=None):
     validate(kind)
     if not 1 <= seconds <= 30 or server.process.poll() is not None or server.process.pid <= 0:
@@ -87,12 +100,18 @@ def capture(server, kind, seconds, tools=None):
                         command([str(wpr), '-cancel', *instance], log)
                         raise
             report['trace'] = evidence(trace)
-            summary = server.state / 'etw-summary.xml'
-            command([str(tracerpt), str(trace), '-summary', str(summary), '-o', 'NUL', '-y'], log)
+            summary = server.state / 'etw-summary.txt'
+            decoded = server.state / 'etw-report.xml'
+            # -summary always emits text, regardless of the filename suffix.
+            # -report with XML format is the structured decoding result.
+            command([str(tracerpt), str(trace), '-summary', str(summary),
+                     '-report', str(decoded), '-f', 'XML', '-o', 'NUL', '-y'], log)
             evidence(summary)
-            ET.parse(summary)  # A saved file alone is not a decodable ETW trace.
+            counts = etw_events(decoded)
             report.update(scope='System CPU on disposable synthetic CI; filter owned PID in WPA',
                           decoder_validated=True, native_attribution_known=False,
+                          decoded_events=counts['events'], lost_events=counts['lost_events'],
+                          decoder_report=evidence(decoded),
                           circular_buffer_bytes=64*1024*1024,
                           trace_may_cover_recent_window_only=True,
                           recording_profile=evidence(profile))
@@ -124,7 +143,8 @@ callstack_sampling {{ scope {{ target_pid: {server.process.pid} }} kernel_frames
             report['trace'] = evidence(trace)
             query = f'''SELECT count(*) AS samples, count(s.callsite_id) AS stacks,
 count(CASE WHEN p.pid != {server.process.pid} OR p.pid IS NULL THEN 1 END) AS outside_samples
-FROM perf_sample s LEFT JOIN thread t ON t.utid=s.utid LEFT JOIN process p ON p.upid=t.upid;'''
+FROM perf_sample s LEFT JOIN thread t ON t.utid=s.utid LEFT JOIN process p ON p.upid=t.upid
+WHERE s.callsite_id IS NOT NULL;'''
             result = server.state / 'native-samples.csv'
             with result.open('wb') as output, log.open('ab') as errors:
                 subprocess.run([str(processor), '-Q', query, str(trace)], stdout=output, stderr=errors,
@@ -134,9 +154,10 @@ FROM perf_sample s LEFT JOIN thread t ON t.utid=s.utid LEFT JOIN process p ON p.
             if len(rows) != 1:
                 raise ValueError('Native sample query returned an invalid result')
             samples = {key: int(rows[0][key]) for key in ('samples', 'stacks', 'outside_samples')}
-            if samples['samples'] <= 0 or samples['stacks'] <= 0 or samples['outside_samples'] != 0:
+            if samples['samples'] <= 0 or samples['stacks'] != samples['samples'] or samples['outside_samples'] != 0:
                 raise ValueError('Native capture is empty, lacks stacks or includes another process')
-            report.update(scope='Owned process only; no system scheduling, logs or process scan',
+            report.update(scope='Owned process call stacks; per-CPU timer counters may include other processes; no scheduling, logs or process scan',
+                          counter_samples_may_include_other_processes=True,
                           decoder_validated=True, samples=samples,
                           tools={tool.name: evidence(tool)['sha256'] for tool in (tracebox, processor)},
                           native_attribution_known=False)
