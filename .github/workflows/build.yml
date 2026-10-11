@@ -12,6 +12,10 @@ on:
     branches: [master, develop]
   workflow_dispatch:
     inputs:
+      profile_source_run_id:
+        description: 'Capture native CPU using symbol fixtures from an existing build; skips rebuilding'
+        type: string
+        default: ''
       evaluate_pgo:
         description: 'Compare an opt-in Go PGO build using generated playback fixtures'
         type: boolean
@@ -37,7 +41,7 @@ on:
         default: false
 
 concurrency:
-  group: build-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: build-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ inputs.profile_source_run_id || 'full' }}
   # Keep long native comparisons and rollback evidence intact across checkpoints.
   cancel-in-progress: false
 
@@ -108,6 +112,7 @@ jobs:
       candidate_run_id: ${{ format('{0}', github.run_id) }}
       comparison: transport
   windows-network-notifications:
+    if: ${{ !inputs.profile_source_run_id }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -163,6 +168,7 @@ jobs:
             _out/sparse-native-layers-build.log
           if-no-files-found: error
   web:
+    if: ${{ !inputs.profile_source_run_id }}
     uses: ./.github/workflows/build-web.yml
     with:
       artifact-name: flow-web-cross
@@ -170,6 +176,7 @@ jobs:
   # Fetch Boost + libtorrent once and cache _src, so the matrix below doesn't
   # download Boost (~120 MB) and clone libtorrent six times in parallel.
   sources:
+    if: ${{ !inputs.profile_source_run_id }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -590,12 +597,13 @@ jobs:
 
   native-profiling:
     needs: cross
+    if: ${{ always() && (inputs.profile_source_run_id || needs.cross.result == 'success') }}
     permissions:
       contents: read
       actions: read
     uses: ./.github/workflows/native-profile.yml
     with:
-      source_run_id: ${{ format('{0}', github.run_id) }}
+      source_run_id: ${{ inputs.profile_source_run_id || format('{0}', github.run_id) }}
 
   high-bitrate-comparison:
     needs: cross

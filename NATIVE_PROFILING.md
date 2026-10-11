@@ -52,6 +52,11 @@ Profiling-tool changes can therefore be checked against already built fixtures
 while the full candidate gates run. This does not stamp an older binary as a new
 source revision or replace the full build gates.
 
+Before this reusable workflow reaches the default branch, dispatch the existing
+`build.yml` workflow on the feature branch with `profile_source_run_id` set to
+that completed build's numeric run ID. This starts only the shared native capture
+jobs; full release/PR builds keep the complete dependency and verification gates.
+
 References: [Perfetto CPU profiling](https://perfetto.dev/docs/quickstart/callstack-sampling),
 [Linux tracing cookbook](https://perfetto.dev/docs/getting-started/linux-cookbook),
 [Windows WPR commands](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/wpr-command-line-options),
