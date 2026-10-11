@@ -116,3 +116,22 @@ the safe type/download/`nosniff` policy, including native WebVTT compatibility.
 No additional alerts were dismissed. The omitted B2 bootstrap findings still
 have the build-tool scope described above; the fresh extraction did not rebuild
 that cached host tool and does not establish an upstream B2 security fix.
+
+## Published 1.1.3 security verification
+
+Exact source `baca8c41594e0fd6d3a17c14a6187482134d5135` passed master CodeQL run
+`38148194003` and develop run `38148196346`. The final master query retains
+30 open findings: 22 `go/path-injection`, seven `go/request-forgery` and one
+`go/reflected-xss`. Alert IDs match the prior reviewed source and every latest
+instance binds to this exact release commit. The approved seven dispositions
+remain separate; no additional findings were dismissed. Retained owner-selected
+paths/URLs and the response-sink boundary remain as documented above.
+
+The checksum-bound Windows executable `266cec7297f8da63562a51f96269c28cca96de457145bb1afd74d87be3cd8540`
+retains GO-2026-5932 in the stripped binary scan (exit 3, x/crypto v0.57.0,
+OpenPGP unmaintained, no fixed version). Its resolved CGo-enabled Windows
+import graph contains 511 packages, includes `server/lt` and excludes OpenPGP.
+Both exact tagged Linux source variants report no vulnerabilities. This is
+not a clean symbol-level Windows reachability result. Published ZIP/executable
+provenance and all asset checksums passed; the optional Windows guard remains
+explicitly installed and scoped, and shared OS DNS protection is unverified.

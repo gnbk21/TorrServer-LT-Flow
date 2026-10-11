@@ -887,3 +887,82 @@ The previous endurance session was interrupted: 15784 seconds, 965 cycles,
 no final convergence or allocation-release outcome. Eight-hour acceptance is
 not passed. The optional APK remains excluded; physical field checks, full
 profiling attribution and shared OS DNS protection remain unverified.
+
+## Published Flow 1.1: final tagged and downloaded verification
+
+[Flow 1.1.3](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.3)
+is public, stable and Latest. Immutable source: `baca8c41594e0fd6d3a17c14a6187482134d5135`.
+PR #5 is merged; master and the default develop branch contain the release.
+
+- [Exact tagged run 38148199061](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/38148199061)
+  passed all eight platform targets, native unit/race/vet/fuzz, actual API
+  contracts, web checks, dependency inventory, profiling and packaging gates.
+  Downloaded controlled reports confirm 72 original-byte high-bitrate trials,
+  12 strict native request-capacity cases and six cold cancellation/late-reply
+  trials on each of Linux and Windows. The 72-trial matrix uses three rotations;
+  the earlier 80 profile and 80 transport comparisons use five rotated repeats
+  at `0b6da77a`; they were not rerun by this tagged workflow.
+- The first Windows gate attempt passed five cold-seek trials, then failed
+  before the sixth established any peer connection: Windows denied all three
+  automatically selected UDP listeners (52054-52056). Its report records zero
+  peer requests and preserves the failure. The unchanged gate subsequently
+  passed on a fresh runner; neither deadlines nor capacity/race assertions were
+  relaxed. This is a host port-binding failure, not a passed initial attempt.
+  All six unchanged trials also passed locally against the same executable.
+- Windows runner receipts passed restricted SCM crash/restart/stop/uninstall,
+  authenticated update/startup-failure and service-migration rollback, and
+  isolated TCP/UDP IPv4/IPv6 WFP enforcement, LAN preservation and restoration.
+  These runner fixtures do not verify physical boot/sleep/VPN or OS DNS leaks.
+- Final-source CodeQL master `38148194003` and develop `38148196346`, and
+  portable develop `38148196411`, completed successfully. The exact master
+  query retains the same 30 reviewed open findings, with no additional
+  dismissals. Scan execution is not a clean-alert claim.
+- All 35 published assets downloaded; all 34 SHA-256 entries passed. Every
+  native binary has exact source/version identity. All eight platform ZIPs have
+  sorted entries, deterministic metadata and identical packaged bytes. Both
+  Windows ZIP and executable attestations verify this exact source, tag and
+  release workflow. There are 13 Go binaries plus the optional Windows guard;
+  no companion APK is included. Native version reports libtorrent 2.1.2.0.
+- Windows executable SHA-256: `266cec7297f8da63562a51f96269c28cca96de457145bb1afd74d87be3cd8540`.
+  ZIP SHA-256: `5f5ee08320dbd509128f25d384b742ca7213452cc611709a2c1f683ce2c8bc8b`.
+- Real GitHub installation and 1.0.1-to-1.1.3 update passed independently under
+  PowerShell 5.1 and 7 with required provenance, retained authentication,
+  private configuration/state, listener and protected recovery backup.
+  Both owned servers shut down cleanly.
+- The downloaded embedded UI passed real-backend desktop/mobile checks,
+  CacheSize 0 compatibility, Legacy/disabled-experiment defaults, certificate
+  controls and maintenance/library/search navigation without browser errors.
+  The mobile action panel stays above bottom navigation. No fixture API or
+  settings apply was used; viewport checks are not real-phone acceptance.
+- Five owned native HTTPS cases passed: addressing, HTTPS-only/mixed modes,
+  live certificate reload and failure preservation, private keys and clean
+  shutdown. Exact-byte HTTP/header/disk and live/DB-only hybrid cleanup checks
+  used the identical checksum-bound tagged Windows executable.
+- Anonymous GHCR verification confirms three platforms (amd64, arm64, arm/v7),
+  exact source/version labels and identical version-tag/latest index digest:
+  `sha256:be51bb8cd7b656a86ce09123db128465f008c08397e97ed03fc54a555d73f07b`.
+  Each container architecture passed runtime version/linkage checks in CI
+  before publication.
+
+Receipts are retained under `.tools/flow11-published`,
+`.tools/flow113-ci-receipts`, `.tools/live-flow11-ps7`,
+`.tools/live-flow11-ps51`, `.tools/flow11-ui-state`, `.tools/flow11-https`,
+and `.tools/flow113-tagged-*`. Ignored local receipts supplement the linked
+public CI and immutable asset manifests; they are not bundled user state.
+
+The stripped Windows vulnerability scan still exits 3 for GO-2026-5932
+(unmaintained OpenPGP, no fixed version). The exact Windows CGo import graph
+contains 511 packages and excludes OpenPGP; both native Linux source variants
+reported no vulnerabilities. This does not establish a clean symbol-level
+Windows reachability scan. Reviewed findings and trusted-client boundaries
+remain explicit in `RELEASE_1_1_SECURITY_REVIEW.md`.
+
+Windows automatic peer-port selection can encounter host-restricted UDP ports.
+When diagnostics report `listen_failed`, select an available explicit peer
+port; the normal fixed default remains 51413. This release does not alter host
+port reservations or claim automatic recovery from every host binding policy.
+
+The owner-authorized unfinished physical phone/public-swarm/Windows recovery,
+eight-hour convergence, optional independent decoder rebuild, shared OS DNS
+and complete native profiling checks remain unpassed. Defaults remain Legacy,
+1024 KiB transport, PGO off and scheduling/warmup experiments opt-in.

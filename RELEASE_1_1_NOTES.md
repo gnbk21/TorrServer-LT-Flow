@@ -2,6 +2,9 @@
 
 Version: `MatriX.145.Flow-v1.1.3`.
 
+This is the first published Flow 1.1 release. Earlier candidate tags remain
+unpublished after validation fixes.
+
 ## Changes since 1.0.1
 
 - Updated dashboard and torrent library: playback focus, incident timeline,
@@ -56,8 +59,9 @@ See [distribution and rollback](https://github.com/gnbk21/TorrServer-LT-Flow/blo
 
 ## Verification scope
 
-Publication requires the exact tagged native, platform, browser, security,
-service/update, controlled streaming and reproducible-package gates.
+The exact tagged native, platform, browser, security, service/update, controlled
+streaming and reproducible-package gates passed. Downloaded hashes/provenance,
+live Windows install/update, embedded UI/HTTPS and public container checks passed.
 [The verification record](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/RELEASE_1_1_VERIFICATION.md)
 records actual results and any unfinished checks.
 
@@ -74,3 +78,9 @@ The experimental Media3 companion APK is excluded from stable assets. Its
 decoder sources/notices have traced provenance, but independent native rebuild
 and redistribution compatibility are not established. Windows assets are not
 Authenticode signed. Flow retains GPL-3.0 and its upstream attribution.
+
+Windows automatic peer-port selection can encounter host-restricted UDP ports.
+If diagnostics report `listen_failed`, choose an available explicit peer port;
+the normal fixed default remains 51413. Flow does not alter host port reservations.
+
+[Full changes since 1.0.1](https://github.com/gnbk21/TorrServer-LT-Flow/compare/MatriX.145.Flow-v1.0.1...MatriX.145.Flow-v1.1.3).

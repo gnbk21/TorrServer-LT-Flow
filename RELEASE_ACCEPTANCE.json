@@ -112,6 +112,31 @@
       "source_commit": "0b6da77a0c82d393ba12af2496aecdac4fb3347c",
       "executable_sha256": "ebebb25826b83055e90e38a94b1d383fda9b7cee2f10269c8676b30eb5811bf7",
       "result": "passed"
+    },
+    {
+      "scope": "Exact Flow 1.1.3 tagged publication and downloaded distribution verification",
+      "source_commit": "baca8c41594e0fd6d3a17c14a6187482134d5135",
+      "published_tag": "MatriX.145.Flow-v1.1.3",
+      "ci_run": 38148199061,
+      "result": "passed",
+      "url": "https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/38148199061",
+      "verification_record": "RELEASE_1_1_VERIFICATION.md",
+      "downloaded_assets": 35,
+      "verified_checksums": 34,
+      "controlled_streaming_trials_passed": 72,
+      "strict_capacity_cases_passed": 12,
+      "cold_cancel_trials_per_platform": 6,
+      "windows_executable_sha256": "266cec7297f8da63562a51f96269c28cca96de457145bb1afd74d87be3cd8540",
+      "windows_package_sha256": "5f5ee08320dbd509128f25d384b742ca7213452cc611709a2c1f683ce2c8bc8b",
+      "container_index_digest": "sha256:be51bb8cd7b656a86ce09123db128465f008c08397e97ed03fc54a555d73f07b",
+      "live_install_update_powershell_versions": [
+        "5.1",
+        "7"
+      ],
+      "packaged_ui_https_passed": true,
+      "physical_field_checks_passed": false,
+      "ci_run_attempt": 2,
+      "windows_initial_gate_failure": "First attempt failed before peer setup after Windows denied automatic UDP listener ports; unchanged gate passed on a fresh runner, with the original failure retained"
     }
   ],
   "remaining": [],
@@ -131,5 +156,7 @@
     "Independent optional player decoder rebuild/redistribution audit; APK excluded from stable assets",
     "Shared OS DNS leak protection and complete native profiling attribution"
   ],
-  "release_target": "MatriX.145.Flow-v1.1.3"
+  "release_target": "MatriX.145.Flow-v1.1.3",
+  "published_tag": "MatriX.145.Flow-v1.1.3",
+  "published_source_commit": "baca8c41594e0fd6d3a17c14a6187482134d5135"
 }

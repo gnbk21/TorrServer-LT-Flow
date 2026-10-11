@@ -45,7 +45,7 @@ tracked separately. Baseline: stable 1.0.1 / source 55c16dc3; integration c3dfe7
 - [x] Exposure summary and isolated per-protocol interface-disconnect verification.
 - [ ] Shared OS DNS and physical network enforcement acceptance.
 - [x] Explicit reversible Windows WFP installation and scoped enforcement preserving LAN.
-- [ ] Authoritative release metadata; stable/preview transitions, source/notices/provenance.
+- [x] Authoritative release metadata; stable/preview transitions, source/notices/provenance.
 
 ## Protocol milestone
 - [x] v2/hybrid parsing/identities/native callbacks/storage/resume/database/API validation.
@@ -53,8 +53,9 @@ tracked separately. Baseline: stable 1.0.1 / source 55c16dc3; integration c3dfe7
 - [x] Bounded verified identical-byte reuse, compatible mapping; private reuse disabled.
 
 These protocol items passed the corrected `2caccb12` Linux native unit/race
-and CodeQL regression gates, plus macOS arm64 unit tests. Additional forced
-TCP/uTP cases, final-source full gates and physical acceptance remain separate.
+and CodeQL regression gates, plus macOS arm64 unit tests. Later forced TCP/uTP
+and final-source gates are recorded in UPGRADE_VERIFICATION.md; physical
+acceptance remains open.
 
 ## Acceptance
 - [x] Existing web/contracts/native/race/sanitizer/inventory/update rollback gates; tagged packaging checked at publication.
@@ -70,8 +71,9 @@ TCP/uTP cases, final-source full gates and physical acceptance remain separate.
 Final runtime source `0b6da77a` passed full run `38137745954`, macOS
 `38137745936`, portable `38137745870` and CodeQL `38137745884`.
 Its downloaded reports confirm 72 high-bitrate, 80 profile and 80 transport
-integrity trials. Exact tagged publication/provenance and downloaded assets
-remain separate distribution gates. The owner approved stable publication with
+integrity trials. Those checkpoint results preceded exact tagging. Final v1.1.3
+tagged publication/provenance and downloaded distribution gates passed;
+see RELEASE_1_1_VERIFICATION.md. The owner approved stable publication with
 unfinished field/resource acceptance disclosed; unchecked field items remain
 unverified and are not represented as passes.
 
@@ -84,8 +86,9 @@ Corrected runtime comparisons use feature head `15faff93` / PR merge
 `78c437bd`, with 160/160 integrity trials. PGO uses `ad41ffae`, 40/40 trials
 after four training scenarios, and remains off. Exact hashes, medians and scope
 are in UPGRADE_MEASUREMENTS.md. These checkmarks record controlled evidence;
-complete native attribution, final package/source audit, resource convergence and physical
-acceptance remain open. Later build-tool changes still require their own gates.
+complete native attribution, resource convergence and physical acceptance
+remain open. Final v1.1.3 package/source verification passed. Later build-tool
+changes still require their own gates.
 
 Profiling decoder source `0df6eacb` passed both isolated jobs in targeted run
 `38125387761`, using symbol fixtures from `38087989863`. The passing reports
