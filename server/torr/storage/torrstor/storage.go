@@ -215,8 +215,15 @@ func (s *Storage) callbackOpenDeferred(storage int64, hash flow.InfoHash, numPie
 }
 
 func (s *Storage) callbackClose(storage int64) {
-	s.mu.Lock()
+	s.mu.RLock()
 	c := s.caches[storage]
+	s.mu.RUnlock()
+	if c != nil {
+		// Keep ownership visible until all piece operations and shared disk
+		// handles have drained. Cleanup uses absence as its removal fence.
+		c.close()
+	}
+	s.mu.Lock()
 	if c != nil {
 		// Disk callbacks can finish after the same hash was re-added with a
 		// different storage ID. Only the current owner may remove its lookup
@@ -225,12 +232,11 @@ func (s *Storage) callbackClose(storage int64) {
 			delete(s.byHash, c.InfoHash)
 			delete(s.verifiedReads, c.InfoHash)
 		}
-		delete(s.caches, storage)
+		if s.caches[storage] == c {
+			delete(s.caches, storage)
+		}
 	}
 	s.mu.Unlock()
-	if c != nil {
-		c.close()
-	}
 }
 
 func (s *Storage) callbackDeleted(storage int64) {

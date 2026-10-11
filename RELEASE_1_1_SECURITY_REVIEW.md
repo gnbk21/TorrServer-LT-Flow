@@ -9,6 +9,10 @@ does not claim that scanning proves the absence of vulnerabilities.
   constructing disk paths. Invalid input cannot reach the engine, database or
   recursive removal. Startup cleanup also rejects nonhexadecimal directories
   rather than recognizing them by length alone.
+- Removal uses the actual hybrid storage identity, waits for native/cache disk
+  ownership to drain, and checks re-addition under the engine lock. Timeouts or
+  filesystem failures preserve the record and retained bytes for retry. Closing
+  storage remains registered until in-use pooled disk handles are released.
 - Torrent streaming assigns an explicit media/plain-subtitle/binary type and
   `nosniff`; HTML, SVG and unknown formats are downloads. Names never trigger
   local-file MIME sniffing. Byte-range responses retain their original bytes.

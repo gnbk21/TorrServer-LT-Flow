@@ -60,3 +60,11 @@ missing/wrong-host tools are bootstrapped. Native/race gates now explicitly
 include root cache cleanup, MIME, Torznab and JacRed tests. New endpoint tests
 exercise unavailable-interface routing, TMDB response limits, oversized
 configured certificates and preservation of existing MSX sharing on bad input.
+
+Cleanup review additionally found that the HTTP-side close signal preceded
+native disk release. Removal now waits for actual storage ownership, preserves
+bytes/records on timeout or failure, checks replacement ownership under the
+engine lock and uses the hybrid's native storage digest. A held real file
+descriptor regression checks that close cannot expose absent ownership early
+and cannot remove a newly registered replacement. These native-linked checks
+are pending the final-source CI run.

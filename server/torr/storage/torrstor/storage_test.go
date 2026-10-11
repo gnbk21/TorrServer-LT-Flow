@@ -3,12 +3,75 @@ package torrstor
 import (
 	"bytes"
 	"server/flow"
+	"sync"
 	"testing"
+	"time"
 
 	"server/lt"
 )
 
 const pieceLen = int64(16 * 1024)
+
+func TestCloseKeepsOwnershipUntilDiskHandlesDrain(t *testing.T) {
+	for _, replacement := range []bool{false, true} {
+		t.Run(map[bool]string{false: "removed", true: "replacement"}[replacement], func(t *testing.T) {
+			s := NewStorage()
+			h := mkHash(0xA7)
+			s.callbackOpen(1, h, 1, pieceLen)
+			c := s.CacheByHash(h)
+			p := &Piece{cache: c, Id: 0}
+			p.disk = newDiskPiece(p, t.TempDir())
+			c.pieces[0] = p
+			file, done, err := c.diskFiles.acquire(p.disk.name, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var once sync.Once
+			release := func() { once.Do(done) }
+			defer release()
+			closed := make(chan struct{})
+			go func() { s.callbackClose(1); close(closed) }()
+			// The held descriptor forces piece release to wait. Detect the
+			// actual close lock, rather than assuming a goroutine has run.
+			deadline := time.Now().Add(2 * time.Second)
+			for p.mu.TryLock() {
+				p.mu.Unlock()
+				if time.Now().After(deadline) {
+					t.Fatal("close never attempted piece release")
+				}
+				time.Sleep(time.Millisecond)
+			}
+			if s.CacheByHash(h) != c {
+				t.Fatal("cleanup saw absent ownership before disk handles drained")
+			}
+			select {
+			case <-closed:
+				t.Fatal("close returned while file was in use")
+			default:
+			}
+			var next *Cache
+			if replacement {
+				s.callbackOpen(2, h, 1, pieceLen)
+				next = s.CacheByHash(h)
+			}
+			release()
+			select {
+			case <-closed:
+			case <-time.After(2 * time.Second):
+				t.Fatal("close did not finish after release")
+			}
+			if s.CacheByHash(h) != next {
+				t.Fatal("old close removed replacement ownership")
+			}
+			if _, err := file.Stat(); err == nil {
+				t.Fatal("drained disk handle was retained")
+			}
+			if replacement {
+				s.callbackClose(2)
+			}
+		})
+	}
+}
 
 func mkHash(seed byte) flow.InfoHash {
 	var h flow.InfoHash

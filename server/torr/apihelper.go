@@ -16,6 +16,7 @@ import (
 	"server/log"
 	"server/lt"
 	sets "server/settings"
+	"server/torr/storage/torrstor"
 	"server/torr/utils"
 	"server/version"
 )
@@ -269,30 +270,38 @@ func RemTorrent(hashHex string) error {
 		}
 	}
 
-	tor := engine.GetTorrent(hash)
-	if tor == nil {
-		RemTorrentDB(hash)
-		if sets.BTsets().UseDisk {
-			return os.RemoveAll(filepath.Join(sets.BTsets().TorrentsSavePath, hashHex))
+	config := sets.BTsets()
+	storageHash := hash
+	if tor := engine.GetTorrent(hash); tor != nil {
+		storageHash = tor.StorageHash()
+		engine.RemoveTorrent(hash)
+	} else if stored := GetTorrentDB(hash); stored != nil {
+		storageHash = stored.Hash()
+		// A retained hybrid can have a v2 public link and a v1 storage key.
+		if meta, err := lt.ParseTorrentBytes(stored.InfoBytes); err == nil &&
+			(hashHex == meta.InfoHashV1 || hashHex == meta.InfoHashV2) {
+			storageHash = NewHashFromHex(meta.InfoHash)
 		}
-		return nil
 	}
-
-	closeCh := tor.closeCh
-	if engine.RemoveTorrent(hash) {
-		select {
-		case <-closeCh:
-		case <-time.After(5 * time.Second):
-			log.TLogln("torr.RemTorrent: timeout waiting for close:", hashHex)
-		}
-		if sets.BTsets().UseDisk {
-			name := filepath.Join(sets.BTsets().TorrentsSavePath, hashHex)
-			if _, err := os.Stat(name); err == nil {
-				log.TLogln("torr.RemTorrent: removing cache files for", hashHex)
-				if err := os.RemoveAll(name); err != nil {
-					return err
-				}
+	if config != nil && config.UseDisk {
+		deadline := time.Now().Add(5 * time.Second)
+		for torrstor.Global().CacheByHash(storageHash) != nil {
+			if time.Now().After(deadline) {
+				return errors.New("native storage cleanup is pending; cache files retained")
 			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		// Serialize the final owner check and removal with native re-addition.
+		// A replacement must keep its cache; a timeout also preserves the DB.
+		engine.mu.Lock()
+		if engine.findTorrentLocked(hash) != nil || torrstor.Global().CacheByHash(storageHash) != nil {
+			engine.mu.Unlock()
+			return errors.New("torrent was re-added; cache files retained")
+		}
+		err := os.RemoveAll(filepath.Join(config.TorrentsSavePath, storageHash.HexString()))
+		engine.mu.Unlock()
+		if err != nil {
+			return err
 		}
 	}
 	RemTorrentDB(hash)
