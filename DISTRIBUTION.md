@@ -19,6 +19,15 @@ For a local packaging check, install `web` build dependencies with
 `yarn install --frozen-lockfile`, then run
 `node build/validate_sbom.cjs <package-directory>/SBOM.cdx.json`.
 
+The optional experimental player also preserves its original application source,
+Flow patch license and exact build recipe. `SOURCE_MANIFEST.json` records both
+upstream and Flow commits, checks the archived AAR bytes against the built
+inventory, and hashes the source bundle. The archive contains prebuilt decoder
+binaries; their corresponding native source/configuration/license mapping is
+still an open audit and is not established by schema validation. See the
+[source-bundle scope](build/just-player/SOURCE_BUNDLE.md). This experimental
+artifact is separate from the stable server release.
+
 ## Channels
 
 - `MatriX.145.Flow-vX.Y.Z`: stable, after acceptance evidence is recorded in

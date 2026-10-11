@@ -5,6 +5,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import time
 import uuid
@@ -43,6 +44,11 @@ def capture(server, kind, seconds, tools=None):
     report = {'schema_version': 1, 'kind': kind, 'owned_pid': server.process.pid,
               'duration_seconds': seconds, 'isolated_runner': True,
               'profiling_affects_measurement': True, 'passed': False}
+    source_run = os.environ.get('FLOW_PROFILE_SOURCE_RUN')
+    if source_run is not None:
+        if not re.fullmatch(r'[1-9][0-9]*', source_run):
+            raise ValueError('Native profile source run must be a positive numeric identity')
+        report['source_run_id'] = source_run
     log = server.state / 'native-profiler.log'
     try:
         if kind == 'etw':
@@ -51,11 +57,17 @@ def capture(server, kind, seconds, tools=None):
             wpr = Path(os.environ['SystemRoot']) / 'System32/wpr.exe'
             tracerpt = wpr.with_name('tracerpt.exe')
             trace = server.state / 'native-cpu.etl'
+            profile = Path(__file__).with_name('flow_cpu.wprp').resolve()
+            if not profile.is_file():
+                raise ValueError('Bounded native CPU recording profile is missing')
             instance = ['-instancename', 'FlowSynthetic-'+str(server.process.pid)+'-'+uuid.uuid4().hex[:12]]
             started = False
             try:
                 try:
-                    command([str(wpr), '-start', 'CPU', '-filemode', *instance], log)
+                    # Default CPU/file mode produced a 275 MiB trace on CI.
+                    # Use only sampled CPU/module/thread evidence, with 64 MiB
+                    # circular buffers. The saved trace retains its 128 MiB gate.
+                    command([str(wpr), '-start', str(profile)+'!FlowCPU', *instance], log)
                 except subprocess.TimeoutExpired:
                     # The start command may have created a session before its
                     # timeout. Cancel only our unique instance, never a default.
@@ -80,7 +92,10 @@ def capture(server, kind, seconds, tools=None):
             evidence(summary)
             ET.parse(summary)  # A saved file alone is not a decodable ETW trace.
             report.update(scope='System CPU on disposable synthetic CI; filter owned PID in WPA',
-                          decoder_validated=True, native_attribution_known=False)
+                          decoder_validated=True, native_attribution_known=False,
+                          circular_buffer_bytes=64*1024*1024,
+                          trace_may_cover_recent_window_only=True,
+                          recording_profile=evidence(profile))
         else:
             tools = Path(tools).resolve()
             tracebox, processor = tools / 'tracebox', tools / 'trace_processor_shell'
@@ -99,6 +114,13 @@ callstack_sampling {{ scope {{ target_pid: {server.process.pid} }} kernel_frames
 ''', encoding='utf-8')
             command(['sudo', '-n', '--', str(tracebox), '--txt', '-c', str(config), '-o', str(trace)],
                     log, timeout=seconds+45)
+            if trace.is_symlink() or not trace.is_file():
+                raise ValueError('Owned native trace is not a regular file')
+            # tracebox runs with perf permissions and creates a root-owned 0600
+            # file. Transfer only this owned fixture file to the invoking CI
+            # account so decoding and artifact upload can read it.
+            command(['sudo', '-n', '--', 'chown', '--no-dereference',
+                     f'{os.getuid()}:{os.getgid()}', '--', str(trace)], log)
             report['trace'] = evidence(trace)
             query = f'''SELECT count(*) AS samples, count(s.callsite_id) AS stacks,
 count(CASE WHEN p.pid != {server.process.pid} OR p.pid IS NULL THEN 1 END) AS outside_samples

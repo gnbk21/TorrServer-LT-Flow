@@ -33,7 +33,7 @@ tracked separately. Baseline: stable 1.0.1 / source 55c16dc3; integration c3dfe7
 - [ ] Native direct/64/256/1024 KiB buffer comparison and Go/ETW/Perfetto profiling.
 - [x] Interruption/VBR reserves, recovery hysteresis, fair readers and bounded urgency refinements.
 - [x] Duplicate traffic accounting, useful-slow-peer retention, bounded controller changes.
-- [ ] Representative PGO evaluation; disabled unless comparative evidence supports adoption.
+- [x] Representative generated-workload PGO evaluation; retained off after mixed comparative results.
 - [x] One opt-in next-episode header/index warmup <=32 MiB in existing spare cache.
 - [x] Warmup yields to waits/risk/pressure; cancels on changes/disablement/shutdown.
 
@@ -57,8 +57,8 @@ TCP/uTP cases, final-source full gates and physical acceptance remain separate.
 ## Acceptance
 - [ ] Existing web/contracts/native/race/sanitizer/package/update rollback gates.
 - [ ] New maintenance ownership/cancellation/redaction/proxy/concurrency regressions.
-- [ ] Five rotated matched-reserve comparisons across healthy/intermittent/mixed/burst cases.
-- [ ] Startup/tail waits/seek/duplicates/CPU/RSS/integrity evidence; separate experiments.
+- [x] Five rotated matched-reserve comparisons across healthy/intermittent/mixed/burst cases.
+- [x] Startup/tail waits/seek/duplicates/CPU/RSS/integrity evidence; separate experiments.
 - [x] UI 1/200/1000/5000 entries, seven languages, five widths plus phone landscape.
 - [ ] Auth/503/offline/stale/conflicts/fallback/keyboard and background polling checks.
 - [x] Documented lab bundle/LCP/interaction/CLS targets; real-device evidence separate.
@@ -69,3 +69,10 @@ No second media cache, paid source, required transcoding, automatic profile
 promotion, media/API service-worker caching or removal of legacy before physical
 acceptance. WFP installation changes require the owner's explicit installation
 choice; building and testing the implementation uses isolated state.
+
+Corrected runtime comparisons use feature head `15faff93` / PR merge
+`78c437bd`, with 160/160 integrity trials. PGO uses `ad41ffae`, 40/40 trials
+after four training scenarios, and remains off. Exact hashes, medians and scope
+are in UPGRADE_MEASUREMENTS.md. These checkmarks record controlled evidence;
+native attribution, final package/source audit, resource convergence and physical
+acceptance remain open. Later build-tool changes still require their own gates.

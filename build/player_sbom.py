@@ -3,10 +3,60 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
+import tarfile
 from urllib.parse import quote
 import zipfile
 
 from prepare_just_player import COMMIT
+
+
+def source_manifest(directory, inventory, flow_commit):
+    """Bind the published recipe and bundled upstream bytes to both commits.
+
+    A source archive containing decoder binaries is not corresponding decoder
+    source. Preserve that distinction instead of inferring codec licenses.
+    """
+    if not re.fullmatch(r'[0-9a-f]{40}', flow_commit):
+        raise ValueError('Flow source commit must be a full lowercase Git identity')
+    required = ('upstream.tar', 'UPSTREAM_LICENSE.txt', 'FLOW_PATCH_LICENSE.txt',
+                'prepare_just_player.py', 'player_patch_check.py', 'player_sbom.py',
+                'BUILD_WORKFLOW.yml', 'flow-patch/inventory.gradle',
+                'flow-patch/SOURCE_BUNDLE.md')
+    if any(not (directory / name).is_file() for name in required):
+        raise ValueError('Player source bundle is missing a required recipe or license')
+    with tarfile.open(directory / 'upstream.tar') as archive:
+        members = archive.getmembers()
+        names = [member.name for member in members]
+        if len(names) != len(set(names)):
+            raise ValueError('Duplicate upstream archive entries')
+        license_file = archive.extractfile('LICENSE')
+        if license_file is None or license_file.read() != (directory / 'UPSTREAM_LICENSE.txt').read_bytes():
+            raise ValueError('Upstream source license does not match its archive')
+        for artifact in inventory['bundled']:
+            name = artifact['name']
+            if Path(name).name != name or not name.startswith('lib-') or not name.endswith('.aar'):
+                raise ValueError('Unexpected bundled Android artifact name')
+            member = archive.getmember('app/libs/' + name)
+            if not member.isfile():
+                raise ValueError('Bundled Android artifact is not an archived regular file')
+            with archive.extractfile(member) as source:
+                if hashlib.file_digest(source, 'sha256').hexdigest() != artifact['sha256']:
+                    raise ValueError('Archived bundled artifact differs from the built inventory')
+    files = []
+    for path in sorted(directory.rglob('*')):
+        if path.is_symlink():
+            raise ValueError('Player source bundle must not contain external symlinks')
+        if not path.is_file() or path.name == 'SOURCE_MANIFEST.json':
+            continue
+        with path.open('rb') as source:
+            digest = hashlib.file_digest(source, 'sha256').hexdigest()
+        files.append({'name': path.relative_to(directory).as_posix(),
+                      'sha256': digest, 'bytes': path.stat().st_size})
+    return {'schema_version': 1, 'upstream_commit': COMMIT,
+            'flow_commit': flow_commit, 'files': files,
+            'native_corresponding_source_verified': False,
+            'scope': 'Pinned application archive, exact bundled AAR bytes, Flow patch and build recipe. Decoder source/version/license mapping remains separate.'}
 
 
 def generate(inventory):
@@ -63,5 +113,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('inventory', type=Path)
     parser.add_argument('output', type=Path)
+    parser.add_argument('--source-bundle', type=Path)
+    parser.add_argument('--flow-commit')
     args = parser.parse_args()
-    args.output.write_text(json.dumps(generate(json.loads(args.inventory.read_text())), indent=2)+'\n', encoding='utf-8')
+    if bool(args.source_bundle) != bool(args.flow_commit):
+        parser.error('--source-bundle and --flow-commit must be provided together')
+    inventory = json.loads(args.inventory.read_text(encoding='utf-8'))
+    report = generate(inventory)
+    if args.source_bundle:
+        if not re.fullmatch(r'[0-9a-f]{40}', args.flow_commit):
+            parser.error('Flow source commit must be a full lowercase Git identity')
+        report['metadata']['properties'].append({'name': 'flow:source-commit', 'value': args.flow_commit})
+    args.output.write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
+    if args.source_bundle:
+        manifest = source_manifest(args.source_bundle, inventory, args.flow_commit)
+        (args.source_bundle / 'SOURCE_MANIFEST.json').write_text(json.dumps(manifest, indent=2)+'\n', encoding='utf-8')

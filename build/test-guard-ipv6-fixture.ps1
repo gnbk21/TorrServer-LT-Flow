@@ -57,7 +57,8 @@ try {
   try { New-GuardIPv6Fixture | Out-Null } catch { $rejected=$true }
   if (!$rejected -or $script:fixtureState.calls) { throw 'Ordinary workstation fixture was not rejected before network access' }
   $env:GITHUB_ACTIONS='true'; $env:RUNNER_ENVIRONMENT='github-hosted'; $env:FLOW_ISOLATED_WFP='github-hosted'
-  $owned=New-GuardIPv6Fixture
+  $owned=New-GuardIPv6Fixture -AddressSuffix '05d3'
+  if ($owned.Address -ne '2001:db8:ffff::5d3') { throw 'Leading-zero IPv6 fixture address was not canonicalized before CIM lookup' }
   if (!$script:fixtureState.address -or !$script:fixtureState.route) { throw 'Fixture was not created' }
   Remove-GuardIPv6Fixture $owned
   Assert-FixtureClean

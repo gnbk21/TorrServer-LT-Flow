@@ -66,9 +66,12 @@ jobs:
           cp -r build/just-player _out/player-source/flow-patch
           cp build/prepare_just_player.py _out/player-source/
           cp build/player_patch_check.py _out/player-source/
-          python3 build/player_sbom.py _player/flow-resolved-dependencies.json _out/player-source/SBOM.cdx.json
+          cp build/player_sbom.py _out/player-source/
+          cp .github/workflows/just-player.yml _out/player-source/BUILD_WORKFLOW.yml
+          cp LICENSE _out/player-source/FLOW_PATCH_LICENSE.txt
           cp _player/LICENSE _out/player-source/UPSTREAM_LICENSE.txt
           sha256sum _player/app/build/outputs/apk/latestUniversal/debug/*.apk > _out/player-source/SHA256SUMS.txt
+          python3 build/player_sbom.py _player/flow-resolved-dependencies.json _out/player-source/SBOM.cdx.json --source-bundle _out/player-source --flow-commit "$GITHUB_SHA"
       - name: Validate exact resolved Android CycloneDX inventory
         run: node build/validate_sbom.cjs _out/player-source/SBOM.cdx.json
       - uses: actions/upload-artifact@v4

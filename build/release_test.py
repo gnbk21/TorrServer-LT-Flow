@@ -72,6 +72,11 @@ class GuardIdentity(unittest.TestCase):
                             runtime_archives=[dict(name=name,sha256='c'*64) for name in
                                               ('libstdc++.a','libgcc.a','libgcc_eh.a','libmingw32.a','libmingwex.a')])
             validate_guard(binary, metadata, root, 'a'*40)
+            for version in ('13-win32', '13-posix', '14.2.0'):
+                validate_guard(binary, {**metadata, 'compiler': {**metadata['compiler'], 'version': version}}, root, 'a'*40)
+            for version in ('', '.', '13-unverified', '13-win32 extra'):
+                with self.assertRaises(ValueError):
+                    validate_guard(binary, {**metadata, 'compiler': {**metadata['compiler'], 'version': version}}, root, 'a'*40)
             for key,value in [('schema_version',2),('source_commit','b'*40),('name','different.exe'),
                               ('executable_sha256','c'*64),('source_sha256','d'*64),('runtime_archives',[])]:
                 with self.assertRaises(ValueError):

@@ -103,7 +103,10 @@ def validate_guard(helper, metadata, root, commit):
     compiler = metadata.get('compiler', {})
     archives = metadata.get('runtime_archives', [])
     expected = {'libstdc++.a','libgcc.a','libgcc_eh.a','libmingw32.a','libmingwex.a'}
-    if (compiler.get('target') != 'x86_64-w64-mingw32' or not re.fullmatch(r'[0-9.]+',compiler.get('version',''))
+    # Debian MinGW reports e.g. "13-win32" from -dumpfullversion. Retain its
+    # thread-model suffix in provenance rather than rejecting or truncating it.
+    if (compiler.get('target') != 'x86_64-w64-mingw32'
+        or not re.fullmatch(r'[0-9]+(?:\.[0-9]+)*(?:-(?:win32|posix))?',compiler.get('version',''))
         or not isinstance(archives,list) or len(archives)!=len(expected)
         or any(not isinstance(entry,dict) or not re.fullmatch(r'[a-f0-9]{64}',entry.get('sha256','')) for entry in archives)
         or {entry.get('name') for entry in archives} != expected):

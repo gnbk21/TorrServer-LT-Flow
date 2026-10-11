@@ -1,0 +1,84 @@
+name: Flow native CPU capture
+on:
+  workflow_call:
+    inputs:
+      source_run_id:
+        description: Completed native build run containing symbol-preserving fixtures
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Completed native build run containing symbol-preserving fixtures
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  capture:
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, target: linux-amd64, profiler: perfetto}
+          - {os: windows-latest, target: windows-amd64, profiler: etw}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@v4
+        with:
+          name: flow-native-profile-${{ matrix.target }}
+          path: profile-binary
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+      - name: Prepare Linux fixture and pinned Perfetto tools
+        if: matrix.profiler == 'perfetto'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          chmod +x profile-binary/TorrServer-LT-linux-amd64
+          mkdir -p profile-tools
+          curl -fLSs --retry 3 https://github.com/google/perfetto/releases/download/v58.2/linux-amd64.zip -o profile-tools/perfetto.zip
+          echo '32c739f71b2d39721afd294c0b038f2499a44a71b5b6bcdd85b83faca0b240b9  profile-tools/perfetto.zip' | sha256sum -c -
+          unzip -q profile-tools/perfetto.zip 'linux-amd64/tracebox' 'linux-amd64/trace_processor_shell' -d profile-tools
+          chmod +x profile-tools/linux-amd64/tracebox profile-tools/linux-amd64/trace_processor_shell
+      - name: Prepare Windows generated-media tool
+        if: matrix.profiler == 'etw'
+        shell: pwsh
+        run: |
+          if (!(Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+            choco install ffmpeg --version=7.1.1 --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw 'Generated-media tool installation failed' }
+          }
+      - name: Capture native CPU during owned synthetic playback
+        shell: bash
+        env:
+          FLOW_ISOLATED_PROFILING: ${{ runner.environment }}
+          FLOW_PROFILE_SOURCE_RUN: ${{ inputs.source_run_id }}
+        run: |
+          set -euo pipefail
+          python build/high_bitrate_check.py --executable 'profile-binary/TorrServer-LT-${{ matrix.target }}${{ matrix.profiler == 'etw' && '.exe' || '' }}' --output native-profile --profile adaptive --cases healthy --mbps 90 --seconds 40 --cache-mb 512 --preload --capture-go --capture-native '${{ matrix.profiler }}' --perfetto-tools profile-tools/linux-amd64
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flow-native-cpu-${{ matrix.profiler }}
+          path: |
+            native-profile/report.json
+            native-profile/**/report.json
+            native-profile/**/native-cpu.*
+            native-profile/**/native-samples.csv
+            native-profile/**/native-profiler.log
+            native-profile/**/etw-summary.xml
+            native-profile/**/server-output.log
+            native-profile/**/*.pprof
+          if-no-files-found: error

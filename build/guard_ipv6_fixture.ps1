@@ -6,6 +6,7 @@ function Assert-DisposableGuardRunner {
   }
 }
 function New-GuardIPv6Fixture {
+  param([ValidatePattern('^[a-f0-9]{4}$')][string]$AddressSuffix = ([Guid]::NewGuid().ToString('N').Substring(0,4)))
   Assert-DisposableGuardRunner
   $adapter = Get-NetIPInterface -AddressFamily IPv6 -ConnectionState Connected |
     Where-Object { $_.InterfaceIndex -ne $script:guardLoopbackIndex } |
@@ -13,7 +14,9 @@ function New-GuardIPv6Fixture {
   if (!$adapter) { throw 'Disposable IPv6 fixture requires a connected non-loopback interface' }
   $fixture = [pscustomobject]@{
     InterfaceIndex = $adapter.InterfaceIndex
-    Address = '2001:db8:ffff::' + ([Guid]::NewGuid().ToString('N').Substring(0,4))
+    # NetTCPIP stores a canonical address. Querying a generated leading-zero
+    # spelling (e.g. ::05d3) can fail to match its stored ::5d3 representation.
+    Address = ([Net.IPAddress]::Parse('2001:db8:ffff::' + $AddressSuffix)).ToString()
     Prefix = '2001:db8::1/128'
     OriginalDhcp = $adapter.Dhcp
     AddressAttempted = $false

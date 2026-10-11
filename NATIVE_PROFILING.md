@@ -17,6 +17,17 @@ HTTP buffer size or PGO setting.
   workstation. It uses a unique recording instance and cleans up only that
   instance, including a failed stop or a start timeout.
 
+Windows uses `build/flow_cpu.wprp`: sampled CPU stacks plus thread/module identity,
+with 64 MiB circular buffers. The saved trace may cover only the most recent
+window; the report states this explicitly. Default WPR CPU/file recording created
+a 275 MiB trace and failed the size gate. The gate remains 128 MiB. This narrower
+profile avoids context-switch and unrelated I/O recording. Its memory-mode design
+follows [WPR logging-mode guidance](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/logging-mode).
+
+Perfetto's privileged recorder creates a root-owned file. CI changes ownership
+of only that exact regular trace file to the invoking account before decoding
+and artifact upload; no recursive ownership or workstation change is performed.
+
 Captures last at most 30 seconds. Perfetto uses a 32 MiB buffer and 64 MiB file
 limit; accepted trace files are limited to 128 MiB. Reports retain the executable
 and trace hashes, owned PID, tool hashes where applicable and measurement scope.
@@ -33,6 +44,13 @@ or known native attribution; reports keep that distinction explicit.
 Perfetto's archive is pinned to the verified upstream SHA-256
 `32c739f71b2d39721afd294c0b038f2499a44a71b5b6bcdd85b83faca0b240b9`.
 These tools are used only in CI and are not bundled with Flow releases.
+
+`native-profile.yml` is shared by full builds and a targeted manual verification
+run. It downloads symbol-preserving artifacts from an explicitly selected build
+run in this repository; reports record that run identity and executable hash.
+Profiling-tool changes can therefore be checked against already built fixtures
+while the full candidate gates run. This does not stamp an older binary as a new
+source revision or replace the full build gates.
 
 References: [Perfetto CPU profiling](https://perfetto.dev/docs/quickstart/callstack-sampling),
 [Linux tracing cookbook](https://perfetto.dev/docs/getting-started/linux-cookbook),

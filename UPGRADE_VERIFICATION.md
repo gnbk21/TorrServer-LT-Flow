@@ -469,4 +469,98 @@ peers retain native connections and in-flight partial cache pieces.
   setting. Portable mock-cmdlet tests passed workstation refusal before any
   network access, ordinary cleanup, partial address/route failures and preservation
   of an existing route. These mock tests do not establish real IPv6 enforcement;
-  actual corrected CI execution remains pending, as do physical VPN/DNS checks.
+  actual corrected CI execution and physical VPN/DNS checks were separate gates.
+
+### Actual SDK fixture result
+
+Run `38087989752`, job `114318421979`, at `15faff93` passed the disposable
+Windows SDK kernel fixture. TCP/UDP for both IPv4 and IPv6 each recorded a
+Flow-owned block-filter drop for the exact fixture application, destination and
+time interval. All four loopback delivery checks passed. Removing the policy
+restored routing, preserved the second executable's independent policy and left
+no cleanup errors. UDP socket-write success was not used as delivery evidence.
+The report is `.tools/wfp-15faff93-sdk-report/report.json` locally.
+
+This verifies the SDK-built helper on the controlled runner. The MinGW production
+helper's service gate, physical interface/VPN loss and shared OS DNS remain
+separate. DNS and complete leak-protection flags remain false.
+
+### Comparison and verification availability
+
+All eight `2caccb12` comparison reports were reconciled: 160/160 byte-integrity
+trials passed. Exact executable/fixture hashes, medians and limitations are in
+UPGRADE_MEASUREMENTS.md. The overall run failed the old UDP assertion, and this
+checkpoint predates retirement/eviction fixes. Mixed performance and higher CPU
+do not support a default change or a universal speed claim.
+
+The latest full/native, CodeQL and representative-PGO results initially could not be
+retrieved after automatic approval review reached its account usage limit.
+The network operation was not executed; this was a review availability failure,
+not a finding that the GitHub request was unsafe. Pending results are not counted
+as passing. Retrieval resumed after the review reset; the results below replace
+that temporary availability limit. The two older endurance processes ended
+without final reports at about four and three hours, so neither passed eight-hour
+acceptance. The corrected `15faff93` runtime is now running a fresh owned test.
+
+## Experimental player source packaging audit
+
+The downloaded `212334fc` player source archive contains all six materialized
+bundled AARs, not LFS pointers. Their hashes match that artifact's actual build
+inventory. The source artifact had preserved the upstream application's license
+but omitted Flow's patch license and some recipe files. Packaging now preserves
+both licenses, the inventory generator and the exact workflow, with a deterministic
+manifest identifying the separate upstream/Flow commits and hashing the bundle.
+The manifest rejects changed AAR bytes, mismatched upstream licenses, missing
+recipe/license files, duplicate archive entries and external bundle symlinks.
+
+Four portable player-inventory/source regressions passed with the official schema
+gate enabled. An additional local CLI fixture checked all six actual archived
+AARs, all manifest hashes and repeatability; its module graph was synthetic, not
+a new resolved APK inventory. Actionlint passed. The changed Android packaging
+still needs CI execution after publication becomes available.
+
+The application archive and bundled AARs do not provide a verified immutable
+corresponding-source/configuration/license mapping for every native decoder.
+The preserved upstream FFmpeg README supplies general instructions rather than
+that full mapping. `native_corresponding_source_verified` is explicitly false;
+the source/notices requirement remains open. No inferred decoder license or
+completed source audit is claimed.
+
+## Retrieved current-runtime gates and diagnosed CI failures
+
+- `15faff93` checks, optional Android, macOS and CodeQL workflows completed
+  successfully. All six cross targets and Linux unit/race/fuzz/controlled playback
+  gates passed. All eight matched profile/buffer jobs passed 160/160 integrity
+  trials. The overall build still failed inventory, profiling and Windows-fixture
+  jobs; downstream gates are not counted as passing.
+- `ad41ffae` Linux PGO training and 40/40 paired integrity trials passed. Its
+  ordinary and restricted-service authenticated update/crash/rollback fixtures
+  passed. Generated-workload CPU/seek/outage results are mixed; PGO remains off.
+  These results are not physical phone or boot/sleep acceptance.
+- Inventory rejected the actual MinGW `13-win32` compiler version despite a
+  complete five-archive runtime inventory. Validation now preserves verified
+  numeric versions with the known win32/posix thread-model suffix. Invalid
+  versions still fail. The hash-bound helper source uses LF on all hosts;
+  otherwise Windows CRLF checkout bytes differed from the Linux build identity.
+  The downloaded real helper now passes source/binary/runtime validation locally.
+- The new Windows fixture generated `::05d3` but CIM stored `::5d3`; lookup failed
+  before enforcement. Addresses are canonicalized before creation/query/cleanup,
+  with a deterministic leading-zero regression. No workstation policy was installed.
+- Perfetto created a root-owned unreadable trace. CI now transfers only that
+  exact regular fixture file to its invoking user before decoding/upload.
+  WPR CPU/file recording produced a 275 MiB trace and correctly failed the
+  unchanged 128 MiB gate. A sampled-CPU/thread/module profile now uses 64 MiB
+  circular memory; reports disclose that only the recent window may be retained.
+  Local WPR profile parsing passed without starting a recording.
+- All 33 build-tool tests passed with actual inventory-schema checks enabled,
+  followed by six profiling tests including the new source-run admission case.
+  PowerShell lifecycle mocks, actionlint and diff checks passed. Targeted native
+  profiling now shares one reusable CI workflow with full builds, allowing fixes
+  to be verified against existing symbol-preserving fixtures while full gates run.
+
+Fresh corrected-runtime endurance executable SHA-256:
+`858837fd37185b093e2d79c2e5191661a149af6317aa078dbd5086a09a82add0`.
+Its stamped source is PR merge `78c437bdd555f3d501da09b54b2b2ca34342d9dc`.
+Later changes so far are build tooling, fixtures and documentation; they do not
+change this runtime's Go/native behavior. The run must finish and converge before
+eight-hour acceptance can be recorded.

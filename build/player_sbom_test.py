@@ -1,11 +1,13 @@
 import hashlib
 import json
+import io
 from pathlib import Path
 import tempfile
+import tarfile
 import unittest
 import zipfile
 
-from player_sbom import generate
+from player_sbom import generate, source_manifest
 from sbom_schema_check import check_generated_inventory
 
 
@@ -43,3 +45,53 @@ class PlayerInventoryTests(unittest.TestCase):
     def test_unknown_inventory_version_is_rejected(self):
         with self.assertRaisesRegex(ValueError, 'Unsupported'):
             generate({'schema_version': 2})
+
+    def test_source_bundle_binds_recipe_licenses_and_built_aar(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ('UPSTREAM_LICENSE.txt', 'FLOW_PATCH_LICENSE.txt', 'prepare_just_player.py',
+                         'player_patch_check.py', 'player_sbom.py', 'BUILD_WORKFLOW.yml',
+                         'flow-patch/inventory.gradle', 'flow-patch/SOURCE_BUNDLE.md'):
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('original upstream license' if name == 'UPSTREAM_LICENSE.txt' else name)
+            with tarfile.open(root / 'upstream.tar', 'w') as archive:
+                for name, data in (('LICENSE', b'original upstream license'),
+                                   ('app/libs/lib-decoder.aar', b'exact built bytes')):
+                    member = tarfile.TarInfo(name)
+                    member.size = len(data)
+                    archive.addfile(member, io.BytesIO(data))
+            inventory = {'bundled': [{'name': 'lib-decoder.aar', 'sha256': hashlib.sha256(b'exact built bytes').hexdigest()}]}
+            commit = 'a' * 40
+            manifest = source_manifest(root, inventory, commit)
+            self.assertEqual(manifest['flow_commit'], commit)
+            self.assertFalse(manifest['native_corresponding_source_verified'])
+            self.assertNotIn(directory, json.dumps(manifest))
+            for item in manifest['files']:
+                self.assertEqual(item['sha256'], hashlib.sha256((root / item['name']).read_bytes()).hexdigest())
+            (root / 'SOURCE_MANIFEST.json').write_text(json.dumps(manifest))
+            self.assertEqual(manifest, source_manifest(root, inventory, commit))
+            inventory['bundled'][0]['sha256'] = '0' * 64
+            with self.assertRaisesRegex(ValueError, 'differs from the built inventory'):
+                source_manifest(root, inventory, commit)
+            with self.assertRaisesRegex(ValueError, 'full lowercase Git'):
+                source_manifest(root, inventory, 'unbound')
+            (root / 'FLOW_PATCH_LICENSE.txt').unlink()
+            with self.assertRaisesRegex(ValueError, 'missing a required'):
+                source_manifest(root, inventory, commit)
+
+    def test_source_bundle_rejects_mismatched_upstream_license(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ('UPSTREAM_LICENSE.txt', 'FLOW_PATCH_LICENSE.txt', 'prepare_just_player.py',
+                         'player_patch_check.py', 'player_sbom.py', 'BUILD_WORKFLOW.yml',
+                         'flow-patch/inventory.gradle', 'flow-patch/SOURCE_BUNDLE.md'):
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('preserved recipe')
+            with tarfile.open(root / 'upstream.tar', 'w') as archive:
+                member = tarfile.TarInfo('LICENSE')
+                member.size = 7
+                archive.addfile(member, io.BytesIO(b'changed'))
+            with self.assertRaisesRegex(ValueError, 'license does not match'):
+                source_manifest(root, {'bundled': []}, 'a' * 40)
