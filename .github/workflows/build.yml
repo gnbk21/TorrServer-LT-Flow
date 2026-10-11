@@ -16,6 +16,11 @@ on:
         description: 'Capture native CPU using symbol fixtures from an existing build; skips rebuilding'
         type: string
         default: ''
+      capacity_case:
+        description: 'Repeat a strict-cap case using profile_source_run_id fixtures instead of capturing CPU'
+        type: choice
+        options: ['', '32:250:1', '64:250:1', '250:250:1', '512:250:1', '2000:250:16']
+        default: ''
       evaluate_pgo:
         description: 'Compare an opt-in Go PGO build using generated playback fixtures'
         type: boolean
@@ -597,13 +602,22 @@ jobs:
 
   native-profiling:
     needs: cross
-    if: ${{ always() && (inputs.profile_source_run_id || needs.cross.result == 'success') }}
+    if: ${{ always() && !inputs.capacity_case && (inputs.profile_source_run_id || needs.cross.result == 'success') }}
     permissions:
       contents: read
       actions: read
     uses: ./.github/workflows/native-profile.yml
     with:
       source_run_id: ${{ inputs.profile_source_run_id || format('{0}', github.run_id) }}
+  request-capacity-diagnostics:
+    if: inputs.profile_source_run_id && inputs.capacity_case
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/request-capacity.yml
+    with:
+      source_run_id: ${{ inputs.profile_source_run_id }}
+      case: ${{ inputs.capacity_case }}
 
   high-bitrate-comparison:
     needs: cross

@@ -1,5 +1,13 @@
 name: Flow request capacity diagnostics
 on:
+  workflow_call:
+    inputs:
+      source_run_id:
+        type: string
+        required: true
+      case:
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       source_run_id:
