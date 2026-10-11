@@ -824,5 +824,52 @@ Shared OS DNS leak protection and physical device acceptance remain unverified.
 
 Evidence-only Markdown PR updates now avoid restarting expensive native,
 macOS and CodeQL builds. Code changes, explicit dispatch and release calls
-retain their gates. Eight-hour default-runtime endurance remains in progress;
+retain their gates. Eight-hour Adaptive Streaming endurance with the capacity
+experiment disabled remains in progress;
 its intermediate samples are not acceptance evidence for the new opt-in fix.
+
+### Final security preparation: 11 October 2026
+
+The host-access retry passed all eleven real-socket fixture tests and both
+pinned-source native patch tests. The new cold A/B/A regression confirmed
+the old runtime's deliberately injected late-reply failure; it did not merely
+assert generated peer behavior. Corrected production runtime acceptance still
+depends on the fresh native runs.
+
+The security checkpoint `c02e7933` pins 19 existing Action versions, limits
+workflow permissions, bounds actual descriptor-based inventory reads,
+hardens the shared log sink and matches `/play` to `/stream` source validation.
+All 44 portable Python build-tool tests, four inventory tests, 104 web unit
+tests (one native DTO test skipped locally), TypeScript, ESLint, production
+web build, actionlint and local log/Flow/console tests passed. A final follow-up
+also escapes Unicode C1 controls, including NEL/CSI/OSC, through the shared log
+sink; its local regressions passed. Native API, race and exact package checks
+remain CI gates.
+
+Seven retained CodeQL findings were reviewed in RELEASE_1_1_SECURITY_REVIEW.md.
+Automatic review first rejected dismissal without explicit authorization.
+The owner then approved those exact dispositions; GitHub recorded alerts
+1 and 7 as intentional retained capabilities and 2, 5, 6, 8 and 33 as reviewed
+false positives. This does not establish a public-source filesystem sandbox
+or an unrestricted public SSRF-safe management service. Corrected findings
+must clear on the fresh scan, independently of scan execution success.
+## 1.1 cold-seek scheduling and full-scan follow-up
+
+The c02e7933 native build `38133894530` failed a positively exercised late
+cancellation trial because the available urgent cold piece never reached the
+peer within 10 seconds. Windows reproduced the same starvation with a full
+64-block queue. The strict capacity and cold deadline are retained; the new
+opt-in patch schedules deadlines before normal refill. Native acceptance is
+pending, not inferred from patch application.
+
+The fresh scan `38133894549` finished successfully but reported more findings.
+Only the seven owner-approved dispositions were applied. Further fixes validate
+removal identifiers, protect nonhash owner directories, assign safe torrent
+response MIME, bound certificate/TMDB reads, remove overflow-prone GST capacity
+hints and apply existing interface policy to artwork/indexer HTTP clients.
+The full retained-boundary/build-tool review is in RELEASE_1_1_SECURITY_REVIEW.md.
+
+Local MIME/Range, Flow, log and console checks, 44 Python tests, actionlint and
+both actual patch application/isolation/drift checks pass. Native-linked Go
+packages cannot compile on this Windows host and require CI verification.
+

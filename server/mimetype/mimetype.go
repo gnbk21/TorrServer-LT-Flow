@@ -99,6 +99,31 @@ func (mt mimeType) String() string {
 	return string(mt)
 }
 
+// SetStreamHeaders handles untrusted torrent names without opening local files
+// or letting ServeContent infer active HTML/SVG from their names or bytes.
+// Keep the existing DLNA mappings for known media and download other formats.
+func SetStreamHeaders(header http.Header, name string) {
+	mt := mimeTypeByBaseName(path.Base(strings.ReplaceAll(name, "\\", "/")))
+	if mt == "video/mp2t" {
+		mt = "video/mpeg"
+	} else if mt == "video/x-msvideo" {
+		mt = "video/avi"
+	}
+	base, _, _ := mime.ParseMediaType(mt.String())
+	raster := base == "image/bmp" || base == "image/gif" || base == "image/jpeg" ||
+		base == "image/png" || base == "image/tiff" || base == "image/webp" ||
+		base == "image/avif" || base == "image/x-icon" || base == "image/vnd.microsoft.icon"
+	if mt.IsVideo() || mt.IsAudio() || raster {
+		header.Set("Content-Type", mt.String())
+	} else if mt.IsSub() || base == "text/vtt" {
+		header.Set("Content-Type", "text/plain; charset=utf-8")
+	} else {
+		header.Set("Content-Type", "application/octet-stream")
+		header.Set("Content-Disposition", "attachment")
+	}
+	header.Set("X-Content-Type-Options", "nosniff")
+}
+
 // MimeTypeByPath determines the MIME-type of file at the given path
 func MimeTypeByPath(filePath string) (ret mimeType, err error) {
 	ret = mimeTypeByBaseName(path.Base(filePath))

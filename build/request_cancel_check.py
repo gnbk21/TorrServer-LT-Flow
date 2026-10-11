@@ -61,6 +61,12 @@ def trial(executable, directory, fixture, late):
                 report['error'] = 'Strict capacity violated or late-completion race was not exercised'
     except Exception as error:
         report['error'] = str(error)
+        if server is not None and swarm is not None:
+            try:
+                report['failure_flow'] = server.json('/flow/status/'+swarm.info_hash.hex(), timeout=3)
+                report['failure_runtime'] = server.json('/runtime/status', timeout=3)
+            except Exception as capture_error:
+                report['capture_error_type'] = type(capture_error).__name__
     finally:
         if swarm is not None:
             report['swarm'] = swarm.status()

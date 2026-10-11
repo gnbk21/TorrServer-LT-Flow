@@ -245,13 +245,22 @@ func SetTorrent(hashHex, title, poster, category, data string) *Torrent {
 // RemTorrent removes a torrent from memory, the DB and (when configured)
 // the on-disk cache directory.
 func RemTorrent(hashHex string) error {
+	var hash Hash
+	if err := hash.UnmarshalText([]byte(hashHex)); err != nil {
+		return err
+	}
+	// Only a canonical digest may become a cache path component.
+	hashHex = hash.HexString()
 	if sets.ReadOnly {
 		log.TLogln("torr.RemTorrent: read-only DB mode:", hashHex)
 		return errors.New("read-only DB mode")
 	}
-	hash := NewHashFromHex(hashHex)
-	if helperEngine() != nil && helperEngine().preparation != nil {
-		if handled, err := helperEngine().preparation.removeTorrentJobs(hash); handled {
+	engine := helperEngine()
+	if engine == nil {
+		return errors.New("torrent engine is unavailable")
+	}
+	if engine.preparation != nil {
+		if handled, err := engine.preparation.removeTorrentJobs(hash); handled {
 			if err != nil {
 				return err
 			}
@@ -260,27 +269,29 @@ func RemTorrent(hashHex string) error {
 		}
 	}
 
-	tor := helperEngine().GetTorrent(hash)
+	tor := engine.GetTorrent(hash)
 	if tor == nil {
 		RemTorrentDB(hash)
-		if sets.BTsets().UseDisk && hashHex != "" && hashHex != "/" {
-			os.RemoveAll(filepath.Join(sets.BTsets().TorrentsSavePath, hashHex))
+		if sets.BTsets().UseDisk {
+			return os.RemoveAll(filepath.Join(sets.BTsets().TorrentsSavePath, hashHex))
 		}
 		return nil
 	}
 
 	closeCh := tor.closeCh
-	if helperEngine().RemoveTorrent(hash) {
+	if engine.RemoveTorrent(hash) {
 		select {
 		case <-closeCh:
 		case <-time.After(5 * time.Second):
 			log.TLogln("torr.RemTorrent: timeout waiting for close:", hashHex)
 		}
-		if sets.BTsets().UseDisk && hashHex != "" && hashHex != "/" {
+		if sets.BTsets().UseDisk {
 			name := filepath.Join(sets.BTsets().TorrentsSavePath, hashHex)
 			if _, err := os.Stat(name); err == nil {
 				log.TLogln("torr.RemTorrent: removing cache files for", hashHex)
-				os.RemoveAll(name)
+				if err := os.RemoveAll(name); err != nil {
+					return err
+				}
 			}
 		}
 	}

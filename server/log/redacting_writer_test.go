@@ -17,7 +17,7 @@ func TestStandardAndDirectAccessLoggerCannotBypassFileRedaction(t *testing.T) {
 	t.Cleanup(Close)
 	stdlog.Printf("lt: native error https://fixture-user:fixture-password@tracker.example/fixture-passkey/announce?token=fixture-token")
 	webLog.Print("/flow/play/fixture-capability Authorization: Bearer fixture-credential")
-	stdlog.Print("native title\r\n[ERROR] forged\x1b[2J")
+	stdlog.Print("native title\r\n[ERROR] forged\x1b[2J\u0085\u009b2J\u009dtitle")
 	TLogln("remote title\n[ERROR] forged")
 	contents, err := os.ReadFile(path)
 	if err != nil {
@@ -31,7 +31,7 @@ func TestStandardAndDirectAccessLoggerCannotBypassFileRedaction(t *testing.T) {
 	if !bytes.Contains(contents, []byte("tracker.example")) || !bytes.Contains(contents, []byte("lt: native error")) {
 		t.Fatal("useful destination and event context were removed")
 	}
-	if bytes.Count(contents, []byte("\n")) != 4 || bytes.ContainsAny(contents, "\r\x1b") {
+	if bytes.Count(contents, []byte("\n")) != 4 || bytes.ContainsAny(contents, "\r\x1b\u0085\u009b\u009d") {
 		t.Fatalf("remote/native input forged a log record: %q", contents)
 	}
 }

@@ -5,6 +5,19 @@ does not claim that scanning proves the absence of vulnerabilities.
 
 ## Corrected findings
 
+- Torrent removal validates and canonicalizes SHA-1/SHA-256 identifiers before
+  constructing disk paths. Invalid input cannot reach the engine, database or
+  recursive removal. Startup cleanup also rejects nonhexadecimal directories
+  rather than recognizing them by length alone.
+- Torrent streaming assigns an explicit media/plain-subtitle/binary type and
+  `nosniff`; HTML, SVG and unknown formats are downloads. Names never trigger
+  local-file MIME sniffing. Byte-range responses retain their original bytes.
+- GST allocation hints no longer add or multiply potentially large slice
+  lengths. Certificate inspection and TMDB responses have actual read bounds.
+- Artwork, TMDB, Torznab and JacRed HTTP clients use the existing selected
+  interface transport, including disconnect cancellation and pooled-socket
+  invalidation. Intentional owner-selected LAN endpoints remain supported.
+
 - Log injection: convenience log functions and the shared native/standard log
   sink now escape embedded record separators, terminal controls and directional
   control characters. Original secret redaction and writer-consumption/error
@@ -27,6 +40,12 @@ does not claim that scanning proves the absence of vulnerabilities.
 
 ## Reviewed retained behavior
 
+The owner explicitly approved these seven documented dispositions on
+11 October 2026. GitHub records alerts 1 and 7 as retained intentional
+capabilities (`won't fix`) and alerts 2, 5, 6, 8 and 33 as reviewed false
+positives. Corrected findings are resolved by code changes and fresh scans;
+scan execution success alone is not a clean-alert result.
+
 | Finding | Boundary and disposition |
 | --- | --- |
 | MSX request forgery | `remote` validates HTTP(S), rejects credentials/fragments, rechecks redirects, disables inherited proxies, validates all resolver answers and dials approved literal addresses. Private/loopback access requires explicit `MSXAllowLAN` and literal addresses. `CheckAuth` protects MSX when authentication is enabled. CodeQL does not model the custom transport/dial gate; reviewed as a false positive. |
@@ -42,3 +61,25 @@ management access. Do not expose the server directly to the public Internet.
 The explicit restricted-origin/rate/playback-capability policies remain
 available. These conclusions do not establish OS DNS leak protection, a general
 VPN kill switch, an external penetration test or independent codec rebuilds.
+
+## Additional findings from the full native scan
+
+The `c02e7933` scan completed successfully but reported 49 additional findings.
+Those findings were not covered by the owner's seven-alert dismissal approval;
+none was dismissed using that approval. The fixes above require a new scan.
+
+| Alerts | Review scope |
+| --- | --- |
+| 81, 82 | GST slice capacity arithmetic corrected. |
+| 64, 65, 77 | Raw removal identifier corrected; canonical digest only. |
+| 61–63, 76 | Cache roots are owner-selected. Cleanup now also validates directory hexadecimal syntax. |
+| 56 | Generic response recorder is a passthrough sink; the real torrent response now supplies safe MIME/download headers before `ServeContent`. |
+| 58–60, 66–68, 78–80 | State/cache roots are owner-selected; storage components are validated hexadecimal hashes and numeric piece indices. Resume opening checks the actual regular inode/size and verifies hashes; cleanup waits for native/reader ownership. |
+| 57, 71–75 | Owner-configured diagnostics/state/TLS paths are intentional. Certificate downloads expose certificate PEM only, never keys; inspection and download bodies are bounded. |
+| 69, 70 | Auth-protected MSX file sharing explicitly selects an owner directory; it is not a restricted filesystem sandbox. Authentication disabled means management clients are trusted. |
+| 49–55 | Configured indexers, trackers, TMDB and poster URLs intentionally support owner-operated LAN services. Requests have time/body bounds and use the selected-interface transport. These clients are not public-only URL proxies; management authentication/exposure policy remains required. |
+| 34–48 | Boost 1.85.0 **B2 build-engine** source, not linked or shipped server runtime. Findings include arithmetic, legacy format/scanner functions, writable build files and a suspected lifetime issue. B2 executes pinned, trusted build recipes on isolated CI runners; arbitrary client torrents do not become Jam recipes. The upstream tool is not claimed vulnerability-free. |
+
+This review distinguishes retained capabilities and build-tool scope from
+corrected runtime defects. Open findings and fresh scan results must remain
+visible in the final release verification; scan success does not erase alerts.

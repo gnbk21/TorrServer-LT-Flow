@@ -12,13 +12,14 @@ import (
 	"time"
 
 	"server/log"
+	"server/netpolicy"
 	"server/rutor/models"
 	"server/settings"
 )
 
 const httpTimeout = 30 * time.Second
 
-var httpClient = &http.Client{Timeout: httpTimeout}
+var httpClient = &http.Client{Timeout: httpTimeout, Transport: netpolicy.HTTPTransport()}
 
 type TorznabAttribute struct {
 	Name  string `xml:"name,attr"`

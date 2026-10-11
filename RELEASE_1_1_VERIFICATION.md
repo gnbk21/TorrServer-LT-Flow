@@ -24,7 +24,9 @@ gates; this document does not yet record a published or fully verified package.
 - Native/race/fuzz/browser/platform/service/update/inventory/comparison gates.
 - Merge of PR #5, exact tagged rebuild, reproducible packaging and provenance.
 - Downloaded published asset hashes/source/version and public container identity.
-- Eight-hour owned default-runtime convergence run: in progress, not passed.
+- Eight-hour owned Adaptive Streaming convergence run, capacity experiment
+  disabled: in progress, not passed. This uses the earlier `78c437bd` runtime;
+  it is not exact-tag or new capacity-patch acceptance.
 
 Physical Android/TV, public swarms and Windows boot/sleep/network/VPN remain
 unfinished field checks under the owner's disclosed-publication policy.
@@ -32,3 +34,22 @@ Optional player independent decoder rebuild/redistribution compatibility and
 complete native profiling attribution remain unverified; the APK is excluded
 from this stable server release. Security scope is recorded separately in
 `RELEASE_1_1_SECURITY_REVIEW.md`.
+
+## Follow-up after the c02e7933 gates
+
+Run `38133894530` failed the cold A/B/A cancellation check: late-completion
+trial 1 never requested the cold target within the unchanged 10-second limit.
+Owned Windows reproduction showed the target available and urgent but normal
+ahead requests refilling the strict 64-block queue first. The new native patch
+gives deferred deadline scheduling newly available credit before normal refill;
+it changes only the opt-in capacity experiment. It is pending native gates.
+
+The full CodeQL run `38133894549` passed scan execution, closed the corrected
+log alerts, and produced additional findings reviewed in the security document.
+The seven explicitly approved dispositions were recorded on GitHub. Additional
+findings were not dismissed under that authorization.
+
+Follow-up local checks: media MIME/byte-range, Flow, logging and console tests;
+44 Python tests; actionlint; both real native patch application, repeatability,
+hardlink isolation and drift tests passed. Packages importing libtorrent cannot
+run on this host without a native compiler and remain assigned to CI.

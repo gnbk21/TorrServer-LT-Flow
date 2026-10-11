@@ -3,6 +3,7 @@ package torr
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"unicode"
 
 	"server/log"
+	"server/netpolicy"
 	sets "server/settings"
 	"server/torr/state"
 )
@@ -172,7 +174,7 @@ func searchTMDBPoster(cfg sets.TMDBConfig, query string, year int, lang string) 
 	params.Set("language", lang)
 	params.Set("include_image_language", lang+",null,en")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 10 * time.Second, Transport: netpolicy.HTTPTransport()}
 	resp, err := client.Get(base + "?" + params.Encode())
 	if err != nil {
 		return "", err
@@ -185,7 +187,14 @@ func searchTMDBPoster(cfg sets.TMDBConfig, query string, year int, lang string) 
 	var payload struct {
 		Results []tmdbResult `json:"results"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (4<<20)+1))
+	if err != nil {
+		return "", err
+	}
+	if len(body) > 4<<20 {
+		return "", fmt.Errorf("tmdb: response exceeds 4 MiB")
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
 		return "", err
 	}
 

@@ -34,9 +34,9 @@ func TestRedactSecretsCoversPathQueryUserinfoAndCapabilities(t *testing.T) {
 }
 
 func TestSafeLogEntryEscapesForgedRecordsAndTerminalControls(t *testing.T) {
-	input := "episode\r\n[ERROR] forged\x1b[2J\u2028hidden\u202e\x00\n"
+	input := "episode\r\n[ERROR] forged\x1b[2J\u2028hidden\u202e\x00\u0085\u009b2J\u009dtitle\n"
 	got := safeLogEntry(input)
-	if strings.ContainsAny(got, "\r\n\x1b\x00\u2028\u202e") ||
+	if strings.ContainsAny(got, "\r\n\x1b\x00\u2028\u202e\u0085\u009b\u009d") ||
 		!strings.Contains(got, `episode\r\n[ERROR] forged\x1b[2J`) {
 		t.Fatalf("unsafe record: %q", got)
 	}

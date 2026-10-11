@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 var remoteURL = regexp.MustCompile(`(?i)(?:https?|wss?|udp|socks(?:4a?|5h?)|magnet|torrs)://[^\s<>"']+|magnet:\?[^\s<>"']+`)
@@ -35,7 +36,7 @@ func safeLogEntry(s string) string {
 	s = strings.ReplaceAll(s, "\n", `\n`)
 	var output strings.Builder
 	for _, r := range s {
-		if r < 0x20 || r == 0x7f || r == '\u2028' || r == '\u2029' ||
+		if unicode.IsControl(r) || r == '\u2028' || r == '\u2029' ||
 			(r >= '\u202a' && r <= '\u202e') || (r >= '\u2066' && r <= '\u2069') {
 			escaped := strconv.QuoteRune(r)
 			output.WriteString(escaped[1 : len(escaped)-1])

@@ -167,9 +167,7 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 	etag := hex.EncodeToString([]byte(t.Hash().HexString() + "/" + file.Path))
 	resp.Header().Set("ETag", httptoo.EncodeQuotedString(etag))
 
-	if mime, err := mt.MimeTypeByPath(file.Path); err == nil && mime.IsMedia() {
-		resp.Header().Set("content-type", mime.String())
-	}
+	mt.SetStreamHeaders(resp.Header(), file.Path)
 
 	if req.Header.Get("getContentFeatures.dlna.org") != "" {
 		resp.Header().Set("contentFeatures.dlna.org", dlna.ContentFeatures{

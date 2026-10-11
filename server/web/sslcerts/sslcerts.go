@@ -11,6 +11,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"math/big"
 	"net"
@@ -203,8 +204,13 @@ func ownedCert(certFile string) bool {
 }
 
 func readLeaf(certFile string) *x509.Certificate {
-	data, err := os.ReadFile(certFile)
+	file, err := os.Open(certFile)
 	if err != nil {
+		return nil
+	}
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, MaxPEMSize+1))
+	if err != nil || len(data) > MaxPEMSize {
 		return nil
 	}
 	for {
