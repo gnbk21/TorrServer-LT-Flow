@@ -38,11 +38,13 @@ tracked separately. Baseline: stable 1.0.1 / source 55c16dc3; integration c3dfe7
 - [x] Warmup yields to waits/risk/pressure; cancels on changes/disablement/shutdown.
 
 ## Reliability/security
-- [ ] Slow/full disk, interrupted writes, crash, reconnect and concurrent-cache regressions.
-- [ ] Eight-hour resource convergence and repeated playback-cycle evidence.
-- [ ] CodeQL, release CycloneDX inventory, broader native parser/storage fuzz/sanitizers.
-- [ ] Exposure summary and per-protocol interface-disconnect/DNS verification.
-- [ ] Explicit reversible Windows WFP installation and scoped enforcement preserving LAN.
+- [x] Slow/full disk, interrupted writes, crash, reconnect and concurrent-cache regressions.
+- [x] Repeated controlled playback cycles; partial endurance observations recorded.
+- [ ] Eight-hour resource convergence: interrupted after 15,784 seconds / 965 cycles; not passed.
+- [x] CodeQL execution/review, release CycloneDX inventory, native parser/storage fuzz/sanitizers.
+- [x] Exposure summary and isolated per-protocol interface-disconnect verification.
+- [ ] Shared OS DNS and physical network enforcement acceptance.
+- [x] Explicit reversible Windows WFP installation and scoped enforcement preserving LAN.
 - [ ] Authoritative release metadata; stable/preview transitions, source/notices/provenance.
 
 ## Protocol milestone
@@ -55,15 +57,23 @@ and CodeQL regression gates, plus macOS arm64 unit tests. Additional forced
 TCP/uTP cases, final-source full gates and physical acceptance remain separate.
 
 ## Acceptance
-- [ ] Existing web/contracts/native/race/sanitizer/package/update rollback gates.
-- [ ] New maintenance ownership/cancellation/redaction/proxy/concurrency regressions.
+- [x] Existing web/contracts/native/race/sanitizer/inventory/update rollback gates; tagged packaging checked at publication.
+- [x] New maintenance ownership/cancellation/redaction/proxy/concurrency regressions.
 - [x] Five rotated matched-reserve comparisons across healthy/intermittent/mixed/burst cases.
 - [x] Startup/tail waits/seek/duplicates/CPU/RSS/integrity evidence; separate experiments.
 - [x] UI 1/200/1000/5000 entries, seven languages, five widths plus phone landscape.
 - [x] Auth/503/offline/stale/conflicts/fallback/keyboard and background polling browser checks; physical phone acceptance separate.
 - [x] Documented lab bundle/LCP/interaction/CLS targets; real-device evidence separate.
 - [ ] Physical Android, Windows boot/sleep/network and per-protocol enforcement acceptance.
-- [ ] Final requirement reconciliation; unchanged defaults and recorded rollback paths.
+- [x] Final source requirement reconciliation; unchanged defaults and recorded rollback paths.
+
+Final runtime source `0b6da77a` passed full run `38137745954`, macOS
+`38137745936`, portable `38137745870` and CodeQL `38137745884`.
+Its downloaded reports confirm 72 high-bitrate, 80 profile and 80 transport
+integrity trials. Exact tagged publication/provenance and downloaded assets
+remain separate distribution gates. The owner approved stable publication with
+unfinished field/resource acceptance disclosed; unchecked field items remain
+unverified and are not represented as passes.
 
 No second media cache, paid source, required transcoding, automatic profile
 promotion, media/API service-worker caching or removal of legacy before physical

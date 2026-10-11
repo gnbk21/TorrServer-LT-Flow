@@ -60,7 +60,8 @@ records actual results and any unfinished checks.
 
 This owner-authorized stable release discloses unfinished physical Android/TV,
 public-swarm and Windows boot/sleep/network/VPN acceptance. Long-run resource
-acceptance is recorded separately; an in-progress run is not a pass. The Windows
+acceptance is unfinished: the owned eight-hour attempt was interrupted after
+about 4 hours and 965 cycles and is not a pass. The Windows
 guard does not establish shared OS DNS leak protection. Native profiling has
 partial call-stack attribution, and controlled workloads do not predict every
 phone, peer or network. Preserved owner-controlled source inputs and reviewed

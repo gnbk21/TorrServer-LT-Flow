@@ -872,3 +872,18 @@ The full retained-boundary/build-tool review is in RELEASE_1_1_SECURITY_REVIEW.m
 Local MIME/Range, Flow, log and console checks, 44 Python tests, actionlint and
 both actual patch application/isolation/drift checks pass. Native-linked Go
 packages cannot compile on this Windows host and require CI verification.
+
+## Final Flow 1.1 runtime gates, 11 October 2026
+
+Frozen source 0b6da77a passed full run 38137745954, macOS 38137745936,
+portable 38137745870 and CodeQL 38137745884. Downloaded comparison reports
+confirm 72 high-bitrate, 80 profile and 80 transport original-byte trials.
+Windows native cold seeks, service/update rollback, actual scoped WFP protocol
+enforcement and inventory gates passed. Owned HTTP/WebVTT/disk/hybrid removal
+checks passed the downloaded final-source executable. See
+RELEASE_1_1_VERIFICATION.md for hashes, review and scope.
+
+The previous endurance session was interrupted: 15784 seconds, 965 cycles,
+no final convergence or allocation-release outcome. Eight-hour acceptance is
+not passed. The optional APK remains excluded; physical field checks, full
+profiling attribution and shared OS DNS protection remain unverified.

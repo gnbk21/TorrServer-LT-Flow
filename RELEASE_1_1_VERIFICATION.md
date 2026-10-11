@@ -1,7 +1,8 @@
 # Flow 1.1 verification
 
-Release target: `MatriX.145.Flow-v1.1.0`. Publication is pending the final-source
-gates; this document does not yet record a published or fully verified package.
+Release target: `MatriX.145.Flow-v1.1.0`. Final runtime-source gates passed.
+Merge, exact tagged rebuild and downloaded publication checks remain pending;
+this document does not yet record a published or fully verified package.
 
 ## Completed investigation and local checks
 
@@ -19,14 +20,16 @@ gates; this document does not yet record a published or fully verified package.
 
 ## Remaining publication checks
 
-- Final native compilation and cancellation regression on Linux/Windows.
-- Final CodeQL execution and recorded security-alert review.
-- Native/race/fuzz/browser/platform/service/update/inventory/comparison gates.
 - Merge of PR #5, exact tagged rebuild, reproducible packaging and provenance.
 - Downloaded published asset hashes/source/version and public container identity.
+
+## Unfinished acceptance disclosed for publication
+
 - Eight-hour owned Adaptive Streaming convergence run, capacity experiment
-  disabled: in progress, not passed. This uses the earlier `78c437bd` runtime;
-  it is not exact-tag or new capacity-patch acceptance.
+  disabled: interrupted after 15,784 seconds and 965 cycles, not passed.
+  The tool session and both owned processes no longer exist. Its last receipt
+  has no final convergence or allocation-release result. This uses the earlier
+  `78c437bd` runtime; it is not exact-tag or new capacity-patch acceptance.
 
 Physical Android/TV, public swarms and Windows boot/sleep/network/VPN remain
 unfinished field checks under the owner's disclosed-publication policy.
@@ -68,7 +71,7 @@ bytes/records on timeout or failure, checks replacement ownership under the
 engine lock and uses the hybrid's native storage digest. A held real file
 descriptor regression checks that close cannot expose absent ownership early
 and cannot remove a newly registered replacement. These native-linked checks
-are pending the final-source CI run.
+passed final-source Linux unit/race gates and macOS arm64 unit tests.
 
 ## Verified checkpoints before publication
 
@@ -111,3 +114,49 @@ are pending the final-source CI run.
   and successful disk-cache removal while preserving an unrelated file.
   Its receipt is `.tools/upgrade-0b6da-stream-boundaries/report.json`; this is
   controlled HTTP/storage evidence, not phone decoding or tagged identity.
+- Final-source Linux unit/race/vet, actual API contracts, bounded fuzzing,
+  authenticated maintenance/startup and controlled playback/resource cycles
+  passed in `38137745954`. Standard and GST source vulnerability scans both
+  reported zero reachable vulnerabilities. All 12 strict peer-capacity cases
+  and six cold A/B/A cancellation cases passed with original Range bytes.
+- The final-source Windows production fixture gate passed all six cold-seek
+  cases, restricted SCM crash/restart/stop/uninstall, actual scoped TCP/UDP
+  IPv4/IPv6 WFP enforcement, LAN preservation and uninstall restoration,
+  authenticated update/startup-failure rollback and service migration rollback.
+  These isolated runner checks do not establish physical boot/sleep/VPN or
+  shared OS DNS protection. Cross-platform inventory and both native profiling
+  jobs also passed; partial native stack attribution remains disclosed.
+- A second owned Windows native check passed hybrid removal through a v2
+  alias, both live and after dropping the native handle. It removed the actual
+  v1 storage directory and removed the retained database record, without creating a second
+  cache or deleting an unrelated file. The receipt is
+  `.tools/upgrade-0b6da-hybrid-removal/report.json`.
+
+The interrupted endurance run's retained samples showed RSS median growth of
+2,617,344 bytes, handle median change of -79 and unchanged 16-goroutine medians
+over its declared comparison windows. Those partial observations are not an
+eight-hour or final allocation-release pass. The original receipt is preserved;
+the separate interruption record is
+`.tools/upgrade-endurance-15fa-eight-hours/interruption.json`.
+
+## Final runtime gate reconciliation
+
+[Full run 38137745954](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/38137745954)
+completed successfully: all native/platform/browser/inventory/Windows fixture
+and profiling gates, 72 high-bitrate integrity trials, 80 matched profile trials
+and 80 matched transport-buffer trials. Downloaded comparison reports were
+checked individually: every trial passed original-byte delivery. Their two
+binary hashes are `4c716d6563fb5074a091ad15eb0a9716a7e19bfa379d1b2b9c931fd3297690a8`
+and `8ff5d9f4263da477b3aba4d78ffdae4409d750208792c7ca819c936ea19c195c`;
+the receipt preserves each policy's binding. These generated workloads measure
+server transport, not phone decoding or public-swarm availability. Profile and
+transport comparisons use five rotated repeats; the separate high-bitrate
+matrix uses three repeats. Defaults remain Legacy, 1024 KiB transport and PGO off.
+
+The final-source requirement review covers maintenance ownership/cancellation,
+streaming controller bounds, one-cache warmup, protocol/storage identities,
+actual web/API integration, security boundaries, rollback and distribution.
+The implementation ledger distinguishes verified automatic gates from
+unfinished physical acceptance, resource convergence, optional decoder rebuild
+and complete profiling attribution. No new paid source, cache, automatic
+experiment promotion or deletion of the legacy UI was introduced.
