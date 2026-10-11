@@ -131,5 +131,5 @@
     "Independent optional player decoder rebuild/redistribution audit; APK excluded from stable assets",
     "Shared OS DNS leak protection and complete native profiling attribution"
   ],
-  "release_target": "MatriX.145.Flow-v1.1.0"
+  "release_target": "MatriX.145.Flow-v1.1.1"
 }

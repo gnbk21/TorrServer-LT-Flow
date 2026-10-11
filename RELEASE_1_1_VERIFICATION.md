@@ -1,7 +1,8 @@
 # Flow 1.1 verification
 
-Release target: `MatriX.145.Flow-v1.1.0`. Final runtime-source gates passed.
-Merge, exact tagged rebuild and downloaded publication checks remain pending;
+Release target: `MatriX.145.Flow-v1.1.1`. Pre-tag runtime-source gates passed.
+The merged tag rebuild found a poster timeout race; its correction requires
+fresh tagged gates and downloaded publication checks;
 this document does not yet record a published or fully verified package.
 
 ## Completed investigation and local checks
@@ -160,3 +161,15 @@ The implementation ledger distinguishes verified automatic gates from
 unfinished physical acceptance, resource convergence, optional decoder rebuild
 and complete profiling attribution. No new paid source, cache, automatic
 experiment promotion or deletion of the legacy UI was introduced.
+
+## First tagged attempt and poster timeout correction
+
+PR #5 merged as `3d337e826635d65a0bb2eec5f225f8ec11c6b2f9`. The first
+`MatriX.145.Flow-v1.1.0` attempt in run `38143350718` failed its macOS arm64
+unit gate: the HTTP client body timeout could precede request-context deadline
+notification and reject uncertain artwork. No release was published. The tag
+is preserved. Decode failures now recognize wrapped deadline, cancellation
+and network timeout errors while still rejecting malformed images. A
+deterministic regression covers timeout with an uncancelled context. Local
+unit execution is blocked by the absent native CGo library; fresh tagged CI
+executes the test. Flow 1.1 publication uses corrected patch tag v1.1.1.

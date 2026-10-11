@@ -1,6 +1,6 @@
 # TorrServer-Flow 1.1
 
-Version: `MatriX.145.Flow-v1.1.0`.
+Version: `MatriX.145.Flow-v1.1.1`.
 
 ## Changes since 1.0.1
 
@@ -20,6 +20,7 @@ Version: `MatriX.145.Flow-v1.1.0`.
   separated from measurements of player-visible buffering.
 - Native v2/hybrid identities, SHA-256/Merkle verification, verified resume and
   bounded identical-byte reuse. Private torrents are excluded from shared reuse.
+- Corrected uncertain-poster classification when client and request deadlines race.
 - Improved fetch cancellation, response cleanup, launcher synchronization,
   credential isolation, proxy destination validation and log privacy.
 - Validated cache-removal identifiers and cleanup directories, safe download
@@ -40,7 +41,7 @@ Streaming preserves the original video quality and needs no paid provider or
 full-episode download. The existing piece store remains the only media cache.
 
 On Windows, download and extract
-`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.0.zip`, stop the old server,
+`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.1.zip`, stop the old server,
 keep its executable and state for rollback, then run:
 
 ```powershell

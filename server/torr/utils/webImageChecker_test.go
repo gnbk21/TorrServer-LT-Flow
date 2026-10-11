@@ -2,14 +2,32 @@ package utils
 
 import (
 	"bytes"
+	"context"
+	"fmt"
 	"image"
 	"image/jpeg"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"server/settings"
 	"sync/atomic"
 	"testing"
 )
+
+func TestImageReadTimeoutBeforeContextDeadline(t *testing.T) {
+	ctx := context.Background()
+	clientTimeout := fmt.Errorf("response body: %w", &net.OpError{Op: "read", Net: "tcp", Err: os.ErrDeadlineExceeded})
+	for _, err := range []error{clientTimeout, fmt.Errorf("body: %w", context.DeadlineExceeded), context.Canceled} {
+		if ctx.Err() != nil || !uncertainImageRead(ctx, err) {
+			t.Fatalf("temporary read error must remain uncertain before context cancellation: %v", err)
+		}
+	}
+	if uncertainImageRead(ctx, io.ErrUnexpectedEOF) {
+		t.Fatal("malformed image must still be rejected")
+	}
+}
 
 func TestPosterValidationDoesNotBypassUnavailableInterface(t *testing.T) {
 	previous := settings.BTsets()

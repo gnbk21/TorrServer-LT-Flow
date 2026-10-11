@@ -2,11 +2,13 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"server/netpolicy"
@@ -54,7 +56,7 @@ func CheckImgUrl(link string) (ok, verified bool) {
 
 	config, _, err := image.DecodeConfig(limitedReader)
 	if err != nil {
-		if ctx.Err() != nil {
+		if uncertainImageRead(ctx, err) {
 			return true, false
 		}
 		return false, false
@@ -63,6 +65,14 @@ func CheckImgUrl(link string) (ok, verified bool) {
 		return false, false
 	}
 	return true, true
+}
+
+// A client body timeout can win the race with the request's own deadline.
+// Keep that artwork uncertain even if ctx.Err has not been set yet.
+func uncertainImageRead(ctx context.Context, err error) bool {
+	var networkError net.Error
+	return ctx.Err() != nil || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) ||
+		(errors.As(err, &networkError) && networkError.Timeout())
 }
 
 // SelectPoster avoids repeated network checks for unchanged artwork. Clearing
