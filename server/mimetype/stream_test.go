@@ -19,6 +19,7 @@ func TestUntrustedStreamContentAndRanges(t *testing.T) {
 		{"track.mp3", "audio/mpeg", false},
 		{"cover.png", "image/png", false},
 		{"subtitle.srt", "text/plain; charset=utf-8", false},
+		{"subtitle.vtt", "text/vtt; charset=utf-8", false},
 		{"attack.html", "application/octet-stream", true},
 		{"attack.svg", "application/octet-stream", true},
 		{"no-extension", "application/octet-stream", true},

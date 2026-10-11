@@ -48,6 +48,7 @@ func init() {
 		{"text/srt", ".srt"},
 		{"text/smi", ".smi"},
 		{"text/ssa", ".ssa"},
+		{"text/vtt", ".vtt"},
 	} {
 		for _, ext := range strings.Split(t.extensions, ",") {
 			err := mime.AddExtensionType(ext, t.mimeType)
@@ -115,7 +116,9 @@ func SetStreamHeaders(header http.Header, name string) {
 		base == "image/avif" || base == "image/x-icon" || base == "image/vnd.microsoft.icon"
 	if mt.IsVideo() || mt.IsAudio() || raster {
 		header.Set("Content-Type", mt.String())
-	} else if mt.IsSub() || base == "text/vtt" {
+	} else if base == "text/vtt" {
+		header.Set("Content-Type", "text/vtt; charset=utf-8")
+	} else if mt.IsSub() {
 		header.Set("Content-Type", "text/plain; charset=utf-8")
 	} else {
 		header.Set("Content-Type", "application/octet-stream")
