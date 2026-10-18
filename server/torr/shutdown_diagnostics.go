@@ -2,7 +2,7 @@ package torr
 
 import (
 	"server/diagnostics"
-	"server/flow"
+	"server/log"
 	"time"
 )
 
@@ -13,7 +13,8 @@ func RecordShutdownReason(reason string) {
 	}
 	if bt := helperEngine(); bt != nil {
 		history := bt.history.Load()
-		history.Record(flow.HistoryEvent{Type: "shutdown_requested", Stage: reason})
-		history.Flush(500 * time.Millisecond)
+		if !history.RecordExit(reason, 500*time.Millisecond) {
+			log.Event("WARN", "Diagnostics", "Shutdown evidence could not be confirmed before its deadline.")
+		}
 	}
 }

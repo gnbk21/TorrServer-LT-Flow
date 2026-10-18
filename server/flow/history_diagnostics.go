@@ -167,22 +167,44 @@ func historyUnclosed(f *os.File, size int64) bool {
 // Flush is reserved for process exit paths, never playback or native alerts.
 // A stalled filesystem cannot delay those paths beyond wait.
 func (h *History) Flush(wait time.Duration) bool {
+	return h.flushEvent(nil, wait)
+}
+
+type historyFlush struct {
+	event *HistoryEvent
+	done  chan bool
+}
+
+func (h *History) RecordExit(reason string, wait time.Duration) bool {
+	if h == nil {
+		return true
+	}
+	switch reason {
+	case "API_SHUTDOWN", "SIGNAL", "SERVICE_STOP", "SERVER_ERROR", "SHUTDOWN_TIMEOUT":
+	default:
+		return false
+	}
+	event := HistoryEvent{Type: "shutdown_requested", Stage: reason, Time: time.Now().UTC(), Run: h.run}
+	return h.flushEvent(&event, wait)
+}
+
+func (h *History) flushEvent(event *HistoryEvent, wait time.Duration) bool {
 	if h == nil {
 		return true
 	}
 	timer := time.NewTimer(wait)
 	defer timer.Stop()
-	done := make(chan struct{})
+	done := make(chan bool, 1) // caller may time out while the OS write finishes
 	select {
-	case h.flush <- done:
+	case h.flush <- historyFlush{event: event, done: done}:
 	case <-h.done:
-		return true
+		return event == nil && h.failures.Load() == 0
 	case <-timer.C:
 		return false
 	}
 	select {
-	case <-done:
-		return true
+	case success := <-done:
+		return success
 	case <-timer.C:
 		return false
 	}

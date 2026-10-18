@@ -87,7 +87,7 @@ type History struct {
 	dropped  atomic.Uint64
 	failures atomic.Uint64
 	run      string
-	flush    chan chan struct{}
+	flush    chan historyFlush
 }
 
 func NewHistory(dir string) (*History, error) {
@@ -117,7 +117,7 @@ func NewHistory(dir string) (*History, error) {
 		return nil, err
 	}
 	previousUnclosed := historyUnclosed(f, size)
-	h := &History{queue: make(chan HistoryEvent, HistoryQueueSize), stop: make(chan struct{}), done: make(chan struct{}), flush: make(chan chan struct{}), run: hex.EncodeToString(run[:])}
+	h := &History{queue: make(chan HistoryEvent, HistoryQueueSize), stop: make(chan struct{}), done: make(chan struct{}), flush: make(chan historyFlush), run: hex.EncodeToString(run[:])}
 	go h.writeLoop(f, name, size)
 	if previousUnclosed {
 		h.Record(HistoryEvent{Type: "previous_run", Stage: "UNCONFIRMED_TERMINATION"})
@@ -332,7 +332,8 @@ func (h *History) writeLoop(f *os.File, name string, size int64) {
 			for _, event := range h.flushPeers(now) {
 				write(event)
 			}
-		case done := <-h.flush:
+		case request := <-h.flush:
+			beforeErrors := h.failures.Load()
 			for i := 0; i < HistoryQueueSize; i++ {
 				select {
 				case event := <-h.queue:
@@ -341,12 +342,17 @@ func (h *History) writeLoop(f *os.File, name string, size int64) {
 					i = HistoryQueueSize
 				}
 			}
+			// Exit intent has a separate bounded handshake, so ordinary queue
+			// overflow cannot discard the reason we are about to terminate.
+			if request.event != nil {
+				write(*request.event)
+			}
 			if f != nil {
 				if err := f.Sync(); err != nil {
 					h.failures.Add(1)
 				}
 			}
-			close(done)
+			request.done <- f != nil && h.failures.Load() == beforeErrors
 		case <-h.stop:
 			defer func() {
 				if f != nil {

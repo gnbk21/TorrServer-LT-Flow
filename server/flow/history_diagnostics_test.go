@@ -136,7 +136,7 @@ func TestHistoryReportsUnconfirmedTerminationAndFlushesExitRequest(t *testing.T)
 }
 
 func TestHistoryFlushBoundedWithoutConsumer(t *testing.T) {
-	h := &History{flush: make(chan chan struct{}), done: make(chan struct{})}
+	h := &History{flush: make(chan historyFlush), done: make(chan struct{})}
 	if h.Flush(time.Millisecond) {
 		t.Fatal("stalled writer incorrectly flushed")
 	}
@@ -155,6 +155,34 @@ func TestCleanEngineStopWithTrailingPeerSummaryIsNotCrash(t *testing.T) {
 	h.Close(time.Second)
 	if h.Status().Written != 0 {
 		t.Fatal("trailing peer summary caused false crash receipt")
+	}
+}
+
+func TestExitEvidenceBypassesFullOrdinaryQueue(t *testing.T) {
+	dir := t.TempDir()
+	name := filepath.Join(dir, "flow-history.jsonl")
+	f, size, err := openHistory(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &History{queue: make(chan HistoryEvent, HistoryQueueSize), stop: make(chan struct{}), done: make(chan struct{}), flush: make(chan historyFlush), run: "fixture"}
+	for i := 0; i < HistoryQueueSize; i++ {
+		h.Record(HistoryEvent{Type: "first_byte"})
+	}
+	h.Record(HistoryEvent{Type: "first_byte"}) // prove the ordinary queue is full
+	go h.writeLoop(f, name, size)
+	if !h.RecordExit("SIGNAL", time.Second) {
+		t.Fatal("full queue discarded exit evidence")
+	}
+	if !h.Close(time.Second) {
+		t.Fatal("close")
+	}
+	found := false
+	for _, e := range readDiagnosticEvents(t, dir) {
+		found = found || e.Type == "shutdown_requested" && e.Stage == "SIGNAL"
+	}
+	if !found || h.Status().Dropped != 1 {
+		t.Fatalf("lost exit intent: %+v", h.Status())
 	}
 }
 
