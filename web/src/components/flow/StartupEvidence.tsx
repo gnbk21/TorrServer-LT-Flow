@@ -10,6 +10,13 @@ export function StartupEvidence({ startup }: { startup: FlowStartup }) {
     <section className="panel space-y-2" aria-live="polite">
       <h3 className="font-semibold">{t("flow.startupEvidenceTitle")}</h3>
       <p>{t(`flow.startupBlockers.${progress.blocked_on}`)}</p>
+      {progress.wait_extended && (
+        <p className="text-sm">
+          {t("flow.startupWaitExtended", {
+            seconds: Math.round((progress.wait_budget_ms ?? 0) / 1000),
+          })}
+        </p>
+      )}
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
         {(["head", "tail"] as const).map((part) => (
           <div key={part}>
@@ -37,10 +44,44 @@ export function StartupEvidence({ startup }: { startup: FlowStartup }) {
                 })}
               </dd>
             )}
+            {progress[`${part}_supply`] &&
+              (() => {
+                const supply = progress[`${part}_supply`]!;
+                return (
+                  <>
+                    <dd>
+                      {t("flow.startupSuppliers", { count: supply.suppliers })}
+                    </dd>
+                    {supply.unchoked_suppliers !== undefined && (
+                      <dd>
+                        {t("flow.startupUnchoked", {
+                          count: supply.unchoked_suppliers,
+                        })}
+                      </dd>
+                    )}
+                    {supply.queue_known && (
+                      <dd>
+                        {t("flow.startupBlocks", {
+                          pending: supply.requested_blocks,
+                          waiting: supply.unrequested_blocks,
+                          received:
+                            supply.finished_blocks + supply.writing_blocks,
+                        })}
+                      </dd>
+                    )}
+                    {supply.truncated && (
+                      <dd className="text-slate-400">
+                        {t("flow.startupSupplyTruncated")}
+                      </dd>
+                    )}
+                  </>
+                );
+              })()}
           </div>
         ))}
       </dl>
       <p className="text-sm text-slate-400">{t("flow.startupEvidenceHint")}</p>
+      <p className="text-sm text-slate-400">{t("flow.startupSupplyHint")}</p>
     </section>
   );
 }

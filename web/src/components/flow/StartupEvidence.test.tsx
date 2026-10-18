@@ -35,4 +35,46 @@ describe("startup preparation evidence", () => {
     expect(screen.getAllByText("flow.startupVerified")).toHaveLength(2);
     expect(screen.getAllByText("flow.startupBlockerPiece")).toHaveLength(1);
   });
+  it("shows sampled zero supply, partial evidence and a progress extension", () => {
+    render(
+      <StartupEvidence
+        startup={
+          {
+            progress: {
+              head_bytes: 1,
+              head_target_bytes: 1,
+              head_verified_bytes: 1,
+              tail_bytes: 0,
+              tail_target_bytes: 1,
+              tail_verified_bytes: 0,
+              missing_head_pieces: 0,
+              missing_tail_pieces: 1,
+              blocked_on: "INDEX",
+              wait_extended: true,
+              wait_budget_ms: 150000,
+              tail_supply: {
+                suppliers: 0,
+                unchoked_suppliers: 0,
+                queue_known: true,
+                requested_blocks: 0,
+                unrequested_blocks: 1024,
+                finished_blocks: 0,
+                writing_blocks: 0,
+                truncated: true,
+              },
+            },
+          } as FlowStartup
+        }
+      />,
+    );
+    for (const key of [
+      "startupSuppliers",
+      "startupUnchoked",
+      "startupBlocks",
+      "startupSupplyTruncated",
+      "startupWaitExtended",
+    ]) {
+      expect(screen.getByText(`flow.${key}`)).toBeInTheDocument();
+    }
+  });
 });

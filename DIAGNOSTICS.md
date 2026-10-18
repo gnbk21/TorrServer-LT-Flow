@@ -12,6 +12,11 @@ tracing is independent and is not required for the periodic history below.
   shared boundary piece remains missing. During `bootstrap`, the head target is
   the smaller probe head; the unscheduled phase-2 remainder is not blamed as a
   blocker. The live drawer shows head/index evidence separately.
+  Fresh `head_supply` / `tail_supply` observations now include connected suppliers,
+  unchoked suppliers for an exact one-piece sample, priority, requested/unrequested
+  blocks and received/writing blocks. A missing observation is unknown; a truncated
+  peer sample gives lower bounds. Preload blockers participate in the existing
+  bounded native sampling even before a player connects.
 - `playback_sample`, every ten seconds while clients are active or recently
   disconnected: response demand and delivery offsets, contiguous buffer, download
   and measured useful delivery rates, estimated consumption, local source
@@ -61,6 +66,19 @@ samples. It does not change or start the server.
 - `PROBE` means the required pieces are verified but the configured bounded
   probe grace is still active. Lowering the probe timeout will not fix missing
   startup pieces.
+- A known zero supplier count means none of the sampled connected peers advertised
+  this piece. Suppliers with no unchoked source indicate peer choking; a known
+  queue with unrequested blocks exposes a different situation from a missing
+  availability sample. These are observations, not automatic proof of the cause.
+- Adaptive keeps the ordinary 120-second startup wait unless useful gate bytes
+  are still arriving and some required bootstrap data is verified. At expiry,
+  at least 1 MiB of progress over the recent observation window (up to 30 seconds)
+  and progress within ten seconds allow another 30 seconds, up to a 300-second
+  absolute maximum. Other profiles keep 120 seconds. This never bypasses required
+  index data, piece verification or the configured startup-buffer target.
+- Straggler escalation applies only to the active bootstrap/prebuffer phase and
+  preserves existing deadlines. It no longer promotes unscheduled phase-two head
+  pieces or rewrites the tail/head ordering every 200 ms.
 - Periodic demand/delivery offsets describe the server response. The player can
   pause, probe, cancel, reconnect or buffer ahead; none proves its decoded position.
 - `recent_read_stalls` and wait percentiles are shared per torrent (including

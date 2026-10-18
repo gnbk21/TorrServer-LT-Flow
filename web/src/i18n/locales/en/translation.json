@@ -721,7 +721,13 @@
       "HEAD_AND_INDEX": "Waiting for opening and end-of-file pieces",
       "PROBE": "Waiting for media probe",
       "NONE": "Required pieces verified"
-    }
+    },
+    "startupWaitExtended": "Startup wait extended to {{seconds}} s while useful data arrives. Required pieces still need verification.",
+    "startupSuppliers": "Connected suppliers: {{count}}",
+    "startupUnchoked": "Unchoked suppliers: {{count}}",
+    "startupBlocks": "Blocks: {{pending}} requested, {{waiting}} unrequested, {{received}} received/writing",
+    "startupSupplyTruncated": "Partial peer sample; counts may be lower bounds.",
+    "startupSupplyHint": "Source counts describe sampled connected peers. Missing or stale evidence remains unknown."
   },
   "torrent": {
     "justPlayer": "Play in Just Player",

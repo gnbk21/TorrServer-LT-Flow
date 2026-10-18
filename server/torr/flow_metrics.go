@@ -32,6 +32,8 @@ type FlowRangeTrace struct {
 var diagnosticSequence atomic.Uint64
 
 type FlowStartupStatus struct {
+	WaitBudgetMs       int64                `json:"wait_budget_ms"`
+	WaitExtended       bool                 `json:"wait_extended"`
 	Progress           *flow.StartupHistory `json:"progress,omitempty"`
 	WaitReason         string               `json:"wait_reason"`
 	StageStartedMs     int64                `json:"stage_started_ms"`
@@ -63,15 +65,7 @@ func (t *Torrent) FlowStartup() FlowStartupStatus {
 	defer t.mu.Unlock()
 	s := t.flowStartup
 	if s.Progress != nil {
-		progress := *s.Progress
-		if progress.HeadBlockerPiece != nil {
-			piece := *progress.HeadBlockerPiece
-			progress.HeadBlockerPiece = &piece
-		}
-		if progress.TailBlockerPiece != nil {
-			piece := *progress.TailBlockerPiece
-			progress.TailBlockerPiece = &piece
-		}
+		progress := s.Progress.Clone()
 		s.Progress = &progress
 	}
 	if !t.flowStartupStarted.IsZero() && s.WaitReason != "READER_WINDOW" && s.WaitReason != "READY" && s.WaitReason != "PLAYING" && s.WaitReason != "FAILED" && s.WaitReason != "TIMEOUT" && s.WaitReason != "CANCELLED" {

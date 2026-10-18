@@ -817,7 +817,13 @@
       "HEAD_AND_INDEX": "Se așteaptă fragmentele inițiale și finale",
       "PROBE": "Se așteaptă analiza media",
       "NONE": "Fragmentele necesare sunt verificate"
-    }
+    },
+    "startupWaitExtended": "Așteptarea a fost prelungită la {{seconds}} s cât timp sosesc date utile. Părțile necesare trebuie în continuare verificate.",
+    "startupSuppliers": "Surse conectate: {{count}}",
+    "startupUnchoked": "Surse care permit transferul: {{count}}",
+    "startupBlocks": "Blocuri: {{pending}} solicitate, {{waiting}} nesolicitate, {{received}} primite/în scriere",
+    "startupSupplyTruncated": "Eșantion parțial; valorile reale pot fi mai mari.",
+    "startupSupplyHint": "Numărul surselor descrie partenerii conectați eșantionați. Datele lipsă sau expirate rămân necunoscute."
   },
   "search": {
     "source": "Sursă",

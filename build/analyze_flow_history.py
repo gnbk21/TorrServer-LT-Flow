@@ -9,6 +9,30 @@ from pathlib import Path
 FILE_LIMIT = 1 << 20
 
 
+def startup_summary(sample):
+    numeric = ("head_bytes", "head_target_bytes", "head_verified_bytes", "tail_bytes", "tail_target_bytes", "tail_verified_bytes",
+               "missing_head_pieces", "missing_tail_pieces", "head_blocker_piece", "tail_blocker_piece", "wait_budget_ms")
+    result = {k: v for k, v in sample.items() if k in numeric and type(v) in (int, float) and math.isfinite(v)}
+    for key in ("bootstrap", "wait_extended"):
+        if type(sample.get(key)) is bool:
+            result[key] = sample[key]
+    blocked = sample.get("blocked_on")
+    if isinstance(blocked, str) and blocked in {"HEAD", "INDEX", "HEAD_AND_INDEX", "PROBE", "NONE"}:
+        result["blocked_on"] = blocked
+    supply_fields = ("sample_age_ms", "suppliers", "unchoked_suppliers", "priority", "requested_blocks", "unrequested_blocks",
+                     "finished_blocks", "writing_blocks", "receiving_bytes", "oldest_request_age_ms")
+    for key in ("head_supply", "tail_supply"):
+        supply = sample.get(key)
+        if not isinstance(supply, dict):
+            continue
+        row = {k: v for k, v in supply.items() if k in supply_fields and type(v) in (int, float) and math.isfinite(v)}
+        for field in ("truncated", "queue_known"):
+            if type(supply.get(field)) is bool:
+                row[field] = supply[field]
+        result[key] = row
+    return result
+
+
 def timing(events, kind):
     values = sorted(e.get("elapsed_ms") for e in events
                     if e.get("type") == kind and e.get("operation_measured")
@@ -90,6 +114,7 @@ def summarize(path):
             "peer_disconnects": counts["peer_disconnected"] + peers,
             "response_start": timing(events, "first_byte"), "seek_response_start": timing(events, "recovery"),
             "startup_blocked_samples": {k: blocked[k] for k in ("HEAD", "INDEX", "HEAD_AND_INDEX", "PROBE", "NONE") if blocked[k]},
+            "latest_startup": startup_summary(snapshots[-1]) if snapshots else None,
             "latest_delivery_samples": latest, "closure": closure, "shutdown_reason": reason,
             "responses_cancelled": sum(r.get("cancelled") is True for r in responses),
             "responses_failed": sum(isinstance(r.get("status"), int) and r["status"] >= 400 for r in responses),

@@ -14,8 +14,10 @@
   Go reports `vcs.modified=true` because CI generates the embedded production web
   bundle before compilation. This is a development candidate, not a new stable tag.
 
-The subsequent analyzer/test/documentation follow-up changes no compiled server,
-native bridge or embedded web source.
+The analyzer/test/documentation follow-up `c739c4a6` changes no compiled server,
+native bridge or embedded web source. This page records that earlier diagnostic
+candidate. The subsequent startup-demand fix has its own native comparisons and
+must be verified separately; the checksum above does not identify that newer fix.
 
 ## Passed checks
 

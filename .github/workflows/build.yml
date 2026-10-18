@@ -457,6 +457,11 @@ jobs:
           python3 build/playback_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/controlled-playback --duration 20 --debug
           python3 build/startup_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/startup-check --assert-fast
           python3 build/startup_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/startup-custom-check --profile custom --assert-fast
+          mkdir -p _out/startup-piece-fixtures
+          ffmpeg -hide_banner -loglevel error -stream_loop 1 -i _out/controlled-playback/fixtures/variable.mp4 -c copy -movflags +faststart _out/startup-piece-fixtures/variable.mp4
+          python3 build/startup_piece_check.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/startup-piece-fixtures --output _out/startup-piece-ordering --case ordering --assert-fixed
+          python3 build/startup_piece_check.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/startup-piece-fixtures --output _out/startup-piece-progress --case progress --assert-fixed
+          python3 build/startup_piece_check.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/startup-piece-fixtures --output _out/startup-piece-missing-index --case missing-index --assert-fixed
           python3 build/discovery_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/discovery-check
           python3 build/preparation_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/preparation-check
           python3 build/peerhint_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/peerhint-check
@@ -479,6 +484,8 @@ jobs:
             _out/startup-check/state/server-output.log
             _out/startup-custom-check/report.json
             _out/startup-custom-check/state/server-output.log
+            _out/startup-piece-*/report.json
+            _out/startup-piece-*/state/server-output.log
             _out/discovery-check/report.json
             _out/preparation-check/report.json
             _out/preparation-check/state/server-output.log

@@ -10,18 +10,59 @@ import (
 // These payloads contain only bounded numeric evidence and validated enums.
 // They describe server demand/delivery, never decoded player presentation.
 type StartupHistory struct {
-	Bootstrap         bool   `json:"bootstrap"`
-	HeadBytes         int64  `json:"head_bytes"`
-	HeadTargetBytes   int64  `json:"head_target_bytes"`
-	HeadVerifiedBytes int64  `json:"head_verified_bytes"`
-	TailBytes         int64  `json:"tail_bytes"`
-	TailTargetBytes   int64  `json:"tail_target_bytes"`
-	TailVerifiedBytes int64  `json:"tail_verified_bytes"`
-	MissingHeadPieces int    `json:"missing_head_pieces"`
-	MissingTailPieces int    `json:"missing_tail_pieces"`
-	HeadBlockerPiece  *int   `json:"head_blocker_piece,omitempty"`
-	TailBlockerPiece  *int   `json:"tail_blocker_piece,omitempty"`
-	BlockedOn         string `json:"blocked_on"`
+	HeadSupply        *StartupPieceSupply `json:"head_supply,omitempty"`
+	TailSupply        *StartupPieceSupply `json:"tail_supply,omitempty"`
+	WaitBudgetMs      int64               `json:"wait_budget_ms,omitempty"`
+	WaitExtended      bool                `json:"wait_extended,omitempty"`
+	Bootstrap         bool                `json:"bootstrap"`
+	HeadBytes         int64               `json:"head_bytes"`
+	HeadTargetBytes   int64               `json:"head_target_bytes"`
+	HeadVerifiedBytes int64               `json:"head_verified_bytes"`
+	TailBytes         int64               `json:"tail_bytes"`
+	TailTargetBytes   int64               `json:"tail_target_bytes"`
+	TailVerifiedBytes int64               `json:"tail_verified_bytes"`
+	MissingHeadPieces int                 `json:"missing_head_pieces"`
+	MissingTailPieces int                 `json:"missing_tail_pieces"`
+	HeadBlockerPiece  *int                `json:"head_blocker_piece,omitempty"`
+	TailBlockerPiece  *int                `json:"tail_blocker_piece,omitempty"`
+	BlockedOn         string              `json:"blocked_on"`
+}
+
+// Availability describes sampled connected peers, not a global swarm census.
+type StartupPieceSupply struct {
+	SampleAgeMs        int64 `json:"sample_age_ms"`
+	Suppliers          int   `json:"suppliers"`
+	UnchokedSuppliers  *int  `json:"unchoked_suppliers,omitempty"`
+	Truncated          bool  `json:"truncated"`
+	QueueKnown         bool  `json:"queue_known"`
+	Priority           int   `json:"priority"`
+	RequestedBlocks    int   `json:"requested_blocks"`
+	UnrequestedBlocks  int   `json:"unrequested_blocks"`
+	FinishedBlocks     int   `json:"finished_blocks"`
+	WritingBlocks      int   `json:"writing_blocks"`
+	ReceivingBytes     int   `json:"receiving_bytes"`
+	OldestRequestAgeMs int64 `json:"oldest_request_age_ms"`
+}
+
+func (s StartupHistory) Clone() StartupHistory {
+	copyInt := func(p *int) *int {
+		if p == nil {
+			return nil
+		}
+		value := *p
+		return &value
+	}
+	s.HeadBlockerPiece, s.TailBlockerPiece = copyInt(s.HeadBlockerPiece), copyInt(s.TailBlockerPiece)
+	copySupply := func(p *StartupPieceSupply) *StartupPieceSupply {
+		if p == nil {
+			return nil
+		}
+		value := *p
+		value.UnchokedSuppliers = copyInt(p.UnchokedSuppliers)
+		return &value
+	}
+	s.HeadSupply, s.TailSupply = copySupply(s.HeadSupply), copySupply(s.TailSupply)
+	return s
 }
 
 func (s StartupHistory) valid() bool {

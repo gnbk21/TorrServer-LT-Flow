@@ -12,8 +12,29 @@ export interface FlowRangeTrace {
   classification: string;
 }
 
+export interface StartupPieceSupply {
+  sample_age_ms: number;
+  suppliers: number;
+  unchoked_suppliers?: number;
+  truncated: boolean;
+  queue_known: boolean;
+  priority: number;
+  requested_blocks: number;
+  unrequested_blocks: number;
+  finished_blocks: number;
+  writing_blocks: number;
+  receiving_bytes: number;
+  oldest_request_age_ms: number;
+}
+
 export interface FlowStartup {
+  wait_budget_ms?: number;
+  wait_extended?: boolean;
   progress?: {
+    head_supply?: StartupPieceSupply;
+    tail_supply?: StartupPieceSupply;
+    wait_budget_ms?: number;
+    wait_extended?: boolean;
     bootstrap?: boolean;
     head_bytes: number;
     head_target_bytes: number;

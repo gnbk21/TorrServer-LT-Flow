@@ -47,6 +47,17 @@ class HistoryAnalysisTests(unittest.TestCase):
             path.write_text(json.dumps({"run": "x", "type": "engine_stopped"}), encoding="utf-8")
             self.assertEqual(analyzer.summarize(path)["startup_blocked_samples"], {"INDEX": 1})
 
+    def test_startup_supply_retains_zero_and_omits_private_fields(self):
+        sample = {"blocked_on": "INDEX", "tail_blocker_piece": 0, "wait_extended": True, "wait_budget_ms": 150000,
+                  "tail_supply": {"suppliers": 0, "queue_known": True, "unrequested_blocks": 1024,
+                                  "truncated": False, "peer_ip": "private-address", "secret": "private-url"}}
+        result = analyzer.startup_summary(sample)
+        self.assertEqual(result["tail_supply"]["suppliers"], 0)
+        self.assertEqual(result["tail_blocker_piece"], 0)
+        self.assertTrue(result["wait_extended"])
+        self.assertNotIn("private", json.dumps(result))
+        self.assertNotIn("head_supply", result)
+
     def test_idle_confidence_and_unknown_piece_are_not_misrepresented(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "flow-history.jsonl"

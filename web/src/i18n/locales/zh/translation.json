@@ -823,7 +823,13 @@
       "HEAD_AND_INDEX": "等待开头和末尾分片",
       "PROBE": "等待媒体分析",
       "NONE": "所需分片已验证"
-    }
+    },
+    "startupWaitExtended": "有效数据仍在到达，启动等待延长至 {{seconds}} 秒。所需分片仍须通过校验。",
+    "startupSuppliers": "已连接来源：{{count}}",
+    "startupUnchoked": "允许传输的来源：{{count}}",
+    "startupBlocks": "数据块：已请求 {{pending}}，未请求 {{waiting}}，已接收/写入中 {{received}}",
+    "startupSupplyTruncated": "节点采样不完整，实际数量可能更高。",
+    "startupSupplyHint": "来源数量仅表示采样的已连接节点。缺失或过期的信息仍视为未知。"
   },
   "search": {
     "source": "来源",

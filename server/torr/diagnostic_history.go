@@ -11,7 +11,11 @@ import (
 
 func (t *Torrent) recordStartupProgress(progress flow.StartupHistory, force bool) {
 	now := time.Now()
+	sample := t.SparseStatus()
+	progress.HeadSupply = startupPieceSupply(sample, progress.HeadBlockerPiece, now)
+	progress.TailSupply = startupPieceSupply(sample, progress.TailBlockerPiece, now)
 	t.mu.Lock()
+	progress.WaitBudgetMs, progress.WaitExtended = t.flowStartup.WaitBudgetMs, t.flowStartup.WaitExtended
 	t.flowStartup.Progress = &progress // immutable snapshot, also available in the UI
 	file := t.flowStartup.FileIndex
 	elapsed := now.Sub(t.flowStartupStarted).Milliseconds()

@@ -823,7 +823,13 @@
       "HEAD_AND_INDEX": "Attente des morceaux initiaux et de fin",
       "PROBE": "Attente de l’analyse du média",
       "NONE": "Morceaux nécessaires vérifiés"
-    }
+    },
+    "startupWaitExtended": "Attente prolongée à {{seconds}} s tant que des données utiles arrivent. Les pièces requises doivent toujours être vérifiées.",
+    "startupSuppliers": "Sources connectées : {{count}}",
+    "startupUnchoked": "Sources autorisant le transfert : {{count}}",
+    "startupBlocks": "Blocs : {{pending}} demandés, {{waiting}} non demandés, {{received}} reçus/en écriture",
+    "startupSupplyTruncated": "Échantillon partiel ; les nombres réels peuvent être supérieurs.",
+    "startupSupplyHint": "Les sources comptées sont les pairs connectés échantillonnés. Les données absentes ou périmées restent inconnues."
   },
   "search": {
     "source": "Source",
