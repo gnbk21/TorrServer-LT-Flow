@@ -70,8 +70,21 @@ def summarize(path):
                       "buffer_seconds", "delivery_rate", "download_rate", "consumption_rate",
                       "active_readers", "range_requests", "range_cancels", "recent_read_stalls",
                       "recent_wait_p95_ms", "required_piece", "suppliers")
-    latest = [{"torrent": key[0], "file": key[1], **{k: v for k, v in s.items() if k in numeric_fields
-               and isinstance(v, (int, float)) and math.isfinite(v)}} for key, s in list(samples.items())[-8:]]
+    latest = []
+    states = {"NEW", "PLAYING", "SEEK_RECOVERY", "WARM_IDLE", "EXPIRED"}
+    waits = {"READY", "METADATA", "UNKNOWN", "THROUGHPUT", "DISCOVERY", "CONNECTION", "MISSING_CONNECTED", "UNCHOKE", "FIRST_BLOCK"}
+    for key, sample in list(samples.items())[-8:]:
+        row = {"torrent": key[0], "file": key[1], **{k: v for k, v in sample.items() if k in numeric_fields
+               and type(v) in (int, float) and math.isfinite(v)}}
+        if sample.get("required_piece_known") is not True:
+            row.pop("required_piece", None)
+        for field, allowed in (("state", states), ("wait_reason", waits)):
+            value = sample.get(field)
+            if isinstance(value, str) and value in allowed:
+                row[field] = value
+        if isinstance(sample.get("supply_qualified"), bool):
+            row["supply_qualified"] = sample["supply_qualified"]
+        latest.append(row)
     return {"events": len(events), "invalid_lines": invalid,
             "event_counts": {k: counts[k] for k in kinds if counts[k]},
             "peer_disconnects": counts["peer_disconnected"] + peers,

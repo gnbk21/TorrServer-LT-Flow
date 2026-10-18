@@ -77,3 +77,22 @@ The stable 1.1.3 executable predates these additional records. A binary built fr
 the diagnostic changes is required to collect them; an analyzer cannot reconstruct
 missing observations from old logs. These changes improve evidence collection,
 not torrent availability or guaranteed startup/playback speed.
+
+## Reproduce the controlled checks
+
+With generated fixtures from `build/fixtures.py`, run against an absolute path to
+the executable (each output directory must be new):
+
+```powershell
+python build/startup_harness.py --executable C:\Flow\TorrServer-LT-windows-amd64.exe --fixtures .tools/controlled-fixtures --output .tools/startup-check --assert-fast
+python build/diagnostic_history_check.py --executable C:\Flow\TorrServer-LT-windows-amd64.exe --fixtures .tools/controlled-fixtures --output .tools/history-check
+```
+
+These checks own their processes, loopback seeder and fresh state. The second
+holds a real byte-verified response across multiple sampling intervals with Range
+tracing disabled, checks completion/cancellation evidence and privacy, then kills
+only its own test process to check the next-run receipt. It never attaches to a
+running user's server. Results are written to each output's `report.json`.
+
+See [diagnostic verification](DIAGNOSTICS_VERIFICATION.md) for the tested build,
+results and remaining field-validation limits.

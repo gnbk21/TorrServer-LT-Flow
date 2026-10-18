@@ -47,6 +47,19 @@ class HistoryAnalysisTests(unittest.TestCase):
             path.write_text(json.dumps({"run": "x", "type": "engine_stopped"}), encoding="utf-8")
             self.assertEqual(analyzer.summarize(path)["startup_blocked_samples"], {"INDEX": 1})
 
+    def test_idle_confidence_and_unknown_piece_are_not_misrepresented(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "flow-history.jsonl"
+            row = {"run": "x", "type": "playback_sample", "torrent": 1, "file": 2,
+                   "playback": {"session": 1, "state": "WARM_IDLE", "wait_reason": "secret-url",
+                                "supply_qualified": False, "required_piece": 0, "required_piece_known": False}}
+            path.write_text(json.dumps(row), encoding="utf-8")
+            sample = analyzer.summarize(path)["latest_delivery_samples"][0]
+            self.assertEqual(sample["state"], "WARM_IDLE")
+            self.assertFalse(sample["supply_qualified"])
+            self.assertNotIn("required_piece", sample)
+            self.assertNotIn("secret-url", json.dumps(sample))
+
 
 if __name__ == "__main__":
     unittest.main()
