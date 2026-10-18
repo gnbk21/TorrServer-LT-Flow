@@ -78,7 +78,7 @@ const preloadWarmGrace = 8 * time.Second
 // `index` so playback starts with a buffer. Because the torrent sits at piece
 // priority 0 (lazy streaming, see signalGotInfo), this is what actually pulls
 // the head of the file: it raises priority + ordered deadlines on the piece
-// range and blocks until they arrive (or the torrent closes / 2 min elapses),
+// range and blocks until they arrive (or the torrent closes / its bounded wait expires),
 // updating PreloadedBytes/PreloadSize for the UI to poll.
 // probe selects the explicit &preload path used by TorrServe/Lampa. Flow starts
 // an asynchronous media probe after bootstrap for either entry path; the probe
@@ -93,7 +93,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 		ctx = context.Background()
 	}
 	// Snapshot the libtorrent handle once. Preload runs DETACHED (it survives the
-	// request, blocking up to 2 min on the buffer fill), so the torrent can be
+	// request, retaining the bounded buffer wait), so the torrent can be
 	// dropped mid-flight and clear its published handle — a later load could then
 	// deref a nil receiver and crash the server (panic in the call AND again in the
 	// deferred SetMaxConnections). The captured handle stays non-nil; once the
@@ -250,9 +250,9 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 
 	// prioritise raises priority 7 + an ascending deadline ramp (startN*10 ms,
 	// +10 ms per piece) on a piece list. libtorrent's time-critical picker always
-	// prioritises the more-recent deadline and assigns the *fastest* peers to the
+	// prioritises the earliest deadline and assigns the *fastest* peers to the
 	// most urgent piece, and bandwidth is zero-sum (see libtorrent streaming.html),
-	// so the ramp puts piece 0 first and each later piece strictly after it. A
+	// so earlier entries in the list remain ahead of later entries. A
 	// piece libtorrent believes it HAS but the cache evicted (a second viewer
 	// joins after the first played past the head) must be un-haved first or the
 	// picker never re-downloads it and the wait below sits out its full 2 minutes
@@ -500,8 +500,8 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	// multi-file bug. On a multi-file torrent the tail's last piece is the boundary
 	// piece shared with the next file, so it also costs that file's leading bytes;
 	// that cost now shows as honest buffering progress instead of a post-100% hang.
-	// The 2-min ctx cap (above) bounds the pathological case (boundary piece with
-	// no seeders) so the stream still starts. gateCount >= headCount >= 1.
+	// The bounded startup wait limits a pathological missing boundary piece;
+	// an incomplete gate is reported as a timeout. gateCount >= headCount >= 1.
 	gateCount := len(gatePieces)
 	total := int64(gateCount) * plen
 	probed := false
@@ -617,7 +617,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 		deadlineMu.Unlock()
 
 		// Phase 1 done: the small head + tail are resident. Probe BitRate/Duration
-		// NOW — synchronously, from the just-filled cache, so ffprobe reads the
+		// NOW — asynchronously, from the just-filled cache, so ffprobe reads the
 		// header (small head) and the duration (EOF tail, even for an unknown-size
 		// MKV) without ever blocking on a slow piece. The value is published while
 		// the bar is still low, then phase 2 prioritises the rest of the head so the

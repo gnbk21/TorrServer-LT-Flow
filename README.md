@@ -134,6 +134,15 @@ limits, and the [implementation ledger](SPARSE_IMPLEMENTATION.md) for evidence.
 
 Select a profile in **Settings → Flow → Swarm profile**. `connection_speed` is outgoing connection attempts per second; `torrent_connect_boost` is the number of peers tried when a torrent is added. These are tuning choices, not measured speed rankings.
 
+Current development builds keep bootstrap demand separate from later prebuffering
+and preserve the original head/index deadline order. In **Adaptive**, verified
+bootstrap data plus continuing useful progress can renew the ordinary 120-second
+startup wait in 30-second steps, capped at 300 seconds. This retains the required
+index, verification and buffer gates; other profiles keep the 120-second wait.
+Diagnostics expose sampled suppliers and request queues for missing startup
+pieces. See [startup-fix verification](STARTUP_FIX_VERIFICATION.md) for controlled
+comparisons and limits; this is newer than the published 1.1.3 executable.
+
 | Profile | What it does |
 | --- | --- |
 | **Legacy (default)** | Keeps TorrServer-LT's existing streaming-oriented libtorrent tuning, including 250 connection attempts/second, a 100-peer connect boost, and shorter peer/piece timeouts. Use it as the compatibility baseline. |

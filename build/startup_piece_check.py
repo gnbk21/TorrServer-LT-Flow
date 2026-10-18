@@ -58,7 +58,10 @@ def run(executable, fixtures, output, case, assert_fixed):
                     data = server.json("/flow/status/" + swarm.info_hash.hex() + "?traces=false")
                     samples.append(data["startup"])
                     if case == "missing-index" and time.monotonic() - started >= 12:
-                        server.json("/torrents", {"action": "rem", "hash": swarm.info_hash.hex()})
+                        with server.request("/torrents", {"action": "rem", "hash": swarm.info_hash.hex()}) as response:
+                            if response.status != 200:
+                                raise AssertionError("Owned torrent removal failed")
+                            response.read()  # This endpoint intentionally returns an empty body.
                         removed = True
                         break
                     if time.monotonic() - started > 315:
