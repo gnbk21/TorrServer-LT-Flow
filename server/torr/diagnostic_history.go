@@ -28,7 +28,7 @@ func (t *Torrent) recordStartupProgress(progress flow.StartupHistory, force bool
 // The existing one-second torrent watcher owns sampling. Nothing is polled on
 // the HTTP read path and opening the diagnostics drawer is not required.
 func (t *Torrent) recordPlaybackHistory(now time.Time) {
-	if !settings.CurrentFlow().DiagnosticHistory || !settings.CurrentFlow().MetricsEnabled {
+	if !settings.CurrentFlow().DiagnosticHistory || !settings.CurrentFlow().MetricsEnabled || t.bt == nil || t.bt.history.Load() == nil {
 		return
 	}
 	t.flowMu.Lock()

@@ -10,6 +10,7 @@ import (
 // These payloads contain only bounded numeric evidence and validated enums.
 // They describe server demand/delivery, never decoded player presentation.
 type StartupHistory struct {
+	Bootstrap         bool   `json:"bootstrap"`
 	HeadBytes         int64  `json:"head_bytes"`
 	HeadTargetBytes   int64  `json:"head_target_bytes"`
 	HeadVerifiedBytes int64  `json:"head_verified_bytes"`
@@ -73,14 +74,15 @@ type peerHistoryKey struct {
 }
 
 type ResponseHistory struct {
-	Session        uint64 `json:"session"`
-	Method         string `json:"method"`
-	Classification string `json:"classification"`
-	Status         int    `json:"status"`
-	BytesServed    int64  `json:"bytes_served"`
-	LifetimeMs     int64  `json:"lifetime_ms"`
-	TTFBMs         int64  `json:"ttfb_ms"`
-	Cancelled      bool   `json:"cancelled"`
+	FirstByteObserved bool   `json:"first_byte_observed"`
+	Session           uint64 `json:"session"`
+	Method            string `json:"method"`
+	Classification    string `json:"classification"`
+	Status            int    `json:"status"`
+	BytesServed       int64  `json:"bytes_served"`
+	LifetimeMs        int64  `json:"lifetime_ms"`
+	TTFBMs            int64  `json:"ttfb_ms"`
+	Cancelled         bool   `json:"cancelled"`
 }
 
 func (r ResponseHistory) valid() bool {

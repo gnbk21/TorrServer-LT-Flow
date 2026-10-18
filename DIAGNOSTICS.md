@@ -9,7 +9,9 @@ tracing is independent and is not required for the periodic history below.
 - `startup_sample`, at most once every two seconds plus a final snapshot:
   received and verified opening-buffer/end-of-file bytes, target sizes, missing
   piece counts and the first missing head/index piece. A received but unverified
-  shared boundary piece remains missing. The live drawer shows these separately.
+  shared boundary piece remains missing. During `bootstrap`, the head target is
+  the smaller probe head; the unscheduled phase-2 remainder is not blamed as a
+  blocker. The live drawer shows head/index evidence separately.
 - `playback_sample`, every ten seconds while clients are active or recently
   disconnected: response demand and delivery offsets, contiguous buffer, download
   and measured useful delivery rates, estimated consumption, local source
@@ -18,7 +20,9 @@ tracing is independent and is not required for the periodic history below.
   `truncated` marks omitted sessions. Session numbers are process-local counters.
 - `response`: completed external HTTP response status, bytes, first-byte delay,
   duration, cancellation and diagnostic classification. Internal media probes
-  are excluded. There are no request URLs, headers or client addresses.
+  are excluded. `first_byte_observed` distinguishes a measured zero-millisecond
+  first byte from a response that never delivered any body bytes. There are no
+  request URLs, headers or client addresses.
 - `peer_summary`: disconnect counts grouped by local torrent sequence,
   numeric error/operation and allowlisted reason, flushed every ten seconds and
   on recorder close. The aggregation holds at most 64 groups; overflow is counted

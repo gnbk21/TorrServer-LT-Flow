@@ -14,6 +14,7 @@ export interface FlowRangeTrace {
 
 export interface FlowStartup {
   progress?: {
+    bootstrap?: boolean;
     head_bytes: number;
     head_target_bytes: number;
     head_verified_bytes: number;

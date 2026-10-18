@@ -16,7 +16,8 @@ class HistoryAnalysisTests(unittest.TestCase):
             rows = [{"run": "old", "type": "first_byte", "elapsed_ms": 99999, "operation_measured": True},
                     {"run": "secret-token", "type": "first_byte", "elapsed_ms": 7000, "operation_measured": True},
                     {"run": "secret-token", "type": "peer_summary", "count": 2000},
-                    {"run": "secret-token", "type": "playback_sample", "playback": {"session": 2, "buffer_seconds": 8, "title": "private-title", "ip": "private-ip"}},
+                    {"run": "secret-token", "torrent": 1, "file": 3, "type": "playback_sample", "playback": {"session": 2, "buffer_seconds": 8, "title": "private-title", "ip": "private-ip"}},
+                    {"run": "secret-token", "torrent": 1, "file": 3, "type": "playback_sample", "playback": {"session": 2, "buffer_seconds": 12}},
                     {"run": "secret-token", "type": "shutdown_requested", "stage": "SIGNAL"}]
             path.write_text("\n".join(json.dumps(row) for row in rows) + '\n{"partial":', encoding="utf-8")
             report = analyzer.summarize(path)
@@ -24,6 +25,7 @@ class HistoryAnalysisTests(unittest.TestCase):
             self.assertEqual(report["peer_disconnects"], 2000)
             self.assertEqual(report["invalid_lines"], 1)
             self.assertEqual(report["shutdown_reason"], "SIGNAL")
+            self.assertEqual(report["latest_delivery_samples"], [{"torrent": 1, "file": 3, "session": 2, "buffer_seconds": 12}])
             self.assertNotIn("private", json.dumps(report))
             self.assertNotIn("secret-token", json.dumps(report))
 

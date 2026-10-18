@@ -380,6 +380,7 @@ func (t *Torrent) flowEnd(fileID int, group string, seq uint64, tr FlowRangeTrac
 		t.historyEvent(flow.HistoryEvent{Type: "response", File: fileID, Response: &flow.ResponseHistory{
 			Session: s.diagnosticID, Method: tr.Method, Classification: tr.Classification, Status: tr.Status,
 			BytesServed: tr.BytesServed, LifetimeMs: tr.LifetimeMs, TTFBMs: tr.TTFBMs, Cancelled: tr.Cancelled,
+			FirstByteObserved: tr.BytesServed > 0,
 		}})
 	}
 	if settings.CurrentFlow().RangeTraceEnabled {

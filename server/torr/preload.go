@@ -554,7 +554,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 		}
 
 		if flowEnabled {
-			progress := startupProgress(snap, headFirst, headLast, tailFirst, tailLast, plen)
+			progress := startupGateProgress(snap, headFirst, headLast, probeHeadLast, tailFirst, tailLast, plen, twoPhase && !probed)
 			if progress.BlockedOn == "NONE" && !probeStartedAt.IsZero() && time.Since(probeStartedAt) < time.Duration(flowSettings.ProbeGraceMs)*time.Millisecond {
 				t.mu.Lock()
 				finished := t.flowProbeFinishedIndex == index

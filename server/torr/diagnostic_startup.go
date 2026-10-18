@@ -57,3 +57,26 @@ func startupProgress(snapshot map[int]storageState.ItemState, headFirst, headLas
 	}
 	return s
 }
+
+func startupGateProgress(snapshot map[int]storageState.ItemState, headFirst, headLast, probeHeadLast, tailFirst, tailLast int, pieceLength int64, bootstrap bool) flow.StartupHistory {
+	s := startupProgress(snapshot, headFirst, headLast, tailFirst, tailLast, pieceLength)
+	if !bootstrap {
+		return s
+	}
+	// Phase 2 is deliberately not requested until the small probe head and
+	// index are verified. Do not call that unscheduled remainder a blocker.
+	head := startupProgress(snapshot, headFirst, probeHeadLast, 0, -1, pieceLength)
+	s.Bootstrap = true
+	s.HeadBytes, s.HeadVerifiedBytes, s.HeadTargetBytes = head.HeadBytes, head.HeadVerifiedBytes, head.HeadTargetBytes
+	s.MissingHeadPieces, s.HeadBlockerPiece = head.MissingHeadPieces, head.HeadBlockerPiece
+	s.BlockedOn = "NONE"
+	switch {
+	case s.MissingHeadPieces > 0 && s.MissingTailPieces > 0:
+		s.BlockedOn = "HEAD_AND_INDEX"
+	case s.MissingHeadPieces > 0:
+		s.BlockedOn = "HEAD"
+	case s.MissingTailPieces > 0:
+		s.BlockedOn = "INDEX"
+	}
+	return s
+}
