@@ -116,6 +116,7 @@ func (bt *BTServer) Connect() error {
 	s, err := lt.NewSessionWithDHT(cfg, dhtState)
 	if err != nil {
 		_ = torrstor.Global().Uninstall()
+		bt.history.Load().Record(flow.HistoryEvent{Type: "engine_stopped", Stage: "FAILED"})
 		bt.history.Load().Close(time.Second)
 		return fmt.Errorf("torr.BTServer.Connect: %w", err)
 	}
@@ -180,13 +181,13 @@ func (bt *BTServer) Disconnect() {
 		t.markClosed()
 	}
 	bt.torrents = map[Hash]*Torrent{}
-	bt.history.Load().Record(flow.HistoryEvent{Type: "engine_stopped"})
-	bt.history.Load().Close(time.Second)
 	_ = bt.session.Close()
 	bt.session = nil
 	// Drop the disk callbacks so subsequent NewSession calls (in tests
 	// for instance) fall back to the default libtorrent disk_io.
 	_ = torrstor.Global().Uninstall()
+	bt.history.Load().Record(flow.HistoryEvent{Type: "engine_stopped", Stage: diagnostics.ShutdownReason()})
+	bt.history.Load().Close(time.Second)
 }
 
 // Session is exposed so the rest of the package can call lt-level

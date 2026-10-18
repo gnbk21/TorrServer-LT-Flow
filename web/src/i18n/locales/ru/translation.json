@@ -674,7 +674,8 @@
       "readable_contiguous_bytes": "Непрерывно доступные байты",
       "verified_contiguous_bytes": "Непрерывно проверенные байты",
       "frontier_growth_rate": "Рост проверенной границы (байт/с)",
-      "burst_hint_source": "Источник подсказки контейнера"
+      "burst_hint_source": "Источник подсказки контейнера",
+      "demand_offset_bytes": "Запрошенная позиция ответа (байты)"
     },
     "sparseTitle": "Доступность частей",
     "sparseUnknown": "Доступность неизвестна или данные устарели.",
@@ -836,6 +837,22 @@
       "CACHE_WRITE_SLOW": "Медленная запись кэша",
       "CACHE_READ_FAILED": "Ошибка чтения кэша",
       "CACHE_WRITE_FAILED": "Ошибка записи кэша"
+    },
+    "startupEvidenceTitle": "Подготовка к запуску",
+    "startupEvidence": {
+      "head": "Начальный буфер",
+      "tail": "Резерв конца файла"
+    },
+    "startupVerified": "Проверено: {{ready}} / {{target}} МиБ",
+    "startupMissing": "Недостающих частей: {{count}}",
+    "startupBlockerPiece": "Первая недостающая часть: {{piece}}",
+    "startupEvidenceHint": "Полученные данные ещё могут ожидать проверки. Это подготовка на сервере, а не буфер плеера.",
+    "startupBlockers": {
+      "HEAD": "Ожидание начальных частей",
+      "INDEX": "Ожидание частей конца файла",
+      "HEAD_AND_INDEX": "Ожидание начальных частей и конца файла",
+      "PROBE": "Ожидание анализа медиа",
+      "NONE": "Необходимые части проверены"
     }
   },
   "search": {

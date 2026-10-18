@@ -644,7 +644,8 @@
       "readable_contiguous_bytes": "Octets lisibles contigus",
       "verified_contiguous_bytes": "Octets vérifiés contigus",
       "frontier_growth_rate": "Avancée vérifiée (octets/s)",
-      "burst_hint_source": "Source de l’indication du conteneur"
+      "burst_hint_source": "Source de l’indication du conteneur",
+      "demand_offset_bytes": "Position demandée dans la réponse (octets)"
     },
     "sparseTitle": "Disponibilité des pièces",
     "sparseUnknown": "Disponibilité inconnue ou échantillon périmé.",
@@ -806,6 +807,22 @@
       "CACHE_WRITE_SLOW": "Écriture lente du cache",
       "CACHE_READ_FAILED": "Échec de lecture du cache",
       "CACHE_WRITE_FAILED": "Échec d’écriture du cache"
+    },
+    "startupEvidenceTitle": "Préparation du démarrage",
+    "startupEvidence": {
+      "head": "Tampon initial",
+      "tail": "Réserve de fin de fichier"
+    },
+    "startupVerified": "Vérifié : {{ready}} / {{target}} Mio",
+    "startupMissing": "Morceaux manquants : {{count}}",
+    "startupBlockerPiece": "Premier morceau manquant : {{piece}}",
+    "startupEvidenceHint": "Les données reçues peuvent attendre leur vérification. Il s’agit de la préparation du serveur, pas du tampon du lecteur.",
+    "startupBlockers": {
+      "HEAD": "Attente des morceaux initiaux",
+      "INDEX": "Attente des morceaux de fin",
+      "HEAD_AND_INDEX": "Attente des morceaux initiaux et de fin",
+      "PROBE": "Attente de l’analyse du média",
+      "NONE": "Morceaux nécessaires vérifiés"
     }
   },
   "search": {

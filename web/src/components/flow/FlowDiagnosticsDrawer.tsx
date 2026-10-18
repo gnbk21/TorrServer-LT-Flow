@@ -8,6 +8,7 @@ import { RequestError } from "../common/RequestState";
 import { IncidentTimeline } from "./IncidentTimeline";
 import { PlayerEvidence } from "./PlayerEvidence";
 import { NextEpisodeWarmup } from "./NextEpisodeWarmup";
+import { StartupEvidence } from "./StartupEvidence";
 export interface FlowDiagnosticsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -52,6 +53,7 @@ export function FlowDiagnosticsDrawer({
       ) : (
         <div className="space-y-5">
           <IncidentTimeline status={status} />
+          {status.startup && <StartupEvidence startup={status.startup} />}
           <PlayerEvidence status={status} />
           {status.next_episode_warmup && (
             <NextEpisodeWarmup
@@ -188,28 +190,30 @@ export function FlowDiagnosticsDrawer({
                 </p>
               )}
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {Object.entries(data || {}).map(([key, value]) => (
-                  <div key={key}>
-                    <dt className="text-sm text-slate-400">
-                      {t(`flow.metrics.${key}`, {
-                        defaultValue: key.replaceAll("_", " "),
-                      })}
-                    </dt>
-                    <dd className="font-mono break-all">
-                      {key.endsWith("_ms") && typeof value === "number"
-                        ? value < 0
-                          ? "—"
-                          : `${value} ms`
-                        : key === "wait_reason" && typeof value === "string"
-                          ? t(`flow.startupStages.${value}`, {
-                              defaultValue: "—",
-                            })
-                          : typeof value === "object" && value !== null
-                            ? redactDiagnostic(JSON.stringify(value))
-                            : redactDiagnostic(value)}
-                    </dd>
-                  </div>
-                ))}
+                {Object.entries(data || {})
+                  .filter(([key]) => key !== "progress")
+                  .map(([key, value]) => (
+                    <div key={key}>
+                      <dt className="text-sm text-slate-400">
+                        {t(`flow.metrics.${key}`, {
+                          defaultValue: key.replaceAll("_", " "),
+                        })}
+                      </dt>
+                      <dd className="font-mono break-all">
+                        {key.endsWith("_ms") && typeof value === "number"
+                          ? value < 0
+                            ? "—"
+                            : `${value} ms`
+                          : key === "wait_reason" && typeof value === "string"
+                            ? t(`flow.startupStages.${value}`, {
+                                defaultValue: "—",
+                              })
+                            : typeof value === "object" && value !== null
+                              ? redactDiagnostic(JSON.stringify(value))
+                              : redactDiagnostic(value)}
+                      </dd>
+                    </div>
+                  ))}
               </dl>
             </section>
           ))}

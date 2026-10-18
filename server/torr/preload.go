@@ -245,6 +245,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 			BootstrapTailTargetBytes: int64(len(gatePieces)-headCount) * plen,
 			StartupTargetBytes:       int64(headCount) * plen, ProbeSuccess: probeCached, ProbeCached: probeCached}
 	}
+	t.startupRecordedAt = time.Time{}
 	t.mu.Unlock()
 
 	t.startupStage("FIRST_BLOCK")
@@ -553,6 +554,16 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 		}
 
 		if flowEnabled {
+			progress := startupProgress(snap, headFirst, headLast, tailFirst, tailLast, plen)
+			if progress.BlockedOn == "NONE" && !probeStartedAt.IsZero() && time.Since(probeStartedAt) < time.Duration(flowSettings.ProbeGraceMs)*time.Millisecond {
+				t.mu.Lock()
+				finished := t.flowProbeFinishedIndex == index
+				t.mu.Unlock()
+				if !finished {
+					progress.BlockedOn = "PROBE"
+				}
+			}
+			t.recordStartupProgress(progress, false)
 			stage := "HEAD_INDEX"
 			if probed {
 				stage = "PREBUFFER"
@@ -773,6 +784,9 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	// priorities. It must not re-reserve an obsolete file after a new preload.
 	detCancel()
 	<-detDone
+	if flowEnabled {
+		t.recordStartupProgress(startupProgress(cache.PiecesSnapshot(), headFirst, headLast, tailFirst, tailLast, plen), true)
+	}
 	outcome := "READY"
 	if !preloadOK {
 		outcome = "FAILED"

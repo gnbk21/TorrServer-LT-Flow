@@ -32,13 +32,14 @@ type FlowRangeTrace struct {
 var diagnosticSequence atomic.Uint64
 
 type FlowStartupStatus struct {
-	WaitReason         string `json:"wait_reason"`
-	StageStartedMs     int64  `json:"stage_started_ms"`
-	ElapsedMs          int64  `json:"elapsed_ms"`
-	FirstDHTPeerMs     int64  `json:"first_dht_peer_ms"`
-	MetadataReadyMs    int64  `json:"metadata_ready_ms"`
-	FirstPeerMs        int64  `json:"first_peer_ms"`
-	FirstUsefulBlockMs int64  `json:"first_useful_block_ms"`
+	Progress           *flow.StartupHistory `json:"progress,omitempty"`
+	WaitReason         string               `json:"wait_reason"`
+	StageStartedMs     int64                `json:"stage_started_ms"`
+	ElapsedMs          int64                `json:"elapsed_ms"`
+	FirstDHTPeerMs     int64                `json:"first_dht_peer_ms"`
+	MetadataReadyMs    int64                `json:"metadata_ready_ms"`
+	FirstPeerMs        int64                `json:"first_peer_ms"`
+	FirstUsefulBlockMs int64                `json:"first_useful_block_ms"`
 
 	FileIndex                int    `json:"file_index"`
 	State                    string `json:"state"`
@@ -61,6 +62,18 @@ func (t *Torrent) FlowStartup() FlowStartupStatus {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	s := t.flowStartup
+	if s.Progress != nil {
+		progress := *s.Progress
+		if progress.HeadBlockerPiece != nil {
+			piece := *progress.HeadBlockerPiece
+			progress.HeadBlockerPiece = &piece
+		}
+		if progress.TailBlockerPiece != nil {
+			piece := *progress.TailBlockerPiece
+			progress.TailBlockerPiece = &piece
+		}
+		s.Progress = &progress
+	}
 	if !t.flowStartupStarted.IsZero() && s.WaitReason != "READER_WINDOW" && s.WaitReason != "READY" && s.WaitReason != "PLAYING" && s.WaitReason != "FAILED" && s.WaitReason != "TIMEOUT" && s.WaitReason != "CANCELLED" {
 		s.ElapsedMs = time.Since(t.flowStartupStarted).Milliseconds()
 	}
@@ -130,6 +143,7 @@ type FlowSessionStatus struct {
 	State                     string                `json:"state"`
 	ActiveReaders             int                   `json:"active_readers"`
 	PlaybackOffsetBytes       int64                 `json:"playback_offset_bytes"`
+	DemandOffsetBytes         int64                 `json:"demand_offset_bytes"`
 	PlaybackOffsetSeconds     float64               `json:"playback_offset_seconds"`
 	BufferAheadBytes          int64                 `json:"buffer_ahead_bytes"`
 	BufferAheadSeconds        float64               `json:"buffer_ahead_seconds"`
@@ -166,6 +180,7 @@ type FlowSessionStatus struct {
 }
 
 type flowSession struct {
+	diagnosticID uint64
 	FlowSessionStatus
 	fileOffset      int64
 	demandOffset    int64 // Actual response position, including a blocked seek.
@@ -222,7 +237,7 @@ func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Requ
 	}
 	s := t.flowSessions[key]
 	if s == nil {
-		s = &flowSession{FlowSessionStatus: FlowSessionStatus{Group: group, SessionID: rand.Text(), FileIndex: fileID, FileSize: file.Length, State: "NEW"}, fileOffset: file.Offset}
+		s = &flowSession{diagnosticID: diagnosticSequence.Add(1), FlowSessionStatus: FlowSessionStatus{Group: group, SessionID: rand.Text(), FileIndex: fileID, FileSize: file.Length, State: "NEW"}, fileOffset: file.Offset}
 		t.flowSessions[key] = s
 	}
 	purpose := flow.Classify(req.Method, internal, hint, file.Length, s.PlaybackOffsetBytes, s.RangeRequestCount > 0)
@@ -361,6 +376,12 @@ func (t *Torrent) flowEnd(fileID int, group string, seq uint64, tr FlowRangeTrac
 	}
 	s.LastTTFBMs = tr.TTFBMs
 	s.lastSeen = time.Now()
+	if group != torrstor.ProbeReaderGroup {
+		t.historyEvent(flow.HistoryEvent{Type: "response", File: fileID, Response: &flow.ResponseHistory{
+			Session: s.diagnosticID, Method: tr.Method, Classification: tr.Classification, Status: tr.Status,
+			BytesServed: tr.BytesServed, LifetimeMs: tr.LifetimeMs, TTFBMs: tr.TTFBMs, Cancelled: tr.Cancelled,
+		}})
+	}
 	if settings.CurrentFlow().RangeTraceEnabled {
 		if len(s.Traces) >= 128 {
 			copy(s.Traces, s.Traces[1:])
@@ -416,6 +437,7 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 	var demands []int64
 	for _, s := range t.flowSessions {
 		copy := s.FlowSessionStatus
+		copy.DemandOffsetBytes = s.demandOffset
 		copy.Traces = nil
 		if includeTraces {
 			copy.Traces = append([]FlowRangeTrace(nil), s.Traces...)

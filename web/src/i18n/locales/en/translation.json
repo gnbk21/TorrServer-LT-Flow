@@ -542,7 +542,8 @@
       "readable_contiguous_bytes": "Readable contiguous bytes",
       "verified_contiguous_bytes": "Verified contiguous bytes",
       "frontier_growth_rate": "Verified frontier growth (bytes/s)",
-      "burst_hint_source": "Container hint source"
+      "burst_hint_source": "Container hint source",
+      "demand_offset_bytes": "Current response demand offset (bytes)"
     },
     "sparseTitle": "Piece availability",
     "sparseUnknown": "Availability is unknown or the sample is stale.",
@@ -704,6 +705,22 @@
       "CACHE_WRITE_SLOW": "Slow cache write",
       "CACHE_READ_FAILED": "Cache read failed",
       "CACHE_WRITE_FAILED": "Cache write failed"
+    },
+    "startupEvidenceTitle": "Startup preparation",
+    "startupEvidence": {
+      "head": "Opening buffer",
+      "tail": "End-of-file reserve"
+    },
+    "startupVerified": "Verified: {{ready}} / {{target}} MiB",
+    "startupMissing": "Missing pieces: {{count}}",
+    "startupBlockerPiece": "First missing piece: {{piece}}",
+    "startupEvidenceHint": "Received bytes may still await verification. This describes server preparation, not the player buffer.",
+    "startupBlockers": {
+      "HEAD": "Waiting for opening pieces",
+      "INDEX": "Waiting for end-of-file pieces",
+      "HEAD_AND_INDEX": "Waiting for opening and end-of-file pieces",
+      "PROBE": "Waiting for media probe",
+      "NONE": "Required pieces verified"
     }
   },
   "torrent": {

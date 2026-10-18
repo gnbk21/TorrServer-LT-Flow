@@ -631,7 +631,8 @@
       "readable_contiguous_bytes": "Непрекъснато достъпни байтове",
       "verified_contiguous_bytes": "Непрекъснато проверени байтове",
       "frontier_growth_rate": "Ръст на проверената граница (байта/с)",
-      "burst_hint_source": "Източник на подсказката"
+      "burst_hint_source": "Източник на подсказката",
+      "demand_offset_bytes": "Поискана позиция на отговора (байтове)"
     },
     "sparseTitle": "Наличност на части",
     "sparseUnknown": "Наличността е неизвестна или данните са остарели.",
@@ -793,6 +794,22 @@
       "CACHE_WRITE_SLOW": "Бавен запис в кеша",
       "CACHE_READ_FAILED": "Неуспешно четене от кеша",
       "CACHE_WRITE_FAILED": "Неуспешен запис в кеша"
+    },
+    "startupEvidenceTitle": "Подготовка за стартиране",
+    "startupEvidence": {
+      "head": "Начален буфер",
+      "tail": "Резерв в края на файла"
+    },
+    "startupVerified": "Проверено: {{ready}} / {{target}} МиБ",
+    "startupMissing": "Липсващи части: {{count}}",
+    "startupBlockerPiece": "Първа липсваща част: {{piece}}",
+    "startupEvidenceHint": "Получените данни може още да чакат проверка. Това е подготовка на сървъра, а не буферът на плейъра.",
+    "startupBlockers": {
+      "HEAD": "Изчакване на началните части",
+      "INDEX": "Изчакване на частите в края",
+      "HEAD_AND_INDEX": "Изчакване на началните и крайните части",
+      "PROBE": "Изчакване на медийния анализ",
+      "NONE": "Необходимите части са проверени"
     }
   },
   "search": {

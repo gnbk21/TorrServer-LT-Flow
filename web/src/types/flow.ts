@@ -13,6 +13,19 @@ export interface FlowRangeTrace {
 }
 
 export interface FlowStartup {
+  progress?: {
+    head_bytes: number;
+    head_target_bytes: number;
+    head_verified_bytes: number;
+    tail_bytes: number;
+    tail_target_bytes: number;
+    tail_verified_bytes: number;
+    missing_head_pieces: number;
+    missing_tail_pieces: number;
+    head_blocker_piece?: number;
+    tail_blocker_piece?: number;
+    blocked_on: "HEAD" | "INDEX" | "HEAD_AND_INDEX" | "PROBE" | "NONE";
+  };
   wait_reason?: string;
   stage_started_ms?: number;
   elapsed_ms?: number;
@@ -90,6 +103,7 @@ export interface FlowSession {
   state: string;
   active_readers: number;
   playback_offset_bytes: number;
+  demand_offset_bytes?: number;
   playback_offset_seconds: number;
   buffer_ahead_bytes: number;
   buffer_ahead_seconds: number;

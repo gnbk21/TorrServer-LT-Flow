@@ -644,7 +644,8 @@
       "readable_contiguous_bytes": "Безперервно доступні байти",
       "verified_contiguous_bytes": "Безперервно перевірені байти",
       "frontier_growth_rate": "Зростання перевіреної межі (байт/с)",
-      "burst_hint_source": "Джерело підказки контейнера"
+      "burst_hint_source": "Джерело підказки контейнера",
+      "demand_offset_bytes": "Запитана позиція відповіді (байти)"
     },
     "sparseTitle": "Доступність частин",
     "sparseUnknown": "Доступність невідома або дані застарілі.",
@@ -806,6 +807,22 @@
       "CACHE_WRITE_SLOW": "Повільний запис кешу",
       "CACHE_READ_FAILED": "Помилка читання кешу",
       "CACHE_WRITE_FAILED": "Помилка запису кешу"
+    },
+    "startupEvidenceTitle": "Підготовка до запуску",
+    "startupEvidence": {
+      "head": "Початковий буфер",
+      "tail": "Резерв кінця файлу"
+    },
+    "startupVerified": "Перевірено: {{ready}} / {{target}} МіБ",
+    "startupMissing": "Відсутніх частин: {{count}}",
+    "startupBlockerPiece": "Перша відсутня частина: {{piece}}",
+    "startupEvidenceHint": "Отримані дані ще можуть очікувати перевірки. Це підготовка на сервері, а не буфер програвача.",
+    "startupBlockers": {
+      "HEAD": "Очікування початкових частин",
+      "INDEX": "Очікування частин кінця файлу",
+      "HEAD_AND_INDEX": "Очікування початкових частин і кінця файлу",
+      "PROBE": "Очікування аналізу медіа",
+      "NONE": "Необхідні частини перевірено"
     }
   },
   "search": {

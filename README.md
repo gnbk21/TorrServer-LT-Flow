@@ -58,7 +58,7 @@ for the peer-retention fix, controlled measurements and diagnostic guidance.
 - **Adaptive startup:** schedules a bounded head buffer and the container index/tail; an optional `ffprobe` result can refine the startup target without blocking playback indefinitely.
 - **Adaptive read-ahead:** sizes the forward cache window from media bitrate and observed playback, within the configured cache budget. It can be disabled independently of other Flow features.
 - **Warm mobile sessions:** briefly protects data around the last playhead after a player disconnects, so a quick reconnect can resume from cached pieces.
-- **Seek and Range diagnostics:** tracks startup, buffering, piece waits, seek recovery, and HTTP Range timing. A torrent card opens live diagnostics; detailed Range traces are opt-in.
+- **Seek and Range diagnostics:** tracks startup, buffering, piece waits, seek recovery, and HTTP Range timing. A torrent card opens live diagnostics; detailed Range traces are opt-in. [Diagnostic history and analysis](DIAGNOSTICS.md) explains retained startup/delivery evidence and its limits.
 - **Windows background operation:** includes a restricted service account and a separate tray companion. See [Flow development notes](FLOW.md) for service and tray commands.
 
 Flow also provides rolling 60-second health metrics, smoother adaptive

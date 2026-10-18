@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -17,24 +18,31 @@ import (
 const HistoryQueueSize = 256
 const HistoryFileBytes = 1 << 20
 const HistoryArchives = 3 // Four files total, at most 4 MiB.
+const HistoryRecordBytes = 4096
 
 // HistoryEvent deliberately has no names, hashes, URLs, IPs, free-text errors,
 // request headers or arbitrary metadata. Strings are checked against enums.
 // Torrent is a process-local sequence, not a persistent media identity.
 type HistoryEvent struct {
-	Sparse            *SparseHistory `json:"sparse,omitempty"`
-	Time              time.Time      `json:"time"`
-	Run               string         `json:"run"`
-	Type              string         `json:"type"`
-	Stage             string         `json:"stage,omitempty"`
-	Torrent           uint64         `json:"torrent,omitempty"`
-	File              int            `json:"file,omitempty"`
-	ElapsedMs         int64          `json:"elapsed_ms"`
-	OperationMeasured bool           `json:"operation_measured,omitempty"`
-	Bytes             int64          `json:"bytes,omitempty"`
-	Code              int            `json:"code,omitempty"`
-	Operation         int            `json:"operation,omitempty"`
-	Dropped           uint64         `json:"dropped,omitempty"`
+	Startup           *StartupHistory  `json:"startup,omitempty"`
+	Playback          *PlaybackHistory `json:"playback,omitempty"`
+	Response          *ResponseHistory `json:"response,omitempty"`
+	Count             uint64           `json:"count,omitempty"`
+	WindowMs          int64            `json:"window_ms,omitempty"`
+	Truncated         bool             `json:"truncated,omitempty"`
+	Sparse            *SparseHistory   `json:"sparse,omitempty"`
+	Time              time.Time        `json:"time"`
+	Run               string           `json:"run"`
+	Type              string           `json:"type"`
+	Stage             string           `json:"stage,omitempty"`
+	Torrent           uint64           `json:"torrent,omitempty"`
+	File              int              `json:"file,omitempty"`
+	ElapsedMs         int64            `json:"elapsed_ms"`
+	OperationMeasured bool             `json:"operation_measured,omitempty"`
+	Bytes             int64            `json:"bytes,omitempty"`
+	Code              int              `json:"code,omitempty"`
+	Operation         int              `json:"operation,omitempty"`
+	Dropped           uint64           `json:"dropped,omitempty"`
 }
 
 type SparseHistory struct {
@@ -69,6 +77,8 @@ type HistoryStatus struct {
 }
 
 type History struct {
+	peerMu   sync.Mutex
+	peers    map[peerHistoryKey]HistoryEvent
 	queue    chan HistoryEvent
 	stop     chan struct{}
 	done     chan struct{}
@@ -77,6 +87,7 @@ type History struct {
 	dropped  atomic.Uint64
 	failures atomic.Uint64
 	run      string
+	flush    chan chan struct{}
 }
 
 func NewHistory(dir string) (*History, error) {
@@ -105,20 +116,27 @@ func NewHistory(dir string) (*History, error) {
 		f.Close()
 		return nil, err
 	}
-	h := &History{queue: make(chan HistoryEvent, HistoryQueueSize), stop: make(chan struct{}), done: make(chan struct{}), run: hex.EncodeToString(run[:])}
+	previousUnclosed := historyUnclosed(f, size)
+	h := &History{queue: make(chan HistoryEvent, HistoryQueueSize), stop: make(chan struct{}), done: make(chan struct{}), flush: make(chan chan struct{}), run: hex.EncodeToString(run[:])}
 	go h.writeLoop(f, name, size)
+	if previousUnclosed {
+		h.Record(HistoryEvent{Type: "previous_run", Stage: "UNCONFIRMED_TERMINATION"})
+	}
 	return h, nil
 }
 
 func validHistoryEvent(e HistoryEvent) bool {
 	switch e.Type {
-	case "engine_started", "engine_stopped", "metadata", "startup", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht", "sparse", "seek", "recovery", "storage":
+	case "engine_started", "engine_stopped", "shutdown_requested", "previous_run", "metadata", "startup", "startup_sample", "playback_sample", "response", "peer_summary", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht", "sparse", "seek", "recovery", "storage":
 	default:
 		return false
 	}
 	switch e.Stage {
-	case "", "METADATA", "PEERS", "FIRST_BLOCK", "HEAD_INDEX", "PREBUFFER", "PROBE_GRACE", "READY", "PLAYING", "READER_WINDOW", "CANCELLED", "TIMEOUT", "FAILED", "DHT_RESTORED", "DHT_SAVED", "DHT_IGNORED", "PAUSED", "REDUNDANT", "OTHER", "CACHE_READ_SLOW", "CACHE_WRITE_SLOW", "CACHE_READ_FAILED", "CACHE_WRITE_FAILED":
+	case "", "METADATA", "PEERS", "FIRST_BLOCK", "HEAD_INDEX", "PREBUFFER", "PROBE_GRACE", "READY", "PLAYING", "READER_WINDOW", "CANCELLED", "TIMEOUT", "FAILED", "DHT_RESTORED", "DHT_SAVED", "DHT_IGNORED", "PAUSED", "REDUNDANT", "OTHER", "CACHE_READ_SLOW", "CACHE_WRITE_SLOW", "CACHE_READ_FAILED", "CACHE_WRITE_FAILED", "API_SHUTDOWN", "SIGNAL", "SERVICE_STOP", "SERVER_ERROR", "SHUTDOWN_TIMEOUT", "UNCONFIRMED_TERMINATION":
 	default:
+		return false
+	}
+	if e.Startup != nil && !e.Startup.valid() || e.Playback != nil && !e.Playback.valid() || e.Response != nil && !e.Response.valid() {
 		return false
 	}
 	return true
@@ -138,6 +156,10 @@ func (h *History) Record(e HistoryEvent) {
 		e.Time = time.Now().UTC()
 	}
 	e.Run = h.run
+	if e.Type == "peer_disconnected" {
+		h.recordPeer(e)
+		return
+	}
 	select {
 	case h.queue <- e:
 	default:
@@ -197,8 +219,8 @@ func openHistory(name string) (*os.File, int64, error) {
 	size := st.Size()
 	if size > 0 {
 		// A killed process or short disk write may leave one partial line. Every
-		// event is <1 KiB, so recovery never scans the entire retained file.
-		n := min(size, int64(1024))
+		// event is bounded, so recovery never scans the entire retained file.
+		n := min(size, int64(HistoryRecordBytes))
 		tail := make([]byte, n)
 		if _, err := f.ReadAt(tail, size-n); err != nil {
 			f.Close()
@@ -242,14 +264,8 @@ func rotateHistory(name string) error {
 	return nil
 }
 
-func (h *History) consume(w io.Writer, e HistoryEvent) int64 {
-	e.Dropped = h.dropped.Load()
-	b, err := json.Marshal(e)
-	if err != nil {
-		h.failures.Add(1)
-		return 0
-	}
-	b = append(b, '\n')
+func (h *History) consume(w io.Writer, encoded []byte) int64 {
+	b := append(encoded, '\n')
 	n, err := w.Write(b)
 	if err != nil || n != len(b) {
 		h.failures.Add(1)
@@ -267,13 +283,19 @@ func (h *History) writeLoop(f *os.File, name string, size int64) {
 		}
 	}()
 	write := func(e HistoryEvent) {
-		// Every allowlisted record is well below 1 KiB. Rotate BEFORE writing;
-		// oversized pre-existing files are rotated and replaced too.
+		// Size the actual record: diagnostic snapshots may be larger than old
+		// scalar events, but no record may exceed the bounded recovery window.
+		e.Dropped = h.dropped.Load()
+		encoded, err := json.Marshal(e)
+		if err != nil || len(encoded)+1 > HistoryRecordBytes {
+			h.failures.Add(1)
+			return
+		}
 		if f == nil {
 			h.failures.Add(1)
 			return
 		}
-		if size+1024 > HistoryFileBytes {
+		if size+int64(len(encoded))+1 > HistoryFileBytes {
 			_ = f.Close()
 			f = nil
 			if err := rotateHistory(name); err != nil {
@@ -292,7 +314,7 @@ func (h *History) writeLoop(f *os.File, name string, size int64) {
 			return
 		}
 		beforeErrors := h.failures.Load()
-		size += h.consume(f, e)
+		size += h.consume(f, encoded)
 		if h.failures.Load() != beforeErrors {
 			// Do not append complete records to a partial line after disk failure.
 			// Producers keep returning immediately; a restart repairs the tail.
@@ -300,11 +322,42 @@ func (h *History) writeLoop(f *os.File, name string, size int64) {
 			f = nil
 		}
 	}
+	peerTick := time.NewTicker(10 * time.Second)
+	defer peerTick.Stop()
 	for {
 		select {
 		case e := <-h.queue:
 			write(e)
+		case now := <-peerTick.C:
+			for _, event := range h.flushPeers(now) {
+				write(event)
+			}
+		case done := <-h.flush:
+			for i := 0; i < HistoryQueueSize; i++ {
+				select {
+				case event := <-h.queue:
+					write(event)
+				default:
+					i = HistoryQueueSize
+				}
+			}
+			if f != nil {
+				if err := f.Sync(); err != nil {
+					h.failures.Add(1)
+				}
+			}
+			close(done)
 		case <-h.stop:
+			defer func() {
+				if f != nil {
+					if err := f.Sync(); err != nil {
+						h.failures.Add(1)
+					}
+				}
+			}()
+			for _, event := range h.flushPeers(time.Now()) {
+				write(event)
+			}
 			for i := 0; i < HistoryQueueSize; i++ {
 				select {
 				case e := <-h.queue:

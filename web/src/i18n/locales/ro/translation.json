@@ -638,7 +638,8 @@
       "readable_contiguous_bytes": "Octeți lizibili consecutivi",
       "verified_contiguous_bytes": "Octeți verificați consecutivi",
       "frontier_growth_rate": "Avans verificat (octeți/s)",
-      "burst_hint_source": "Sursa indiciului din container"
+      "burst_hint_source": "Sursa indiciului din container",
+      "demand_offset_bytes": "Poziția solicitată în răspuns (octeți)"
     },
     "sparseTitle": "Disponibilitatea pieselor",
     "sparseUnknown": "Disponibilitate necunoscută sau eșantion învechit.",
@@ -800,6 +801,22 @@
       "CACHE_WRITE_SLOW": "Scriere lentă în cache",
       "CACHE_READ_FAILED": "Citirea din cache a eșuat",
       "CACHE_WRITE_FAILED": "Scrierea în cache a eșuat"
+    },
+    "startupEvidenceTitle": "Pregătirea pornirii",
+    "startupEvidence": {
+      "head": "Buffer inițial",
+      "tail": "Rezervă la sfârșitul fișierului"
+    },
+    "startupVerified": "Verificat: {{ready}} / {{target}} MiB",
+    "startupMissing": "Fragmente lipsă: {{count}}",
+    "startupBlockerPiece": "Primul fragment lipsă: {{piece}}",
+    "startupEvidenceHint": "Datele primite pot aștepta verificarea. Aceste valori descriu pregătirea serverului, nu bufferul playerului.",
+    "startupBlockers": {
+      "HEAD": "Se așteaptă fragmentele inițiale",
+      "INDEX": "Se așteaptă fragmentele finale",
+      "HEAD_AND_INDEX": "Se așteaptă fragmentele inițiale și finale",
+      "PROBE": "Se așteaptă analiza media",
+      "NONE": "Fragmentele necesare sunt verificate"
     }
   },
   "search": {

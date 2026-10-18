@@ -417,6 +417,7 @@ func dropAllTorrent() {
 // announces, and a wedged teardown must not leave a half-dead server that
 // still answers HTTP but can never be stopped via the API.
 func Shutdown() {
+	RecordShutdownReason("API_SHUTDOWN")
 	cancelEngineRetries()
 	log.StopConsoleStatus()
 	log.Event("INFO", "Server", "Stopping...")
@@ -430,6 +431,7 @@ func Shutdown() {
 	case <-done:
 		log.Event("INFO", "Server", "Stopped.")
 	case <-time.After(15 * time.Second):
+		RecordShutdownReason("SHUTDOWN_TIMEOUT")
 		log.Event("WARN", "Server", "Teardown timed out; forcing exit.")
 	}
 	log.CloseConsole()

@@ -102,16 +102,18 @@ type Torrent struct {
 	preloadWorkMu          sync.Mutex
 	preloadWork            *preloadOperation
 	flowStartup            FlowStartupStatus
+	startupRecordedAt      time.Time // guarded by mu
 
-	flowMu           sync.Mutex
-	flowSessions     map[string]*flowSession
-	sparse           lt.SparseSnapshot // immutable cached aggregate, guarded by flowMu
-	sparseRecordedAt int64
-	peerHintsSavedAt time.Time
-	requestTimeouts  atomic.Uint64
-	requestsDropped  atomic.Uint64
-	trackerMu        sync.Mutex
-	trackers         map[string]FlowTrackerDiagnostic
+	flowMu             sync.Mutex
+	flowSessions       map[string]*flowSession
+	sparse             lt.SparseSnapshot // immutable cached aggregate, guarded by flowMu
+	sparseRecordedAt   int64
+	peerHintsSavedAt   time.Time
+	playbackRecordedAt time.Time // guarded by flowMu
+	requestTimeouts    atomic.Uint64
+	requestsDropped    atomic.Uint64
+	trackerMu          sync.Mutex
+	trackers           map[string]FlowTrackerDiagnostic
 
 	expiredTime       time.Time
 	streamAdmissions  int
@@ -635,6 +637,7 @@ func (t *Torrent) progressTick() {
 		count = int((st.TotalSize-1)/st.PieceLength + 1)
 	}
 	t.sampleSparse(handle, st.HasMetadata, st.PieceLength, count)
+	t.recordPlaybackHistory(now)
 	t.checkpointV2Metadata(handle)
 }
 

@@ -644,7 +644,8 @@
       "readable_contiguous_bytes": "连续可读字节",
       "verified_contiguous_bytes": "连续已验证字节",
       "frontier_growth_rate": "已验证边界增长（字节/秒）",
-      "burst_hint_source": "容器提示来源"
+      "burst_hint_source": "容器提示来源",
+      "demand_offset_bytes": "当前响应请求位置（字节）"
     },
     "sparseTitle": "分片可用性",
     "sparseUnknown": "可用性未知或采样已过期。",
@@ -806,6 +807,22 @@
       "CACHE_WRITE_SLOW": "缓存写入缓慢",
       "CACHE_READ_FAILED": "缓存读取失败",
       "CACHE_WRITE_FAILED": "缓存写入失败"
+    },
+    "startupEvidenceTitle": "启动准备",
+    "startupEvidence": {
+      "head": "开头缓冲区",
+      "tail": "文件末尾预留"
+    },
+    "startupVerified": "已验证：{{ready}} / {{target}} MiB",
+    "startupMissing": "缺失分片：{{count}}",
+    "startupBlockerPiece": "首个缺失分片：{{piece}}",
+    "startupEvidenceHint": "收到的数据可能仍在等待验证。这些数据描述服务器准备情况，而非播放器缓冲区。",
+    "startupBlockers": {
+      "HEAD": "等待开头分片",
+      "INDEX": "等待文件末尾分片",
+      "HEAD_AND_INDEX": "等待开头和末尾分片",
+      "PROBE": "等待媒体分析",
+      "NONE": "所需分片已验证"
     }
   },
   "search": {
