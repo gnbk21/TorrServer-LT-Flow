@@ -9,11 +9,33 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from high_bitrate_check import capture_go_profile
+from high_bitrate_check import capture_go_profile, failure_evidence
 import pgo_compare
 
 
 class Profiling(unittest.TestCase):
+    def test_failure_evidence_omits_network_identities_and_player_traces(self):
+        calls = []
+        def query(path, timeout):
+            calls.append((path, timeout))
+            if path == '/flow/network':
+                return {'listener_errors': 2, 'peer_tcp_port': 0,
+                        'addresses': ['private-address'], 'last_error': 'private-detail'}
+            return {'startup': {'state': 'BOOTSTRAP_PRELOAD'},
+                    'hash': 'private-hash', 'traces': ['private-trace']}
+        result = failure_evidence(SimpleNamespace(json=query), 'fixture')
+        self.assertEqual(result, {'network': {'listener_errors': 2, 'peer_tcp_port': 0},
+                                  'startup': {'state': 'BOOTSTRAP_PRELOAD'}})
+        self.assertEqual(calls, [('/flow/network', 2), ('/flow/status/fixture?traces=false', 2)])
+
+    def test_failure_evidence_preserves_unknown_and_handles_preupload_failure(self):
+        def fail(path, timeout):
+            raise TimeoutError('private-detail')
+        server = SimpleNamespace(json=fail)
+        self.assertEqual(failure_evidence(server, None), {'network_unavailable': 'TimeoutError'})
+        self.assertEqual(failure_evidence(server, 'fixture'), {
+            'network_unavailable': 'TimeoutError', 'startup_unavailable': 'TimeoutError'})
+
     def test_profile_is_bounded_and_records_exact_content(self):
         with tempfile.TemporaryDirectory() as root:
             server=SimpleNamespace(state=Path(root),profile_base='http://127.0.0.1:1234')

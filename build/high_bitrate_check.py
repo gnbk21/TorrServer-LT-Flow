@@ -37,6 +37,24 @@ def capture_go_profile(server, kind, seconds):
     return {'kind':kind, 'bytes':len(data), 'sha256':hashlib.sha256(data).hexdigest()}
 
 
+def failure_evidence(server, info_hash):
+    """Keep bounded, identity-free engine evidence before the owned process stops."""
+    result = {}
+    queries = [('network', '/flow/network', (
+        'peer_tcp_port', 'peer_udp_port', 'listener_errors', 'mapping_errors',
+        'state', 'connectivity', 'reannounce_count', 'retry_count'))]
+    if info_hash is not None:
+        queries.append(('startup', '/flow/status/'+info_hash+'?traces=false', None))
+    for name, path, keys in queries:
+        try:
+            data = server.json(path, timeout=2)
+            result[name] = ({key: data[key] for key in keys if key in data}
+                            if keys is not None else data.get('startup'))
+        except Exception as error:
+            result[name+'_unavailable'] = type(error).__name__
+    return result
+
+
 def cpu_seconds(process):
     """Owned process CPU only; unavailable platforms report unknown."""
     try:
@@ -185,17 +203,20 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                  'CapacityAwareRequests': capacity_aware, 'AdaptiveUrgentHorizon': urgent_horizon,
                  'ContainerBurstHints': burst_hints, 'DiagnosticHistory': False,
                  'StreamTransportBufferKiB': transport_kib}})
-    swarm, cpu_start, playback_start = None, None, None
+    swarm, cpu_start, playback_start, info_hash = None, None, None, None
+    stage = 'server_ready'
     try:
         report['ready_ms'] = server.ready()
         with server.request('/echo') as response:
             report['version'] = response.read().decode()
         with LocalSwarm([fixture], peers=plans, piece_length=piece_mb*MIB, high_throughput=True) as swarm:
             report['fixture_sha256'] = hashlib.sha256(swarm.data).hexdigest()
+            stage = 'torrent_upload'
             info = upload(server, swarm)
             index = info['file_stats'][0]['id']
             info_hash = swarm.info_hash.hex()
             if preload:
+                stage = 'preload'
                 started = time.monotonic()
                 path = '/stream/generated?'+urlencode({'link': info_hash, 'index': index, 'preload': '', 'stat': ''})
                 server.json(path, timeout=90)
@@ -209,6 +230,7 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                     time.sleep(.1)
                 report['preload_ready_ms'] = (time.monotonic()-started)*1000
                 report['startup'] = server.json('/flow/status/'+info_hash).get('startup')
+            stage = 'playback_and_capture'
             cpu_start = cpu_seconds(server.process)
             playback_start = time.monotonic()
             if case == 'outages':
@@ -264,6 +286,7 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
             if report['peak_observed_cache_bytes'] > (cache_mb+2*piece_mb)*MIB:
                 raise AssertionError('Observed cache exceeded budget plus two-piece concurrency allowance')
             report['ranges'] = []
+            stage = 'range_validation'
             if strict and latency_ms and capacity_aware:
                 report['request_age_probes'] = []
             for start, cancel in ((len(swarm.data)//2, False), (0, False),
@@ -308,6 +331,9 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
             report['passed'] = True
     except Exception as error:
         report['passed'], report['error'] = False, str(error)
+        report['failure_type'], report['failure_stage'] = type(error).__name__, stage
+        report['failure_evidence'] = failure_evidence(server, info_hash)
+        report['failure_evidence_after_swarm_close'] = swarm is not None
     finally:
         # Keep failure evidence too: neither a source disconnect nor a timeout
         # should hide resource peaks and whether qualified demand was observed.
@@ -390,6 +416,8 @@ if __name__ == '__main__':
                                     urgent_horizon=args.urgent_horizon, burst_hints=args.burst_hints, startup_mb=args.startup_mb,
                                     capture_go=args.capture_go, capture_native=args.capture_native,
                                     perfetto_tools=args.perfetto_tools))
+        if not results['cases'][-1]['passed']:
+            print(json.dumps(results['cases'][-1], indent=2), flush=True)
         (args.output/'report.json').write_text(json.dumps(results, indent=2)+'\n', encoding='utf-8')
         gc.collect() # local peer handler classes contain owner cycles with fixture bytes
     raise SystemExit(0 if all(case['passed'] for case in results['cases']) else 1)
