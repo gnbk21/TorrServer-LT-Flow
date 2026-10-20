@@ -72,3 +72,6 @@ Metadata removes the file-list bottleneck. Video still comes from peers or
 separately configured web seeds. This feature cannot invent seeders or increase
 their upload capacity. Public-cache availability and the user's actual release
 need field validation separately from controlled fixture tests.
+
+See the [verification record](METADATA_RECOVERY_VERIFICATION.md) for the tested
+Windows executable, actual cache/restart/UI results and remaining field limits.
