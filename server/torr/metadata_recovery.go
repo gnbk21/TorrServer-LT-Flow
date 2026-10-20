@@ -87,7 +87,7 @@ func metadataSources(spec *TorrentSpec, f *settings.FlowSettings) []metadataSour
 	if f.PublicMetadataCache && !spec.InfoHash.IsZero() && len(spec.InfoHash.HexString()) == 40 {
 		hash := strings.ToUpper(spec.InfoHash.HexString())
 		for _, raw := range []string{"https://torrage.info/torrent.php?h=" + hash,
-			"https://itorrents.org/torrent/" + hash + ".torrent"} {
+			"https://itorrents.net/torrent/" + hash + ".torrent"} {
 			if !seen[raw] {
 				out = append(out, metadataSource{raw, "PUBLIC_CACHE"})
 			}
@@ -116,15 +116,19 @@ func fetchMetadataSource(ctx context.Context, raw string) ([]byte, error) {
 		defer cancel()
 		transport := netpolicy.DestinationTransport(false)
 		defer transport.CloseIdleConnections()
-		client := &http.Client{Transport: transport, Timeout: metadataSourceTimeout,
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				if len(via) >= 3 || !validMetadataURL(req.URL.String()) {
-					return errors.New("metadata redirect refused")
-				}
-				return nil
-			}}
-		return readMetadataHTTP(bounded, client, raw)
+		return readMetadataHTTP(bounded, metadataHTTPClient(transport), raw)
 	})
+}
+
+func metadataHTTPClient(transport http.RoundTripper) *http.Client {
+	return &http.Client{Transport: transport, Timeout: metadataSourceTimeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			req.Header.Del("Referer") // supplied source queries can contain private tokens
+			if len(via) >= 3 || !validMetadataURL(req.URL.String()) {
+				return metadataSourceError{"REDIRECT_REFUSED"}
+			}
+			return nil
+		}}
 }
 
 func readMetadataHTTP(ctx context.Context, client *http.Client, raw string) ([]byte, error) {
@@ -151,9 +155,26 @@ func readMetadataHTTP(ctx context.Context, client *http.Client, raw string) ([]b
 
 func (t *Torrent) metadataRecoveryState(value MetadataRecovery) {
 	t.mu.Lock()
+	select {
+	case <-t.gotInfoCh:
+		if value.State != "METADATA_RECOVERED" {
+			t.mu.Unlock()
+			return // a peer won the race; do not replace its success with a miss
+		}
+	default:
+	}
 	t.flowStartup.MetadataRecovery = &value
 	t.mu.Unlock()
-	t.historyEvent(flow.HistoryEvent{Type: "metadata_recovery", Stage: value.State, Count: uint64(value.Attempts)})
+	codes := map[string]int{"SOURCE_NETWORK_ERROR": 1, "HTTP_STATUS_OR_SIZE": 2,
+		"HTTP_BODY_INVALID": 3, "INVALID_METADATA": 4, "HASH_MISMATCH": 5,
+		"NATIVE_REJECTED": 6, "FETCH_CAPACITY": 7, "HASH_VERIFIED": 8, "REDIRECT_REFUSED": 9}
+	operation := 0
+	if value.Source == "SUPPLIED" {
+		operation = 1
+	} else if value.Source == "PUBLIC_CACHE" {
+		operation = 2
+	}
+	t.historyEvent(flow.HistoryEvent{Type: "metadata_recovery", Stage: value.State, Count: uint64(value.Attempts), Code: codes[value.Code], Operation: operation})
 }
 
 func (t *Torrent) startMetadataRecovery() {
@@ -249,9 +270,6 @@ func (t *Torrent) recoverMetadata(ctx context.Context, sources []metadataSource,
 			}
 		}
 		last.State = "METADATA_MISS"
-		t.metadataRecoveryState(last)
-	}
-	if ctx.Err() == nil {
 		t.metadataRecoveryState(last)
 	}
 }

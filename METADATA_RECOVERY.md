@@ -25,7 +25,7 @@ replacing its native handle or changing the release.
   installations do not acquire public lookup consent through migration/import.
 
 Endpoints: [Torrage's documented hash lookup](https://torrage.info/) and
-`https://itorrents.org/torrent/INFO_HASH.torrent`. These independent services may
+`https://itorrents.net/torrent/INFO_HASH.torrent`. These independent services may
 miss a torrent or be unavailable. A TLS failure, challenge page or incorrect
 response is never successful recovery. Flow does not upload torrent files.
 
@@ -44,6 +44,7 @@ remain verified. Redirects are bounded/revalidated. The existing destination
 transport checks/pins DNS answers, blocks local/private/reserved destinations and
 honors the selected torrent interface without an environment-proxy bypass.
 BitTorrent transport encryption is unchanged.
+Redirects to HTTP are refused, and source URLs are never sent in a Referer header.
 
 Go and native code verify the payload identity; the native bridge checks every
 known v1/v2 hash before installing the info dictionary. Outer tracker lists/web
@@ -59,6 +60,13 @@ success or exhausted sources. Retained `metadata_recovery` events and the incide
 timeline use enum states and attempt counts, without source URLs, hashes, names,
 arbitrary errors or peer addresses. The metadata-stage elapsed clock runs while
 waiting. Recovery evidence remains visible through subsequent preloading.
+
+Retained event `operation` identifies supplied HTTPS sources (1) or public caches
+(2). Its `code` is a fixed classification: network failure (1), HTTP status/size
+(2), invalid body (3), invalid metainfo (4), hash mismatch (5), native rejection
+(6), concurrent-fetch capacity (7), verified identity (8), refused redirect (9).
+The live startup response also exposes the corresponding symbolic code. Source
+URLs and arbitrary upstream error strings are never retained.
 
 Metadata removes the file-list bottleneck. Video still comes from peers or
 separately configured web seeds. This feature cannot invent seeders or increase
