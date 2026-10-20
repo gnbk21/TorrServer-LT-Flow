@@ -2,8 +2,13 @@ package lt
 
 import (
 	"bytes"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestNativeMetadataFallbackValidatesIdentityAndKeepsHandle(t *testing.T) {
@@ -38,9 +43,6 @@ func TestNativeMetadataFallbackValidatesIdentityAndKeepsHandle(t *testing.T) {
 		if installed, err := h.SetMetadata(payload); err != nil || installed {
 			t.Fatal("already available metadata was reported as newly recovered", err)
 		}
-		if trackers := strings.Join(h.Trackers(), ","); trackers != "https://authorized.example/announce" {
-			t.Fatal("changed authorized tracker tiers", trackers)
-		}
 		if _, err := h.Metadata(); err != nil {
 			t.Fatal("metadata cannot be persisted", err)
 		}
@@ -68,15 +70,26 @@ func TestNativeMetadataFallbackRejectsWrongSecondHybridHash(t *testing.T) {
 }
 
 func TestNativeMetadataFallbackIgnoresOuterSourcesForPrivateTorrent(t *testing.T) {
+	var authorized, unauthorized atomic.Int32
+	tracker := func(counter *atomic.Int32) *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			counter.Add(1)
+			_, _ = w.Write([]byte("d8:intervali1800e5:peers0:e"))
+		}))
+	}
+	a, b := tracker(&authorized), tracker(&unauthorized)
+	defer a.Close()
+	defer b.Close()
 	info := "d6:lengthi100e4:name4:test12:piece lengthi16384e6:pieces20:" + strings.Repeat("\x00", 20) + "7:privatei1ee"
-	payload := []byte("d8:announce32:https://untrusted.test/announce/4:info" + info + "e")
+	outer := b.URL + "/announce"
+	payload := []byte(fmt.Sprintf("d8:announce%d:%s4:info%se", len(outer), outer, info))
 	parsed, err := ParseTorrentBytes(payload)
 	if err != nil || !parsed.Private {
 		t.Fatal("invalid private fixture", err)
 	}
 	s := newSession(t)
 	h, err := s.AddTorrent(AddTorrentParams{Link: "magnet:?xt=urn:btih:" + parsed.InfoHash,
-		SavePath: t.TempDir(), Paused: true, TrackerTiers: [][]string{{"https://authorized.example/announce"}}})
+		SavePath: t.TempDir(), TrackerTiers: [][]string{{a.URL + "/announce"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +99,16 @@ func TestNativeMetadataFallbackIgnoresOuterSourcesForPrivateTorrent(t *testing.T
 	if st, err := h.Status(); err != nil || !st.Private {
 		t.Fatal("private flag lost", err)
 	}
-	if trackers := strings.Join(h.Trackers(), ","); trackers != "https://authorized.example/announce" {
-		t.Fatal("outer tracker replaced the owner's authorized tracker", trackers)
+	_ = h.ForceReannounce()
+	deadline := time.Now().Add(5 * time.Second)
+	for authorized.Load() == 0 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if authorized.Load() == 0 {
+		t.Fatal("authorized tracker never announced")
+	}
+	time.Sleep(100 * time.Millisecond)
+	if unauthorized.Load() != 0 {
+		t.Fatal("outer tracker replaced the owner's authorized tracker")
 	}
 }

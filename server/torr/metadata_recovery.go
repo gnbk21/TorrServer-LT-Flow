@@ -25,6 +25,10 @@ const metadataSourceBytes = 16 << 20
 
 type metadataSource struct{ url, kind string }
 
+type metadataSourceError struct{ code string }
+
+func (e metadataSourceError) Error() string { return e.code }
+
 // MetadataRecovery exposes enums/counts only. Never publish source URLs,
 // credentials, torrent identities or upstream error text in diagnostic history.
 type MetadataRecovery struct {
@@ -136,11 +140,11 @@ func readMetadataHTTP(ctx context.Context, client *http.Client, raw string) ([]b
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK || resp.ContentLength > metadataSourceBytes {
-		return nil, errors.New("metadata source unavailable or oversized")
+		return nil, metadataSourceError{"HTTP_STATUS_OR_SIZE"}
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, metadataSourceBytes+1))
 	if err != nil || len(data) == 0 || len(data) > metadataSourceBytes {
-		return nil, errors.New("metadata source empty, incomplete or oversized")
+		return nil, metadataSourceError{"HTTP_BODY_INVALID"}
 	}
 	return data, nil
 }
@@ -211,17 +215,28 @@ func (t *Torrent) recoverMetadata(ctx context.Context, sources []metadataSource,
 		last.Source, last.State, last.Code = source.kind, "METADATA_HTTP", ""
 		t.metadataRecoveryState(last)
 		data, err := fetch(ctx, source.url)
+		last.Code = "SOURCE_NETWORK_ERROR"
+		if errors.Is(err, flow.ErrFetchBusy) {
+			last.Code = "FETCH_CAPACITY"
+		}
+		var sourceError metadataSourceError
+		if errors.As(err, &sourceError) {
+			last.Code = sourceError.code
+		}
 		if err == nil && ctx.Err() == nil {
 			var parsed *lt.ParsedTorrent
 			parsed, err = lt.ParseTorrentBytes(data)
+			last.Code = "INVALID_METADATA"
 			if err == nil && (!parsed.HasMetadata || t.Hash().HexString() != parsed.InfoHashV1 && t.Hash().HexString() != parsed.InfoHashV2) {
 				err = errors.New("metadata hash mismatch")
+				last.Code = "HASH_MISMATCH"
 			}
 			installed := false
 			if err == nil {
 				// Native code checks all known hashes again. Keep the handle and
 				// its authorized tracker tiers; ignore outer trackers/web seeds.
 				installed, err = handle.SetMetadata(data)
+				last.Code = "NATIVE_REJECTED"
 			}
 			if err == nil {
 				t.signalGotInfo()
@@ -233,7 +248,8 @@ func (t *Torrent) recoverMetadata(ctx context.Context, sources []metadataSource,
 				return // a peer completed the same metadata concurrently
 			}
 		}
-		last.State, last.Code = "METADATA_MISS", "SOURCE_UNAVAILABLE_OR_INVALID"
+		last.State = "METADATA_MISS"
+		t.metadataRecoveryState(last)
 	}
 	if ctx.Err() == nil {
 		t.metadataRecoveryState(last)
