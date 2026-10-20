@@ -61,6 +61,8 @@ export const commonSettings = new Set([
   "Flow.AdaptiveStartup",
   "Flow.AdaptiveReadAhead",
   "Flow.SwarmProfile",
+  "Flow.MetadataFallback",
+  "Flow.PublicMetadataCache",
   "Flow.TargetBufferSeconds",
   "Flow.NextEpisodeWarmup",
   "Flow.MetricsEnabled",

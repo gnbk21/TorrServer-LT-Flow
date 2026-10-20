@@ -1394,6 +1394,29 @@ int lt_torrent_set_max_connections(lt_torrent tid, int n) {
 
 // ----- metadata accessors -----
 
+int lt_torrent_set_metadata(lt_torrent tid, const uint8_t* buf, size_t len) {
+    WRAP_BEGIN
+    if (!buf || len == 0 || len > (64u << 20))
+        return set_err(LT_ERR_INVALID, "invalid metadata size");
+    auto h = get_torrent(tid);
+    if (!h.is_valid()) return set_err(LT_ERR_NOT_FOUND, "torrent not found");
+    lt::error_code ec;
+    auto atp = parse_torrent_or_info(reinterpret_cast<char const*>(buf), static_cast<int>(len), ec);
+    if (ec || !atp.ti) return set_err(LT_ERR_PARSE, "invalid torrent metadata");
+    auto expected = h.info_hashes();
+    auto actual = atp.ti->info_hashes();
+    if ((!expected.has_v1() && !expected.has_v2())
+        || (expected.has_v1() && (!actual.has_v1() || expected.v1 != actual.v1))
+        || (expected.has_v2() && (!actual.has_v2() || expected.v2 != actual.v2)))
+        return set_err(LT_ERR_INVALID, "torrent metadata identity mismatch");
+    auto current = h.torrent_file();
+    if (current && current->is_valid()) return LT_OK;
+    if (!h.set_metadata(atp.ti->info_section()))
+        return set_err(LT_ERR_INVALID, "torrent metadata was not accepted");
+    return 1;
+    WRAP_END(LT_ERR_INTERNAL)
+}
+
 int lt_torrent_have_metadata(lt_torrent tid) {
     WRAP_BEGIN
     auto h = get_torrent(tid);

@@ -635,7 +635,8 @@
       "peer_disconnected": "Peer disconnected",
       "seek": "Seek requested",
       "recovery": "Seek response recovered",
-      "storage": "Cache operation"
+      "storage": "Cache operation",
+      "metadata_recovery": "Magnet metadata recovery"
     },
     "playerEvidence": "Player measurements",
     "playerEvidenceHint": "Optional Flow Player report. Import stays in this open dialog; it is not uploaded or applied as a server setting.",
@@ -727,7 +728,16 @@
     "startupUnchoked": "Unchoked suppliers: {{count}}",
     "startupBlocks": "Blocks: {{pending}} requested, {{waiting}} unrequested, {{received}} received/writing",
     "startupSupplyTruncated": "Partial peer sample; counts may be lower bounds.",
-    "startupSupplyHint": "Source counts describe sampled connected peers. Missing or stale evidence remains unknown."
+    "startupSupplyHint": "Source counts describe sampled connected peers. Missing or stale evidence remains unknown.",
+    "metadataRecovery": {
+      "METADATA_WAIT": "Waiting for peer metadata before trying alternate sources.",
+      "METADATA_HTTP": "Retrieving metadata from an alternate source.",
+      "METADATA_RECOVERED": "Matching metadata recovered automatically.",
+      "METADATA_PEERS": "Metadata arrived from peers.",
+      "METADATA_MISS": "Alternate sources returned no matching metadata."
+    },
+    "metadataAttempts": "Metadata source attempts: {{count}}",
+    "metadataRecoveryHint": "Keeps the same torrent and video quality. Video still requires responsive peers."
   },
   "torrent": {
     "justPlayer": "Play in Just Player",
@@ -960,7 +970,9 @@
         "ContainerBurstHints": "Resident container burst hints (experiment)",
         "MSXAllowLAN": "Allow MSX proxy access to LAN",
         "StreamTransportBufferKiB": "Transport buffer (controlled experiment)",
-        "NextEpisodeWarmup": "Next episode header/index warmup"
+        "NextEpisodeWarmup": "Next episode header/index warmup",
+        "MetadataFallback": "Automatic magnet metadata recovery",
+        "PublicMetadataCache": "Use free public metadata caches"
       }
     },
     "maintenance": {
@@ -1060,7 +1072,9 @@
     "changed": "Changed",
     "draftConflict": "Settings changed on the server while this draft was open. Your edits are preserved. Reload saved settings before applying; this discards the draft.",
     "reloadSaved": "Discard draft and reload saved settings",
-    "requestsPerMinute": "requests/min"
+    "requestsPerMinute": "requests/min",
+    "metadataFallbackHelp": "After 15 seconds, try up to two supplied HTTPS .torrent URLs. Results must match the magnet hash.",
+    "publicMetadataCacheHelp": "Sends stalled v1 magnet hashes to Torrage and iTorrents. Free; no account needed. Services may be unavailable. Private status is unknown before metadata arrives."
   },
   "runtime": {
     "torrents": "Torrents",

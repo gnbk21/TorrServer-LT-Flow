@@ -737,7 +737,8 @@
       "peer_disconnected": "节点已断开",
       "seek": "已请求跳转",
       "recovery": "跳转响应恢复",
-      "storage": "缓存操作"
+      "storage": "缓存操作",
+      "metadata_recovery": "磁力链接元数据恢复"
     },
     "playerEvidence": "播放器测量",
     "playerEvidenceHint": "可选的 Flow Player 报告。导入数据仅保留在此打开的对话框中，不会上传到服务器或更改设置。",
@@ -829,7 +830,16 @@
     "startupUnchoked": "允许传输的来源：{{count}}",
     "startupBlocks": "数据块：已请求 {{pending}}，未请求 {{waiting}}，已接收/写入中 {{received}}",
     "startupSupplyTruncated": "节点采样不完整，实际数量可能更高。",
-    "startupSupplyHint": "来源数量仅表示采样的已连接节点。缺失或过期的信息仍视为未知。"
+    "startupSupplyHint": "来源数量仅表示采样的已连接节点。缺失或过期的信息仍视为未知。",
+    "metadataRecovery": {
+      "METADATA_WAIT": "等待节点元数据，然后尝试其他来源。",
+      "METADATA_HTTP": "正在从其他来源获取元数据。",
+      "METADATA_RECOVERED": "已自动恢复匹配的元数据。",
+      "METADATA_PEERS": "已从节点收到元数据。",
+      "METADATA_MISS": "其他来源未返回匹配的元数据。"
+    },
+    "metadataAttempts": "元数据获取尝试次数：{{count}}",
+    "metadataRecoveryHint": "保留相同种子和视频质量。视频仍需要可响应的节点。"
   },
   "search": {
     "source": "来源",
@@ -976,7 +986,9 @@
         "ContainerBurstHints": "已缓存容器索引的峰值提示（实验）",
         "MSXAllowLAN": "允许 MSX 代理访问局域网",
         "StreamTransportBufferKiB": "传输缓冲区（受控实验）",
-        "NextEpisodeWarmup": "预热下一集文件头/索引"
+        "NextEpisodeWarmup": "预热下一集文件头/索引",
+        "MetadataFallback": "自动恢复磁力链接元数据",
+        "PublicMetadataCache": "免费的公共元数据缓存"
       }
     },
     "maintenance": {
@@ -1076,7 +1088,9 @@
     "changed": "已修改",
     "draftConflict": "编辑期间服务器设置已更改。您的修改仍保留在草稿中。应用前请重新加载已保存的设置；这将丢弃草稿。",
     "reloadSaved": "丢弃草稿并重新加载设置",
-    "requestsPerMinute": "请求/分钟"
+    "requestsPerMinute": "请求/分钟",
+    "metadataFallbackHelp": "15 秒后尝试磁力链接中最多两个 HTTPS .torrent 地址。哈希必须匹配。",
+    "publicMetadataCacheHelp": "将卡住的 v1 磁力哈希发送给 Torrage 和 iTorrents。免费且无需账户。服务可能不可用。获取元数据前无法判断私有状态。"
   },
   "preparation": {
     "title": "准备剧集",

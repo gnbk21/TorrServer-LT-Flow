@@ -175,6 +175,9 @@ int lt_torrent_set_max_connections(lt_torrent t, int n);
 /* ----- metadata accessors ----- */
 /* 1 if metadata is present, 0 if not yet downloaded, < 0 on error */
 int     lt_torrent_have_metadata(lt_torrent t);
+// Validate a full metainfo or info-dictionary against every known identity,
+// then install only its info section on the existing magnet handle.
+int     lt_torrent_set_metadata(lt_torrent t, const uint8_t* buf, size_t len);
 
 /* Raw .torrent bytes (info dict). NULL if metadata not yet received. */
 char*   lt_torrent_metadata_alloc(lt_torrent t, size_t* out_len);

@@ -737,7 +737,8 @@
       "peer_disconnected": "Pair déconnecté",
       "seek": "Recherche demandée",
       "recovery": "Réponse après recherche",
-      "storage": "Opération du cache"
+      "storage": "Opération du cache",
+      "metadata_recovery": "Récupération des métadonnées magnet"
     },
     "playerEvidence": "Mesures du lecteur",
     "playerEvidenceHint": "Rapport Flow Player facultatif. L’import reste dans cette boîte de dialogue ouverte ; il n’est ni envoyé au serveur ni appliqué aux paramètres.",
@@ -829,7 +830,16 @@
     "startupUnchoked": "Sources autorisant le transfert : {{count}}",
     "startupBlocks": "Blocs : {{pending}} demandés, {{waiting}} non demandés, {{received}} reçus/en écriture",
     "startupSupplyTruncated": "Échantillon partiel ; les nombres réels peuvent être supérieurs.",
-    "startupSupplyHint": "Les sources comptées sont les pairs connectés échantillonnés. Les données absentes ou périmées restent inconnues."
+    "startupSupplyHint": "Les sources comptées sont les pairs connectés échantillonnés. Les données absentes ou périmées restent inconnues.",
+    "metadataRecovery": {
+      "METADATA_WAIT": "Attente des métadonnées des pairs avant les autres sources.",
+      "METADATA_HTTP": "Récupération des métadonnées depuis une autre source.",
+      "METADATA_RECOVERED": "Métadonnées correspondantes récupérées automatiquement.",
+      "METADATA_PEERS": "Métadonnées reçues des pairs.",
+      "METADATA_MISS": "Aucune métadonnée correspondante dans les autres sources."
+    },
+    "metadataAttempts": "Tentatives de récupération : {{count}}",
+    "metadataRecoveryHint": "Le torrent et la qualité sont conservés. La vidéo nécessite des pairs disponibles."
   },
   "search": {
     "source": "Source",
@@ -976,7 +986,9 @@
         "ContainerBurstHints": "Indications de pics par index résident (expérience)",
         "MSXAllowLAN": "Autoriser le proxy MSX sur le réseau local",
         "StreamTransportBufferKiB": "Tampon de transport (expérience contrôlée)",
-        "NextEpisodeWarmup": "Préchauffage de l’en-tête/index du prochain épisode"
+        "NextEpisodeWarmup": "Préchauffage de l’en-tête/index du prochain épisode",
+        "MetadataFallback": "Récupération automatique des métadonnées magnet",
+        "PublicMetadataCache": "Caches publics gratuits de métadonnées"
       }
     },
     "maintenance": {
@@ -1076,7 +1088,9 @@
     "changed": "Modifié",
     "draftConflict": "Les paramètres du serveur ont changé pendant la modification. Votre brouillon est conservé. Rechargez les paramètres enregistrés avant de les appliquer ; le brouillon sera supprimé.",
     "reloadSaved": "Supprimer le brouillon et recharger",
-    "requestsPerMinute": "requêtes/min"
+    "requestsPerMinute": "requêtes/min",
+    "metadataFallbackHelp": "Après 15 secondes, essayer deux URL HTTPS .torrent fournies. L’empreinte doit correspondre au magnet.",
+    "publicMetadataCacheHelp": "Envoie l’empreinte des magnets v1 bloqués à Torrage et iTorrents. Gratuit, sans compte. Services parfois indisponibles. Statut privé inconnu avant récupération."
   },
   "preparation": {
     "title": "Préparer cet épisode",

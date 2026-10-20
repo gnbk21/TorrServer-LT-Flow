@@ -10,13 +10,14 @@ import (
 // names and JSON shape are kept compatible with the anacrolix-era
 // metainfo encoding so pre-existing config.db files load unchanged.
 type TorrentSpec struct {
-	WebSeeds    []WebSeed  `json:"WebSeeds,omitempty"`
-	InfoHash    string     `json:"InfoHash"` // 40-hex lowercase
-	InfoHashV1  string     `json:"InfoHashV1,omitempty"`
-	InfoHashV2  string     `json:"InfoHashV2,omitempty"`
-	InfoBytes   []byte     `json:"InfoBytes,omitempty"`
-	Trackers    [][]string `json:"Trackers,omitempty"`
-	DisplayName string     `json:"DisplayName,omitempty"`
+	MetadataSources []string   `json:"MetadataSources,omitempty"`
+	WebSeeds        []WebSeed  `json:"WebSeeds,omitempty"`
+	InfoHash        string     `json:"InfoHash"` // 40-hex lowercase
+	InfoHashV1      string     `json:"InfoHashV1,omitempty"`
+	InfoHashV2      string     `json:"InfoHashV2,omitempty"`
+	InfoBytes       []byte     `json:"InfoBytes,omitempty"`
+	Trackers        [][]string `json:"Trackers,omitempty"`
+	DisplayName     string     `json:"DisplayName,omitempty"`
 }
 
 type WebSeed struct {

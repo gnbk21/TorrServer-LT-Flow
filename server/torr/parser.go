@@ -106,7 +106,9 @@ func ParseMagnetURI(uri string) (*TorrentSpec, error) {
 	if err != nil {
 		return nil, fmt.Errorf("torr.ParseMagnetURI: %w", err)
 	}
-	return specFromParsed(pt, nil), nil
+	spec := specFromParsed(pt, nil)
+	spec.MetadataSources = magnetMetadataSources(uri)
+	return spec, nil
 }
 
 // ParseBytes parses an in-memory .torrent payload.

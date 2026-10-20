@@ -127,11 +127,12 @@ func NewHistory(dir string) (*History, error) {
 
 func validHistoryEvent(e HistoryEvent) bool {
 	switch e.Type {
-	case "engine_started", "engine_stopped", "shutdown_requested", "previous_run", "metadata", "startup", "startup_sample", "playback_sample", "response", "peer_summary", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht", "sparse", "seek", "recovery", "storage":
+	case "engine_started", "engine_stopped", "shutdown_requested", "previous_run", "metadata", "metadata_recovery", "startup", "startup_sample", "playback_sample", "response", "peer_summary", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht", "sparse", "seek", "recovery", "storage":
 	default:
 		return false
 	}
 	switch e.Stage {
+	case "METADATA_WAIT", "METADATA_HTTP", "METADATA_RECOVERED", "METADATA_PEERS", "METADATA_MISS":
 	case "", "METADATA", "PEERS", "FIRST_BLOCK", "HEAD_INDEX", "PREBUFFER", "PROBE_GRACE", "READY", "PLAYING", "READER_WINDOW", "CANCELLED", "TIMEOUT", "FAILED", "DHT_RESTORED", "DHT_SAVED", "DHT_IGNORED", "PAUSED", "REDUNDANT", "OTHER", "CACHE_READ_SLOW", "CACHE_WRITE_SLOW", "CACHE_READ_FAILED", "CACHE_WRITE_FAILED", "API_SHUTDOWN", "SIGNAL", "SERVICE_STOP", "SERVER_ERROR", "SHUTDOWN_TIMEOUT", "UNCONFIRMED_TERMINATION":
 	default:
 		return false

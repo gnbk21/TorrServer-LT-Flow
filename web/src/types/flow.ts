@@ -28,6 +28,12 @@ export interface StartupPieceSupply {
 }
 
 export interface FlowStartup {
+  metadata_recovery?: {
+    state: string;
+    source?: string;
+    attempts: number;
+    code?: string;
+  };
   wait_budget_ms?: number;
   wait_extended?: boolean;
   progress?: {

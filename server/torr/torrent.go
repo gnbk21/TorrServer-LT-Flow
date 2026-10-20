@@ -1,6 +1,7 @@
 package torr
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"path/filepath"
@@ -121,9 +122,11 @@ type Torrent struct {
 	preparationHold   atomic.Bool
 	warmIdleSince     time.Time
 
-	gotInfoCh   chan struct{}
-	gotInfoOnce sync.Once
-	posterOnce  sync.Once
+	gotInfoCh              chan struct{}
+	gotInfoOnce            sync.Once
+	metadataRecoveryOnce   sync.Once
+	metadataRecoveryCancel context.CancelFunc // guarded by mu
+	posterOnce             sync.Once
 
 	closeCh   chan struct{}
 	closeOnce sync.Once
@@ -308,6 +311,7 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 			}
 		}
 	} else if lh != nil {
+		t.startMetadataRecovery()
 		go func() {
 			_ = lh.ForceReannounce()
 			if settings.BTsets() == nil || !settings.BTsets().DisableDHT {
@@ -327,7 +331,14 @@ func magnetFromSpec(spec *TorrentSpec) string {
 	if len(spec.InfoBytes) > 0 {
 		return ""
 	}
-	return spec.InfoHash.Magnet()
+	magnet := spec.InfoHash.Magnet()
+	if hash := NewHashFromHex(spec.InfoHashV2); !hash.IsZero() && len(hash.HexString()) == 64 && hash != spec.InfoHash {
+		magnet += "&xt=urn:btmh:1220" + hash.HexString()
+	}
+	if hash := NewHashFromHex(spec.InfoHashV1); !hash.IsZero() && len(hash.HexString()) == 40 && hash != spec.InfoHash {
+		magnet += "&xt=urn:btih:" + hash.HexString()
+	}
+	return magnet
 }
 
 type torrentIdentities struct{ primary, v1, v2 Hash }
@@ -434,6 +445,17 @@ func (t *Torrent) signalGotInfo() {
 		}
 		if t.gotInfoCh != nil {
 			close(t.gotInfoCh)
+		}
+		t.mu.Lock()
+		cancel := t.metadataRecoveryCancel
+		if recovery := t.flowStartup.MetadataRecovery; recovery != nil && recovery.State != "METADATA_RECOVERED" {
+			value := *recovery
+			value.State, value.Source, value.Code = "METADATA_PEERS", "PEERS", "HASH_VERIFIED"
+			t.flowStartup.MetadataRecovery = &value
+		}
+		t.mu.Unlock()
+		if cancel != nil {
+			cancel()
 		}
 	})
 }
@@ -744,6 +766,12 @@ func (t *Torrent) Close() bool {
 }
 
 func (t *Torrent) markClosed() {
+	t.mu.Lock()
+	cancel := t.metadataRecoveryCancel
+	t.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 	if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 		cache.ClearNextEpisodeWarmup()
 	}

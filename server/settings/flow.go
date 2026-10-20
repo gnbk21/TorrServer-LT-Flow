@@ -34,6 +34,8 @@ type FlowSettings struct {
 	DHTStatePersistence      bool
 	PreparationQuotaMB       int
 	PeerResumeHints          bool // opt-in local peer identities, outside history
+	MetadataFallback         bool // supplied HTTPS sources, with bounded recovery
+	PublicMetadataCache      bool // opt-in hash disclosure to free public caches
 	ScarcePieceHints         bool // bounded scheduling experiment, off by default
 	RateAwareDeadlines       bool // measured scheduling experiment, off by default
 	CapacityAwareRequests    bool // honor remote and local urgent queue caps, opt-in
@@ -89,6 +91,7 @@ func DefaultFlowSettings() *FlowSettings {
 		NetworkRetryMinSec: 2, NetworkRetryMaxSec: 60,
 		SwarmProfile:   "legacy",
 		MetricsEnabled: true, DHTStatePersistence: true, PreparationQuotaMB: 4096,
+		MetadataFallback:  true,
 		WarmCacheBudgetMB: 512, PreparationConcurrency: 1, SecurityProfile: "compatible", PlaybackTokenTTL: 3600,
 		StreamTransportBufferKiB: 1024,
 	}

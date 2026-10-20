@@ -4,6 +4,26 @@ import { StartupEvidence } from "./StartupEvidence";
 import type { FlowStartup } from "../../types/flow";
 
 describe("startup preparation evidence", () => {
+  it("shows metadata recovery before a preload progress snapshot exists", () => {
+    render(
+      <StartupEvidence
+        startup={
+          {
+            metadata_recovery: {
+              state: "METADATA_HTTP",
+              source: "PUBLIC_CACHE",
+              attempts: 2,
+            },
+          } as FlowStartup
+        }
+      />,
+    );
+    expect(
+      screen.getByText("flow.metadataRecovery.METADATA_HTTP"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("flow.metadataAttempts")).toBeInTheDocument();
+    expect(screen.queryByText("flow.startupVerified")).not.toBeInTheDocument();
+  });
   it("keeps older servers compatible", () => {
     const { container } = render(
       <StartupEvidence startup={{} as FlowStartup} />,

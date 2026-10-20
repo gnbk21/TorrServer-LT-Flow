@@ -48,7 +48,7 @@ var portableSettingNames = []string{
 }
 var backupHash = regexp.MustCompile(`^(?:[a-f0-9]{40}|[a-f0-9]{64})$`)
 
-var hostFlowFields = []string{"ManagementOrigins", "ManagementRateLimit", "SecurityProfile", "RequirePlaybackToken", "PlaybackTokenTTL", "TorrentInterface", "RequireTorrentInterface", "MSXAllowLAN"}
+var hostFlowFields = []string{"ManagementOrigins", "ManagementRateLimit", "SecurityProfile", "RequirePlaybackToken", "PlaybackTokenTTL", "TorrentInterface", "RequireTorrentInterface", "MSXAllowLAN", "PublicMetadataCache"}
 
 func portableFlowJSON(data json.RawMessage) json.RawMessage {
 	var fields map[string]json.RawMessage

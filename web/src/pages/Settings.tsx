@@ -293,6 +293,8 @@ export default function Settings() {
           "Flow.DiagnosticHistory": t("settings.historyHint"),
           "Flow.DHTStatePersistence": t("settings.dhtHint"),
           "Flow.PeerResumeHints": t("settings.peerHintsHelp"),
+          "Flow.MetadataFallback": t("settings.metadataFallbackHelp"),
+          "Flow.PublicMetadataCache": t("settings.publicMetadataCacheHelp"),
           "Flow.ScarcePieceHints": t("settings.scarceHintsHelp"),
           "Flow.RateAwareDeadlines": t("settings.rateDeadlinesHelp"),
           "Flow.CapacityAwareRequests": t("settings.highBitrateExperimentHelp"),

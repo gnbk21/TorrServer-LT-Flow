@@ -231,9 +231,11 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	if flowEnabled {
 		t.flowStartupStarted = time.Now()
 		metadataMs := t.flowStartup.MetadataReadyMs
+		metadataRecovery := t.flowStartup.MetadataRecovery
 		dhtPeerMs := t.flowStartup.FirstDHTPeerMs
 		t.flowStartup = FlowStartupStatus{FileIndex: index, State: "BOOTSTRAP_PRELOAD",
-			MetadataReadyMs: metadataMs, FirstDHTPeerMs: dhtPeerMs, FirstPeerMs: -1, FirstUsefulBlockMs: -1,
+			MetadataRecovery: metadataRecovery,
+			MetadataReadyMs:  metadataMs, FirstDHTPeerMs: dhtPeerMs, FirstPeerMs: -1, FirstUsefulBlockMs: -1,
 			BootstrapHeadTargetBytes: int64(probeHeadCount) * plen,
 			BootstrapTailTargetBytes: int64(len(gatePieces)-headCount) * plen,
 			StartupTargetBytes:       int64(headCount) * plen, ProbeSuccess: probeCached, ProbeCached: probeCached}

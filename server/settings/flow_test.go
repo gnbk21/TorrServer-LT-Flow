@@ -146,3 +146,22 @@ func TestRateDeadlineExperimentMigration(t *testing.T) {
 		t.Fatal("explicit experiment choice lost")
 	}
 }
+
+func TestMetadataRecoveryDefaultsAndHotApplication(t *testing.T) {
+	f := DefaultFlowSettings()
+	if !f.MetadataFallback || f.PublicMetadataCache {
+		t.Fatal("automatic supplied-source recovery or public opt-in default changed")
+	}
+	old := &BTSets{Flow: f}
+	next := CloneSettings(old)
+	next.Flow.MetadataFallback = false
+	next.Flow.PublicMetadataCache = true
+	if NeedsEngineRestart(old, next) {
+		t.Fatal("metadata source preference unnecessarily restarts the torrent engine")
+	}
+	data := portableFlowJSON([]byte(`{"MetadataFallback":true,"PublicMetadataCache":true}`))
+	var portable map[string]json.RawMessage
+	if json.Unmarshal(data, &portable) != nil || portable["PublicMetadataCache"] != nil {
+		t.Fatal("portable backup silently enables hash disclosure on another host")
+	}
+}

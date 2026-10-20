@@ -319,3 +319,7 @@ Stable releases are tagged from `master`; ongoing integration uses `develop`.
 The broader field checks remain tracked separately in [project status](STATUS.md).
 
 Use torrents you are authorized to access. TorrServer-Flow retains the upstream [GPL-3.0 license](LICENSE) and acknowledges the work of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) and [TorrServer](https://github.com/YouROK/TorrServer).
+
+### Automatic magnet metadata recovery
+
+Development builds can recover stalled magnet metadata from supplied HTTPS .torrent URLs after 15 seconds. Optional free Torrage/iTorrents lookup requires enabling **Settings > Flow > Free public metadata caches**; it sends the v1 info-hash to those services. Results must match every known torrent hash. Recovery preserves the same release, native handle, tracker tiers and encryption settings. Cache misses and unavailable video peers can still prevent playback. [Behavior, bounds and privacy](METADATA_RECOVERY.md). Stable 1.1.3 predates this feature.

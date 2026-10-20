@@ -32,6 +32,7 @@ type FlowRangeTrace struct {
 var diagnosticSequence atomic.Uint64
 
 type FlowStartupStatus struct {
+	MetadataRecovery   *MetadataRecovery    `json:"metadata_recovery,omitempty"`
 	WaitBudgetMs       int64                `json:"wait_budget_ms"`
 	WaitExtended       bool                 `json:"wait_extended"`
 	Progress           *flow.StartupHistory `json:"progress,omitempty"`
@@ -64,6 +65,13 @@ func (t *Torrent) FlowStartup() FlowStartupStatus {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	s := t.flowStartup
+	if s.MetadataRecovery != nil {
+		value := *s.MetadataRecovery
+		s.MetadataRecovery = &value
+	}
+	if s.State == "METADATA" && !t.flowAddedAt.IsZero() {
+		s.ElapsedMs = time.Since(t.flowAddedAt).Milliseconds()
+	}
 	if s.Progress != nil {
 		progress := s.Progress.Clone()
 		s.Progress = &progress

@@ -38,13 +38,14 @@ func MustParseHash(s string) Hash {
 // torrent.TorrentSpec (the relevant subset). Field names and tags are
 // preserved so existing config.db Torrents bucket loads unchanged.
 type TorrentSpec struct {
-	WebSeeds    []settings.WebSeed `json:"WebSeeds,omitempty"`
-	InfoHash    Hash               `json:"InfoHash"`
-	InfoHashV1  string             `json:"InfoHashV1,omitempty"`
-	InfoHashV2  string             `json:"InfoHashV2,omitempty"`
-	InfoBytes   []byte             `json:"InfoBytes,omitempty"`
-	Trackers    [][]string         `json:"Trackers,omitempty"`
-	DisplayName string             `json:"DisplayName,omitempty"`
+	MetadataSources []string           `json:"MetadataSources,omitempty"`
+	WebSeeds        []settings.WebSeed `json:"WebSeeds,omitempty"`
+	InfoHash        Hash               `json:"InfoHash"`
+	InfoHashV1      string             `json:"InfoHashV1,omitempty"`
+	InfoHashV2      string             `json:"InfoHashV2,omitempty"`
+	InfoBytes       []byte             `json:"InfoBytes,omitempty"`
+	Trackers        [][]string         `json:"Trackers,omitempty"`
+	DisplayName     string             `json:"DisplayName,omitempty"`
 }
 
 func (s *TorrentSpec) StorageHash() Hash {

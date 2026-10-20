@@ -731,7 +731,8 @@
       "peer_disconnected": "Peer deconectat",
       "seek": "Salt solicitat",
       "recovery": "Răspuns după salt",
-      "storage": "Operație cache"
+      "storage": "Operație cache",
+      "metadata_recovery": "Recuperare metadate magnet"
     },
     "playerEvidence": "Măsurători ale playerului",
     "playerEvidenceHint": "Raport Flow Player opțional. Importul rămâne în acest dialog deschis; nu este încărcat pe server și nu modifică setările.",
@@ -823,7 +824,16 @@
     "startupUnchoked": "Surse care permit transferul: {{count}}",
     "startupBlocks": "Blocuri: {{pending}} solicitate, {{waiting}} nesolicitate, {{received}} primite/în scriere",
     "startupSupplyTruncated": "Eșantion parțial; valorile reale pot fi mai mari.",
-    "startupSupplyHint": "Numărul surselor descrie partenerii conectați eșantionați. Datele lipsă sau expirate rămân necunoscute."
+    "startupSupplyHint": "Numărul surselor descrie partenerii conectați eșantionați. Datele lipsă sau expirate rămân necunoscute.",
+    "metadataRecovery": {
+      "METADATA_WAIT": "Se așteaptă metadatele partenerilor înaintea altor surse.",
+      "METADATA_HTTP": "Se preiau metadatele dintr-o altă sursă.",
+      "METADATA_RECOVERED": "Metadatele corespunzătoare au fost recuperate automat.",
+      "METADATA_PEERS": "Metadatele au sosit de la parteneri.",
+      "METADATA_MISS": "Celelalte surse nu au returnat metadate corespunzătoare."
+    },
+    "metadataAttempts": "Încercări pentru metadate: {{count}}",
+    "metadataRecoveryHint": "Torrentul și calitatea se păstrează. Videoclipul necesită parteneri disponibili."
   },
   "search": {
     "source": "Sursă",
@@ -970,7 +980,9 @@
         "ContainerBurstHints": "Indicii de vârf din indexul rezident (experiment)",
         "MSXAllowLAN": "Permite accesul proxy-ului MSX la rețeaua locală",
         "StreamTransportBufferKiB": "Buffer de transport (experiment controlat)",
-        "NextEpisodeWarmup": "Încălzirea antetului/indexului episodului următor"
+        "NextEpisodeWarmup": "Încălzirea antetului/indexului episodului următor",
+        "MetadataFallback": "Recuperare automată a metadatelor magnet",
+        "PublicMetadataCache": "Cache-uri publice gratuite de metadate"
       }
     },
     "maintenance": {
@@ -1070,7 +1082,9 @@
     "changed": "Modificat",
     "draftConflict": "Setările serverului s-au schimbat în timpul editării. Modificările sunt păstrate în ciornă. Reîncarcă setările salvate înainte de aplicare; ciorna va fi eliminată.",
     "reloadSaved": "Elimină ciorna și reîncarcă setările",
-    "requestsPerMinute": "cereri/min"
+    "requestsPerMinute": "cereri/min",
+    "metadataFallbackHelp": "După 15 secunde, încearcă două URL-uri HTTPS .torrent furnizate. Hash-ul trebuie să corespundă magnetului.",
+    "publicMetadataCacheHelp": "Trimite hash-urile magnet v1 blocate la Torrage și iTorrents. Gratuit, fără cont. Serviciile pot fi indisponibile. Statutul privat este necunoscut înaintea metadatelor."
   },
   "preparation": {
     "title": "Pregătește episodul",
