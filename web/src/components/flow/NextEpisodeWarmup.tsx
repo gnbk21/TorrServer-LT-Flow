@@ -49,10 +49,12 @@ export function NextEpisodeWarmup({ status }: { status: FlowStatusResponse }) {
     <section className="panel space-y-3">
       <h3 className="font-semibold">{t("flow.warmupTitle")}</h3>
       <p className="text-sm text-slate-400">{t("flow.warmupHint")}</p>
-      <p role="status">
-        {!warmup.enabled
-          ? t("flow.warmupDisabled")
-          : t(`flow.warmupStates.${warmup.state}`)}
+      <p>
+        <span role="status">
+          {!warmup.enabled
+            ? t("flow.warmupDisabled")
+            : t(`flow.warmupStates.${warmup.state}`)}
+        </span>
         {warmup.file_index > 0 && (
           <>
             {" "}

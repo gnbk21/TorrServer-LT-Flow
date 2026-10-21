@@ -10,62 +10,62 @@ var DEPENDENCIESjson []byte
 //go:embed pages/THIRD_PARTY_NOTICES.txt
 var THIRDPARTYNOTICEStxt []byte
 
-//go:embed pages/assets/Add-BbWeW1y_.js
-var AssetsAddBbWeW1yjs []byte
+//go:embed pages/assets/Add-DYDUa6wY.js
+var AssetsAddDYDUa6wYjs []byte
 
-//go:embed pages/assets/AddTorrentModal-B3XTJR5y.js
-var AssetsAddTorrentModalB3XTJR5yjs []byte
+//go:embed pages/assets/AddTorrentModal-BNxd5x7n.js
+var AssetsAddTorrentModalBNxd5x7njs []byte
 
 //go:embed pages/assets/Button-PSQZKbZc.js
 var AssetsButtonPSQZKbZcjs []byte
 
-//go:embed pages/assets/CacheMap-DUwLQP_N.js
-var AssetsCacheMapDUwLQPNjs []byte
+//go:embed pages/assets/CacheMap-B68zbFrP.js
+var AssetsCacheMapB68zbFrPjs []byte
 
-//go:embed pages/assets/Certificates-NqDbdPH1.js
-var AssetsCertificatesNqDbdPH1js []byte
+//go:embed pages/assets/Certificates-BNyTzv2D.js
+var AssetsCertificatesBNyTzv2Djs []byte
 
-//go:embed pages/assets/Dashboard-CfRCSXN4.js
-var AssetsDashboardCfRCSXN4js []byte
+//go:embed pages/assets/Dashboard-Bkp8JoQP.js
+var AssetsDashboardBkp8JoQPjs []byte
 
-//go:embed pages/assets/FlowDiagnosticsDrawer-DStDhEW3.js
-var AssetsFlowDiagnosticsDrawerDStDhEW3js []byte
+//go:embed pages/assets/FlowDiagnosticsDrawer-QiclHXXG.js
+var AssetsFlowDiagnosticsDrawerQiclHXXGjs []byte
 
-//go:embed pages/assets/GstRuntimeStatus-I4XYUiXV.js
-var AssetsGstRuntimeStatusI4XYUiXVjs []byte
+//go:embed pages/assets/GstRuntimeStatus-B5z5EMJb.js
+var AssetsGstRuntimeStatusB5z5EMJbjs []byte
 
-//go:embed pages/assets/IntegrationSettings-Bx8y4spb.js
-var AssetsIntegrationSettingsBx8y4spbjs []byte
+//go:embed pages/assets/IntegrationSettings-3MNO_Q-l.js
+var AssetsIntegrationSettings3MNOQljs []byte
 
-//go:embed pages/assets/LANTest-BLt75F1x.js
-var AssetsLANTestBLt75F1xjs []byte
+//go:embed pages/assets/LANTest-DXmg9q6w.js
+var AssetsLANTestDXmg9q6wjs []byte
 
-//go:embed pages/assets/MaintenancePanel-CMKoFyM4.js
-var AssetsMaintenancePanelCMKoFyM4js []byte
+//go:embed pages/assets/MaintenancePanel-_WMBPX1V.js
+var AssetsMaintenancePanelWMBPX1Vjs []byte
 
-//go:embed pages/assets/PhonePairingModal-DSph8j4R.js
-var AssetsPhonePairingModalDSph8j4Rjs []byte
+//go:embed pages/assets/PhonePairingModal-CTnzziBD.js
+var AssetsPhonePairingModalCTnzziBDjs []byte
 
-//go:embed pages/assets/PlaybackLinks-kaJgzgtH.js
-var AssetsPlaybackLinkskaJgzgtHjs []byte
+//go:embed pages/assets/PlaybackLinks-BUPc0IAv.js
+var AssetsPlaybackLinksBUPc0IAvjs []byte
 
 //go:embed pages/assets/PosterSearch-Bv0W_Gsk.js
 var AssetsPosterSearchBv0WGskjs []byte
 
-//go:embed pages/assets/Settings-XW5T3-mn.js
-var AssetsSettingsXW5T3mnjs []byte
+//go:embed pages/assets/Settings-7BQ34bDS.js
+var AssetsSettings7BQ34bDSjs []byte
 
-//go:embed pages/assets/TorrentFilesDialog-Ccu6E8iN.js
-var AssetsTorrentFilesDialogCcu6E8iNjs []byte
+//go:embed pages/assets/TorrentFilesDialog-D1IZnLGS.js
+var AssetsTorrentFilesDialogD1IZnLGSjs []byte
 
-//go:embed pages/assets/Torrents-BNht6ns5.js
-var AssetsTorrentsBNht6ns5js []byte
+//go:embed pages/assets/Torrents-DF_S35eP.js
+var AssetsTorrentsDFS35ePjs []byte
 
-//go:embed pages/assets/VideoPlayer-DfYsfYNv.js
-var AssetsVideoPlayerDfYsfYNvjs []byte
+//go:embed pages/assets/VideoPlayer-DXYcZlX7.js
+var AssetsVideoPlayerDXYcZlX7js []byte
 
-//go:embed pages/assets/certificates-ojO97iwn.js
-var AssetscertificatesojO97iwnjs []byte
+//go:embed pages/assets/certificates-C_wn9Slg.js
+var AssetscertificatesCwn9Slgjs []byte
 
 //go:embed pages/assets/client-Bff0tzE6.js
 var AssetsclientBff0tzE6js []byte
@@ -79,17 +79,17 @@ var AssetshlsD9b4QHpDjs []byte
 //go:embed pages/assets/index-B3HPQLnt.css
 var AssetsindexB3HPQLntcss []byte
 
-//go:embed pages/assets/index-BikowGDC.js
-var AssetsindexBikowGDCjs []byte
+//go:embed pages/assets/index-DlDVy4d6.js
+var AssetsindexDlDVy4d6js []byte
 
 //go:embed pages/assets/integrations-BiAj9lh0.js
 var AssetsintegrationsBiAj9lh0js []byte
 
-//go:embed pages/assets/mediaBase-DajeSKtr.js
-var AssetsmediaBaseDajeSKtrjs []byte
+//go:embed pages/assets/mediaBase-D-Cx9NBG.js
+var AssetsmediaBaseDCx9NBGjs []byte
 
-//go:embed pages/assets/observationTime-Was9I1-r.js
-var AssetsobservationTimeWas9I1rjs []byte
+//go:embed pages/assets/observationTime-CBiRTN50.js
+var AssetsobservationTimeCBiRTN50js []byte
 
 //go:embed pages/assets/preload-helper-uBIymjUX.js
 var AssetspreloadhelperuBIymjUXjs []byte
