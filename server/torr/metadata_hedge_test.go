@@ -185,3 +185,77 @@ func TestMetadataHedgeConsentWithdrawalCancelsOpenRequests(t *testing.T) {
 		t.Fatal("cancelled source still appears active", status)
 	}
 }
+
+func TestMetadataPolicyChangeCancelsAnOpenSuppliedSource(t *testing.T) {
+	tor, _ := metadataTestTorrent(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	entered, stopped, done := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	go func() {
+		defer close(done)
+		tor.recoverMetadata(ctx, []metadataSource{{"https://policy-change-fixture.example/a", "SUPPLIED"}}, func(ctx context.Context, _ string) ([]byte, error) {
+			close(entered)
+			<-ctx.Done()
+			close(stopped)
+			return nil, ctx.Err()
+		})
+	}()
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Error("policy test cleanup leaked")
+		}
+	})
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("source did not start")
+	}
+	next := settings.CloneSettings(settings.BTsets())
+	next.Flow.TorrentInterface = "Flow-missing-metadata-policy-fixture"
+	next.Flow.RequireTorrentInterface = true
+	settings.StoreBTsets(next)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("network policy change did not stop recovery")
+	}
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("old-policy source remained open")
+	}
+	if status := tor.FlowStartup().MetadataRecovery; status == nil || status.Code != "POLICY_CHANGED" || status.State != "METADATA_MISS" {
+		t.Fatal("wrong policy transition evidence", status)
+	}
+}
+
+func TestMetadataSuppliedTierExhaustsBeforePublicCache(t *testing.T) {
+	tor, payload := metadataTestTorrent(t)
+	next := settings.CloneSettings(settings.BTsets())
+	next.Flow.PublicMetadataCache = true
+	settings.StoreBTsets(next)
+	calls := make(chan string, 3)
+	sources := []metadataSource{{"https://preferred-one-fixture.example/a", "SUPPLIED"}, {"https://preferred-two-fixture.example/a", "SUPPLIED"}, {"https://public-tier-fixture.example/a", "PUBLIC_CACHE"}}
+	tor.recoverMetadata(context.Background(), sources, func(_ context.Context, raw string) ([]byte, error) {
+		calls <- raw
+		if raw == sources[2].url {
+			return payload, nil
+		}
+		return nil, metadataSourceError{"SOURCE_MISSING"}
+	})
+	for _, source := range sources {
+		select {
+		case got := <-calls:
+			if got != source.url {
+				t.Fatal("public cache bypassed supplied preference")
+			}
+		default:
+			t.Fatal("source tier not completed")
+		}
+	}
+	if status := tor.FlowStartup().MetadataRecovery; status == nil || status.State != "METADATA_RECOVERED" || status.Attempts != 3 {
+		t.Fatal("tier attempts lost", status)
+	}
+}
