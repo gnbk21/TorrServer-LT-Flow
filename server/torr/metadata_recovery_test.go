@@ -76,6 +76,10 @@ func TestMetadataHTTPBoundsAndCancellation(t *testing.T) {
 			w.Header().Set("Content-Length", "16777217")
 		case "/cancel":
 			<-r.Context().Done()
+		case "/body-timeout":
+			w.WriteHeader(http.StatusOK)
+			w.(http.Flusher).Flush()
+			<-r.Context().Done()
 		case "/empty":
 		case "/compressed-oversized":
 			w.Header().Set("Content-Encoding", "gzip")
@@ -101,6 +105,11 @@ func TestMetadataHTTPBoundsAndCancellation(t *testing.T) {
 	started := time.Now()
 	if _, err := readMetadataHTTP(ctx, srv.Client(), srv.URL+"/cancel"); err == nil || time.Since(started) > time.Second {
 		t.Fatal("cancelled download did not stop promptly")
+	}
+	bodyCtx, bodyCancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer bodyCancel()
+	if _, err := readMetadataHTTP(bodyCtx, srv.Client(), srv.URL+"/body-timeout"); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("a timed out body was mislabeled as invalid torrent data", err)
 	}
 }
 

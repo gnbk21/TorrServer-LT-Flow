@@ -163,7 +163,10 @@ func readMetadataHTTP(ctx context.Context, client *http.Client, raw string) ([]b
 		return nil, metadataSourceError{"HTTP_STATUS_OR_SIZE"}
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, metadataSourceBytes+1))
-	if err != nil || len(data) == 0 || len(data) > metadataSourceBytes {
+	if err != nil {
+		return nil, err
+	}
+	if len(data) == 0 || len(data) > metadataSourceBytes {
 		return nil, metadataSourceError{"HTTP_BODY_INVALID"}
 	}
 	return data, nil
@@ -415,8 +418,11 @@ func (t *Torrent) recoverMetadataTier(parent context.Context, sources []metadata
 		if errors.As(err, &sourceError) {
 			last.Code = sourceError.code
 		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			last.Code = "SOURCE_TIMEOUT"
+		}
 		if ctx.Err() == nil && !errors.Is(err, context.Canceled) && !errors.Is(err, flow.ErrFetchBusy) {
-			metadataHealth.Observe(metadataServiceKey(response.source.url), err != nil && (last.Code == "SOURCE_NETWORK_ERROR" || last.Code == "SOURCE_UNAVAILABLE"), time.Now())
+			metadataHealth.Observe(metadataServiceKey(response.source.url), err != nil && (last.Code == "SOURCE_NETWORK_ERROR" || last.Code == "SOURCE_UNAVAILABLE" || last.Code == "SOURCE_TIMEOUT"), time.Now())
 		}
 		if err == nil && ctx.Err() == nil {
 			var parsed *lt.ParsedTorrent
