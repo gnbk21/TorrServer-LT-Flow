@@ -45,6 +45,9 @@ export function WebSeeds({ hash }: { hash: string }) {
             <span>
               {t(s.disabled ? "sources.disabled" : "sources.configured")}
             </span>
+            {s.last_failure && <p className="w-full text-sm text-slate-400">
+              {t("flow.upgrade.mirrorFailure")}: {s.last_failure.category} / {s.last_failure.code} · <time dateTime={s.last_failure.at}>{new Date(s.last_failure.at).toLocaleString()}</time>
+            </p>}
             {!s.disabled && (
               <Button
                 disabled={busy}

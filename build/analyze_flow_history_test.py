@@ -10,6 +10,17 @@ spec.loader.exec_module(analyzer)
 
 
 class HistoryAnalysisTests(unittest.TestCase):
+    def test_network_category_transport_and_family_are_not_merged(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'flow-history.jsonl'
+            rows=[{'run':'x','type':'peer_summary','error_category':category,'code':2,'operation':1,'transport':transport,'address_family':family,'count':3}
+                  for category,transport,family in [('ASIO','tcp','IPV4'),('DNS','tcp','IPV4'),('ASIO','utp','IPV6')]]
+            rows.append({'run':'x','type':'tracker_failure','error_category':'token=secret','code':2})
+            path.write_text('\n'.join(map(json.dumps,rows)),encoding='utf-8')
+            report=analyzer.summarize(path)
+            self.assertEqual(len(report['network_failures']),3)
+            self.assertNotIn('secret',json.dumps(report))
+
     def test_latest_run_and_private_fields_are_not_exported(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "flow-history.jsonl"

@@ -350,7 +350,9 @@ func (t *Torrent) flowProgress(fileID int, group string, seq uint64, offset int6
 }
 
 func (t *Torrent) flowEnd(fileID int, group string, seq uint64, tr FlowRangeTrace) {
-	if t == nil || !settings.CurrentFlow().MetricsEnabled {
+	// An observer created before metrics were disabled still owns its reader
+	// count. Always retire it; otherwise re-enabling metrics revives phantoms.
+	if t == nil {
 		return
 	}
 	key := fmt.Sprintf("%d/%s", fileID, group)
@@ -442,7 +444,7 @@ func (t *Torrent) FlowStatus() []FlowSessionStatus {
 // FlowStatusWithTraces lets frequent UI observations omit optional diagnostic
 // history. The existing full snapshot remains the compatibility default.
 func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
-	if t == nil {
+	if t == nil || !settings.CurrentFlow().MetricsEnabled {
 		return nil
 	}
 	t.flowMu.Lock()

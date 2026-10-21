@@ -28,7 +28,7 @@ on:
         default: ''
 
 concurrency:
-  group: october-build-macos-${{ github.event.pull_request.number || github.ref }}
+  group: october-${{ github.workflow }}-build-macos-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read

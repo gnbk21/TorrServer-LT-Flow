@@ -2,6 +2,20 @@ package flow
 
 import "runtime"
 
+func SafeTransport(value string) string {
+	if value == "tcp" || value == "utp" {
+		return value
+	}
+	return "unknown"
+}
+
+func SafeAddressFamily(value string) string {
+	if value == "IPV4" || value == "IPV6" {
+		return value
+	}
+	return "UNKNOWN"
+}
+
 // Error categories are deliberately closed: native names and exception text
 // must not become unbounded labels or disclose remote destinations.
 func SafeErrorCategory(category string) string {

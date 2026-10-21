@@ -39,6 +39,20 @@ fetches. Peer success, removal and shutdown cancel outstanding work. Recovery
 fits inside the existing metadata wait; it does not increase disconnect settings
 or retry indefinitely.
 
+Within the supplied-source tier or public-cache tier, a second request starts
+after the first has been slow for one second. At most two are in flight for a
+torrent; supplied sources are exhausted before a public-cache tier begins.
+A verified winner cancels the other request. Service/network failures cause a
+bounded 15–60 second cooldown keyed by service and network policy. A missing
+torrent (404/410) is separate from an unavailable service (429/5xx).
+
+The startup overview offers explicit metadata retry when recovery evidence is
+present. It keeps the native handle, respects current consent and cooldowns,
+and is limited to one operation at a time and one start per 30 seconds. Turning
+recovery/public lookup off cancels that work; a changed network policy stops
+the operation rather than continuing on a stale policy. The ordinary peer
+metadata path remains available throughout.
+
 Only HTTPS URLs without URL credentials/fragments are accepted. Certificates
 remain verified. Redirects are bounded/revalidated. The existing destination
 transport checks/pins DNS answers, blocks local/private/reserved destinations and
@@ -65,6 +79,9 @@ Retained event `operation` identifies supplied HTTPS sources (1) or public cache
 (2). Its `code` is a fixed classification: network failure (1), HTTP status/size
 (2), invalid body (3), invalid metainfo (4), hash mismatch (5), native rejection
 (6), concurrent-fetch capacity (7), verified identity (8), refused redirect (9).
+New records also distinguish missing source (10), unavailable source (11),
+service cooldown (12), changed/revoked policy (13), source timeout (14), and
+cancelled operation (15). Existing record meanings are unchanged.
 The live startup response also exposes the corresponding symbolic code. Source
 URLs and arbitrary upstream error strings are never retained.
 

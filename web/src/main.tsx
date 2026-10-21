@@ -5,6 +5,7 @@ import {
   useEffect,
   Component,
   type ReactNode,
+  type MouseEvent,
 } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
@@ -14,6 +15,7 @@ import {
   Outlet,
   NavLink,
   useBlocker,
+  useNavigate,
 } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -49,6 +51,25 @@ const Pairing = lazy(() =>
   })),
 );
 function Shell() {
+  const navigate = useNavigate();
+  const navigateImmediately = (
+    event: MouseEvent<HTMLAnchorElement>,
+    to: string,
+  ) => {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    // Commit navigation feedback before a cold lazy route finishes loading.
+    // Native link behavior remains available for modified/new-window clicks.
+    void navigate(to, { flushSync: true });
+  };
   const { t, i18n } = useTranslation();
   const version = useVersion();
   const network = useNetwork();
@@ -146,6 +167,7 @@ function Shell() {
         <nav className="space-y-2">
           {links.map(({ to, key, Icon }) => (
             <NavLink
+              onClick={(event) => navigateImmediately(event, to)}
               end={to === "/"}
               key={to}
               to={to}
@@ -233,6 +255,7 @@ function Shell() {
       >
         {links.map(({ to, key, Icon }) => (
           <NavLink
+            onClick={(event) => navigateImmediately(event, to)}
             end={to === "/"}
             key={to}
             to={to}

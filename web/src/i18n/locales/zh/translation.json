@@ -557,7 +557,7 @@
   },
   "flow": {
     "title": "Flow 播放",
-    "buffer": "前方缓冲",
+    "buffer": "服务器前向缓冲",
     "bufferBytes": "前方缓存数据",
     "download": "下载",
     "demand": "播放消耗",
@@ -880,7 +880,8 @@
       },
       "sessionSummary": "整个会话的汇总",
       "sampleCount": "已记录的采样数：{{count}}",
-      "minimumBuffer": "采样中最小的手机缓冲：{{milliseconds}} 毫秒"
+      "minimumBuffer": "采样中最小的手机缓冲：{{milliseconds}} 毫秒",
+      "mirrorFailure": "最近观测到的镜像错误；并非当前可用性检查"
     }
   },
   "search": {

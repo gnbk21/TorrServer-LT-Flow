@@ -43,6 +43,8 @@ type HistoryEvent struct {
 	Code              int              `json:"code,omitempty"`
 	Operation         int              `json:"operation,omitempty"`
 	ErrorCategory     string           `json:"error_category,omitempty"`
+	Transport         string           `json:"transport,omitempty"`
+	AddressFamily     string           `json:"address_family,omitempty"`
 	Dropped           uint64           `json:"dropped,omitempty"`
 }
 
@@ -133,6 +135,12 @@ func validHistoryEvent(e HistoryEvent) bool {
 		return false
 	}
 	if e.ErrorCategory != "" && SafeErrorCategory(e.ErrorCategory) != e.ErrorCategory {
+		return false
+	}
+	if e.Transport != "" && SafeTransport(e.Transport) != e.Transport {
+		return false
+	}
+	if e.AddressFamily != "" && SafeAddressFamily(e.AddressFamily) != e.AddressFamily {
 		return false
 	}
 	switch e.Stage {

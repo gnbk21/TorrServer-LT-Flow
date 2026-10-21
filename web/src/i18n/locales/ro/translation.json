@@ -551,7 +551,7 @@
   },
   "flow": {
     "title": "Redare Flow",
-    "buffer": "Buffer disponibil înainte",
+    "buffer": "Bufferul disponibil pe server",
     "bufferBytes": "Date viitoare în cache",
     "download": "Descărcare",
     "demand": "Consum la redare",
@@ -874,7 +874,8 @@
       },
       "sessionSummary": "Totalurile sesiunii",
       "sampleCount": "Eșantioane înregistrate: {{count}}",
-      "minimumBuffer": "Cel mai mic tampon măsurat al telefonului: {{milliseconds}} ms"
+      "minimumBuffer": "Cel mai mic tampon măsurat al telefonului: {{milliseconds}} ms",
+      "mirrorFailure": "Ultima eroare observată a oglinzii; nu este o verificare curentă a disponibilității"
     }
   },
   "search": {

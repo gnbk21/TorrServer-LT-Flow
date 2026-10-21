@@ -455,7 +455,7 @@
   },
   "flow": {
     "title": "Flow playback",
-    "buffer": "Buffer ahead",
+    "buffer": "Server buffer ahead",
     "bufferBytes": "Cached ahead",
     "download": "Download",
     "demand": "Playback demand",
@@ -778,7 +778,8 @@
       },
       "sessionSummary": "Whole-session totals",
       "sampleCount": "Recorded samples: {{count}}",
-      "minimumBuffer": "Smallest sampled phone buffer: {{milliseconds}} ms"
+      "minimumBuffer": "Smallest sampled phone buffer: {{milliseconds}} ms",
+      "mirrorFailure": "Last observed mirror failure; not a current availability check"
     }
   },
   "torrent": {

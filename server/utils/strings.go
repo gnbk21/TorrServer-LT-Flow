@@ -81,13 +81,21 @@ func NumberPrefix(str string) (int, error) {
 }
 
 func CompareStrings(first, second string) bool {
-	commonPrefix := CommonPrefix(first, second)
-	resultStr1 := strings.TrimPrefix(first, commonPrefix)
-	resultStr2 := strings.TrimPrefix(second, commonPrefix)
+	prefixLen := len(CommonPrefix(first, second))
+	// Compare the whole number when the shared prefix ends inside it:
+	// "Episode 1" must precede "Episode 10" (upstream MatriX.147).
+	for prefixLen > 0 && first[prefixLen-1] >= '0' && first[prefixLen-1] <= '9' {
+		prefixLen--
+	}
+	resultStr1 := first[prefixLen:]
+	resultStr2 := second[prefixLen:]
 	num1, err1 := NumberPrefix(resultStr1)
 	num2, err2 := NumberPrefix(resultStr2)
 
 	if err1 == nil && err2 == nil {
+		if num1 == num2 {
+			return resultStr1 < resultStr2
+		}
 		return num1 < num2
 	}
 	if err1 == nil {

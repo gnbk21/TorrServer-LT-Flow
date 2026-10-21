@@ -26,10 +26,11 @@ import (
 // handle with the metadata (title/poster/category) the rest of the
 // project decorates torrents with.
 type Torrent struct {
-	Title    string
-	Category string
-	Poster   string
-	Data     string
+	webSeedFailures map[string]WebSeedFailure // guarded by trackerMu
+	Title           string
+	Category        string
+	Poster          string
+	Data            string
 	*TorrentSpec
 
 	Stat      state.TorrentStat

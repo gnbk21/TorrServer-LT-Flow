@@ -674,12 +674,22 @@ jobs:
         with:
           name: TorrServer-LT-linux-amd64
           path: _out
+      - name: Verify immutable stable straggler baseline
+        if: matrix.case == 'stragglers'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASELINE_SHA256: c2150033a8c101ef35bf4035a427733812baed6bc3a6c4015b5c15723dc368d4
+        run: |
+          gh release download MatriX.145.Flow-v1.1.3 --repo "$GITHUB_REPOSITORY" --pattern TorrServer-LT-linux-amd64 --dir _baseline
+          python3 -c 'import hashlib,os,pathlib; p=pathlib.Path("_baseline/TorrServer-LT-linux-amd64"); assert hashlib.file_digest(p.open("rb"),"sha256").hexdigest()==os.environ["BASELINE_SHA256"], "Stable baseline digest mismatch"'
+          chmod +x _baseline/TorrServer-LT-linux-amd64
+          _baseline/TorrServer-LT-linux-amd64 --version
       - name: Rotated original-quality byte transport comparisons
         run: |
           chmod +x _out/TorrServer-LT-linux-amd64
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
-          python3 build/high_bitrate_matrix.py --executable _out/TorrServer-LT-linux-amd64 --output _out/high-bitrate --mbps '${{ matrix.mbps }}' --cases '${{ matrix.case }}' --cache-mb '${{ matrix.cache }}' --piece-mb '${{ matrix.piece }}' --rotations 3 --experiments ${{ matrix.backend == 'disk' && '--disk' || '' }}
+          python3 build/high_bitrate_matrix.py --executable _out/TorrServer-LT-linux-amd64 --output _out/high-bitrate --mbps '${{ matrix.mbps }}' --cases '${{ matrix.case }}' --cache-mb '${{ matrix.cache }}' --piece-mb '${{ matrix.piece }}' --rotations ${{ matrix.case == 'stragglers' && '5' || '3' }} --seconds ${{ matrix.case == 'stragglers' && '30' || '120' }} --experiments ${{ matrix.backend == 'disk' && '--disk' || '' }} ${{ matrix.case == 'stragglers' && '--baseline _baseline/TorrServer-LT-linux-amd64' || '' }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

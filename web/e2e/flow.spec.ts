@@ -442,7 +442,13 @@ test("incident timeline and explicit player import preserve unknown evidence", a
   await expect(
     dialog.getByText("Report matches an observed session.", { exact: true }),
   ).toBeVisible();
-  await expect(dialog.locator("dd").filter({ hasText: /^—$/ })).toHaveCount(1);
+  await expect(
+    dialog
+      .getByText("Player measurements", { exact: true })
+      .locator("..")
+      .locator("dd")
+      .filter({ hasText: /^—$/ }),
+  ).toHaveCount(1);
   await dialog.getByRole("button", { name: "Clear imported report" }).click();
   await dialog.getByLabel("Import player JSON report").setInputFiles({
     name: "invalid.json",
@@ -518,6 +524,10 @@ test("trace history is fetched only while diagnostics are open", async ({
   expect(compactRequests).toBeGreaterThan(0);
   expect(diagnosticRequests).toBe(0);
   await page.getByRole("button", { name: "Diagnostics", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByText("Technical details", { exact: true })
+    .click();
   await page
     .getByRole("dialog")
     .getByText("Range request traces", { exact: true })

@@ -541,6 +541,8 @@ json alert_to_json(lt::alert const* a) {
     if (auto const* seed = lt::alert_cast<lt::url_seed_alert>(a)) {
         j["message"] = "web seed unavailable";
         j["error_code"] = seed->error.value();
+        j["error_category"] = safe_error_category(seed->error);
+        j["url"] = std::string(seed->server_url());
     }
 
     // torrent_alert is an abstract base — its `alert_type` constant is
@@ -580,6 +582,14 @@ json alert_to_json(lt::alert const* a) {
     } else if (auto const* fa = lt::alert_cast<lt::peer_disconnected_alert>(a)) {
         j["error_code"] = fa->error.value();
         j["error_category"] = safe_error_category(fa->error);
+        j["transport"] = fa->socket_type == lt::socket_type_t::utp || fa->socket_type == lt::socket_type_t::ssl_utp ? "utp"
+            : fa->socket_type == lt::socket_type_t::tcp || fa->socket_type == lt::socket_type_t::ssl_tcp ? "tcp" : "unknown";
+#if TORRENT_ABI_VERSION < 4
+        lt::tcp::endpoint const endpoint(fa->endpoint);
+        j["address_family"] = endpoint.address().is_v6() ? "IPV6" : "IPV4";
+#else
+        j["address_family"] = "UNKNOWN";
+#endif
         j["operation"] = static_cast<int>(fa->op);
         j["disconnect_reason"] = fa->error == lt::errors::torrent_paused ? "PAUSED"
             : fa->error == lt::errors::upload_upload_connection ? "REDUNDANT" : "OTHER";

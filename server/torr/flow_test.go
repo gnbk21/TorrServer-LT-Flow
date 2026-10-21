@@ -46,6 +46,27 @@ func TestSeekStateIgnoresOlderResponsesAndProbes(t *testing.T) {
 	}
 }
 
+func TestDisablingMetricsDoesNotLeakAnExistingReader(t *testing.T) {
+	old := settings.BTsets()
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	f := settings.DefaultFlowSettings()
+	f.Enabled = false
+	settings.StoreBTsets(&settings.BTSets{Flow: f})
+	tor := &Torrent{}
+	file := &File{Length: 256 << 20}
+	_, _, seq := tor.flowStart(1, file, "test", httptest.NewRequest("GET", "/", nil))
+	next := settings.CloneSettings(settings.BTsets())
+	next.Flow.MetricsEnabled = false
+	settings.StoreBTsets(next)
+	tor.flowEnd(1, "test", seq, FlowRangeTrace{Method: "GET", Status: 206, Cancelled: true})
+	if tor.flowSessions["1/test"].ActiveReaders != 0 {
+		t.Fatal("disabled observer leaked a reader")
+	}
+	if tor.FlowStatus() != nil {
+		t.Fatal("disabled metrics presented stale sessions as live")
+	}
+}
+
 func TestFlowProgressFollowsLiveBodyAndIgnoresOldRequest(t *testing.T) {
 	old := settings.BTsets()
 	t.Cleanup(func() { settings.StoreBTsets(old) })

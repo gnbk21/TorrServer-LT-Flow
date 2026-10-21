@@ -185,6 +185,8 @@ func (t *Torrent) metadataRecoveryState(value MetadataRecovery) {
 		"HTTP_BODY_INVALID": 3, "INVALID_METADATA": 4, "HASH_MISMATCH": 5,
 		"NATIVE_REJECTED": 6, "FETCH_CAPACITY": 7, "HASH_VERIFIED": 8, "REDIRECT_REFUSED": 9}
 	codes["SOURCE_MISSING"], codes["SOURCE_UNAVAILABLE"], codes["SOURCE_COOLDOWN"] = 10, 11, 12
+	codes["POLICY_CHANGED"], codes["SOURCE_TIMEOUT"] = 13, 14
+	codes["SOURCE_CANCELLED"] = 15
 	operation := 0
 	if value.Source == "SUPPLIED" {
 		operation = 1
@@ -267,6 +269,10 @@ func (t *Torrent) launchMetadataRecovery(delay time.Duration, fetch func(context
 }
 
 func (t *Torrent) recoverMetadata(ctx context.Context, sources []metadataSource, fetch func(context.Context, string) ([]byte, error)) {
+	if !settings.CurrentFlow().Enabled || !settings.CurrentFlow().MetadataFallback {
+		t.metadataRecoveryState(MetadataRecovery{State: "METADATA_MISS", Code: "POLICY_CHANGED"})
+		return
+	}
 	// Supplied sources retain preference: a public-cache tier starts only when
 	// the authorized supplied tier is exhausted. Within each tier, hedge a slow
 	// first source after one second, never more than two requests per torrent.
@@ -308,6 +314,8 @@ func (t *Torrent) recoverMetadataTier(parent context.Context, sources []metadata
 			source := sources[next]
 			next++
 			if !metadataSourceAllowed(source) {
+				last.Source, last.State, last.Code = source.kind, "METADATA_MISS", "POLICY_CHANGED"
+				t.metadataRecoveryState(last)
 				continue
 			}
 			if !metadataHealth.Allowed(metadataServiceKey(source.url), time.Now()) {
@@ -342,11 +350,18 @@ func (t *Torrent) recoverMetadataTier(parent context.Context, sources []metadata
 		var response result
 		select {
 		case <-ctx.Done():
+			last.State, last.Code = "METADATA_MISS", "SOURCE_CANCELLED"
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				last.Code = "SOURCE_TIMEOUT"
+			}
+			t.metadataRecoveryState(last)
 			return true
 		case <-t.gotInfoCh:
 			return true
 		case <-consent.C:
 			if !metadataSourceAllowed(sources[0]) || metadataFetchKey("") != policy {
+				last.State, last.Code = "METADATA_MISS", "POLICY_CHANGED"
+				t.metadataRecoveryState(last)
 				return true
 			}
 			continue
@@ -357,6 +372,8 @@ func (t *Torrent) recoverMetadataTier(parent context.Context, sources []metadata
 			active--
 		}
 		if !metadataSourceAllowed(response.source) || metadataFetchKey("") != policy {
+			last.State, last.Code = "METADATA_MISS", "POLICY_CHANGED"
+			t.metadataRecoveryState(last)
 			return true
 		}
 		handle := t.LTHandle()

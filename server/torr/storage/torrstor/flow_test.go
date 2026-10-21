@@ -55,6 +55,16 @@ func TestUrgentHorizonsPreserveIndependentReadersAndRejectStaleQueue(t *testing.
 	if horizons["slow"] != 3 || horizons["fast"] != 10 {
 		t.Fatal("independent demand collapsed", horizons)
 	}
+	disabled := settings.CloneSettings(settings.BTsets())
+	disabled.Flow.AdaptiveUrgentHorizon = false
+	settings.StoreBTsets(disabled)
+	if len(c.urgentHorizons(c.demandRates(), 100)) != 0 || c.flowUrgentActive.Load() {
+		t.Fatal("hot disable kept active urgent policy")
+	}
+	settings.StoreBTsets(&settings.BTSets{Flow: f})
+	if got := c.urgentHorizons(c.demandRates(), 100); got["slow"] != 3 || got["fast"] != 10 {
+		t.Fatal("hot enable did not recompute independent horizons", got)
+	}
 	sample.Truncated = true
 	c.SetScarceEvidence(sample)
 	if len(c.urgentHorizons(c.demandRates(), 100)) != 0 {

@@ -87,7 +87,7 @@ export function PlaybackOverview({
           })}
         </p>
       )}
-      {view.cause === "metadata" && (
+      {view.cause === "metadata" && status.startup?.metadata_recovery && (
         <Button disabled={busy || accepted} onClick={() => void retry()}>
           {t("flow.upgrade.retry")}
         </Button>

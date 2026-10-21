@@ -117,10 +117,12 @@ def summarize(path):
         if event.get('type') not in {'peer_disconnected','peer_summary','tracker_failure'} or category not in allowed_categories: continue
         if type(code) is not int or type(operation) is not int or not -2147483648<=code<=2147483647 or not 0<=operation<=1024: continue
         count=event.get('count',1)
-        if type(count) is int and 0<=count<=1_000_000_000: failures[(category,code,operation)]+=count
+        transport=event.get('transport','unknown'); family=event.get('address_family','UNKNOWN')
+        if transport not in {'tcp','utp','unknown'} or family not in {'IPV4','IPV6','UNKNOWN'}: continue
+        if type(count) is int and 0<=count<=1_000_000_000: failures[(category,code,operation,transport,family)]+=count
     return {"events": len(events), "invalid_lines": invalid,
             "integrity_failures":counts['integrity_failure'],
-            "network_failures":[dict(category=k[0],code=k[1],operation=k[2],count=v) for k,v in failures.most_common(32)],
+            "network_failures":[dict(category=k[0],code=k[1],operation=k[2],transport=k[3],address_family=k[4],count=v) for k,v in failures.most_common(32)],
             "event_counts": {k: counts[k] for k in kinds if counts[k]},
             "peer_disconnects": counts["peer_disconnected"] + peers,
             "response_start": timing(events, "first_byte"), "seek_response_start": timing(events, "recovery"),

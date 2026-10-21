@@ -401,6 +401,8 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 	case "tracker_reply", "tracker_reply_alert", "tracker_error", "tracker_error_alert":
 		t.recordTrackerAlert(a)
 		bt.recordTrackerConnectivity(a.Type)
+	case "url_seed", "url_seed_alert":
+		t.recordWebSeedFailure(a)
 	case "metadata_received", "metadata_received_alert", "add_torrent":
 		t.signalGotInfo()
 	case "dht_reply", "dht_reply_alert":
@@ -419,7 +421,7 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 		}
 		t.mu.Unlock()
 	case "peer_disconnected", "peer_disconnected_alert":
-		t.historyEvent(flow.HistoryEvent{Type: "peer_disconnected", Code: a.ErrorCode, ErrorCategory: flow.SafeErrorCategory(a.ErrorCategory), Operation: a.Operation, Stage: a.DisconnectReason})
+		t.historyEvent(flow.HistoryEvent{Type: "peer_disconnected", Code: a.ErrorCode, ErrorCategory: flow.SafeErrorCategory(a.ErrorCategory), Transport: flow.SafeTransport(a.Transport), AddressFamily: flow.SafeAddressFamily(a.AddressFamily), Operation: a.Operation, Stage: a.DisconnectReason})
 	case "hash_failed", "hash_failed_alert":
 		// The disk clear-piece callback invalidates availability before native
 		// refetch begins. Re-invalidating from this delayed alert could erase

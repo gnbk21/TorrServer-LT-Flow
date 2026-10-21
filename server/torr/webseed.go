@@ -8,14 +8,59 @@ import (
 	"server/settings"
 	"server/torr/storage/torrstor"
 	"sort"
+	"time"
 )
 
 type WebSeedSummary struct {
-	ID         string `json:"id"`
-	Origin     string `json:"origin"`
-	Disabled   bool   `json:"disabled"`
-	AllowLocal bool   `json:"allow_local"`
+	LastFailure *WebSeedFailure `json:"last_failure,omitempty"`
+	ID          string          `json:"id"`
+	Origin      string          `json:"origin"`
+	Disabled    bool            `json:"disabled"`
+	AllowLocal  bool            `json:"allow_local"`
 }
+
+type WebSeedFailure struct {
+	Category string    `json:"category"`
+	Code     int       `json:"code"`
+	Count    uint64    `json:"count"`
+	At       time.Time `json:"at"`
+}
+
+func (t *Torrent) recordWebSeedFailure(alert *lt.Alert) {
+	if t == nil || alert == nil || alert.URL == "" {
+		return
+	}
+	id := flow.WebSeedID(alert.URL)
+	t.trackerMu.Lock()
+	defer t.trackerMu.Unlock()
+	if t.webSeedFailures == nil {
+		t.webSeedFailures = make(map[string]WebSeedFailure)
+	}
+	if _, ok := t.webSeedFailures[id]; !ok && len(t.webSeedFailures) >= 16 {
+		var oldest string
+		var at time.Time
+		for key, entry := range t.webSeedFailures {
+			if oldest == "" || entry.At.Before(at) {
+				oldest, at = key, entry.At
+			}
+		}
+		delete(t.webSeedFailures, oldest)
+	}
+	last := t.webSeedFailures[id]
+	t.webSeedFailures[id] = WebSeedFailure{Category: flow.SafeErrorCategory(alert.ErrorCategory), Code: alert.ErrorCode, Count: last.Count + 1, At: time.Now().UTC()}
+}
+
+func (t *Torrent) FlowWebSeedFailures() []WebSeedFailure {
+	t.trackerMu.Lock()
+	defer t.trackerMu.Unlock()
+	out := make([]WebSeedFailure, 0, len(t.webSeedFailures))
+	for _, failure := range t.webSeedFailures {
+		out = append(out, failure)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].At.After(out[j].At) })
+	return out
+}
+
 type WebSeedStatus struct {
 	Private bool             `json:"private"`
 	Sources []WebSeedSummary `json:"sources"`
@@ -52,7 +97,13 @@ func TorrentWebSeeds(hash string) (WebSeedStatus, error) {
 			continue
 		}
 		// Paths and signed queries may contain credentials. Only origin is shown.
-		out.Sources = append(out.Sources, WebSeedSummary{ID: id, Origin: u.Scheme + "://" + u.Host, Disabled: seed.Disabled, AllowLocal: seed.AllowLocal})
+		row := WebSeedSummary{ID: id, Origin: u.Scheme + "://" + u.Host, Disabled: seed.Disabled, AllowLocal: seed.AllowLocal}
+		t.trackerMu.Lock()
+		if failure, ok := t.webSeedFailures[id]; ok {
+			row.LastFailure = &failure
+		}
+		t.trackerMu.Unlock()
+		out.Sources = append(out.Sources, row)
 	}
 	sort.Slice(out.Sources, func(i, j int) bool { return out.Sources[i].ID < out.Sources[j].ID })
 	return out, nil

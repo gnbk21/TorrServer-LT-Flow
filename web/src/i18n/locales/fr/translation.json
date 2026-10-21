@@ -557,7 +557,7 @@
   },
   "flow": {
     "title": "Lecture Flow",
-    "buffer": "Tampon disponible",
+    "buffer": "Tampon disponible sur le serveur",
     "bufferBytes": "Données en cache à venir",
     "download": "Téléchargement",
     "demand": "Débit consommé par la lecture",
@@ -880,7 +880,8 @@
       },
       "sessionSummary": "Totaux de la session",
       "sampleCount": "Échantillons enregistrés : {{count}}",
-      "minimumBuffer": "Plus petit tampon du téléphone échantillonné : {{milliseconds}} ms"
+      "minimumBuffer": "Plus petit tampon du téléphone échantillonné : {{milliseconds}} ms",
+      "mirrorFailure": "Dernier échec du miroir observé, sans vérification de disponibilité actuelle"
     }
   },
   "search": {

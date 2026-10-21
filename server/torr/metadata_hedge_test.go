@@ -99,4 +99,7 @@ func TestMetadataHedgeConsentWithdrawalCancelsOpenRequests(t *testing.T) {
 	if calls.Load() != 1 {
 		t.Fatal("hedged after consent withdrawal")
 	}
+	if status := tor.FlowStartup().MetadataRecovery; status == nil || status.State != "METADATA_MISS" || status.Code != "POLICY_CHANGED" {
+		t.Fatal("cancelled source still appears active", status)
+	}
 }
