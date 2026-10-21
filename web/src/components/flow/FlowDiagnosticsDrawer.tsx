@@ -312,6 +312,7 @@ export function FlowDiagnosticsDrawer({
                   {tr.error_category && (
                     <p>
                       {tr.error_category} / {tr.error_code ?? "—"} ·{" "}
+                      {t("flow.upgrade.operation", { value: tr.operation ?? "—" })} ·{" "}
                       {t("flow.upgrade.failureCount", {
                         count: tr.failure_count ?? 0,
                       })}

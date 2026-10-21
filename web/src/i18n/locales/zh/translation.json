@@ -881,7 +881,8 @@
       "sessionSummary": "整个会话的汇总",
       "sampleCount": "已记录的采样数：{{count}}",
       "minimumBuffer": "采样中最小的手机缓冲：{{milliseconds}} 毫秒",
-      "mirrorFailure": "最近观测到的镜像错误；并非当前可用性检查"
+      "mirrorFailure": "最近观测到的镜像错误；并非当前可用性检查",
+      "operation": "操作 {{value}}"
     }
   },
   "search": {

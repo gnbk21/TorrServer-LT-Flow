@@ -582,8 +582,10 @@ json alert_to_json(lt::alert const* a) {
     } else if (auto const* fa = lt::alert_cast<lt::peer_disconnected_alert>(a)) {
         j["error_code"] = fa->error.value();
         j["error_category"] = safe_error_category(fa->error);
-        j["transport"] = fa->socket_type == lt::socket_type_t::utp || fa->socket_type == lt::socket_type_t::ssl_utp ? "utp"
-            : fa->socket_type == lt::socket_type_t::tcp || fa->socket_type == lt::socket_type_t::ssl_tcp ? "tcp" : "unknown";
+        j["transport"] = fa->socket_type == lt::socket_type_t::utp || fa->socket_type == lt::socket_type_t::utp_ssl ? "utp"
+            : fa->socket_type == lt::socket_type_t::tcp || fa->socket_type == lt::socket_type_t::tcp_ssl
+                || fa->socket_type == lt::socket_type_t::socks5 || fa->socket_type == lt::socket_type_t::socks5_ssl
+                || fa->socket_type == lt::socket_type_t::http || fa->socket_type == lt::socket_type_t::http_ssl ? "tcp" : "unknown";
 #if TORRENT_ABI_VERSION < 4
         lt::tcp::endpoint const endpoint(fa->endpoint);
         j["address_family"] = endpoint.address().is_v6() ? "IPV6" : "IPV4";

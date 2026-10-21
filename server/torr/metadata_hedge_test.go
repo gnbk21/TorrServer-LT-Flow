@@ -34,6 +34,88 @@ func metadataTestTorrent(t *testing.T) (*Torrent, []byte) {
 	return tor, payload
 }
 
+func TestMetadataRecoveryCooldownDistinguishesMissingFromUnavailable(t *testing.T) {
+	for _, unavailable := range []bool{false, true} {
+		tor, _ := metadataTestTorrent(t)
+		source := metadataSource{"https://missing-fixture.example/a", "SUPPLIED"}
+		if unavailable {
+			source.url = "https://unavailable-fixture.example/a"
+		}
+		var calls int
+		fetch := func(context.Context, string) ([]byte, error) {
+			calls++
+			code := "SOURCE_MISSING"
+			if unavailable {
+				code = "SOURCE_UNAVAILABLE"
+			}
+			return nil, metadataSourceError{code: code}
+		}
+		tor.recoverMetadata(context.Background(), []metadataSource{source}, fetch)
+		tor.recoverMetadata(context.Background(), []metadataSource{source}, fetch)
+		if unavailable && calls != 1 || !unavailable && calls != 2 {
+			t.Fatal("missing torrent opened a circuit, or outage was not cooled down", calls)
+		}
+	}
+}
+
+func TestMetadataRecoveryRetryIsBoundedAndDoesNotRestart(t *testing.T) {
+	tor, _ := metadataTestTorrent(t)
+	tor.TorrentSpec.MetadataSources = []string{"https://retry-fixture.example/a"}
+	handle := tor.LTHandle()
+	entered, exited := make(chan struct{}), make(chan struct{})
+	fetch := func(ctx context.Context, _ string) ([]byte, error) {
+		close(entered)
+		defer close(exited)
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	if err := tor.launchMetadataRecovery(0, fetch); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		tor.mu.Lock()
+		tor.metadataRecoveryCancel()
+		tor.mu.Unlock()
+		select {
+		case <-exited:
+		case <-time.After(time.Second):
+			t.Error("retry cleanup did not finish")
+		}
+	})
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("retry never started")
+	}
+	if err := tor.launchMetadataRecovery(0, fetch); err == nil {
+		t.Fatal("concurrent retry accepted")
+	}
+	tor.mu.Lock()
+	tor.metadataRecoveryCancel()
+	tor.mu.Unlock()
+	select {
+	case <-exited:
+	case <-time.After(time.Second):
+		t.Fatal("cancelled retry leaked")
+	}
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		tor.mu.Lock()
+		running := tor.metadataRecoveryRunning
+		tor.mu.Unlock()
+		if !running {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if err := tor.launchMetadataRecovery(0, fetch); err == nil {
+		t.Fatal("immediate repeat bypassed rate limit")
+	}
+	if tor.LTHandle() != handle {
+		t.Fatal("retry replaced the handle")
+	}
+}
+
 func TestMetadataHedgeCancelsSlowLoserWithoutReplacingHandle(t *testing.T) {
 	tor, payload := metadataTestTorrent(t)
 	handle := tor.LTHandle()

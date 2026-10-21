@@ -79,6 +79,22 @@ func TestPeerAggregationBoundsDistinctCodesWithoutLosingCounts(t *testing.T) {
 	}
 }
 
+func TestPeerAggregationKeepsCategoryTransportAndFamilySeparate(t *testing.T) {
+	h := &History{}
+	for _, event := range []HistoryEvent{
+		{ErrorCategory: "SYSTEM", Transport: "tcp", AddressFamily: "IPV4"},
+		{ErrorCategory: "HTTP", Transport: "tcp", AddressFamily: "IPV4"},
+		{ErrorCategory: "SYSTEM", Transport: "utp", AddressFamily: "IPV4"},
+		{ErrorCategory: "SYSTEM", Transport: "tcp", AddressFamily: "IPV6"},
+	} {
+		event.Type, event.Torrent, event.Code, event.Operation = "peer_disconnected", 1, 60, 16
+		h.recordPeer(event)
+	}
+	if events := h.flushPeers(time.Now()); len(events) != 4 {
+		t.Fatal("distinct native failures were merged", events)
+	}
+}
+
 func TestHistoryNestedEnumsCannotRetainSecrets(t *testing.T) {
 	dir := t.TempDir()
 	h, err := NewHistory(dir)

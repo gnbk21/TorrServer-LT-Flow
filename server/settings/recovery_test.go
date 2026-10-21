@@ -114,6 +114,11 @@ func TestSettingsHotApplicationAndSchema(t *testing.T) {
 	if NeedsEngineRestart(old, next) {
 		t.Fatal("safe cache policy restarted engine")
 	}
+	native := CloneSettings(old)
+	native.Flow.CapacityAwareRequests = !old.Flow.CapacityAwareRequests
+	if !NeedsEngineRestart(old, native) {
+		t.Fatal("native request capacity was incorrectly classified hot")
+	}
 	next.DisableDHT = !old.DisableDHT
 	if !NeedsEngineRestart(old, next) {
 		t.Fatal("native change classified hot")

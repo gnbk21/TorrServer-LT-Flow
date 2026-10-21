@@ -875,7 +875,8 @@
       "sessionSummary": "Totalurile sesiunii",
       "sampleCount": "Eșantioane înregistrate: {{count}}",
       "minimumBuffer": "Cel mai mic tampon măsurat al telefonului: {{milliseconds}} ms",
-      "mirrorFailure": "Ultima eroare observată a oglinzii; nu este o verificare curentă a disponibilității"
+      "mirrorFailure": "Ultima eroare observată a oglinzii; nu este o verificare curentă a disponibilității",
+      "operation": "Operație {{value}}"
     }
   },
   "search": {

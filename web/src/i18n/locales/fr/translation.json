@@ -881,7 +881,8 @@
       "sessionSummary": "Totaux de la session",
       "sampleCount": "Échantillons enregistrés : {{count}}",
       "minimumBuffer": "Plus petit tampon du téléphone échantillonné : {{milliseconds}} ms",
-      "mirrorFailure": "Dernier échec du miroir observé, sans vérification de disponibilité actuelle"
+      "mirrorFailure": "Dernier échec du miroir observé, sans vérification de disponibilité actuelle",
+      "operation": "Opération {{value}}"
     }
   },
   "search": {

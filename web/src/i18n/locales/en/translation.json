@@ -779,7 +779,8 @@
       "sessionSummary": "Whole-session totals",
       "sampleCount": "Recorded samples: {{count}}",
       "minimumBuffer": "Smallest sampled phone buffer: {{milliseconds}} ms",
-      "mirrorFailure": "Last observed mirror failure; not a current availability check"
+      "mirrorFailure": "Last observed mirror failure; not a current availability check",
+      "operation": "Operation {{value}}"
     }
   },
   "torrent": {
