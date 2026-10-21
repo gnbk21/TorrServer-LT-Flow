@@ -7,6 +7,8 @@ import {
 } from "../types/flow";
 
 export const flowApi = {
+  retryMetadata: (hash: string, signal?: AbortSignal) =>
+    api.post(`/flow/metadata-retry/${encodeURIComponent(hash)}`, {}, signal),
   warmup: (
     hash: string,
     file_index: number,

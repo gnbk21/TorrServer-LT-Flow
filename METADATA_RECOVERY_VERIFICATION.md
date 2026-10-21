@@ -85,6 +85,16 @@ Installed at `Flow-Diagnostics/TorrServer-LT-windows-amd64.exe`, launched by
   is byte-for-byte unchanged from e00fd089, whose complete CodeQL run passed;
   final JavaScript/Actions/Windows-helper security jobs passed separately.
 
+### Subsequent CI status — 22 October 2026
+
+The pending checks above describe the delivery checkpoint. A fresh GitHub query
+for PR #6 at `0e8331a1f9fd438404e4ae80567809ca323f2b1b` now reports every
+non-skipped check successful, including native CodeQL, the broad native job,
+all eight high-bitrate comparisons, Windows service, platform builds and
+ETW/Perfetto capture. The PR is open and mergeable. Skipped optional checks
+and the field checks listed below are not claimed as passed. No release was
+published by this status refresh.
+
 ### Owner configuration and rollback
 
 The owner-approved `MetadataFallback` / `PublicMetadataCache` controls were

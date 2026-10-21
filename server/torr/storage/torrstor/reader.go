@@ -481,7 +481,7 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 		if !r.internal {
 			r.cache.tryReusePiece(parent, r.stopTicker, r.handle, piece)
 		}
-		if r.handle != nil {
+		if r.handle != nil && r.canRefreshDeadline(parent, piece) {
 			// On-demand have/cache reconciliation: if libtorrent thinks it already has
 			// this piece but our cache doesn't (we evicted it, or a seek landed in an
 			// evicted region), libtorrent would never re-request it and we'd block
@@ -558,7 +558,7 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 	ready := r.cache.waitForBytes(ctx, piece, pieceOff, func() {
 		r.cache.lastApplyMs.Store(0)
 		r.cache.applyStreamPriorities()
-		if r.handle != nil {
+		if r.handle != nil && r.canRefreshDeadline(ctx, piece) {
 			// A late hash completion can reassert ownership after the initial
 			// on-demand reset. Reconcile this exact parked offset independently
 			// of the group's held anchor and refresh its urgent deadline last.
@@ -587,6 +587,12 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 		return errors.New("torrstor.Reader: piece wait timeout")
 	}
 	return nil
+}
+
+// Cancellation and an authoritative newer far seek also apply to periodic
+// parked-reader reconciliation, not only the main priority-vector pass.
+func (r *Reader) canRefreshDeadline(ctx context.Context, piece int) bool {
+	return ctx.Err() == nil && !r.cache.snapShadowed(r.group, piece, r.bornMs)
 }
 
 // Seek implements io.Seeker.

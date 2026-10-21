@@ -119,8 +119,16 @@ func (c *Cache) demandRates() map[string]float64 {
 func (c *Cache) urgentHorizons(rates map[string]float64, forward int) map[string]int {
 	out := make(map[string]int)
 	if !settings.CurrentFlow().AdaptiveUrgentHorizon {
+		if c.flowUrgentActive.Swap(false) {
+			c.flowMu.Lock()
+			for _, g := range c.flowGroups {
+				g.urgentSmoother.Reset()
+			}
+			c.flowMu.Unlock()
+		}
 		return out
 	}
+	c.flowUrgentActive.Store(true)
 	c.flowMu.Lock()
 	defer c.flowMu.Unlock()
 	now := time.Now()

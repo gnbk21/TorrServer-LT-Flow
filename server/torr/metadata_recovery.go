@@ -100,6 +100,16 @@ func metadataSources(spec *TorrentSpec, f *settings.FlowSettings) []metadataSour
 // network policy in its key. Completed results are not globally cached.
 var metadataFetches flow.FetchGroup[[]byte]
 
+var metadataHealth flow.SourceHealth
+
+func metadataServiceKey(raw string) string {
+	u, _ := url.Parse(raw)
+	if u == nil {
+		return metadataFetchKey("")
+	}
+	return metadataFetchKey(u.Scheme + "://" + u.Host)
+}
+
 func metadataFetchKey(raw string) string {
 	policy, _ := json.Marshal(netpolicy.Snapshot())
 	digest := sha256.Sum256(append(append([]byte(raw), 0), policy...))
@@ -144,6 +154,12 @@ func readMetadataHTTP(ctx context.Context, client *http.Client, raw string) ([]b
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK || resp.ContentLength > metadataSourceBytes {
+		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
+			return nil, metadataSourceError{"SOURCE_MISSING"}
+		}
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+			return nil, metadataSourceError{"SOURCE_UNAVAILABLE"}
+		}
 		return nil, metadataSourceError{"HTTP_STATUS_OR_SIZE"}
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, metadataSourceBytes+1))
@@ -168,6 +184,7 @@ func (t *Torrent) metadataRecoveryState(value MetadataRecovery) {
 	codes := map[string]int{"SOURCE_NETWORK_ERROR": 1, "HTTP_STATUS_OR_SIZE": 2,
 		"HTTP_BODY_INVALID": 3, "INVALID_METADATA": 4, "HASH_MISMATCH": 5,
 		"NATIVE_REJECTED": 6, "FETCH_CAPACITY": 7, "HASH_VERIFIED": 8, "REDIRECT_REFUSED": 9}
+	codes["SOURCE_MISSING"], codes["SOURCE_UNAVAILABLE"], codes["SOURCE_COOLDOWN"] = 10, 11, 12
 	operation := 0
 	if value.Source == "SUPPLIED" {
 		operation = 1
@@ -183,59 +200,175 @@ func (t *Torrent) startMetadataRecovery() {
 
 func (t *Torrent) startMetadataRecoveryAfter(delay time.Duration, fetch func(context.Context, string) ([]byte, error)) {
 	t.metadataRecoveryOnce.Do(func() {
-		t.mu.Lock()
-		spec := *t.TorrentSpec
-		spec.MetadataSources = append([]string(nil), spec.MetadataSources...)
-		t.mu.Unlock()
-		sources := metadataSources(&spec, settings.CurrentFlow())
-		if len(sources) == 0 {
-			return
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), delay+4*metadataSourceTimeout+time.Second)
-		t.mu.Lock()
-		if t.Stat == state.TorrentClosed {
-			t.mu.Unlock()
-			cancel()
-			return
-		}
-		t.metadataRecoveryCancel = cancel
-		t.mu.Unlock()
-		t.metadataRecoveryState(MetadataRecovery{State: "METADATA_WAIT"})
-		go func() {
-			defer cancel()
-			timer := time.NewTimer(delay)
-			defer timer.Stop()
-			select {
-			case <-ctx.Done():
-				return
-			case <-t.gotInfoCh:
-				return
-			case <-timer.C:
-			}
-			t.recoverMetadata(ctx, sources, fetch)
-		}()
+		_ = t.launchMetadataRecovery(delay, fetch)
 	})
 }
 
+// RetryMetadataRecovery never re-adds the torrent or restarts the engine.
+// It is explicit, rate-limited and subject to current source consent/policy.
+func (t *Torrent) RetryMetadataRecovery() error {
+	if t == nil || t.LTHandle() == nil || t.TorrentSpec == nil {
+		return errors.New("torrent has no active metadata request")
+	}
+	return t.launchMetadataRecovery(0, fetchMetadataSource)
+}
+
+func (t *Torrent) launchMetadataRecovery(delay time.Duration, fetch func(context.Context, string) ([]byte, error)) error {
+	t.mu.Lock()
+	if t.metadataRecoveryRunning || time.Since(t.metadataRecoveryLast) < 30*time.Second {
+		t.mu.Unlock()
+		return errors.New("metadata recovery is running or was retried recently")
+	}
+	spec := *t.TorrentSpec
+	spec.MetadataSources = append([]string(nil), spec.MetadataSources...)
+	t.mu.Unlock()
+	sources := metadataSources(&spec, settings.CurrentFlow())
+	if len(sources) == 0 {
+		return errors.New("no authorized metadata sources")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), delay+4*metadataSourceTimeout+time.Second)
+	t.mu.Lock()
+	if t.Stat == state.TorrentClosed {
+		t.mu.Unlock()
+		cancel()
+		return errors.New("torrent is closed")
+	}
+	if t.metadataRecoveryRunning || time.Since(t.metadataRecoveryLast) < 30*time.Second {
+		t.mu.Unlock()
+		cancel()
+		return errors.New("metadata recovery is running or was retried recently")
+	}
+	select {
+	case <-t.gotInfoCh:
+		t.mu.Unlock()
+		cancel()
+		return errors.New("metadata is already available")
+	default:
+	}
+	t.metadataRecoveryRunning, t.metadataRecoveryLast = true, time.Now()
+	t.metadataRecoveryCancel = cancel
+	t.mu.Unlock()
+	t.metadataRecoveryState(MetadataRecovery{State: "METADATA_WAIT"})
+	go func() {
+		defer cancel()
+		defer func() { t.mu.Lock(); t.metadataRecoveryRunning = false; t.mu.Unlock() }()
+		timer := time.NewTimer(delay)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.gotInfoCh:
+			return
+		case <-timer.C:
+		}
+		t.recoverMetadata(ctx, sources, fetch)
+	}()
+	return nil
+}
+
 func (t *Torrent) recoverMetadata(ctx context.Context, sources []metadataSource, fetch func(context.Context, string) ([]byte, error)) {
+	// Supplied sources retain preference: a public-cache tier starts only when
+	// the authorized supplied tier is exhausted. Within each tier, hedge a slow
+	// first source after one second, never more than two requests per torrent.
+	for len(sources) > 0 && ctx.Err() == nil {
+		end := 1
+		for end < len(sources) && sources[end].kind == sources[0].kind {
+			end++
+		}
+		if t.recoverMetadataTier(ctx, sources[:end], fetch) {
+			return
+		}
+		sources = sources[end:]
+	}
+}
+
+func metadataSourceAllowed(source metadataSource) bool {
+	f := settings.CurrentFlow()
+	return f.Enabled && f.MetadataFallback && (source.kind != "PUBLIC_CACHE" || f.PublicMetadataCache)
+}
+
+func (t *Torrent) recoverMetadataTier(parent context.Context, sources []metadataSource, fetch func(context.Context, string) ([]byte, error)) bool {
+	ctx, cancel := context.WithCancel(parent)
+	defer cancel()
+	type result struct {
+		source metadataSource
+		data   []byte
+		err    error
+	}
+	results := make(chan result, 2)
+	active, next := 0, 0
+	policy := metadataFetchKey("")
 	last := MetadataRecovery{State: "METADATA_MISS", Code: "NO_MATCHING_METADATA"}
-	for _, source := range sources {
-		f := settings.CurrentFlow()
-		if ctx.Err() != nil || !f.Enabled || !f.MetadataFallback || source.kind == "PUBLIC_CACHE" && !f.PublicMetadataCache {
-			break
+	// Preserve the attempt count across supplied and public tiers.
+	if s := t.FlowStartup().MetadataRecovery; s != nil {
+		last.Attempts = s.Attempts
+	}
+	launch := func() {
+		for next < len(sources) && active < 2 {
+			source := sources[next]
+			next++
+			if !metadataSourceAllowed(source) {
+				continue
+			}
+			if !metadataHealth.Allowed(metadataServiceKey(source.url), time.Now()) {
+				last.Source, last.Code = source.kind, "SOURCE_COOLDOWN"
+				t.metadataRecoveryState(last)
+				continue
+			}
+			last.Attempts++
+			last.Source, last.State, last.Code = source.kind, "METADATA_HTTP", ""
+			t.metadataRecoveryState(last)
+			active++
+			go func() {
+				if !metadataSourceAllowed(source) {
+					results <- result{source: source, err: context.Canceled}
+					return
+				}
+				data, err := fetch(ctx, source.url)
+				select {
+				case results <- result{source, data, err}:
+				case <-ctx.Done():
+				}
+			}()
+			break // the second request is staggered unless the first fails
+		}
+	}
+	launch()
+	hedge := time.NewTimer(time.Second)
+	defer hedge.Stop()
+	consent := time.NewTicker(100 * time.Millisecond)
+	defer consent.Stop()
+	for active > 0 {
+		var response result
+		select {
+		case <-ctx.Done():
+			return true
+		case <-t.gotInfoCh:
+			return true
+		case <-consent.C:
+			if !metadataSourceAllowed(sources[0]) || metadataFetchKey("") != policy {
+				return true
+			}
+			continue
+		case <-hedge.C:
+			launch()
+			continue
+		case response = <-results:
+			active--
+		}
+		if !metadataSourceAllowed(response.source) || metadataFetchKey("") != policy {
+			return true
 		}
 		handle := t.LTHandle()
 		if handle == nil {
-			return
+			return true
 		}
 		if have, _ := handle.HaveMetadata(); have {
 			t.signalGotInfo()
-			return
+			return true
 		}
-		last.Attempts++
-		last.Source, last.State, last.Code = source.kind, "METADATA_HTTP", ""
-		t.metadataRecoveryState(last)
-		data, err := fetch(ctx, source.url)
+		data, err := response.data, response.err
+		last.Source = response.source.kind
 		last.Code = "SOURCE_NETWORK_ERROR"
 		if errors.Is(err, flow.ErrFetchBusy) {
 			last.Code = "FETCH_CAPACITY"
@@ -243,6 +376,9 @@ func (t *Torrent) recoverMetadata(ctx context.Context, sources []metadataSource,
 		var sourceError metadataSourceError
 		if errors.As(err, &sourceError) {
 			last.Code = sourceError.code
+		}
+		if ctx.Err() == nil && !errors.Is(err, context.Canceled) && !errors.Is(err, flow.ErrFetchBusy) {
+			metadataHealth.Observe(metadataServiceKey(response.source.url), err != nil && (last.Code == "SOURCE_NETWORK_ERROR" || last.Code == "SOURCE_UNAVAILABLE"), time.Now())
 		}
 		if err == nil && ctx.Err() == nil {
 			var parsed *lt.ParsedTorrent
@@ -264,12 +400,14 @@ func (t *Torrent) recoverMetadata(ctx context.Context, sources []metadataSource,
 				if have, _ := handle.HaveMetadata(); have && installed {
 					last.State, last.Code = "METADATA_RECOVERED", "HASH_VERIFIED"
 					t.metadataRecoveryState(last)
-					return
+					return true
 				}
-				return // a peer completed the same metadata concurrently
+				return true // a peer completed the same metadata concurrently
 			}
 		}
 		last.State = "METADATA_MISS"
 		t.metadataRecoveryState(last)
+		launch()
 	}
+	return false
 }

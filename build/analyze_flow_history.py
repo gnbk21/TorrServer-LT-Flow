@@ -68,7 +68,7 @@ def summarize(path):
     counts = collections.Counter(e.get("type") for e in events)
     # Never echo arbitrary event strings, run tokens or nested input fields.
     kinds = ("engine_started", "engine_stopped", "startup", "startup_sample", "playback_sample",
-             "first_byte", "recovery", "response", "seek", "peer_disconnected", "peer_summary", "shutdown_requested")
+             "first_byte", "recovery", "response", "seek", "peer_disconnected", "peer_summary", "shutdown_requested", "integrity_failure", "tracker_failure")
     peers = sum(e.get("count", 0) for e in events if e.get("type") == "peer_summary"
                 and isinstance(e.get("count"), int) and e["count"] >= 0)
     snapshots = [e["startup"] for e in events if isinstance(e.get("startup"), dict)]
@@ -109,7 +109,18 @@ def summarize(path):
         if isinstance(sample.get("supply_qualified"), bool):
             row["supply_qualified"] = sample["supply_qualified"]
         latest.append(row)
+    allowed_categories={"SYSTEM","GENERIC","DNS","ASIO","TLS","HTTP","LIBTORRENT","UNKNOWN"}
+    failures=collections.Counter()
+    for event in events:
+        category=event.get('error_category','UNKNOWN')
+        code,operation=event.get('code',0),event.get('operation',0)
+        if event.get('type') not in {'peer_disconnected','peer_summary','tracker_failure'} or category not in allowed_categories: continue
+        if type(code) is not int or type(operation) is not int or not -2147483648<=code<=2147483647 or not 0<=operation<=1024: continue
+        count=event.get('count',1)
+        if type(count) is int and 0<=count<=1_000_000_000: failures[(category,code,operation)]+=count
     return {"events": len(events), "invalid_lines": invalid,
+            "integrity_failures":counts['integrity_failure'],
+            "network_failures":[dict(category=k[0],code=k[1],operation=k[2],count=v) for k,v in failures.most_common(32)],
             "event_counts": {k: counts[k] for k in kinds if counts[k]},
             "peer_disconnects": counts["peer_disconnected"] + peers,
             "response_start": timing(events, "first_byte"), "seek_response_start": timing(events, "recovery"),

@@ -519,6 +519,18 @@ json status_to_json(lt::torrent_handle const& h) {
 // ============================================================================
 namespace {
 
+char const* safe_error_category(lt::error_code const& error) {
+    std::string const name = error.category().name();
+    if (name == "system") return "SYSTEM";
+    if (name == "generic") return "GENERIC";
+    if (name == "asio.netdb" || name == "asio.addrinfo") return "DNS";
+    if (name == "asio.misc") return "ASIO";
+    if (name == "asio.ssl" || name == "asio.ssl.stream" || name == "ssl") return "TLS";
+    if (name == "http" || name == "http error") return "HTTP";
+    if (name == "libtorrent") return "LIBTORRENT";
+    return "UNKNOWN";
+}
+
 json alert_to_json(lt::alert const* a) {
     json j;
     j["type"]     = a->what();
@@ -567,6 +579,7 @@ json alert_to_json(lt::alert const* a) {
         j["piece"] = static_cast<int>(fa->piece_index);
     } else if (auto const* fa = lt::alert_cast<lt::peer_disconnected_alert>(a)) {
         j["error_code"] = fa->error.value();
+        j["error_category"] = safe_error_category(fa->error);
         j["operation"] = static_cast<int>(fa->op);
         j["disconnect_reason"] = fa->error == lt::errors::torrent_paused ? "PAUSED"
             : fa->error == lt::errors::upload_upload_connection ? "REDUNDANT" : "OTHER";
@@ -578,6 +591,10 @@ json alert_to_json(lt::alert const* a) {
     } else if (auto const* fa = lt::alert_cast<lt::tracker_error_alert>(a)) {
         j["url"]   = std::string(fa->tracker_url());
         j["error"] = fa->error.message();
+        j["error_code"] = fa->error.value();
+        j["error_category"] = safe_error_category(fa->error);
+        j["operation"] = static_cast<int>(fa->op);
+        j["failure_count"] = fa->times_in_row;
     } else if (auto const* fa = lt::alert_cast<lt::torrent_error_alert>(a)) {
         j["error"] = fa->error.message();
     } else if (auto const* fa = lt::alert_cast<lt::file_error_alert>(a)) {

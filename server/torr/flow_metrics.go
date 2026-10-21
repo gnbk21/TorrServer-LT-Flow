@@ -102,6 +102,8 @@ func (t *Torrent) historyEvent(e flow.HistoryEvent) {
 
 func (t *Torrent) FlowTimeline() flow.TimelineSnapshot { return t.timeline.Snapshot() }
 
+func (t *Torrent) FlowIntegrity() flow.IntegritySnapshot { return t.integrity.Snapshot(time.Now()) }
+
 func (t *Torrent) startupStage(stage string) {
 	if t == nil {
 		return
@@ -130,6 +132,8 @@ func (t *Torrent) startupStage(stage string) {
 }
 
 type FlowSessionStatus struct {
+	BufferSampledAtMs       int64                 `json:"buffer_sampled_at_ms"`
+	BufferOffsetBytes       int64                 `json:"buffer_offset_bytes"`
 	BurstHintSource         string                `json:"burst_hint_source"`
 	ReadableContiguousBytes int64                 `json:"readable_contiguous_bytes"`
 	VerifiedContiguousBytes int64                 `json:"verified_contiguous_bytes"`
@@ -184,12 +188,13 @@ type FlowSessionStatus struct {
 type flowSession struct {
 	diagnosticID uint64
 	FlowSessionStatus
-	fileOffset      int64
-	demandOffset    int64 // Actual response position, including a blocked seek.
-	lastSeen        time.Time
-	lastPlaybackSeq uint64
-	lastSeekSeq     uint64
-	lastWarmSeq     uint64
+	fileOffset       int64
+	demandOffset     int64 // Actual response position, including a blocked seek.
+	lastSeen         time.Time
+	lastPlaybackSeq  uint64
+	lastDeliveredSeq uint64
+	lastSeekSeq      uint64
+	lastWarmSeq      uint64
 }
 
 // flowStart records a logical playback session separately from a TCP request.
@@ -260,7 +265,7 @@ func (t *Torrent) flowStart(fileID int, file *File, group string, req *http.Requ
 			s.SeekCount++
 			s.lastSeekSeq = s.RangeRequestCount + 1
 			s.State = "SEEK_RECOVERY"
-		} else {
+		} else if purpose != "HEAD_PROBE" && purpose != "TAIL_INDEX" {
 			s.State = "PLAYING"
 		}
 		s.ActiveReaders++
@@ -372,7 +377,7 @@ func (t *Torrent) flowEnd(fileID int, group string, seq uint64, tr FlowRangeTrac
 		}
 		if s.ActiveReaders == 0 {
 			s.State = "WARM_IDLE"
-		} else {
+		} else if s.lastDeliveredSeq == s.lastPlaybackSeq {
 			s.State = "PLAYING"
 		}
 	}
@@ -411,6 +416,12 @@ func (t *Torrent) flowFirstByte(fileID int, group string, seq uint64, started ti
 	t.historyEvent(flow.HistoryEvent{Type: "first_byte", File: fileID, OperationMeasured: true, ElapsedMs: ttfb.Milliseconds()})
 	t.flowMu.Lock()
 	if s := t.flowSessions[fmt.Sprintf("%d/%s", fileID, group)]; s != nil {
+		// Only the newest playback response can finish a seek. Probes and
+		// older overlapping responses cannot clear the current wait state.
+		if seq == s.lastPlaybackSeq {
+			s.lastDeliveredSeq = seq
+			s.State = "PLAYING"
+		}
 		if seq == s.lastSeekSeq {
 			s.SeekRecoveryMs = ttfb.Milliseconds()
 			t.historyEvent(flow.HistoryEvent{Type: "recovery", File: fileID, OperationMeasured: true, ElapsedMs: ttfb.Milliseconds()})
@@ -493,7 +504,6 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 			s.ObservedPlaybackRate, s.ObservedConfidence = w.ObservedPlaybackRate, w.ObservedConfidence
 			s.TargetBufferSeconds, s.ForwardWindowPieces = w.TargetBufferSeconds, w.ForwardWindowPieces
 			s.Delivery = w.Delivery
-			s.ReadableContiguousBytes, s.VerifiedContiguousBytes = w.ReadableContiguousBytes, w.VerifiedContiguousBytes
 			s.FrontierGrowthRate = w.FrontierGrowthRate
 			s.BurstHintSource = w.BurstHintSource
 			s.SupplyQualified = w.Delivery.Confidence == "medium" || w.Delivery.Confidence == "high"
@@ -519,7 +529,11 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 		if start < offsets[i] || start >= end {
 			continue
 		}
-		s.BufferAheadBytes = cache.ContiguousAvailable(start, end)
+		s.BufferAheadBytes, s.VerifiedContiguousBytes = cache.ContiguousBuffers(start, end)
+		// All three counts now describe the same file-relative demand anchor.
+		// Sampling remains observational; another writer can advance between reads.
+		s.BufferSampledAtMs, s.BufferOffsetBytes = time.Now().UnixMilli(), demands[i]
+		s.ReadableContiguousBytes = s.BufferAheadBytes
 		evidence := sparseSessionEvidence(sparse, int(start/cache.PieceLength), s.BufferAheadBytes, rate, s.PlaybackConsumptionRate, status.ActivePeers, status.PendingPeers)
 		if !s.SupplyQualified {
 			evidence.ConsumptionRate = 0

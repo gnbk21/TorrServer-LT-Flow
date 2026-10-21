@@ -8,6 +8,17 @@ export interface HealthDerivation {
 }
 export function deriveFlowHealth(session?: FlowSession): HealthDerivation {
   let state: FlowHealthState = "UNKNOWN";
+  if (
+    session?.buffer_sampled_at_ms !== undefined &&
+    (session.buffer_sampled_at_ms <= 0 ||
+      Date.now() - session.buffer_sampled_at_ms < 0 ||
+      Date.now() - session.buffer_sampled_at_ms >= 10000)
+  )
+    return {
+      state,
+      label: `flow.health.${state}`,
+      description: `flow.healthDescription.${state}`,
+    };
   if (session?.state === "WARM_IDLE") state = "WARM_IDLE";
   else if (
     session &&

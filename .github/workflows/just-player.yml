@@ -14,6 +14,9 @@ on:
       - 'web/yarn.lock'
       - '.github/workflows/just-player.yml'
   workflow_dispatch:
+concurrency:
+  group: october-just-player-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
 jobs:
@@ -80,6 +83,7 @@ jobs:
         run: node build/validate_sbom.cjs _out/player-source/SBOM.cdx.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
+          retention-days: 14
           name: Flow-Player-experimental
           path: |
             _player/app/build/outputs/apk/latestUniversal/debug/*.apk

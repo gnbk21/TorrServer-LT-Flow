@@ -87,6 +87,8 @@ class PeerPlan:
     strict_request_queue: bool = False  # disconnect when the advertised cap is exceeded
     request_latency_ms: int = 0  # per-request service latency, independently pipelined
     late_cancel_completion: bool = False  # complete an old cancelled read on same-block reissue
+    final_block_delay_ms: int = 0  # independently delayed piece tails; later blocks may overtake
+    corrupt_first_block: bool = False  # actual hash-failure/refetch regression
 
     def rate_at(self, elapsed):
         rate = self.rate
@@ -135,7 +137,7 @@ class LocalSwarm:
         if not 1 <= peer_ip_start <= 254-len(self.plans):
             raise ValueError("fixture peer IP range exceeded")
         for plan in self.plans:
-            if plan.rate < 0 or plan.delay_ms < 0 or plan.request_latency_ms < 0 or plan.choke_until < 0 or plan.metadata_delay < 0:
+            if plan.rate < 0 or plan.delay_ms < 0 or plan.request_latency_ms < 0 or plan.final_block_delay_ms < 0 or plan.choke_until < 0 or plan.metadata_delay < 0:
                 raise ValueError("negative peer timing or rate")
             if any(p < 0 or p >= self.piece_count for p in plan.available(self.piece_count, float('inf'))):
                 raise ValueError("piece outside generated torrent")
@@ -224,6 +226,10 @@ class LocalSwarm:
                         if pending and not choked and now >= (max(next_send, pending[0][0]) if plan.rate_events else pending[0][0]):
                             _, piece, begin, count = pending.pop(0)
                             block = owner.data[piece*owner.piece_length+begin:piece*owner.piece_length+begin+count]
+                            with owner.lock:
+                                if plan.corrupt_first_block and not stats.get('corrupted_blocks',0) and block:
+                                    block=bytes([block[0]^1])+block[1:]
+                                    stats['corrupted_blocks']=1
                             send(b'\x07' + struct.pack('!II', piece, begin) + block)
                             record('piece', piece, begin, count)
                             with owner.lock:
@@ -315,6 +321,11 @@ class LocalSwarm:
                                     next_send = max(next_send, time.monotonic()) + plan.delay_ms/1000 + (count/plan.rate if plan.rate else 0)
                                 ready = time.monotonic()+plan.request_latency_ms/1000
                                 pending.append((ready if plan.rate_events else max(ready, next_send), piece, begin, count))
+                                if plan.final_block_delay_ms and begin+count == expected:
+                                    due, p, b, n = pending[-1]
+                                    pending[-1] = (due+plan.final_block_delay_ms/1000, p, b, n)
+                                if plan.final_block_delay_ms:
+                                    pending.sort(key=lambda request: request[0])
                                 record('request', piece, begin, count)
                                 if cancelled_responses.pop((piece, begin, count), None) is not None:
                                     # The old disk read completes after the replacement was

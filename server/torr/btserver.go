@@ -419,7 +419,16 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 		}
 		t.mu.Unlock()
 	case "peer_disconnected", "peer_disconnected_alert":
-		t.historyEvent(flow.HistoryEvent{Type: "peer_disconnected", Code: a.ErrorCode, Operation: a.Operation, Stage: a.DisconnectReason})
+		t.historyEvent(flow.HistoryEvent{Type: "peer_disconnected", Code: a.ErrorCode, ErrorCategory: flow.SafeErrorCategory(a.ErrorCategory), Operation: a.Operation, Stage: a.DisconnectReason})
+	case "hash_failed", "hash_failed_alert":
+		// The disk clear-piece callback invalidates availability before native
+		// refetch begins. Re-invalidating from this delayed alert could erase
+		// newly received blocks; this path records evidence only.
+		t.mu.Lock()
+		t.piecesDirtiedBad++
+		t.mu.Unlock()
+		t.integrity.Record(time.Now())
+		t.historyEvent(flow.HistoryEvent{Type: "integrity_failure", Count: 1})
 	case "block_timeout", "block_timeout_alert":
 		t.requestTimeouts.Add(1)
 	case "request_dropped", "request_dropped_alert":
@@ -429,6 +438,9 @@ func (bt *BTServer) handleAlert(a *lt.Alert) {
 	case "torrent_error", "file_error":
 		log.Printf("torr: torrent error for %s: %s", a.TorrentHash, a.Error)
 	case "piece_finished", "piece_finished_alert":
+		t.mu.Lock()
+		t.piecesDirtiedGood++
+		t.mu.Unlock()
 		// Wake any Reader blocked on the piece. The actual byte data
 		// is already on the disk side (libtorrent wrote it through
 		// our cb_write before posting this alert).

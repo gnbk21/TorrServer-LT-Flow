@@ -42,6 +42,7 @@ type HistoryEvent struct {
 	Bytes             int64            `json:"bytes,omitempty"`
 	Code              int              `json:"code,omitempty"`
 	Operation         int              `json:"operation,omitempty"`
+	ErrorCategory     string           `json:"error_category,omitempty"`
 	Dropped           uint64           `json:"dropped,omitempty"`
 }
 
@@ -127,8 +128,11 @@ func NewHistory(dir string) (*History, error) {
 
 func validHistoryEvent(e HistoryEvent) bool {
 	switch e.Type {
-	case "engine_started", "engine_stopped", "shutdown_requested", "previous_run", "metadata", "metadata_recovery", "startup", "startup_sample", "playback_sample", "response", "peer_summary", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht", "sparse", "seek", "recovery", "storage":
+	case "engine_started", "engine_stopped", "shutdown_requested", "previous_run", "metadata", "metadata_recovery", "startup", "startup_sample", "playback_sample", "response", "peer_summary", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht", "sparse", "seek", "recovery", "storage", "integrity_failure", "tracker_failure":
 	default:
+		return false
+	}
+	if e.ErrorCategory != "" && SafeErrorCategory(e.ErrorCategory) != e.ErrorCategory {
 		return false
 	}
 	switch e.Stage {

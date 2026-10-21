@@ -15,10 +15,7 @@ export function ObservedPlayback() {
     (session) => session.active_readers > 0,
   );
   return (
-    <div
-      className="observed-playback px-4 py-2 border-b border-slate-800 text-sm"
-      role="status"
-    >
+    <div className="observed-playback px-4 py-2 border-b border-slate-800 text-sm">
       <Link
         to="/"
         className="flex flex-wrap gap-x-3 gap-y-1 min-h-11 items-center"
@@ -27,7 +24,7 @@ export function ObservedPlayback() {
         <span className="truncate max-w-72">
           {row.torrent.title || row.torrent.hash}
         </span>
-        <span>
+        <span role="status">
           {t(row.torrent.warm_idle ? "flow.warm" : "torrent.playing")}
         </span>
         <span>

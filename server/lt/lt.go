@@ -725,6 +725,8 @@ type Alert struct {
 	Type             string `json:"type"`
 	Category         uint32 `json:"category"`
 	ErrorCode        int    `json:"error_code,omitempty"`
+	ErrorCategory    string `json:"error_category,omitempty"`
+	FailureCount     int    `json:"failure_count,omitempty"`
 	Operation        int    `json:"operation,omitempty"`
 	DisconnectReason string `json:"disconnect_reason,omitempty"`
 	Message          string `json:"message"`

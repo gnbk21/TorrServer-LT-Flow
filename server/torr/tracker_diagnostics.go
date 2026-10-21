@@ -8,17 +8,22 @@ import (
 	"strings"
 	"time"
 
+	"server/flow"
 	"server/lt"
 )
 
 type FlowTrackerDiagnostic struct {
-	ID       string    `json:"id"`
-	Protocol string    `json:"protocol"`
-	Host     string    `json:"host"`
-	Status   string    `json:"status"`
-	Peers    int       `json:"peers"`
-	Error    string    `json:"error,omitempty"`
-	LastAt   time.Time `json:"last_at"`
+	ID            string    `json:"id"`
+	Protocol      string    `json:"protocol"`
+	Host          string    `json:"host"`
+	Status        string    `json:"status"`
+	Peers         int       `json:"peers"`
+	Error         string    `json:"error,omitempty"`
+	ErrorCategory string    `json:"error_category,omitempty"`
+	ErrorCode     int       `json:"error_code,omitempty"`
+	Operation     int       `json:"operation,omitempty"`
+	FailureCount  int       `json:"failure_count,omitempty"`
+	LastAt        time.Time `json:"last_at"`
 }
 
 // recordTrackerAlert retains only a bounded, credential-safe summary. Tracker
@@ -43,6 +48,12 @@ func (t *Torrent) recordTrackerAlert(a *lt.Alert) {
 		d.Status, d.Peers = "OK", a.Peers
 	case "tracker_error", "tracker_error_alert":
 		d.Status, d.Error = "ERROR", safeTrackerError(a.Error)
+		d.ErrorCategory, d.ErrorCode = flow.SafeErrorCategory(a.ErrorCategory), a.ErrorCode
+		d.Operation, d.FailureCount = a.Operation, max(0, a.FailureCount)
+		if classified := flow.NetworkErrorClass(d.ErrorCategory, d.ErrorCode); classified != "UNKNOWN" {
+			d.Error = classified
+		}
+		t.historyEvent(flow.HistoryEvent{Type: "tracker_failure", ErrorCategory: d.ErrorCategory, Code: d.ErrorCode, Operation: d.Operation, Count: uint64(d.FailureCount)})
 	default:
 		return
 	}

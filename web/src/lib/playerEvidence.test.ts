@@ -41,3 +41,21 @@ test("report size limit is checked before parsing", async () => {
     readPlayerReport(new File(["x".repeat(262145)], "private.json")),
   ).rejects.toThrow("flow.playerReportInvalid");
 });
+
+test("v2 reports preserve a whole-session summary and reject replayed or unordered samples", () => {
+  const last = { ...sample, sequence: 129 };
+  const valid = {
+    ...report,
+    schema_version: 2,
+    samples: [last],
+    summary: { ...last, total_samples: 129, observed_min_buffered_ms: 1000 },
+  };
+  expect(playerReportSchema.safeParse(valid).success).toBe(true);
+  for (const bad of [
+    { ...valid, summary: { ...valid.summary, sequence: 128 } },
+    { ...valid, samples: [last, last] },
+    { ...valid, samples: [last, { ...last, sequence: 130, elapsed_ms: 1 }] },
+    { ...valid, samples: [sample] },
+  ])
+    expect(playerReportSchema.safeParse(bad).success).toBe(false);
+});

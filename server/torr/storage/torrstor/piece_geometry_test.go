@@ -45,4 +45,17 @@ func TestV2ShortFileTailNeedsActualBytesAndNativeVerification(t *testing.T) {
 	if c.Have(0) {
 		t.Fatal("hash failure retained trusted v2 bytes")
 	}
+	if c.readableAt(0, 0) != 0 || c.VerifiedContiguousAvailable(0, 17001) != 0 {
+		t.Fatal("failed piece remained readable")
+	}
+	if _, err := c.writePiece(0, 0, bytes.Repeat([]byte{3}, 17001)); err != nil {
+		t.Fatal(err)
+	}
+	if c.Have(0) {
+		t.Fatal("refetch became verified before native completion")
+	}
+	c.SignalPieceComplete(0)
+	if !c.Have(0) {
+		t.Fatal("verified refetch did not recover")
+	}
 }

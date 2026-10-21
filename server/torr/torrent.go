@@ -113,6 +113,7 @@ type Torrent struct {
 	playbackRecordedAt time.Time // guarded by flowMu
 	requestTimeouts    atomic.Uint64
 	requestsDropped    atomic.Uint64
+	integrity          flow.IntegrityMeter
 	trackerMu          sync.Mutex
 	trackers           map[string]FlowTrackerDiagnostic
 
@@ -122,11 +123,13 @@ type Torrent struct {
 	preparationHold   atomic.Bool
 	warmIdleSince     time.Time
 
-	gotInfoCh              chan struct{}
-	gotInfoOnce            sync.Once
-	metadataRecoveryOnce   sync.Once
-	metadataRecoveryCancel context.CancelFunc // guarded by mu
-	posterOnce             sync.Once
+	gotInfoCh               chan struct{}
+	gotInfoOnce             sync.Once
+	metadataRecoveryOnce    sync.Once
+	metadataRecoveryRunning bool               // guarded by mu
+	metadataRecoveryLast    time.Time          // guarded by mu; manual retry throttle
+	metadataRecoveryCancel  context.CancelFunc // guarded by mu
+	posterOnce              sync.Once
 
 	closeCh   chan struct{}
 	closeOnce sync.Once

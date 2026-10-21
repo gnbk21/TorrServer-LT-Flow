@@ -1,6 +1,7 @@
 package torrstor
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -292,6 +293,9 @@ func TestStreamAnchor_DyingConnectionCannotStealAnchorBack(t *testing.T) {
 	// wait at its old position is shadowed, a fresh reader's wait at the target is not.
 	if !c.snapShadowed("dev", 302, rOld.bornMs) {
 		t.Fatal("dying connection's old-position wait should be snap-shadowed")
+	}
+	if rOld.canRefreshDeadline(context.Background(), 302) {
+		t.Fatal("old parked reader can reintroduce its obsolete deadline")
 	}
 	if c.snapShadowed("dev", target, time.Now().UnixMilli()) {
 		t.Fatal("fresh wait at the seek target must not be snap-shadowed")

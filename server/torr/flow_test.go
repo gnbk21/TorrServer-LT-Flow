@@ -10,6 +10,42 @@ import (
 	"server/torr/state"
 )
 
+func TestSeekStateIgnoresOlderResponsesAndProbes(t *testing.T) {
+	old := settings.BTsets()
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	f := settings.DefaultFlowSettings()
+	f.Enabled = false
+	settings.StoreBTsets(&settings.BTSets{Flow: f})
+	tor := &Torrent{}
+	file := &File{Length: 256 << 20}
+	req := httptest.NewRequest("GET", "/", nil)
+	_, _, first := tor.flowStart(1, file, "test", req)
+	tor.flowProgress(1, "test", first, 1<<20)
+	req.Header.Set("Range", "bytes=67108864-")
+	_, _, second := tor.flowStart(1, file, "test", req)
+	s := tor.flowSessions["1/test"]
+	tor.flowFirstByte(1, "test", first, time.Now(), time.Millisecond)
+	tor.flowEnd(1, "test", first, FlowRangeTrace{Method: "GET", Status: 206, BytesServed: 1})
+	if s.State != "SEEK_RECOVERY" {
+		t.Fatal("old response ended new seek", s.State)
+	}
+	req.Header.Set("Range", "bytes=-1024")
+	_, _, probe := tor.flowStart(1, file, "test", req)
+	tor.flowFirstByte(1, "test", probe, time.Now(), time.Millisecond)
+	tor.flowEnd(1, "test", probe, FlowRangeTrace{Method: "GET", Status: 206, BytesServed: 1024})
+	if s.State != "SEEK_RECOVERY" {
+		t.Fatal("probe ended seek", s.State)
+	}
+	tor.flowFirstByte(1, "test", second, time.Now(), 5*time.Millisecond)
+	if s.State != "PLAYING" || s.SeekRecoveryMs != 5 {
+		t.Fatal("current first byte did not recover", s.State)
+	}
+	tor.flowEnd(1, "test", second, FlowRangeTrace{Method: "GET", Status: 206, BytesServed: 1})
+	if s.State != "WARM_IDLE" {
+		t.Fatal("last close was not idle", s.State)
+	}
+}
+
 func TestFlowProgressFollowsLiveBodyAndIgnoresOldRequest(t *testing.T) {
 	old := settings.BTsets()
 	t.Cleanup(func() { settings.StoreBTsets(old) })

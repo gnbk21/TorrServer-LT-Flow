@@ -732,7 +732,8 @@
       "seek": "Salt solicitat",
       "recovery": "Răspuns după salt",
       "storage": "Operație cache",
-      "metadata_recovery": "Recuperare metadate magnet"
+      "metadata_recovery": "Recuperare metadate magnet",
+      "integrity_failure": "Verificarea integrității a eșuat"
     },
     "playerEvidence": "Măsurători ale playerului",
     "playerEvidenceHint": "Raport Flow Player opțional. Importul rămâne în acest dialog deschis; nu este încărcat pe server și nu modifică setările.",
@@ -833,7 +834,48 @@
       "METADATA_MISS": "Celelalte surse nu au returnat metadate corespunzătoare."
     },
     "metadataAttempts": "Încercări pentru metadate: {{count}}",
-    "metadataRecoveryHint": "Torrentul și calitatea se păstrează. Videoclipul necesită parteneri disponibili."
+    "metadataRecoveryHint": "Torrentul și calitatea se păstrează. Videoclipul necesită parteneri disponibili.",
+    "upgrade": {
+      "title": "Starea redării",
+      "details": "Detalii tehnice",
+      "verifiedBuffer": "Memorie tampon verificată pe server",
+      "readableBuffer": "Memorie tampon lizibilă pe server",
+      "age": "Vechimea datelor",
+      "confidence": "Încredere în debitul estimat",
+      "integrity": "Erori de integritate în ultimul minut: {{count}}",
+      "failureCount": "Erori consecutive: {{count}}",
+      "retry": "Reîncearcă metadatele",
+      "retryAccepted": "Reîncercare solicitată. Așteaptă actualizarea; reîncercările repetate sunt limitate.",
+      "build": "Versiunea în execuție",
+      "modified": "Această versiune include modificări locale ale sursei.",
+      "channels": {
+        "stable": "Versiune stabilă",
+        "preview": "Versiune preliminară",
+        "development": "Versiune de dezvoltare"
+      },
+      "causes": {
+        "stale": "Datele curente nu sunt disponibile sau sunt învechite.",
+        "metadata": "Se așteaptă metadatele torrentului.",
+        "idle": "Playerul nu are o cerere video activă.",
+        "seek": "Se reia transferul de la poziția solicitată.",
+        "ready": "Sunt disponibile date la poziția curentă de citire a serverului.",
+        "storage": "Au fost observate recent întârzieri ale stocării locale.",
+        "missing": "Niciun peer conectat verificat nu are bucata necesară.",
+        "discovery": "Se așteaptă conectarea la un peer util.",
+        "block": "Se așteaptă următoarele blocuri solicitate.",
+        "unknown": "Nu există suficiente date pentru a explica așteptarea."
+      },
+      "actions": {
+        "inspect": "Deschide detaliile tehnice sau exportă diagnosticul.",
+        "waitMetadata": "Lasă încercarea deschisă. Se folosesc doar surse autorizate; videoclipul necesită în continuare peers.",
+        "leaveOpen": "Lasă playerul deschis. Transferul serverului nu dovedește redarea fluentă pe telefon.",
+        "waitBlock": "Nu mișca bara de căutare cât timp sosesc datele solicitate.",
+        "waitSuppliers": "Lasă căutarea să continue. Peers cunoscuți nu sunt neapărat surse accesibile."
+      },
+      "sessionSummary": "Totalurile sesiunii",
+      "sampleCount": "Eșantioane înregistrate: {{count}}",
+      "minimumBuffer": "Cel mai mic tampon măsurat al telefonului: {{milliseconds}} ms"
+    }
   },
   "search": {
     "source": "Sursă",

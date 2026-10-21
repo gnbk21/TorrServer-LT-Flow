@@ -75,6 +75,8 @@ export interface FlowStartup {
 }
 
 export interface FlowSession {
+  buffer_sampled_at_ms?: number;
+  buffer_offset_bytes?: number;
   session_id?: string;
   readable_contiguous_bytes?: number;
   verified_contiguous_bytes?: number;
@@ -194,6 +196,10 @@ export interface FlowTrayStatus {
 }
 
 export interface FlowTrackerSummary {
+  error_category?: string;
+  error_code?: number;
+  operation?: number;
+  failure_count?: number;
   id: string;
   protocol: string;
   host: string;
@@ -203,6 +209,12 @@ export interface FlowTrackerSummary {
   last_at: string;
 }
 export interface FlowStatusResponse {
+  integrity?: {
+    failures: number;
+    recent_failures: number;
+    window_seconds: number;
+    last_failure_at_ms: number;
+  };
   sampled_at?: string;
   timeline?: {
     source: "server";

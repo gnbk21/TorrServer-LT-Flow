@@ -636,7 +636,8 @@
       "seek": "Seek requested",
       "recovery": "Seek response recovered",
       "storage": "Cache operation",
-      "metadata_recovery": "Magnet metadata recovery"
+      "metadata_recovery": "Magnet metadata recovery",
+      "integrity_failure": "Integrity verification failed"
     },
     "playerEvidence": "Player measurements",
     "playerEvidenceHint": "Optional Flow Player report. Import stays in this open dialog; it is not uploaded or applied as a server setting.",
@@ -737,7 +738,48 @@
       "METADATA_MISS": "Alternate sources returned no matching metadata."
     },
     "metadataAttempts": "Metadata source attempts: {{count}}",
-    "metadataRecoveryHint": "Keeps the same torrent and video quality. Video still requires responsive peers."
+    "metadataRecoveryHint": "Keeps the same torrent and video quality. Video still requires responsive peers.",
+    "upgrade": {
+      "title": "Playback overview",
+      "details": "Technical details",
+      "verifiedBuffer": "Verified server buffer",
+      "readableBuffer": "Readable server buffer",
+      "age": "Evidence age",
+      "confidence": "Media-rate confidence",
+      "integrity": "Integrity failures in the last minute: {{count}}",
+      "failureCount": "Consecutive failures: {{count}}",
+      "retry": "Retry metadata recovery",
+      "retryAccepted": "Recovery requested. Wait for the next status update; repeated retries are limited.",
+      "build": "Running build",
+      "modified": "This build includes local source changes.",
+      "channels": {
+        "stable": "Stable release",
+        "preview": "Preview release",
+        "development": "Development build"
+      },
+      "causes": {
+        "stale": "Current evidence is unavailable or out of date.",
+        "metadata": "Waiting for torrent metadata.",
+        "idle": "No active video request from the player.",
+        "seek": "Recovering the requested playback position.",
+        "ready": "Data is available at the current server read position.",
+        "storage": "Recent local storage waits were observed.",
+        "missing": "No sampled connected peer has the required piece.",
+        "discovery": "Waiting for a useful peer connection.",
+        "block": "Waiting for the next requested blocks.",
+        "unknown": "There is not enough evidence to identify the current wait."
+      },
+      "actions": {
+        "inspect": "Open technical details or export diagnostics.",
+        "waitMetadata": "Keep the attempt open. Recovery uses only authorized sources and still requires peers for the video.",
+        "leaveOpen": "Keep the player open. Server delivery does not establish whether the phone is displaying video smoothly.",
+        "waitBlock": "Leave the seek bar still while the requested data arrives.",
+        "waitSuppliers": "Keep the attempt open while discovery continues. Known peers are not necessarily reachable suppliers."
+      },
+      "sessionSummary": "Whole-session totals",
+      "sampleCount": "Recorded samples: {{count}}",
+      "minimumBuffer": "Smallest sampled phone buffer: {{milliseconds}} ms"
+    }
   },
   "torrent": {
     "justPlayer": "Play in Just Player",

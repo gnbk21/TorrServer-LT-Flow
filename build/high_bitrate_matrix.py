@@ -95,9 +95,9 @@ if __name__ == '__main__':
     parser.add_argument('--experiments', action='store_true', help='Separate opt-in experimental policy group')
     parser.add_argument('--transport-comparison', action='store_true', help='Compare direct/64/256/1024 KiB candidate transports separately')
     parser.add_argument('--cache-mb', type=int, choices=(512,2048), default=512)
-    parser.add_argument('--piece-mb', type=int, choices=(1,4,16), default=4)
+    parser.add_argument('--piece-mb', type=int, choices=(1,4,8,16), default=4)
     parser.add_argument('--disk', action='store_true')
-    parser.add_argument('--cases', nargs='+', choices=('healthy','outages','mixed-peers','bursts'),
+    parser.add_argument('--cases', nargs='+', choices=('healthy','outages','mixed-peers','bursts','stragglers'),
                         default=['healthy','outages','mixed-peers','bursts'])
     args=parser.parse_args()
     if not 30 <= args.seconds <= 120 or not 2 <= args.rotations <= 6:

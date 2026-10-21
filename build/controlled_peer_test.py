@@ -11,6 +11,18 @@ from controlled_peer import LocalSwarm, PeerPlan, bdecode, bencode
 
 
 class WireTests(unittest.TestCase):
+    def test_delayed_tail_does_not_hold_later_pieces_in_fixture(self):
+        with LocalSwarm([self.file], piece_length=32768, peers=[PeerPlan(final_block_delay_ms=250)], high_throughput=True) as swarm:
+            sock = self.connect(swarm)
+            self.initial(sock)
+            self.send(sock,b'\x06'+struct.pack('!III',0,16384,16384))
+            self.send(sock,b'\x06'+struct.pack('!III',1,0,16384))
+            first=self.message(sock)
+            self.assertEqual(first[:9],b'\x07'+struct.pack('!II',1,0))
+            second=self.message(sock)
+            self.assertEqual(second[:9],b'\x07'+struct.pack('!II',0,16384))
+            self.assertEqual(second[9:],swarm.data[16384:32768])
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)

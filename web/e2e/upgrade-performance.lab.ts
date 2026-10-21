@@ -18,8 +18,37 @@ for (const repeat of [1, 2, 3])
     });
     await page.addInitScript(() => {
       localStorage.setItem("i18nextLng", "en");
-      const measurements = { lcp_ms: 0, cls: 0, shifts: [] as unknown[] };
+      const measurements = {
+        lcp_ms: 0,
+        cls: 0,
+        shifts: [] as unknown[],
+        interactions: [] as { duration: number; id: number }[],
+        long_tasks: [] as number[],
+      };
       Object.assign(window, { flowLab: measurements });
+      if (PerformanceObserver.supportedEntryTypes.includes("event"))
+        new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            const event = entry as PerformanceEntry & {
+              interactionId?: number;
+            };
+            if (event.interactionId && measurements.interactions.length < 128)
+              measurements.interactions.push({
+                duration: event.duration,
+                id: event.interactionId,
+              });
+          }
+        }).observe({
+          type: "event",
+          buffered: true,
+          durationThreshold: 16,
+        } as PerformanceObserverInit);
+      if (PerformanceObserver.supportedEntryTypes.includes("longtask"))
+        new PerformanceObserver((list) => {
+          for (const entry of list.getEntries())
+            if (measurements.long_tasks.length < 128)
+              measurements.long_tasks.push(entry.duration);
+        }).observe({ type: "longtask", buffered: true });
       new PerformanceObserver((list) => {
         for (const entry of list.getEntries())
           measurements.lcp_ms = entry.startTime;
@@ -98,6 +127,35 @@ for (const repeat of [1, 2, 3])
             );
           }),
       );
+    // Trusted pointer/keyboard events exercise production UI work. Event Timing
+    // is a local observation, not field INP or Android acceptance.
+    await page.locator('a[href="#/settings"]:visible').first().click();
+    await expect(
+      page.getByRole("tab", { name: "General", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("tab", { name: "Flow", exact: true }).click();
+    await page.getByRole("tab", { name: "Advanced", exact: true }).click();
+    await expect(
+      page.getByRole("heading", {
+        name: "Maintenance and recovery",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await page.waitForTimeout(300);
+    const interactionEvidence = await page.evaluate(() => {
+      const data = (
+        window as unknown as {
+          flowLab: {
+            interactions: { duration: number; id: number }[];
+            long_tasks: number[];
+          };
+        }
+      ).flowLab;
+      return {
+        event_timing: data.interactions,
+        long_tasks_ms: data.long_tasks,
+      };
+    });
     const report = {
       repeat,
       lab_only: true,
@@ -109,6 +167,8 @@ for (const repeat of [1, 2, 3])
       initial_js_gzip_bytes: initialJsGzipBytes,
       ...observed,
       input_paint_ms: interactionMs,
+      ...interactionEvidence,
+      event_timing_is_field_inp: false,
     };
     await writeFile(
       info.outputPath("measurement.json"),
@@ -119,4 +179,6 @@ for (const repeat of [1, 2, 3])
     expect(observed.lcp_ms).toBeLessThanOrEqual(2500);
     expect(observed.cls).toBeLessThanOrEqual(0.1);
     expect(interactionMs).toBeLessThanOrEqual(200);
+    for (const event of interactionEvidence.event_timing)
+      expect(event.duration).toBeLessThanOrEqual(200);
   });

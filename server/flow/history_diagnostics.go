@@ -112,6 +112,7 @@ type peerHistoryKey struct {
 	torrent         uint64
 	code, operation int
 	stage           string
+	category        string
 }
 
 type ResponseHistory struct {
@@ -148,10 +149,11 @@ func (h *History) recordPeer(e HistoryEvent) {
 	if h.peers == nil {
 		h.peers = make(map[peerHistoryKey]HistoryEvent)
 	}
-	key := peerHistoryKey{e.Torrent, e.Code, e.Operation, e.Stage}
+	key := peerHistoryKey{e.Torrent, e.Code, e.Operation, e.Stage, e.ErrorCategory}
 	if _, ok := h.peers[key]; !ok && len(h.peers) >= peerHistoryGroups-1 {
 		key = peerHistoryKey{stage: "OTHER"}
 		e.Torrent, e.Code, e.Operation, e.Stage, e.Truncated = 0, 0, 0, "OTHER", true
+		e.ErrorCategory = "UNKNOWN"
 	}
 	row := h.peers[key]
 	if row.Count == 0 {

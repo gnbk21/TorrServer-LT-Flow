@@ -738,7 +738,8 @@
       "seek": "已请求跳转",
       "recovery": "跳转响应恢复",
       "storage": "缓存操作",
-      "metadata_recovery": "磁力链接元数据恢复"
+      "metadata_recovery": "磁力链接元数据恢复",
+      "integrity_failure": "完整性校验失败"
     },
     "playerEvidence": "播放器测量",
     "playerEvidenceHint": "可选的 Flow Player 报告。导入数据仅保留在此打开的对话框中，不会上传到服务器或更改设置。",
@@ -839,7 +840,48 @@
       "METADATA_MISS": "其他来源未返回匹配的元数据。"
     },
     "metadataAttempts": "元数据获取尝试次数：{{count}}",
-    "metadataRecoveryHint": "保留相同种子和视频质量。视频仍需要可响应的节点。"
+    "metadataRecoveryHint": "保留相同种子和视频质量。视频仍需要可响应的节点。",
+    "upgrade": {
+      "title": "播放概览",
+      "details": "技术详情",
+      "verifiedBuffer": "服务器已验证缓冲",
+      "readableBuffer": "服务器可读缓冲",
+      "age": "数据采集时间差",
+      "confidence": "码率估计可信度",
+      "integrity": "最近一分钟的完整性校验失败：{{count}}",
+      "failureCount": "连续失败：{{count}}",
+      "retry": "重试获取元数据",
+      "retryAccepted": "已请求重试。请等待状态更新；频繁重试受到限制。",
+      "build": "正在运行的构建",
+      "modified": "此构建包含本地源代码修改。",
+      "channels": {
+        "stable": "稳定版",
+        "preview": "预览版",
+        "development": "开发版"
+      },
+      "causes": {
+        "stale": "当前数据不可用或已过期。",
+        "metadata": "正在等待种子元数据。",
+        "idle": "播放器没有活动的视频请求。",
+        "seek": "正在恢复所选位置的数据传输。",
+        "ready": "服务器当前读取位置有可用数据。",
+        "storage": "最近观测到本地存储等待。",
+        "missing": "已采样的连接节点均不具备所需分片。",
+        "discovery": "正在等待可提供数据的节点连接。",
+        "block": "正在等待下一批请求的数据块。",
+        "unknown": "现有数据不足以确定等待原因。"
+      },
+      "actions": {
+        "inspect": "打开技术详情或导出诊断。",
+        "waitMetadata": "请保持本次尝试开启。恢复仅使用已授权的来源；视频数据仍需要节点提供。",
+        "leaveOpen": "请保持播放器开启。服务器正在传输并不能证明手机播放流畅。",
+        "waitBlock": "请停止拖动进度条，等待所需数据到达。",
+        "waitSuppliers": "请保持本次尝试开启以继续发现节点。已知节点不一定可以连接或提供数据。"
+      },
+      "sessionSummary": "整个会话的汇总",
+      "sampleCount": "已记录的采样数：{{count}}",
+      "minimumBuffer": "采样中最小的手机缓冲：{{milliseconds}} 毫秒"
+    }
   },
   "search": {
     "source": "来源",

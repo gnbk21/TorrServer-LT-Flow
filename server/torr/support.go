@@ -3,10 +3,12 @@ package torr
 import "server/flow"
 
 type SupportTorrent struct {
-	Startup       FlowStartupStatus     `json:"startup"`
-	Sessions      []FlowSessionStatus   `json:"sessions"`
-	TrackerStates map[string]int        `json:"tracker_states"`
-	Timeline      flow.TimelineSnapshot `json:"timeline"`
+	Startup         FlowStartupStatus      `json:"startup"`
+	Sessions        []FlowSessionStatus    `json:"sessions"`
+	TrackerStates   map[string]int         `json:"tracker_states"`
+	Timeline        flow.TimelineSnapshot  `json:"timeline"`
+	Integrity       flow.IntegritySnapshot `json:"integrity"`
+	TrackerFailures map[string]int         `json:"tracker_failures"`
 }
 
 // Use live instances only. Do not activate saved torrents to generate a report.
@@ -27,6 +29,8 @@ func SupportPlayback() ([]SupportTorrent, bool) {
 			break
 		}
 		row := SupportTorrent{Startup: tor.FlowStartup(), Sessions: []FlowSessionStatus{}, TrackerStates: map[string]int{}, Timeline: tor.FlowTimeline()}
+		row.Integrity = tor.FlowIntegrity()
+		row.TrackerFailures = map[string]int{}
 		for _, session := range tor.FlowStatus() {
 			if remaining == 0 {
 				truncated = true
@@ -39,6 +43,9 @@ func SupportPlayback() ([]SupportTorrent, bool) {
 		}
 		for _, tracker := range tor.FlowTrackers() {
 			row.TrackerStates[tracker.Status]++
+			if tracker.Status == "ERROR" {
+				row.TrackerFailures[flow.SafeErrorCategory(tracker.ErrorCategory)]++
+			}
 		}
 		out = append(out, row)
 	}

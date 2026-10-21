@@ -190,6 +190,9 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
     plans = [PeerPlan(rate=int(2*rate), request_queue=reqq, strict_request_queue=strict, request_latency_ms=latency_ms)]
     if case == 'mixed-peers':
         plans = [PeerPlan(rate=int(1.7*rate), request_queue=reqq, strict_request_queue=strict, request_latency_ms=latency_ms)] + [PeerPlan(rate=rate//20, request_queue=reqq, strict_request_queue=strict, request_latency_ms=latency_ms) for _ in range(7)]
+    if case == 'stragglers':
+        plans = [PeerPlan(rate=2*rate,request_queue=reqq,strict_request_queue=strict,request_latency_ms=latency_ms,final_block_delay_ms=4000),
+                 PeerPlan(rate=int(1.7*rate),request_queue=reqq,strict_request_queue=strict,request_latency_ms=latency_ms)]
     report.update(peer_advertised_request_queue=reqq, strict_peer_capacity=strict, request_latency_ms=latency_ms,
                   storage_backend='disk' if disk else 'ram', capacity_aware=capacity_aware,
                   urgent_horizon=urgent_horizon, burst_hints=burst_hints, startup_reserve_mb=startup_mb, transport_buffer_kib=transport_kib)
@@ -363,7 +366,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--fixture', type=Path)
     parser.add_argument('--profile', choices=('legacy', 'adaptive'), default='legacy')
-    parser.add_argument('--cases', nargs='+', choices=('healthy', 'outages', 'mixed-peers', 'bursts'),
+    parser.add_argument('--cases', nargs='+', choices=('healthy', 'outages', 'mixed-peers', 'bursts', 'stragglers'),
                         default=['healthy', 'outages', 'mixed-peers', 'bursts'])
     parser.add_argument('--mbps', type=float, default=90)
     parser.add_argument('--seconds', type=int, default=40)
@@ -372,7 +375,7 @@ if __name__ == '__main__':
     parser.add_argument('--reqq', type=int, choices=(32,64,250,512,2000), default=512)
     parser.add_argument('--strict-reqq', action='store_true')
     parser.add_argument('--latency-ms', type=int, default=0)
-    parser.add_argument('--piece-mb', type=int, choices=(1,4,16), default=4)
+    parser.add_argument('--piece-mb', type=int, choices=(1,4,8,16), default=4)
     parser.add_argument('--disk', action='store_true')
     parser.add_argument('--capacity-aware', action='store_true')
     parser.add_argument('--urgent-horizon', action='store_true')

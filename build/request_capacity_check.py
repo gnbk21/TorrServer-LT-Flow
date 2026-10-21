@@ -9,6 +9,7 @@ from high_bitrate_check import run, MIB
 CASES = [(reqq, latency, 1) for reqq in (32, 64, 250, 512, 2000) for latency in (0, 250)]
 # Large pieces also pressure the local 1500-block ceiling.
 CASES += [(2000, latency, 16) for latency in (0, 250)]
+CASES += [(reqq, 250, 8) for reqq in (32, 64, 512)]
 
 
 def check(args):

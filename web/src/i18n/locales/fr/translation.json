@@ -738,7 +738,8 @@
       "seek": "Recherche demandée",
       "recovery": "Réponse après recherche",
       "storage": "Opération du cache",
-      "metadata_recovery": "Récupération des métadonnées magnet"
+      "metadata_recovery": "Récupération des métadonnées magnet",
+      "integrity_failure": "Échec de la vérification d’intégrité"
     },
     "playerEvidence": "Mesures du lecteur",
     "playerEvidenceHint": "Rapport Flow Player facultatif. L’import reste dans cette boîte de dialogue ouverte ; il n’est ni envoyé au serveur ni appliqué aux paramètres.",
@@ -839,7 +840,48 @@
       "METADATA_MISS": "Aucune métadonnée correspondante dans les autres sources."
     },
     "metadataAttempts": "Tentatives de récupération : {{count}}",
-    "metadataRecoveryHint": "Le torrent et la qualité sont conservés. La vidéo nécessite des pairs disponibles."
+    "metadataRecoveryHint": "Le torrent et la qualité sont conservés. La vidéo nécessite des pairs disponibles.",
+    "upgrade": {
+      "title": "État de la lecture",
+      "details": "Détails techniques",
+      "verifiedBuffer": "Tampon serveur vérifié",
+      "readableBuffer": "Tampon serveur lisible",
+      "age": "Ancienneté des mesures",
+      "confidence": "Fiabilité du débit estimé",
+      "integrity": "Échecs d’intégrité durant la dernière minute : {{count}}",
+      "failureCount": "Échecs consécutifs : {{count}}",
+      "retry": "Réessayer les métadonnées",
+      "retryAccepted": "Nouvelle tentative demandée. Attendez la mise à jour ; les tentatives répétées sont limitées.",
+      "build": "Version en cours",
+      "modified": "Cette version contient des modifications locales du code.",
+      "channels": {
+        "stable": "Version stable",
+        "preview": "Version préliminaire",
+        "development": "Version de développement"
+      },
+      "causes": {
+        "stale": "Les mesures actuelles sont indisponibles ou périmées.",
+        "metadata": "En attente des métadonnées du torrent.",
+        "idle": "Aucune requête vidéo active du lecteur.",
+        "seek": "Reprise à la position demandée.",
+        "ready": "Des données sont disponibles à la position de lecture du serveur.",
+        "storage": "Des attentes du stockage local ont été observées récemment.",
+        "missing": "Aucun pair connecté échantillonné ne possède la pièce requise.",
+        "discovery": "En attente d’une connexion à un pair utile.",
+        "block": "En attente des prochains blocs demandés.",
+        "unknown": "Les mesures ne suffisent pas à expliquer l’attente."
+      },
+      "actions": {
+        "inspect": "Consultez les détails techniques ou exportez le diagnostic.",
+        "waitMetadata": "Laissez la tentative ouverte. Seules les sources autorisées sont utilisées ; la vidéo nécessite toujours des pairs.",
+        "leaveOpen": "Gardez le lecteur ouvert. La transmission du serveur ne prouve pas la fluidité sur le téléphone.",
+        "waitBlock": "Ne déplacez plus la barre de lecture pendant l’arrivée des données.",
+        "waitSuppliers": "Laissez la recherche de pairs continuer. Un pair connu n’est pas nécessairement joignable ni utile."
+      },
+      "sessionSummary": "Totaux de la session",
+      "sampleCount": "Échantillons enregistrés : {{count}}",
+      "minimumBuffer": "Plus petit tampon du téléphone échantillonné : {{milliseconds}} ms"
+    }
   },
   "search": {
     "source": "Source",

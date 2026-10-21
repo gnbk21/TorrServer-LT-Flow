@@ -8,7 +8,7 @@ export function StartupEvidence({ startup }: { startup: FlowStartup }) {
   if (!progress && !recovery) return null;
   const mib = (bytes: number) => (bytes / 1048576).toFixed(1);
   return (
-    <section className="panel space-y-2" aria-live="polite">
+    <section className="panel space-y-2">
       <h3 className="font-semibold">{t("flow.startupEvidenceTitle")}</h3>
       {recovery && (
         <div className="space-y-1 text-sm">
