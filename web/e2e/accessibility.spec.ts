@@ -1,5 +1,90 @@
 import { test, expect, type Route } from "@playwright/test";
 import { upgradeFixture } from "./upgrade-fixture";
+import { readFileSync } from "node:fs";
+
+for (const language of ["en", "ru", "ua", "bg", "fr", "ro", "zh"]) {
+  test(`enlarged mobile diagnostics remains usable while polling ${language}`, async ({
+    page,
+  }, info) => {
+    await upgradeFixture(page, 2);
+    let observations = 0;
+    await page.route("**/flow/status/**", (route) => {
+      if (!new URL(route.request().url()).searchParams.has("traces"))
+        observations++;
+      return route.fulfill({
+        json: {
+          hash: "0".repeat(40),
+          sessions: [],
+          sampled_at: new Date().toISOString(),
+          timeline: { source: "server", dropped: 0, events: [] },
+        },
+      });
+    });
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.addInitScript(
+      (language) => localStorage.setItem("i18nextLng", language),
+      language,
+    );
+    const labels = JSON.parse(
+      readFileSync(
+        new URL(
+          `../src/i18n/locales/${language}/translation.json`,
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    await page.goto("/#/torrents");
+    await expect(page.getByRole("article")).toHaveCount(2);
+    await page.evaluate(
+      () => (document.documentElement.style.fontSize = "200%"),
+    );
+    const overflow = await page.locator("body *").evaluateAll((elements) =>
+      elements
+        .filter((element) => {
+          const bounds = element.getBoundingClientRect();
+          return bounds.width > 0 && bounds.right > innerWidth + 1;
+        })
+        .map((element) => ({
+          tag: element.tagName,
+          class: element.className,
+          width: element.getBoundingClientRect().width,
+          text: element.textContent?.slice(0, 60),
+        })),
+    );
+    expect(overflow).toEqual([]);
+    await page
+      .getByRole("button", { name: labels.flow.diagnostics, exact: true })
+      .first()
+      .click();
+    const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByRole("heading", {
+        name: labels.flow.upgrade.title,
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect
+      .poll(() => observations, { timeout: 12000 })
+      .toBeGreaterThanOrEqual(2);
+    expect(
+      await dialog.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth,
+      ),
+    ).toBe(true);
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press("Tab");
+      expect(
+        await page.evaluate(
+          () => !!document.activeElement?.closest('[role="dialog"]'),
+        ),
+      ).toBe(true);
+    }
+    await page.screenshot({
+      path: info.outputPath(`${language}-200-percent.png`),
+    });
+  });
+}
 
 for (const width of [412, 1440]) {
   test(`keyboard dialog focus and reduced motion at ${width}px`, async ({

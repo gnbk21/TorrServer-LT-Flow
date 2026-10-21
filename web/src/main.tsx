@@ -3,6 +3,7 @@ import {
   Suspense,
   useState,
   useEffect,
+  useRef,
   Component,
   type ReactNode,
   type MouseEvent,
@@ -51,6 +52,42 @@ const Pairing = lazy(() =>
   })),
 );
 function Shell() {
+  const header = useRef<HTMLElement>(null);
+  const navigation = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const root = document.documentElement;
+    const update = () => {
+      const headerHeight = header.current?.getBoundingClientRect().height ?? 0;
+      const navigationHeight =
+        navigation.current?.getBoundingClientRect().height ?? 0;
+      // Enlarged text can make a sticky toolbar consume most of a phone screen.
+      // Let it scroll away when it would leave too little usable content space.
+      const sticky = headerHeight + navigationHeight < innerHeight / 2;
+      header.current?.style.setProperty(
+        "position",
+        sticky ? "sticky" : "static",
+      );
+      root.style.setProperty(
+        "scroll-padding-top",
+        `${sticky ? headerHeight + 16 : 16}px`,
+      );
+      root.style.setProperty(
+        "scroll-padding-bottom",
+        `${navigationHeight + 16}px`,
+      );
+    };
+    const observer = new ResizeObserver(update);
+    if (header.current) observer.observe(header.current);
+    if (navigation.current) observer.observe(navigation.current);
+    window.addEventListener("resize", update);
+    update();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+      root.style.removeProperty("scroll-padding-top");
+      root.style.removeProperty("scroll-padding-bottom");
+    };
+  }, []);
   const navigate = useNavigate();
   const navigateImmediately = (
     event: MouseEvent<HTMLAnchorElement>,
@@ -182,7 +219,10 @@ function Shell() {
         </nav>
       </aside>
       <div className="lg:ml-60">
-        <header className="sticky top-0 z-20 bg-slate-950/95 border-b border-slate-800 p-3 flex flex-wrap gap-3 items-center">
+        <header
+          ref={header}
+          className="sticky top-0 z-20 bg-slate-950/95 border-b border-slate-800 p-3 flex flex-wrap gap-3 items-center"
+        >
           <strong
             className="mr-auto w-full sm:w-auto min-h-6 truncate text-sm lg:text-base"
             title={t(`status.${status}`)}
@@ -250,6 +290,7 @@ function Shell() {
         </main>
       </div>
       <nav
+        ref={navigation}
         aria-label={t("nav.main")}
         className="lg:hidden fixed bottom-0 inset-x-0 z-30 grid grid-cols-4 border-t border-slate-700 bg-slate-900 pb-[env(safe-area-inset-bottom)]"
       >

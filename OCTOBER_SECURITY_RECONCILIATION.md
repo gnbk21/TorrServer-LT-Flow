@@ -24,6 +24,15 @@ That approval is not extended to new findings.
 
 ## New upgrade boundaries
 
+- Native source and race checks on `69c78835` passed, but the reachable Go
+  vulnerability gate correctly blocked that build with `GO-2026-6809`:
+  `sslcerts.describe` reaches `crypto/x509.Certificate.Verify` in Go 1.26.9.
+  The authoritative toolchain requirement is now Go **1.26.10**, the same-line
+  security update. All CI targets read `server/go.mod`; the scan remains
+  mandatory. [Official Go release history](https://go.dev/doc/devel/release#go1.26.0)
+  records the 19 October certificate-verification security fix. A fresh build
+  and scan are required; this finding was not dismissed or bypassed.
+
 - Retained native errors contain a closed category/transport/family enum plus
   numeric code/operation/count. Signed mirror URLs and raw exceptions never
   enter the support/history payloads.
