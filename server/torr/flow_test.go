@@ -67,6 +67,34 @@ func TestDisablingMetricsDoesNotLeakAnExistingReader(t *testing.T) {
 	}
 }
 
+func TestUnobservedRequestCannotRetireAnObservedReaderAfterMetricsToggle(t *testing.T) {
+	old := settings.BTsets()
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	f := settings.DefaultFlowSettings()
+	f.Enabled = false
+	settings.StoreBTsets(&settings.BTSets{Flow: f})
+	tor := &Torrent{}
+	file := &File{Length: 256 << 20}
+	req := httptest.NewRequest("GET", "/", nil)
+	_, _, observed := tor.flowStart(1, file, "test", req)
+	disabled := settings.CloneSettings(settings.BTsets())
+	disabled.Flow.MetricsEnabled = false
+	settings.StoreBTsets(disabled)
+	_, _, unobserved := tor.flowStart(1, file, "test", req)
+	if unobserved != 0 {
+		t.Fatal("disabled request was observed")
+	}
+	settings.StoreBTsets(&settings.BTSets{Flow: f})
+	tor.flowEnd(1, "test", unobserved, FlowRangeTrace{Method: "GET", Status: 206})
+	if tor.flowSessions["1/test"].ActiveReaders != 1 {
+		t.Fatal("unobserved close retired the other response")
+	}
+	tor.flowEnd(1, "test", observed, FlowRangeTrace{Method: "GET", Status: 206, Cancelled: true})
+	if session := tor.flowSessions["1/test"]; session.ActiveReaders != 0 || session.State != "WARM_IDLE" {
+		t.Fatal("cancelled observed reader leaked")
+	}
+}
+
 func TestFlowProgressFollowsLiveBodyAndIgnoresOldRequest(t *testing.T) {
 	old := settings.BTsets()
 	t.Cleanup(func() { settings.StoreBTsets(old) })

@@ -352,7 +352,7 @@ func (t *Torrent) flowProgress(fileID int, group string, seq uint64, offset int6
 func (t *Torrent) flowEnd(fileID int, group string, seq uint64, tr FlowRangeTrace) {
 	// An observer created before metrics were disabled still owns its reader
 	// count. Always retire it; otherwise re-enabling metrics revives phantoms.
-	if t == nil {
+	if t == nil || seq == 0 {
 		return
 	}
 	key := fmt.Sprintf("%d/%s", fileID, group)

@@ -5,6 +5,12 @@ export function playbackOverview(status: FlowStatusResponse, now: number) {
   const session =
     status.sessions?.find((s) => s.active_readers > 0) ?? status.sessions?.[0];
   const fresh = Number.isFinite(age) && age >= 0 && age < 10_000;
+  const bufferAge = now - (session?.buffer_sampled_at_ms ?? 0);
+  const bufferFresh =
+    fresh &&
+    !!session?.buffer_sampled_at_ms &&
+    bufferAge >= 0 &&
+    bufferAge < 10000;
   let cause = "unknown";
   let action = "inspect";
   if (!fresh) cause = "stale";
@@ -19,8 +25,8 @@ export function playbackOverview(status: FlowStatusResponse, now: number) {
       cause = "seek";
       action = "waitBlock";
     } else if (session.buffer_ahead_bytes > 0) {
-      cause = "ready";
-      action = "leaveOpen";
+      cause = bufferFresh ? "ready" : "unknown";
+      action = bufferFresh ? "leaveOpen" : "inspect";
     } else if (
       (status.storage_io?.wait_p95_us ?? 0) > 250000 &&
       (session.recent_server_read_stalls ?? 0) > 0
@@ -45,11 +51,5 @@ export function playbackOverview(status: FlowStatusResponse, now: number) {
       action = "waitBlock";
     }
   }
-  const bufferAge = now - (session?.buffer_sampled_at_ms ?? 0);
-  const bufferFresh =
-    fresh &&
-    !!session?.buffer_sampled_at_ms &&
-    bufferAge >= 0 &&
-    bufferAge < 10000;
   return { cause, action, age: fresh ? age : null, session, bufferFresh };
 }

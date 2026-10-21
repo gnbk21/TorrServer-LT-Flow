@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -120,17 +121,21 @@ func TestEightMiBPiecesFromMixedTCPAndUTPSeeds(t *testing.T) {
 	results := make(chan error, 2)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	t.Cleanup(cancel)
+	var readers sync.WaitGroup
+	t.Cleanup(func() { cancel(); readers.Wait() })
 	for n := 0; n < 2; n++ {
 		r := NewReader(cache, h, FileInfo{Index: 1, Path: "mixed.bin", Length: int64(len(data))}, fmt.Sprintf("device-%d", n))
 		r.SetContext(ctx)
+		readers.Add(1)
 		go func(n int, r *Reader) {
+			defer readers.Done()
 			defer r.Close()
 			off := int64(n * 3 * piece)
 			if _, err := r.Seek(off, io.SeekStart); err != nil {
 				results <- err
 				return
 			}
-			got := make([]byte, 65536)
+			got := make([]byte, piece)
 			_, err := io.ReadFull(r, got)
 			if err == nil && !bytes.Equal(got, data[off:off+int64(len(got))]) {
 				err = fmt.Errorf("changed transport bytes")
@@ -141,7 +146,7 @@ func TestEightMiBPiecesFromMixedTCPAndUTPSeeds(t *testing.T) {
 	completed := 0
 	seen := map[string]bool{}
 	deadline = time.Now().Add(45 * time.Second)
-	for time.Now().Before(deadline) && (completed < 2 || len(seen) < 2) {
+	for time.Now().Before(deadline) && (completed < 2 || len(seen) < 2 || !h.HasPiece(0) || !h.HasPiece(3)) {
 		alerts, _ := receiver.PopAlerts()
 		for _, a := range alerts {
 			if a.Type == "piece_finished" {
@@ -166,7 +171,7 @@ func TestEightMiBPiecesFromMixedTCPAndUTPSeeds(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	if completed != 2 || !seen["tcp"] || !seen["utp"] {
+	if completed != 2 || !seen["tcp"] || !seen["utp"] || !h.HasPiece(0) || !h.HasPiece(3) {
 		t.Fatal("both real transports and device windows were not observed", completed, seen)
 	}
 }

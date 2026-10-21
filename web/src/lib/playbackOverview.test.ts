@@ -50,6 +50,23 @@ test("seeks, idle, supplier evidence and buffer are distinct", () => {
   );
   expect(view.cause).toBe("ready");
   expect(view.bufferFresh).toBe(true);
+  for (const timestamp of [undefined, 0, now - 11000, now + 1000]) {
+    const stale = playbackOverview(
+      {
+        ...status,
+        sessions: [
+          {
+            ...session,
+            buffer_ahead_bytes: 1024,
+            buffer_sampled_at_ms: timestamp,
+          },
+        ],
+      },
+      now,
+    );
+    expect(stale.cause).toBe("unknown");
+    expect(stale.bufferFresh).toBe(false);
+  }
   expect(
     playbackOverview(
       {
