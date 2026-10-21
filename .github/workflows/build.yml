@@ -47,8 +47,9 @@ on:
 
 concurrency:
   group: build-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ inputs.profile_source_run_id || 'full' }}
-  # Keep long native comparisons and rollback evidence intact across checkpoints.
-  cancel-in-progress: false
+  # A newer PR source supersedes its older development checks. Manual/tag/release
+  # runs keep their complete comparison and rollback evidence.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

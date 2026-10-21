@@ -4,6 +4,12 @@ TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/Torr
 
 > **Flow 1.1:** dashboard/library improvements, streaming resilience, native v2/hybrid support and release hardening. [Download](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.3), [release notes](RELEASE_1_1_NOTES.md), and [verification/field limits](RELEASE_1_1_VERIFICATION.md). Legacy remains the default; experiments remain off. Physical phone/network recovery checks are disclosed separately.
 
+Development work in [PR #6](https://github.com/gnbk21/TorrServer-LT-Flow/pull/6)
+adds clearer streaming diagnostics, seek/metadata recovery fixes, responsive
+settings and optional player evidence. See the [implementation and acceptance
+checklist](OCTOBER_UPGRADE_CHECKLIST.md) and [MatriX.147 review](UPSTREAM_MATRIX147_REVIEW.md).
+These changes are separate from the stable download above.
+
 ## Run on Windows
 
 1. Open [Flow 1.1](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.3), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.3.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.

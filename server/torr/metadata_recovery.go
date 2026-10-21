@@ -269,6 +269,17 @@ func (t *Torrent) launchMetadataRecovery(delay time.Duration, fetch func(context
 }
 
 func (t *Torrent) recoverMetadata(ctx context.Context, sources []metadataSource, fetch func(context.Context, string) ([]byte, error)) {
+	if t == nil || ctx.Err() != nil {
+		return
+	}
+	handle := t.LTHandle()
+	if handle == nil {
+		return
+	}
+	if have, _ := handle.HaveMetadata(); have {
+		t.signalGotInfo()
+		return
+	}
 	if !settings.CurrentFlow().Enabled || !settings.CurrentFlow().MetadataFallback {
 		t.metadataRecoveryState(MetadataRecovery{State: "METADATA_MISS", Code: "POLICY_CHANGED"})
 		return
@@ -328,7 +339,17 @@ func (t *Torrent) recoverMetadataTier(parent context.Context, sources []metadata
 			t.metadataRecoveryState(last)
 			active++
 			go func() {
-				if !metadataSourceAllowed(source) {
+				// A peer may have completed metadata between tier admission and
+				// execution. Do not contact another source after that victory.
+				handle := t.LTHandle()
+				if handle != nil {
+					if have, _ := handle.HaveMetadata(); have {
+						t.signalGotInfo()
+						results <- result{source: source, err: context.Canceled}
+						return
+					}
+				}
+				if ctx.Err() != nil || handle == nil || !metadataSourceAllowed(source) {
 					results <- result{source: source, err: context.Canceled}
 					return
 				}

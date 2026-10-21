@@ -8,3 +8,9 @@ class WorkflowPolicyTests(unittest.TestCase):
         group=next(line for line in text.splitlines() if line.startswith('  group:'))
         self.assertIn('github.workflow',group)
         self.assertIn("github.event_name == 'pull_request'",text)
+
+    def test_only_superseded_pr_builds_and_scans_are_cancelled(self):
+        root=Path(__file__).resolve().parent.parent/'.github/workflows'
+        for name in ['build.yml','codeql.yml']:
+            text=(root/name).read_text()
+            self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}",text)
