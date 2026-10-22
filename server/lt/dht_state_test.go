@@ -159,17 +159,32 @@ func TestDHTRestoredNodeIsContactedWithoutPublicBootstrap(t *testing.T) {
 	}
 	recoveryDeadline := time.Now().Add(5 * time.Second)
 	recovered := false
+	alertCounts := make(map[string]int)
+	queryPorts := make(map[int]int)
+	newListenerReady := false
 	for time.Now().Before(recoveryDeadline) {
-		s.PopAlerts()
+		alerts, popErr := s.PopAlerts()
+		if popErr != nil {
+			t.Fatal(popErr)
+		}
+		for _, alert := range alerts {
+			alertCounts[alert.Type]++
+			if alert.Type == "listen_succeeded" && alert.Port == newPort && alert.Transport == "UDP" {
+				newListenerReady = true
+			}
+		}
 		conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 		n, sender, err = conn.ReadFromUDP(buf)
+		if err == nil && bytes.Contains(buf[:n], []byte("1:q")) {
+			queryPorts[sender.Port]++
+		}
 		if err == nil && sender.Port == newPort && bytes.Contains(buf[:n], []byte("1:q")) {
 			recovered = true
 			break
 		}
 	}
 	if !recovered {
-		t.Fatal("new UDP listener did not reuse verified DHT hints")
+		t.Fatalf("new UDP listener did not reuse verified DHT hints: ready=%t new_port=%d query_ports=%v alert_counts=%v", newListenerReady, newPort, queryPorts, alertCounts)
 	}
 	if data, err := s.DHTState(); err != nil || len(data) == 0 {
 		t.Fatalf("native snapshot: %v", err)
