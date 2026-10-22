@@ -169,7 +169,7 @@ func TestDHTRestoredNodeIsContactedWithoutPublicBootstrap(t *testing.T) {
 		}
 		for _, alert := range alerts {
 			alertCounts[alert.Type]++
-			if alert.Type == "listen_succeeded" && alert.Port == newPort && alert.Transport == "UDP" {
+			if alert.Type == "listen_succeeded" && alert.Port == newPort && alert.Transport == "udp" {
 				newListenerReady = true
 			}
 		}
