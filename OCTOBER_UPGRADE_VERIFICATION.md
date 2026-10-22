@@ -1,5 +1,10 @@
 # October upgrade verification
 
+Publication follow-up: PR #6 and CI repair PR #7 are merged into stable
+[Flow 1.1.4](RELEASE_1_1_4_VERIFICATION.md). Older development identities and
+pending-publication statements below are historical checkpoints. A passing
+security scan does not mean retained reviewed findings have disappeared.
+
 22 October 2026. This records the implementation of the complete
 [October backlog](UPGRADE_REVIEW_2026_10.md), with a
 [requirement checklist](OCTOBER_UPGRADE_CHECKLIST.md). Development work remains in

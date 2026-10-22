@@ -1,5 +1,10 @@
 # October upgrade implementation
 
+Publication follow-up: PR #6 and CI repair PR #7 are merged into stable
+[Flow 1.1.4](RELEASE_1_1_4_VERIFICATION.md). Older development identities and
+pending-publication statements below are historical checkpoints. A passing
+security scan does not mean retained reviewed findings have disappeared.
+
 Authoritative backlog: [upgrade review](UPGRADE_REVIEW_2026_10.md). Keep the
 existing engine/cache/API, original media bytes, opt-in experiments, public
 metadata consent and owner settings. Deferred technologies remain deferred.
@@ -26,7 +31,7 @@ Field acceptance and performance promotion remain separate, as detailed below.
 | Web interaction/performance and accessibility checks | Local and final CI checks passed | 115 tests passed/one skipped, type/lint/build passed; 104 browser checks including 200% text/polling. Enlarged header, poster, title and action sizing corrected. Three isolated production lab repeats and final Linux budgets passed. Not field INP or spoken screen-reader acceptance |
 | Player early correlation, monotonic order, session summary | Implemented; final APK build passed | Header observed at open; v2 sequence/whole-session summary/minimum sampled buffer; bounded private manual export, v1 import retained. Patch repeat/drift tests and real APK build passed; new phone run remains field work |
 | Network categorized recovery and transition checks | Implemented; native/Windows gates passed | Category/family/transport separation, existing interface generation cancellation and notification/guard regressions; no encryption/interface preference changes. Physical transitions remain unverified |
-| Security branch/source reconciliation and boundary regressions | Reconciled; final scans passed | See OCTOBER_SECURITY_RECONCILIATION.md. Thirty retained findings identify older develop source. Go 1.26.10 security rebuild and reachable-vulnerability gate passed. Four final PR CodeQL analyses have zero results; retained base alerts remain open. No new dismissals |
+| Security branch/source reconciliation and boundary regressions | Reconciled; final scans passed | See OCTOBER_SECURITY_RECONCILIATION.md. Thirty retained findings now identify release source `1b1a92e0`; exact-source master/develop scans passed. Go 1.26.10 security rebuild and reachable-vulnerability gate passed. Four final PR CodeQL analyses have zero results; retained base alerts remain open. No new dismissals |
 | Representative resource/profiling/endurance verification | Automated captures passed; further two-hour tests waived | Earlier RAM/disk two-hour runs completed on the identified earlier executable. Owner requested no further two-hour tests; no exact-final endurance claim. ETW/Perfetto decode passed without full C++ attribution. Physical/eight-hour acceptance remains incomplete |
 | CI artifact/cache/retention and superseded-run policy | Implemented; policy/actionlint passed | Caller-scoped web concurrency; superseded PR runs cancel by explicit policy, manual/tag/release runs retain full gates; failed artifacts kept with bounded retention |
 | Technology/research decisions | Documented | LT 2.1.2/web seeds retained; V2_VERIFICATION_RESEARCH.md records proof/cache prerequisites. UPSTREAM_MATRIX147_REVIEW.md records adapted sorting/User-Agent fixes and separate subtitle integration scope |
@@ -39,4 +44,4 @@ spoken screen-reader acceptance, broader real-phone/public-swarm playback and
 an uninterrupted eight-hour run are not established by controlled fixtures.
 Disruptive OS recovery tests cannot run during the owner's movie under the
 agreed constraint. Stock Just Player does not gain Flow Player instrumentation
-from a server update. No new stable release is claimed by this implementation.
+from a server update. Stable 1.1.4 is published with these field limits disclosed.

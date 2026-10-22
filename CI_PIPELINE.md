@@ -39,7 +39,7 @@ Source caches, per-target native dependency caches, Go/Yarn caches and same-run
 artifacts serve their existing roles. Release identity, checksum reproducibility,
 dependency inventory and GitHub attestations still run before publication.
 
-## Essential checks for the unpublished 1.1.4 repair
+## Essential checks used for the 1.1.4 repair
 
 The original unpublished tag's run failed while downloading Ubuntu dependencies;
 the Linux profiler never started. The owner requested essential checks so the
@@ -67,3 +67,13 @@ Before packaging, publication independently reads actual job conclusions from
 all run attempts. Every required platform, functional group and security/native
 role must have a successful latest attempt. Skipped or missing jobs cannot pass
 the gate, even if the reusable workflow's overall result looks successful.
+
+## Completed 1.1.4 measurement
+
+Run `39830894745`, source `1b1a92e0`, passed all 25 required publication
+roles. GitHub published the release 18.4 minutes after the run started; the
+container completion brought the total to 26.1 minutes. These are measured
+essential-scope times for one run, not a measured speedup of the full suite.
+Exact-source master/develop CodeQL workflows separately repeated full web
+validation successfully. [Distribution verification](RELEASE_1_1_4_VERIFICATION.md)
+records the final receipts and reused evidence.

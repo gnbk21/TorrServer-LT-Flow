@@ -1,12 +1,12 @@
 # Current project status
 
-Updated 22 October 2026. This is the current status; dated audit sections
+Updated 23 October 2026. This is the current status; dated audit sections
 describe the revisions tested at those dates and do not override this table.
 
 | Area | Current state | Remaining gate |
 | --- | --- | --- |
-| Public distribution | Stable **Flow 1.1**, tag `MatriX.145.Flow-v1.1.3`, source `baca8c41`, is published as **Latest**; all eight targets, 72 streaming integrity trials, packages/provenance, live PowerShell 5.1/7 install/update, embedded UI/HTTPS and three container architectures passed; [release verification](RELEASE_1_1_VERIFICATION.md) | Broader physical/player, public-swarm, endurance and Windows recovery validation remains disclosed field work |
-| Current development upgrade | [PR #6](https://github.com/gnbk21/TorrServer-LT-Flow/pull/6) implements the [October backlog](OCTOBER_UPGRADE_CHECKLIST.md): generation-aware seeks, anchored buffer/integrity/error evidence, hot policies, staggered metadata recovery, responsive diagnostics/settings and optional player evidence. Runtime `f780398f` and corrected harness `d482e8c0` passed all non-skipped native/platform/web/security/service/profiling gates and 122 streaming trials, including 200 proven cold targets. Exact Windows candidate staged separately. [Final evidence](OCTOBER_UPGRADE_VERIFICATION.md); [MatriX.147 review](UPSTREAM_MATRIX147_REVIEW.md) | Mixed comparisons do not justify a new default. Further two-hour tests waived by owner; earlier completed runs identify an earlier executable. Physical recovery, spoken screen-reader, broader phone/public-swarm and eight-hour acceptance remain unverified. PR remains open; no new stable release |
+| Public distribution | Stable **Flow 1.1.4**, tag `MatriX.145.Flow-v1.1.4`, source `1b1a92e0`, is published as **Latest**. Exact essential checks, all targets, signed provenance, live PowerShell 5.1/7 install/update, embedded UI and all container architectures passed. Source-identical earlier full-run evidence is disclosed. [Verification](RELEASE_1_1_4_VERIFICATION.md) | Broader physical/player/public-swarm and exact-final endurance acceptance remain field work |
+| October upgrade | PR #6 is merged into stable 1.1.4. PR #7 repairs slow CI dependency downloads and parallelizes validation. [Checklist](OCTOBER_UPGRADE_CHECKLIST.md), [pipeline](CI_PIPELINE.md) | Legacy/defaults and opt-in experiments remain unchanged; field checks remain disclosed |
 | Published upgrade | PR #5 merged; corrected poster timeout and mobile settings action-panel defects; exact tagged and downloaded checks passed. Earlier five-repeat profile/transport comparisons remain recorded. Legacy/1024 KiB/PGO-off defaults retained | Eight-hour run interrupted after 965 cycles; physical checks, optional decoder rebuild, shared OS DNS protection and complete profiling attribution remain unverified |
 | Preview 2 integration | [PR #3](https://github.com/gnbk21/TorrServer-LT-Flow/pull/3) is merged into `develop` and included in Flow 1.0. Streaming source `52d0ad20` is retained; `.7` upgrades Go to 1.26.9 and x/net to v0.60.0. The `.6` tag failed fresh vulnerability scanning and published no release; the full corrected `.7` pipeline passed | Broader device/endurance acceptance remains separate |
 | Adaptive reliability and access | Qualified useful delivery/risk, shared soft RAM budget, background scheduling, draft/saved/effective settings with idle apply, recoverable settings, bounded service recovery, optional origins/rate/capabilities and source-interface policy; exact Windows adaptive and 2,000 rejection-response checks passed on `1e796532`, final native integration and actual SCM crash/update/rollback passed on `0b6991f6`, generated playback/profile checks on `a64a871b`; [guide](ADAPTIVE_RELIABILITY.md), [verification and limits](ADAPTIVE_VERIFICATION.md) | Real device/endurance/physical network checks and representative native OS profile. Source binding is not verified VPN leak protection |
@@ -29,7 +29,14 @@ describe the revisions tested at those dates and do not override this table.
 
 ## Current stable release
 
-Flow 1.1, `MatriX.145.Flow-v1.1.3`, is public and marked Latest. Its
+Flow 1.1.4, `MatriX.145.Flow-v1.1.4`, source `1b1a92e0`, is public and Latest.
+PR #6 and PR #7 are merged. [Release notes](RELEASE_1_1_4_NOTES.md) and
+[verification](RELEASE_1_1_4_VERIFICATION.md) distinguish exact essential gates
+from the source-identical earlier full matrix and unfinished field acceptance.
+
+## Previous stable release: 1.1.3
+
+At its publication, Flow 1.1.3, `MatriX.145.Flow-v1.1.3`, was public and marked Latest. Its
 [verification record](RELEASE_1_1_VERIFICATION.md) covers exact tagged CI,
 72 original-byte high-bitrate trials, native capacity/cancellation regressions,
 downloaded packages/provenance, live PowerShell installation/update, embedded

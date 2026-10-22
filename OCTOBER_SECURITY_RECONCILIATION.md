@@ -1,5 +1,10 @@
 # October security evidence reconciliation
 
+Publication follow-up: PR #6 and CI repair PR #7 are merged into stable
+[Flow 1.1.4](RELEASE_1_1_4_VERIFICATION.md). Older development identities and
+pending-publication statements below are historical checkpoints. A passing
+security scan does not mean retained reviewed findings have disappeared.
+
 22 October 2026. GitHub API refresh on development source `65954a39` returned
 30 open alerts: seven critical and 23 high. All latest instances identify
 `refs/heads/develop`, source `26f22bb3`. These are retained findings, not 30
@@ -58,3 +63,12 @@ Final refresh: all 30 retained open alerts still identify `develop` source
 `1b8e6f6f995a84d4b06a94b9f98dc36dd9b9fa00` completed without execution errors
 and each reports zero results. Those PR results do not erase the retained
 base-branch alerts. No additional alert dispositions were recorded.
+
+## Published 1.1.4 source reconciliation: 23 October 2026
+
+Exact release source `1b1a92e094bdfb35e4462a6b7e08f6b5d9aafc95` passed master CodeQL run
+`39830895466` and develop CodeQL run `39830895639`. The same 30 open
+findings (23 high and seven critical) now identify this source; rule/path/ID
+comparison found no new alerts. Earlier source references above are historical.
+No new dismissals were made. Boundary capabilities and field limits remain
+as documented; successful scan execution does not mean zero findings.
