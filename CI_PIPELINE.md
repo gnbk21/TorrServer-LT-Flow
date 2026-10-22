@@ -9,7 +9,9 @@ boundaries.
 
 - A tagged release validates and builds the web interface once. Both cross and
   macOS builders download that artifact from the same workflow run. Standalone
-  builds still validate their own interface.
+  builds still validate their own interface. Shared-artifact wrapper jobs stay
+  successful; only their duplicate validation steps are skipped, avoiding
+  GitHub's propagation of skipped ancestor jobs.
 - Native queue simulations and platform compilation run independently. A failed
   simulation still fails the reusable build workflow and blocks publication.
 - Linux compilation uploads its ordinary binaries and exact native dependencies
@@ -57,3 +59,8 @@ The previous tag source and failed run remain documented; no published release
 or owner installation was replaced. Exact elapsed time depends on runner
 availability, cache hits and network speed. A shorter duration must be measured
 from a completed run, not inferred from the new graph.
+
+Before packaging, publication independently reads actual job conclusions from
+all run attempts. Every required platform, functional group and security/native
+role must have a successful latest attempt. Skipped or missing jobs cannot pass
+the gate, even if the reusable workflow's overall result looks successful.

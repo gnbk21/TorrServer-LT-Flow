@@ -73,10 +73,18 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
       id-token: write
       attestations: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Require actual successful release jobs before packaging
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FLOW_SCOPE: ${{ needs.classify.outputs.validation_scope }}
+        run: |
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=all&per_page=100" > verified-jobs.json
+          python3 build/release_gates.py verified-jobs.json --scope "$FLOW_SCOPE"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'

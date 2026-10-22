@@ -186,10 +186,11 @@ jobs:
             _out/sparse-native-layers-build.log
           if-no-files-found: error
   web:
-    if: ${{ !inputs.profile_source_run_id && !inputs.web_artifact }}
+    if: ${{ !inputs.profile_source_run_id }}
     uses: ./.github/workflows/build-web.yml
     with:
       artifact-name: flow-web-cross
+      reuse-artifact: ${{ inputs.web_artifact }}
 
   # Fetch Boost + libtorrent once and cache _src, so the matrix below doesn't
   # download Boost (~120 MB) and clone libtorrent six times in parallel.
@@ -232,7 +233,7 @@ jobs:
 
   cross:
     needs: [sources, web]
-    if: ${{ !cancelled() && needs.sources.result == 'success' && (needs.web.result == 'success' || (inputs.web_artifact != '' && needs.web.result == 'skipped')) }}
+    if: ${{ !cancelled() && needs.sources.result == 'success' && needs.web.result == 'success' }}
     name: ${{ matrix.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 90

@@ -62,3 +62,11 @@ requires full validation. No new two-hour tests run.
 The tag had no published release/assets when repaired. The corrected source,
 actual essential results and final distribution identities are recorded after
 publication; the old source and failed evidence above remain historical.
+
+The first CI repair at `c64e752c`, run `39828387868`, exposed skipped-ancestor
+propagation from shared web jobs. Core downstream jobs were skipped; this was
+caught and the run cancelled before publication. Windows identity/UI/integrity
+smokes passed but do not replace those missing gates. The subsequent correction
+keeps shared-web wrapper jobs successful and adds an independent actual-job
+receipt gate before packaging. Local release/policy tests: 73 passed; actionlint
+passed. This scheduling failure remains part of the evidence history.

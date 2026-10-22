@@ -39,14 +39,14 @@ permissions:
 
 jobs:
   web:
-    if: ${{ !inputs.web_artifact }}
     uses: ./.github/workflows/build-web.yml
     with:
       artifact-name: flow-web-macos
+      reuse-artifact: ${{ inputs.web_artifact }}
 
   macos:
     needs: web
-    if: ${{ !cancelled() && (needs.web.result == 'success' || (inputs.web_artifact != '' && needs.web.result == 'skipped')) }}
+    if: ${{ !cancelled() && needs.web.result == 'success' }}
     name: macos/${{ matrix.arch }}
     runs-on: macos-latest          # Apple Silicon (arm64)
     timeout-minutes: 90

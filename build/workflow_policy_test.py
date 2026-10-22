@@ -40,9 +40,21 @@ class WorkflowPolicyTests(unittest.TestCase):
             consumer = job(workflow, name)
             # A failed local web build cannot become an accepted shared build.
             self.assertIn("needs.web.result == 'success'", consumer)
-            self.assertIn("inputs.web_artifact != '' && needs.web.result == 'skipped'", consumer)
+            self.assertNotIn("needs.web.result == 'skipped'", consumer)
             self.assertIn("name: ${{ inputs.web_artifact || 'flow-web-", consumer)
             self.assertNotIn('run-id:', consumer)
+
+    def test_shared_web_keeps_successful_jobs_and_skips_only_validation_steps(self):
+        for workflow in ('build.yml', 'build-macos.yml'):
+            web = job(workflow, 'web')
+            self.assertIn('reuse-artifact: ${{ inputs.web_artifact }}', web)
+            self.assertNotIn('!inputs.web_artifact', web)
+        web = job('build-web.yml', 'web')
+        self.assertIn('Download validated same-run web UI', web)
+        self.assertIn("if: inputs.reuse-artifact != ''", web)
+        self.assertIn('if: ${{ !inputs.reuse-artifact }}', web)
+        release = job('ts_release.yml', 'release')
+        self.assertIn('python3 build/release_gates.py verified-jobs.json', release)
 
     def test_independent_checks_do_not_serialize_platform_builds(self):
         cross = job('build.yml', 'cross')

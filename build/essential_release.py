@@ -7,6 +7,7 @@ import subprocess
 CI_FILES = {
     'build/ci-apt.sh', 'build/ci-integration.sh', 'build/workflow_policy_test.py',
     'build/essential_release.py', 'build/essential_release_test.py',
+    'build/release_gates.py', 'build/release_gates_test.py',
     'RELEASE_ACCEPTANCE.json',
 }
 
