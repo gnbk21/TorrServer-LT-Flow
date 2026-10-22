@@ -137,6 +137,61 @@
       "physical_field_checks_passed": false,
       "ci_run_attempt": 2,
       "windows_initial_gate_failure": "First attempt failed before peer setup after Windows denied automatic UDP listener ports; unchanged gate passed on a fresh runner, with the original failure retained"
+    },
+    {
+      "date": "2026-10-22",
+      "scope": "Flow 1.1.4 production implementation and corrected generated-media test harness",
+      "source_commit": "d482e8c06d0e7cce7575f5300f30cfc70290153b",
+      "runtime_source_commit": "f780398f7d9f607f4024504d79492c336080f7d0",
+      "ci_run": 39761266311,
+      "result": "passed",
+      "url": "https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/39761266311",
+      "controlled_streaming_trials_passed": 122,
+      "straggler_trials_passed": 50,
+      "proven_cold_targets": 200,
+      "verification_record": "OCTOBER_UPGRADE_VERIFICATION.md",
+      "performance_promotion_criterion_met": false,
+      "defaults_changed": false,
+      "physical_field_checks_passed": false
+    },
+    {
+      "date": "2026-10-22",
+      "scope": "Flow 1.1.4 implementation CodeQL, portable/guard, macOS and optional-player APK gates",
+      "source_commit": "d482e8c06d0e7cce7575f5300f30cfc70290153b",
+      "ci_runs": [
+        39761266130,
+        39761266642,
+        39761266143,
+        39761265933
+      ],
+      "result": "passed",
+      "security_review": "OCTOBER_SECURITY_RECONCILIATION.md; retained older-base findings remain disclosed; no new dismissals."
+    },
+    {
+      "date": "2026-10-22",
+      "scope": "Exact Windows implementation candidate on isolated generated data",
+      "source_commit": "f780398f7d9f607f4024504d79492c336080f7d0",
+      "executable_sha256": "ae2d11b77db8d18bc0ecf902871c41ca6aeca7d87ce84a6846827cab44c319b1",
+      "go_runtime": "go1.26.10",
+      "result": "passed",
+      "checks": [
+        "artifact digest and runtime/source identity",
+        "embedded UI",
+        "corrupt-block rejection and original-byte refetch",
+        "proven cold targets in RAM and disk"
+      ],
+      "owner_installation_modified": false
+    },
+    {
+      "date": "2026-10-22",
+      "scope": "Earlier completed RAM/disk resource runs; not exact-final endurance",
+      "source_commit": "febdb8d6",
+      "ci_run": 39686916896,
+      "executable_sha256": "0b046867e4527f821ad27ecf8e2f936c351974796e80167971d7d69949b33744",
+      "result": "passed",
+      "ram_seconds": 7201.16,
+      "disk_seconds": 7203.45,
+      "exact_final_endurance_passed": false
     }
   ],
   "remaining": [],
@@ -145,7 +200,10 @@
     "authorization": "Yes, publish with that note (Recommended)",
     "policy": "Publish stable releases as Latest after automated gates pass, while explicitly disclosing unfinished field and resource validation authorized by the owner.",
     "field_checks_are_not_passed": true,
-    "tagged_gate_required": "ts_release.yml rebuilds and verifies the exact tagged source before publication."
+    "tagged_gate_required": "ts_release.yml rebuilds and verifies the exact tagged source before publication.",
+    "requested_release": "MatriX.145.Flow-v1.1.4",
+    "latest_owner_request": "So can you release it as 1.1.4?",
+    "further_two_hour_tests": "Skipped at owner request; earlier completed runs are identified separately, not exact-final acceptance."
   },
   "remaining_field_validation": [
     "Representative real-phone playback matrix",
@@ -156,7 +214,7 @@
     "Independent optional player decoder rebuild/redistribution audit; APK excluded from stable assets",
     "Shared OS DNS leak protection and complete native profiling attribution"
   ],
-  "release_target": "MatriX.145.Flow-v1.1.3",
+  "release_target": "MatriX.145.Flow-v1.1.4",
   "published_tag": "MatriX.145.Flow-v1.1.3",
   "published_source_commit": "baca8c41594e0fd6d3a17c14a6187482134d5135"
 }
