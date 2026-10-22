@@ -13,6 +13,7 @@ func (t *Torrent) sampleSparse(handle *lt.Torrent, metadata bool, pieceLength in
 	if !settings.CurrentFlow().MetricsEnabled && !settings.CurrentFlow().PeerResumeHints && !settings.CurrentFlow().ScarcePieceHints {
 		return
 	}
+	startup := t.FlowStartup()
 	t.flowMu.Lock()
 	type demand struct {
 		start int
@@ -46,6 +47,18 @@ func (t *Torrent) sampleSparse(handle *lt.Torrent, metadata bool, pieceLength in
 		ranges = append(ranges, [2]int{d.start, min(32, numPieces-d.start)})
 		if len(ranges) == 8 {
 			break
+		}
+	}
+	if metadata && pieceLength > 0 {
+		for _, window := range startupSparseRanges(startup, numPieces) {
+			if len(ranges) == 8 {
+				break
+			}
+			if seen[window[0]] {
+				continue
+			}
+			seen[window[0]] = true
+			ranges = append(ranges, window)
 		}
 	}
 	if snapshot, err := handle.SampleSparse(ranges); err == nil {

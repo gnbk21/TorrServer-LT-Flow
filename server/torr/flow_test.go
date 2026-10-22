@@ -10,6 +10,91 @@ import (
 	"server/torr/state"
 )
 
+func TestSeekStateIgnoresOlderResponsesAndProbes(t *testing.T) {
+	old := settings.BTsets()
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	f := settings.DefaultFlowSettings()
+	f.Enabled = false
+	settings.StoreBTsets(&settings.BTSets{Flow: f})
+	tor := &Torrent{}
+	file := &File{Length: 256 << 20}
+	req := httptest.NewRequest("GET", "/", nil)
+	_, _, first := tor.flowStart(1, file, "test", req)
+	tor.flowProgress(1, "test", first, 1<<20)
+	req.Header.Set("Range", "bytes=67108864-")
+	_, _, second := tor.flowStart(1, file, "test", req)
+	s := tor.flowSessions["1/test"]
+	tor.flowFirstByte(1, "test", first, time.Now(), time.Millisecond)
+	tor.flowEnd(1, "test", first, FlowRangeTrace{Method: "GET", Status: 206, BytesServed: 1})
+	if s.State != "SEEK_RECOVERY" {
+		t.Fatal("old response ended new seek", s.State)
+	}
+	req.Header.Set("Range", "bytes=-1024")
+	_, _, probe := tor.flowStart(1, file, "test", req)
+	tor.flowFirstByte(1, "test", probe, time.Now(), time.Millisecond)
+	tor.flowEnd(1, "test", probe, FlowRangeTrace{Method: "GET", Status: 206, BytesServed: 1024})
+	if s.State != "SEEK_RECOVERY" {
+		t.Fatal("probe ended seek", s.State)
+	}
+	tor.flowFirstByte(1, "test", second, time.Now(), 5*time.Millisecond)
+	if s.State != "PLAYING" || s.SeekRecoveryMs != 5 {
+		t.Fatal("current first byte did not recover", s.State)
+	}
+	tor.flowEnd(1, "test", second, FlowRangeTrace{Method: "GET", Status: 206, BytesServed: 1})
+	if s.State != "WARM_IDLE" {
+		t.Fatal("last close was not idle", s.State)
+	}
+}
+
+func TestDisablingMetricsDoesNotLeakAnExistingReader(t *testing.T) {
+	old := settings.BTsets()
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	f := settings.DefaultFlowSettings()
+	f.Enabled = false
+	settings.StoreBTsets(&settings.BTSets{Flow: f})
+	tor := &Torrent{}
+	file := &File{Length: 256 << 20}
+	_, _, seq := tor.flowStart(1, file, "test", httptest.NewRequest("GET", "/", nil))
+	next := settings.CloneSettings(settings.BTsets())
+	next.Flow.MetricsEnabled = false
+	settings.StoreBTsets(next)
+	tor.flowEnd(1, "test", seq, FlowRangeTrace{Method: "GET", Status: 206, Cancelled: true})
+	if tor.flowSessions["1/test"].ActiveReaders != 0 {
+		t.Fatal("disabled observer leaked a reader")
+	}
+	if tor.FlowStatus() != nil {
+		t.Fatal("disabled metrics presented stale sessions as live")
+	}
+}
+
+func TestUnobservedRequestCannotRetireAnObservedReaderAfterMetricsToggle(t *testing.T) {
+	old := settings.BTsets()
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	f := settings.DefaultFlowSettings()
+	f.Enabled = false
+	settings.StoreBTsets(&settings.BTSets{Flow: f})
+	tor := &Torrent{}
+	file := &File{Length: 256 << 20}
+	req := httptest.NewRequest("GET", "/", nil)
+	_, _, observed := tor.flowStart(1, file, "test", req)
+	disabled := settings.CloneSettings(settings.BTsets())
+	disabled.Flow.MetricsEnabled = false
+	settings.StoreBTsets(disabled)
+	_, _, unobserved := tor.flowStart(1, file, "test", req)
+	if unobserved != 0 {
+		t.Fatal("disabled request was observed")
+	}
+	settings.StoreBTsets(&settings.BTSets{Flow: f})
+	tor.flowEnd(1, "test", unobserved, FlowRangeTrace{Method: "GET", Status: 206})
+	if tor.flowSessions["1/test"].ActiveReaders != 1 {
+		t.Fatal("unobserved close retired the other response")
+	}
+	tor.flowEnd(1, "test", observed, FlowRangeTrace{Method: "GET", Status: 206, Cancelled: true})
+	if session := tor.flowSessions["1/test"]; session.ActiveReaders != 0 || session.State != "WARM_IDLE" {
+		t.Fatal("cancelled observed reader leaked")
+	}
+}
+
 func TestFlowProgressFollowsLiveBodyAndIgnoresOldRequest(t *testing.T) {
 	old := settings.BTsets()
 	t.Cleanup(func() { settings.StoreBTsets(old) })

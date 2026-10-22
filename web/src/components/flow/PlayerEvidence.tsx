@@ -16,7 +16,7 @@ export function PlayerEvidence({ status }: { status: FlowStatusResponse }) {
     },
     [],
   );
-  const latest = report?.samples.at(-1);
+  const latest = report?.summary ?? report?.samples.at(-1);
   const matched =
     !!latest?.session_id &&
     status.sessions?.some(
@@ -54,6 +54,21 @@ export function PlayerEvidence({ status }: { status: FlowStatusResponse }) {
           <p className="text-sm text-slate-400">
             {t("flow.playerClockUnknown")}
           </p>
+          {report?.summary && (
+            <div className="space-y-1 text-sm">
+              <h4>{t("flow.upgrade.sessionSummary")}</h4>
+              <p>
+                {t("flow.upgrade.sampleCount", {
+                  count: report.summary.total_samples,
+                })}
+              </p>
+              <p>
+                {t("flow.upgrade.minimumBuffer", {
+                  milliseconds: report.summary.observed_min_buffered_ms ?? "—",
+                })}
+              </p>
+            </div>
+          )}
           <dl className="grid grid-cols-2 gap-3">
             {(
               [

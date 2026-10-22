@@ -114,6 +114,14 @@ def run(executable, fixtures, output, assert_fast=False, profile="legacy"):
             records = [json.loads(line) for line in history.read_text(encoding="utf-8").splitlines()]
             if not any(r["type"] == "engine_stopped" for r in records):
                 raise AssertionError("Shutdown did not drain history")
+            if not any(r["type"] == "shutdown_requested" and r.get("stage") == "API_SHUTDOWN" for r in records):
+                raise AssertionError("API shutdown cause was not preserved")
+            startup_samples = [r["startup"] for r in records if r["type"] == "startup_sample"]
+            if not startup_samples or not any(s["blocked_on"] == "NONE" for s in startup_samples):
+                raise AssertionError("Startup head/index verification evidence missing")
+            if not any(r["type"] == "response" and r.get("response", {}).get("status") == 206 for r in records):
+                raise AssertionError("Actual HTTP range outcome was not recorded")
+            report["diagnostic_evidence"] = {"startup_samples": len(startup_samples), "api_shutdown": True, "range_response": True}
             if "generated" in history.read_text(encoding="utf-8") or swarm.info_hash.hex() in history.read_text(encoding="utf-8"):
                 raise AssertionError("History retained media identity")
         (output / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

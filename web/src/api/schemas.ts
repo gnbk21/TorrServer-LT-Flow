@@ -47,6 +47,8 @@ export const settingsSchema = z
   .passthrough();
 export const flowSessionSchema = z
   .object({
+    buffer_sampled_at_ms: z.number().int().nonnegative().optional(),
+    buffer_offset_bytes: z.number().int().nonnegative().optional(),
     session_id: z
       .string()
       .regex(/^[A-Za-z0-9_-]{16,64}$/)
@@ -128,6 +130,44 @@ export const flowSessionSchema = z
   .passthrough();
 export const flowSchema = z
   .object({
+    integrity: z
+      .object({
+        failures: z.number().int().nonnegative(),
+        recent_failures: z.number().int().nonnegative(),
+        window_seconds: z.literal(60),
+        last_failure_at_ms: z.number().int().nonnegative(),
+      })
+      .optional(),
+    trackers: z
+      .array(
+        z.object({
+          id: z.string().max(32),
+          protocol: z.string().max(16),
+          host: z.string().max(255),
+          status: z.string().max(16),
+          peers: z.number().int().nonnegative(),
+          error: z.string().max(64).optional(),
+          error_category: z
+            .enum([
+              "UNKNOWN",
+              "SYSTEM",
+              "GENERIC",
+              "DNS",
+              "ASIO",
+              "TLS",
+              "HTTP",
+              "LIBTORRENT",
+            ])
+            .optional(),
+          error_code: z.number().int().optional(),
+          operation: z.number().int().optional(),
+          failure_count: z.number().int().nonnegative().optional(),
+          last_at: z.string().datetime({ offset: true }),
+        }),
+      )
+      .max(64)
+      .nullable()
+      .optional(),
     next_episode_warmup: z
       .object({
         enabled: z.boolean(),
@@ -300,6 +340,14 @@ export const activeSchema = z.object({
 
 export const runtimeSchema = z
   .object({
+    build: z
+      .object({
+        version: z.string().max(160),
+        channel: z.enum(["stable", "preview", "development"]),
+        source: z.string().max(64),
+        modified: z.boolean(),
+      })
+      .optional(),
     dlna_enabled: z.boolean(),
     bonjour_enabled: z.boolean(),
     friendly_name: z.string(),

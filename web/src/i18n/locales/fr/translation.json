@@ -557,7 +557,7 @@
   },
   "flow": {
     "title": "Lecture Flow",
-    "buffer": "Tampon disponible",
+    "buffer": "Tampon disponible sur le serveur",
     "bufferBytes": "Données en cache à venir",
     "download": "Téléchargement",
     "demand": "Débit consommé par la lecture",
@@ -644,7 +644,8 @@
       "readable_contiguous_bytes": "Octets lisibles contigus",
       "verified_contiguous_bytes": "Octets vérifiés contigus",
       "frontier_growth_rate": "Avancée vérifiée (octets/s)",
-      "burst_hint_source": "Source de l’indication du conteneur"
+      "burst_hint_source": "Source de l’indication du conteneur",
+      "demand_offset_bytes": "Position demandée dans la réponse (octets)"
     },
     "sparseTitle": "Disponibilité des pièces",
     "sparseUnknown": "Disponibilité inconnue ou échantillon périmé.",
@@ -736,7 +737,9 @@
       "peer_disconnected": "Pair déconnecté",
       "seek": "Recherche demandée",
       "recovery": "Réponse après recherche",
-      "storage": "Opération du cache"
+      "storage": "Opération du cache",
+      "metadata_recovery": "Récupération des métadonnées magnet",
+      "integrity_failure": "Échec de la vérification d’intégrité"
     },
     "playerEvidence": "Mesures du lecteur",
     "playerEvidenceHint": "Rapport Flow Player facultatif. L’import reste dans cette boîte de dialogue ouverte ; il n’est ni envoyé au serveur ni appliqué aux paramètres.",
@@ -806,6 +809,80 @@
       "CACHE_WRITE_SLOW": "Écriture lente du cache",
       "CACHE_READ_FAILED": "Échec de lecture du cache",
       "CACHE_WRITE_FAILED": "Échec d’écriture du cache"
+    },
+    "startupEvidenceTitle": "Préparation du démarrage",
+    "startupEvidence": {
+      "head": "Tampon initial",
+      "tail": "Réserve de fin de fichier"
+    },
+    "startupVerified": "Vérifié : {{ready}} / {{target}} Mio",
+    "startupMissing": "Morceaux manquants : {{count}}",
+    "startupBlockerPiece": "Premier morceau manquant : {{piece}}",
+    "startupEvidenceHint": "Les données reçues peuvent attendre leur vérification. Il s’agit de la préparation du serveur, pas du tampon du lecteur.",
+    "startupBlockers": {
+      "HEAD": "Attente des morceaux initiaux",
+      "INDEX": "Attente des morceaux de fin",
+      "HEAD_AND_INDEX": "Attente des morceaux initiaux et de fin",
+      "PROBE": "Attente de l’analyse du média",
+      "NONE": "Morceaux nécessaires vérifiés"
+    },
+    "startupWaitExtended": "Attente prolongée à {{seconds}} s tant que des données utiles arrivent. Les pièces requises doivent toujours être vérifiées.",
+    "startupSuppliers": "Sources connectées : {{count}}",
+    "startupUnchoked": "Sources autorisant le transfert : {{count}}",
+    "startupBlocks": "Blocs : {{pending}} demandés, {{waiting}} non demandés, {{received}} reçus/en écriture",
+    "startupSupplyTruncated": "Échantillon partiel ; les nombres réels peuvent être supérieurs.",
+    "startupSupplyHint": "Les sources comptées sont les pairs connectés échantillonnés. Les données absentes ou périmées restent inconnues.",
+    "metadataRecovery": {
+      "METADATA_WAIT": "Attente des métadonnées des pairs avant les autres sources.",
+      "METADATA_HTTP": "Récupération des métadonnées depuis une autre source.",
+      "METADATA_RECOVERED": "Métadonnées correspondantes récupérées automatiquement.",
+      "METADATA_PEERS": "Métadonnées reçues des pairs.",
+      "METADATA_MISS": "Aucune métadonnée correspondante dans les autres sources."
+    },
+    "metadataAttempts": "Tentatives de récupération : {{count}}",
+    "metadataRecoveryHint": "Le torrent et la qualité sont conservés. La vidéo nécessite des pairs disponibles.",
+    "upgrade": {
+      "title": "État de la lecture",
+      "details": "Détails techniques",
+      "verifiedBuffer": "Tampon serveur vérifié",
+      "readableBuffer": "Tampon serveur lisible",
+      "age": "Ancienneté des mesures",
+      "confidence": "Fiabilité du débit estimé",
+      "integrity": "Échecs d’intégrité durant la dernière minute : {{count}}",
+      "failureCount": "Échecs consécutifs : {{count}}",
+      "retry": "Réessayer les métadonnées",
+      "retryAccepted": "Nouvelle tentative demandée. Attendez la mise à jour ; les tentatives répétées sont limitées.",
+      "build": "Version en cours",
+      "modified": "Cette version contient des modifications locales du code.",
+      "channels": {
+        "stable": "Version stable",
+        "preview": "Version préliminaire",
+        "development": "Version de développement"
+      },
+      "causes": {
+        "stale": "Les mesures actuelles sont indisponibles ou périmées.",
+        "metadata": "En attente des métadonnées du torrent.",
+        "idle": "Aucune requête vidéo active du lecteur.",
+        "seek": "Reprise à la position demandée.",
+        "ready": "Des données sont disponibles à la position de lecture du serveur.",
+        "storage": "Des attentes du stockage local ont été observées récemment.",
+        "missing": "Aucun pair connecté échantillonné ne possède la pièce requise.",
+        "discovery": "En attente d’une connexion à un pair utile.",
+        "block": "En attente des prochains blocs demandés.",
+        "unknown": "Les mesures ne suffisent pas à expliquer l’attente."
+      },
+      "actions": {
+        "inspect": "Consultez les détails techniques ou exportez le diagnostic.",
+        "waitMetadata": "Laissez la tentative ouverte. Seules les sources autorisées sont utilisées ; la vidéo nécessite toujours des pairs.",
+        "leaveOpen": "Gardez le lecteur ouvert. La transmission du serveur ne prouve pas la fluidité sur le téléphone.",
+        "waitBlock": "Ne déplacez plus la barre de lecture pendant l’arrivée des données.",
+        "waitSuppliers": "Laissez la recherche de pairs continuer. Un pair connu n’est pas nécessairement joignable ni utile."
+      },
+      "sessionSummary": "Totaux de la session",
+      "sampleCount": "Échantillons enregistrés : {{count}}",
+      "minimumBuffer": "Plus petit tampon du téléphone échantillonné : {{milliseconds}} ms",
+      "mirrorFailure": "Dernier échec du miroir observé, sans vérification de disponibilité actuelle",
+      "operation": "Opération {{value}}"
     }
   },
   "search": {
@@ -953,7 +1030,9 @@
         "ContainerBurstHints": "Indications de pics par index résident (expérience)",
         "MSXAllowLAN": "Autoriser le proxy MSX sur le réseau local",
         "StreamTransportBufferKiB": "Tampon de transport (expérience contrôlée)",
-        "NextEpisodeWarmup": "Préchauffage de l’en-tête/index du prochain épisode"
+        "NextEpisodeWarmup": "Préchauffage de l’en-tête/index du prochain épisode",
+        "MetadataFallback": "Récupération automatique des métadonnées magnet",
+        "PublicMetadataCache": "Caches publics gratuits de métadonnées"
       }
     },
     "maintenance": {
@@ -1053,7 +1132,9 @@
     "changed": "Modifié",
     "draftConflict": "Les paramètres du serveur ont changé pendant la modification. Votre brouillon est conservé. Rechargez les paramètres enregistrés avant de les appliquer ; le brouillon sera supprimé.",
     "reloadSaved": "Supprimer le brouillon et recharger",
-    "requestsPerMinute": "requêtes/min"
+    "requestsPerMinute": "requêtes/min",
+    "metadataFallbackHelp": "Après 15 secondes, essayer deux URL HTTPS .torrent fournies. L’empreinte doit correspondre au magnet.",
+    "publicMetadataCacheHelp": "Envoie l’empreinte des magnets v1 bloqués à Torrage et iTorrents. Gratuit, sans compte. Services parfois indisponibles. Statut privé inconnu avant récupération."
   },
   "preparation": {
     "title": "Préparer cet épisode",

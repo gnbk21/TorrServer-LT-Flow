@@ -10,4 +10,4 @@ package version
 // feature parity (and is that first digit run), ".Flow-v1.0.1" marks the fork and
 // carries its own semantic version. Release tags must keep this shape
 // (MatriX.145.Flow-vX.Y.Z) so the gate stays satisfied.
-var Version = "MatriX.145.Flow-v1.0.1"
+var Version = "MatriX.145.Flow-dev-local"

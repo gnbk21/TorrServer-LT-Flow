@@ -24,6 +24,7 @@ var (
 )
 
 func Preconfig(kill bool) {
+	installConsoleShutdown(kill)
 	go func() {
 		// need work on one thread because SetThreadExecutionState sets flag to thread. We need set and clear flag for same thread.
 		runtime.LockOSThread()

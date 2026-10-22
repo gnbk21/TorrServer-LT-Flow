@@ -1,6 +1,7 @@
 package torr
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"path/filepath"
@@ -25,10 +26,11 @@ import (
 // handle with the metadata (title/poster/category) the rest of the
 // project decorates torrents with.
 type Torrent struct {
-	Title    string
-	Category string
-	Poster   string
-	Data     string
+	webSeedFailures map[string]WebSeedFailure // guarded by trackerMu
+	Title           string
+	Category        string
+	Poster          string
+	Data            string
 	*TorrentSpec
 
 	Stat      state.TorrentStat
@@ -102,16 +104,19 @@ type Torrent struct {
 	preloadWorkMu          sync.Mutex
 	preloadWork            *preloadOperation
 	flowStartup            FlowStartupStatus
+	startupRecordedAt      time.Time // guarded by mu
 
-	flowMu           sync.Mutex
-	flowSessions     map[string]*flowSession
-	sparse           lt.SparseSnapshot // immutable cached aggregate, guarded by flowMu
-	sparseRecordedAt int64
-	peerHintsSavedAt time.Time
-	requestTimeouts  atomic.Uint64
-	requestsDropped  atomic.Uint64
-	trackerMu        sync.Mutex
-	trackers         map[string]FlowTrackerDiagnostic
+	flowMu             sync.Mutex
+	flowSessions       map[string]*flowSession
+	sparse             lt.SparseSnapshot // immutable cached aggregate, guarded by flowMu
+	sparseRecordedAt   int64
+	peerHintsSavedAt   time.Time
+	playbackRecordedAt time.Time // guarded by flowMu
+	requestTimeouts    atomic.Uint64
+	requestsDropped    atomic.Uint64
+	integrity          flow.IntegrityMeter
+	trackerMu          sync.Mutex
+	trackers           map[string]FlowTrackerDiagnostic
 
 	expiredTime       time.Time
 	streamAdmissions  int
@@ -119,9 +124,13 @@ type Torrent struct {
 	preparationHold   atomic.Bool
 	warmIdleSince     time.Time
 
-	gotInfoCh   chan struct{}
-	gotInfoOnce sync.Once
-	posterOnce  sync.Once
+	gotInfoCh               chan struct{}
+	gotInfoOnce             sync.Once
+	metadataRecoveryOnce    sync.Once
+	metadataRecoveryRunning bool               // guarded by mu
+	metadataRecoveryLast    time.Time          // guarded by mu; manual retry throttle
+	metadataRecoveryCancel  context.CancelFunc // guarded by mu
+	posterOnce              sync.Once
 
 	closeCh   chan struct{}
 	closeOnce sync.Once
@@ -306,6 +315,7 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 			}
 		}
 	} else if lh != nil {
+		t.startMetadataRecovery()
 		go func() {
 			_ = lh.ForceReannounce()
 			if settings.BTsets() == nil || !settings.BTsets().DisableDHT {
@@ -325,7 +335,14 @@ func magnetFromSpec(spec *TorrentSpec) string {
 	if len(spec.InfoBytes) > 0 {
 		return ""
 	}
-	return spec.InfoHash.Magnet()
+	magnet := spec.InfoHash.Magnet()
+	if hash := NewHashFromHex(spec.InfoHashV2); !hash.IsZero() && len(hash.HexString()) == 64 && hash != spec.InfoHash {
+		magnet += "&xt=urn:btmh:1220" + hash.HexString()
+	}
+	if hash := NewHashFromHex(spec.InfoHashV1); !hash.IsZero() && len(hash.HexString()) == 40 && hash != spec.InfoHash {
+		magnet += "&xt=urn:btih:" + hash.HexString()
+	}
+	return magnet
 }
 
 type torrentIdentities struct{ primary, v1, v2 Hash }
@@ -432,6 +449,17 @@ func (t *Torrent) signalGotInfo() {
 		}
 		if t.gotInfoCh != nil {
 			close(t.gotInfoCh)
+		}
+		t.mu.Lock()
+		cancel := t.metadataRecoveryCancel
+		if recovery := t.flowStartup.MetadataRecovery; recovery != nil && recovery.State != "METADATA_RECOVERED" {
+			value := *recovery
+			value.State, value.Source, value.Code = "METADATA_PEERS", "PEERS", "HASH_VERIFIED"
+			t.flowStartup.MetadataRecovery = &value
+		}
+		t.mu.Unlock()
+		if cancel != nil {
+			cancel()
 		}
 	})
 }
@@ -635,6 +663,7 @@ func (t *Torrent) progressTick() {
 		count = int((st.TotalSize-1)/st.PieceLength + 1)
 	}
 	t.sampleSparse(handle, st.HasMetadata, st.PieceLength, count)
+	t.recordPlaybackHistory(now)
 	t.checkpointV2Metadata(handle)
 }
 
@@ -741,6 +770,12 @@ func (t *Torrent) Close() bool {
 }
 
 func (t *Torrent) markClosed() {
+	t.mu.Lock()
+	cancel := t.metadataRecoveryCancel
+	t.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 	if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
 		cache.ClearNextEpisodeWarmup()
 	}

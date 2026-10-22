@@ -12,7 +12,48 @@ export interface FlowRangeTrace {
   classification: string;
 }
 
+export interface StartupPieceSupply {
+  sample_age_ms: number;
+  suppliers: number;
+  unchoked_suppliers?: number;
+  truncated: boolean;
+  queue_known: boolean;
+  priority: number;
+  requested_blocks: number;
+  unrequested_blocks: number;
+  finished_blocks: number;
+  writing_blocks: number;
+  receiving_bytes: number;
+  oldest_request_age_ms: number;
+}
+
 export interface FlowStartup {
+  metadata_recovery?: {
+    state: string;
+    source?: string;
+    attempts: number;
+    code?: string;
+  };
+  wait_budget_ms?: number;
+  wait_extended?: boolean;
+  progress?: {
+    head_supply?: StartupPieceSupply;
+    tail_supply?: StartupPieceSupply;
+    wait_budget_ms?: number;
+    wait_extended?: boolean;
+    bootstrap?: boolean;
+    head_bytes: number;
+    head_target_bytes: number;
+    head_verified_bytes: number;
+    tail_bytes: number;
+    tail_target_bytes: number;
+    tail_verified_bytes: number;
+    missing_head_pieces: number;
+    missing_tail_pieces: number;
+    head_blocker_piece?: number;
+    tail_blocker_piece?: number;
+    blocked_on: "HEAD" | "INDEX" | "HEAD_AND_INDEX" | "PROBE" | "NONE";
+  };
   wait_reason?: string;
   stage_started_ms?: number;
   elapsed_ms?: number;
@@ -34,6 +75,8 @@ export interface FlowStartup {
 }
 
 export interface FlowSession {
+  buffer_sampled_at_ms?: number;
+  buffer_offset_bytes?: number;
   session_id?: string;
   readable_contiguous_bytes?: number;
   verified_contiguous_bytes?: number;
@@ -90,6 +133,7 @@ export interface FlowSession {
   state: string;
   active_readers: number;
   playback_offset_bytes: number;
+  demand_offset_bytes?: number;
   playback_offset_seconds: number;
   buffer_ahead_bytes: number;
   buffer_ahead_seconds: number;
@@ -152,6 +196,10 @@ export interface FlowTrayStatus {
 }
 
 export interface FlowTrackerSummary {
+  error_category?: string;
+  error_code?: number;
+  operation?: number;
+  failure_count?: number;
   id: string;
   protocol: string;
   host: string;
@@ -161,6 +209,12 @@ export interface FlowTrackerSummary {
   last_at: string;
 }
 export interface FlowStatusResponse {
+  integrity?: {
+    failures: number;
+    recent_failures: number;
+    window_seconds: number;
+    last_failure_at_ms: number;
+  };
   sampled_at?: string;
   timeline?: {
     source: "server";

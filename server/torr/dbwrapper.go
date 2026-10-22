@@ -129,13 +129,14 @@ func settingsSpec(s *TorrentSpec) *settings.TorrentSpec {
 		return nil
 	}
 	return &settings.TorrentSpec{
-		WebSeeds:    append([]settings.WebSeed(nil), s.WebSeeds...),
-		InfoHash:    s.InfoHash.HexString(),
-		InfoHashV1:  s.InfoHashV1,
-		InfoHashV2:  s.InfoHashV2,
-		InfoBytes:   s.InfoBytes,
-		Trackers:    s.Trackers,
-		DisplayName: s.DisplayName,
+		MetadataSources: append([]string(nil), s.MetadataSources...),
+		WebSeeds:        append([]settings.WebSeed(nil), s.WebSeeds...),
+		InfoHash:        s.InfoHash.HexString(),
+		InfoHashV1:      s.InfoHashV1,
+		InfoHashV2:      s.InfoHashV2,
+		InfoBytes:       s.InfoBytes,
+		Trackers:        s.Trackers,
+		DisplayName:     s.DisplayName,
 	}
 }
 
@@ -144,12 +145,13 @@ func torrSpec(s *settings.TorrentSpec) *TorrentSpec {
 		return nil
 	}
 	return &TorrentSpec{
-		WebSeeds:    append([]settings.WebSeed(nil), s.WebSeeds...),
-		InfoHash:    NewHashFromHex(s.InfoHash),
-		InfoHashV1:  s.InfoHashV1,
-		InfoHashV2:  s.InfoHashV2,
-		InfoBytes:   s.InfoBytes,
-		Trackers:    s.Trackers,
-		DisplayName: s.DisplayName,
+		MetadataSources: append([]string(nil), s.MetadataSources...),
+		WebSeeds:        append([]settings.WebSeed(nil), s.WebSeeds...),
+		InfoHash:        NewHashFromHex(s.InfoHash),
+		InfoHashV1:      s.InfoHashV1,
+		InfoHashV2:      s.InfoHashV2,
+		InfoBytes:       s.InfoBytes,
+		Trackers:        s.Trackers,
+		DisplayName:     s.DisplayName,
 	}
 }

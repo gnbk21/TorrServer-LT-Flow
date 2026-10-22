@@ -157,7 +157,7 @@ describe("startup explanation", () => {
       screen.getAllByText("Loading header and index").length,
     ).toBeGreaterThan(0);
     expect(screen.getByText("0 ms")).toBeInTheDocument();
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
     expect(screen.getByText("flow.startupTimingHint")).toBeInTheDocument();
   });
 

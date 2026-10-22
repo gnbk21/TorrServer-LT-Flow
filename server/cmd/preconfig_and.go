@@ -15,6 +15,7 @@ import (
 	"server"
 	"server/log"
 	"server/settings"
+	"server/torr"
 )
 
 func Preconfig(dkill bool) {
@@ -35,6 +36,7 @@ func Preconfig(dkill bool) {
 			}
 
 			log.TLogln("Signal catched:", s, "stopping server...")
+			torr.RecordShutdownReason("SIGNAL")
 
 			done := make(chan struct{})
 
@@ -47,6 +49,7 @@ func Preconfig(dkill bool) {
 			case <-done:
 				log.TLogln("Server stopped gracefully")
 			case <-time.After(5 * time.Second):
+				torr.RecordShutdownReason("SHUTDOWN_TIMEOUT")
 				log.TLogln("Server stop timeout, exiting forcefully")
 				os.Exit(1)
 			}

@@ -109,8 +109,15 @@ func TestSettingsHotApplicationAndSchema(t *testing.T) {
 	next.CacheSize = 2048 << 20
 	next.Flow.TargetBufferSeconds = 90
 	next.Flow.WarmCacheBudgetMB = 0
+	next.Flow.AdaptiveUrgentHorizon = !old.Flow.AdaptiveUrgentHorizon
+	next.Flow.ContainerBurstHints = !old.Flow.ContainerBurstHints
 	if NeedsEngineRestart(old, next) {
 		t.Fatal("safe cache policy restarted engine")
+	}
+	native := CloneSettings(old)
+	native.Flow.CapacityAwareRequests = !old.Flow.CapacityAwareRequests
+	if !NeedsEngineRestart(old, native) {
+		t.Fatal("native request capacity was incorrectly classified hot")
 	}
 	next.DisableDHT = !old.DisableDHT
 	if !NeedsEngineRestart(old, next) {

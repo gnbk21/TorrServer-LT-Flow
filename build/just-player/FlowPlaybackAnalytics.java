@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.SystemClock;
+import android.net.Uri;
 import android.util.AtomicFile;
 import android.util.Log;
 import androidx.media3.common.C;
@@ -47,6 +48,9 @@ final class FlowPlaybackAnalytics implements AnalyticsListener {
             new ArrayBlockingQueue<>(1), new ThreadPoolExecutor.DiscardOldestPolicy());
     private String correlation = "";
     private long bandwidth;
+    private long sequence;
+    private long minimumBuffered = Long.MAX_VALUE;
+    private final Binding binding;
     private boolean released;
     private final Runnable sample = new Runnable() {
         @Override public void run() {
@@ -56,9 +60,32 @@ final class FlowPlaybackAnalytics implements AnalyticsListener {
             handler.postDelayed(this, 5000);
         }
     };
-    private FlowPlaybackAnalytics(Context context, ExoPlayer player) {
+    static final class Binding {
+        private volatile FlowPlaybackAnalytics observer;
+        void opened(Uri uri, Map<String, List<String>> headers) {
+            FlowPlaybackAnalytics current = observer;
+            if (current == null || !current.authorized()) return;
+            String token = "";
+            for (Map.Entry<String, List<String>> header : headers.entrySet()) {
+                if ("X-Flow-Session".equalsIgnoreCase(header.getKey()) && !header.getValue().isEmpty()) {
+                    String value = header.getValue().get(0);
+                    if (value != null && value.matches("[A-Za-z0-9_-]{16,64}")) token = value;
+                }
+            }
+            if (token.isEmpty()) return;
+            final String safe = token;
+            current.handler.post(() -> {
+                MediaItem item = current.player.getCurrentMediaItem();
+                if (!current.released && current.authorized() && item != null && item.localConfiguration != null
+                        && uri.equals(item.localConfiguration.uri)) current.correlation = safe;
+            });
+        }
+    }
+    private FlowPlaybackAnalytics(Context context, ExoPlayer player, Binding binding) {
         this.context = context.getApplicationContext();
         this.player = player;
+        this.binding = binding;
+        binding.observer = this;
         handler = new Handler(player.getApplicationLooper());
         synchronized (FlowDiagnosticsSettings.STORE_LOCK) {
             generation = ++FlowDiagnosticsSettings.generation;
@@ -72,8 +99,8 @@ final class FlowPlaybackAnalytics implements AnalyticsListener {
         player.addAnalyticsListener(stats); // before loading media, while IDLE
         handler.post(sample);
     }
-    static void attach(Context context, ExoPlayer player) {
-        player.addAnalyticsListener(new FlowPlaybackAnalytics(context, player));
+    static void attach(Context context, ExoPlayer player, Binding binding) {
+        player.addAnalyticsListener(new FlowPlaybackAnalytics(context, player, binding));
     }
     private void snapshot() {
         if (!authorized()) return;
@@ -81,6 +108,7 @@ final class FlowPlaybackAnalytics implements AnalyticsListener {
             PlaybackStats current = stats.getPlaybackStats();
             if (current == null) return; // unknown until Media3 creates the current session
             JSONObject row = new JSONObject();
+            row.put("sequence", ++sequence);
             row.put("elapsed_ms", SystemClock.elapsedRealtime()-started);
             row.put("recorded_at_ms", System.currentTimeMillis());
             long join = current.getMeanJoinTimeMs();
@@ -92,6 +120,7 @@ final class FlowPlaybackAnalytics implements AnalyticsListener {
             row.put("paused_ms", current.getTotalPausedTimeMs());
             row.put("play_ms", current.getTotalPlayTimeMs());
             row.put("buffered_ms", Math.max(0, player.getTotalBufferedDuration()));
+            if (player.isPlaying()) minimumBuffered = Math.min(minimumBuffered, Math.max(0, player.getTotalBufferedDuration()));
             row.put("dropped_frames", current.totalDroppedFrames);
             row.put("bandwidth_bps", Math.max(0, bandwidth));
             row.put("state", player.getPlaybackState());
@@ -100,10 +129,14 @@ final class FlowPlaybackAnalytics implements AnalyticsListener {
             if (samples.length() >= 128) samples.remove(0);
             samples.put(row);
             JSONObject report = new JSONObject();
-            report.put("schema_version", 1);
+            report.put("schema_version", 2);
             report.put("source", "flow-player-media3");
             report.put("clock", "player-elapsed-and-wall; server-clock-alignment-unknown");
             report.put("samples", samples);
+            JSONObject summary = new JSONObject(row.toString());
+            summary.put("total_samples", sequence);
+            summary.put("observed_min_buffered_ms", minimumBuffered == Long.MAX_VALUE ? JSONObject.NULL : minimumBuffered);
+            report.put("summary", summary);
             byte[] bytes = report.toString().getBytes(StandardCharsets.UTF_8);
             if (bytes.length > MAX_BYTES) return;
             writer.execute(() -> save(bytes));
@@ -139,6 +172,7 @@ final class FlowPlaybackAnalytics implements AnalyticsListener {
     private void stop(boolean discardPending) {
         if (released) return;
         released = true;
+        if (binding.observer == this) binding.observer = null;
         handler.removeCallbacks(sample);
         preferences.unregisterOnSharedPreferenceChangeListener(preferenceListener);
         player.removeAnalyticsListener(stats);
@@ -147,6 +181,7 @@ final class FlowPlaybackAnalytics implements AnalyticsListener {
     }
     @Override public void onMediaItemTransition(EventTime time, MediaItem item, int reason) {
         samples = new JSONArray(); correlation = ""; bandwidth = 0;
+        sequence = 0; minimumBuffered = Long.MAX_VALUE;
         started = SystemClock.elapsedRealtime();
     }
     private void correlate(EventTime time, LoadEventInfo info) {

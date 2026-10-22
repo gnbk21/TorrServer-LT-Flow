@@ -1,0 +1,777 @@
+{
+  "schema_version": 1,
+  "roots": [
+    "@radix-ui/react-dialog@1.1.23",
+    "@tanstack/react-query@5.104.0",
+    "@types/qrcode@1.5.6",
+    "clsx@2.1.1",
+    "hls.js@1.7.3",
+    "i18next-browser-languagedetector@8.2.1",
+    "i18next@24.2.3",
+    "lucide-react@0.468.0",
+    "qrcode@1.5.4",
+    "react-dom@19.3.0",
+    "react-hook-form@7.89.0",
+    "react-i18next@15.7.4",
+    "react-router-dom@7.18.4",
+    "react@19.3.0",
+    "tailwind-merge@3.7.0",
+    "zod@4.6.5"
+  ],
+  "packages": [
+    {
+      "key": "@babel/runtime@7.29.7",
+      "name": "@babel/runtime",
+      "version": "7.29.7",
+      "license": "MIT",
+      "notice_sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+      "dependencies": []
+    },
+    {
+      "key": "@radix-ui/primitive@1.1.7",
+      "name": "@radix-ui/primitive",
+      "version": "1.1.7",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": []
+    },
+    {
+      "key": "@radix-ui/react-compose-refs@1.1.5",
+      "name": "@radix-ui/react-compose-refs",
+      "version": "1.1.5",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": []
+    },
+    {
+      "key": "@radix-ui/react-context@1.2.2",
+      "name": "@radix-ui/react-context",
+      "version": "1.2.2",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": []
+    },
+    {
+      "key": "@radix-ui/react-dialog@1.1.23",
+      "name": "@radix-ui/react-dialog",
+      "version": "1.1.23",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": [
+        "@radix-ui/primitive@1.1.7",
+        "@radix-ui/react-compose-refs@1.1.5",
+        "@radix-ui/react-context@1.2.2",
+        "@radix-ui/react-dismissable-layer@1.1.19",
+        "@radix-ui/react-focus-guards@1.1.6",
+        "@radix-ui/react-focus-scope@1.1.16",
+        "@radix-ui/react-id@1.1.4",
+        "@radix-ui/react-portal@1.1.17",
+        "@radix-ui/react-presence@1.1.10",
+        "@radix-ui/react-primitive@2.1.10",
+        "@radix-ui/react-slot@1.3.3",
+        "@radix-ui/react-use-controllable-state@1.2.6",
+        "@radix-ui/react-use-layout-effect@1.1.4",
+        "aria-hidden@1.2.6",
+        "react-remove-scroll@2.7.2"
+      ]
+    },
+    {
+      "key": "@radix-ui/react-dismissable-layer@1.1.19",
+      "name": "@radix-ui/react-dismissable-layer",
+      "version": "1.1.19",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": [
+        "@radix-ui/primitive@1.1.7",
+        "@radix-ui/react-compose-refs@1.1.5",
+        "@radix-ui/react-primitive@2.1.10",
+        "@radix-ui/react-use-callback-ref@1.1.4",
+        "@radix-ui/react-use-effect-event@0.0.5"
+      ]
+    },
+    {
+      "key": "@radix-ui/react-focus-guards@1.1.6",
+      "name": "@radix-ui/react-focus-guards",
+      "version": "1.1.6",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": []
+    },
+    {
+      "key": "@radix-ui/react-focus-scope@1.1.16",
+      "name": "@radix-ui/react-focus-scope",
+      "version": "1.1.16",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": [
+        "@radix-ui/react-compose-refs@1.1.5",
+        "@radix-ui/react-primitive@2.1.10",
+        "@radix-ui/react-use-callback-ref@1.1.4"
+      ]
+    },
+    {
+      "key": "@radix-ui/react-id@1.1.4",
+      "name": "@radix-ui/react-id",
+      "version": "1.1.4",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": [
+        "@radix-ui/react-use-layout-effect@1.1.4"
+      ]
+    },
+    {
+      "key": "@radix-ui/react-portal@1.1.17",
+      "name": "@radix-ui/react-portal",
+      "version": "1.1.17",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": [
+        "@radix-ui/react-primitive@2.1.10",
+        "@radix-ui/react-use-layout-effect@1.1.4"
+      ]
+    },
+    {
+      "key": "@radix-ui/react-presence@1.1.10",
+      "name": "@radix-ui/react-presence",
+      "version": "1.1.10",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": [
+        "@radix-ui/react-use-layout-effect@1.1.4"
+      ]
+    },
+    {
+      "key": "@radix-ui/react-primitive@2.1.10",
+      "name": "@radix-ui/react-primitive",
+      "version": "2.1.10",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": [
+        "@radix-ui/react-slot@1.3.3"
+      ]
+    },
+    {
+      "key": "@radix-ui/react-slot@1.3.3",
+      "name": "@radix-ui/react-slot",
+      "version": "1.3.3",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": [
+        "@radix-ui/react-compose-refs@1.1.5"
+      ]
+    },
+    {
+      "key": "@radix-ui/react-use-callback-ref@1.1.4",
+      "name": "@radix-ui/react-use-callback-ref",
+      "version": "1.1.4",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": []
+    },
+    {
+      "key": "@radix-ui/react-use-controllable-state@1.2.6",
+      "name": "@radix-ui/react-use-controllable-state",
+      "version": "1.2.6",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": [
+        "@radix-ui/primitive@1.1.7",
+        "@radix-ui/react-use-effect-event@0.0.5",
+        "@radix-ui/react-use-layout-effect@1.1.4"
+      ]
+    },
+    {
+      "key": "@radix-ui/react-use-effect-event@0.0.5",
+      "name": "@radix-ui/react-use-effect-event",
+      "version": "0.0.5",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": [
+        "@radix-ui/react-use-layout-effect@1.1.4"
+      ]
+    },
+    {
+      "key": "@radix-ui/react-use-layout-effect@1.1.4",
+      "name": "@radix-ui/react-use-layout-effect",
+      "version": "1.1.4",
+      "license": "MIT",
+      "notice_sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138",
+      "dependencies": []
+    },
+    {
+      "key": "@tanstack/query-core@5.104.0",
+      "name": "@tanstack/query-core",
+      "version": "5.104.0",
+      "license": "MIT",
+      "notice_sha256": "a405ee70c632bb938acb7ac5f210e814409b3760ea9d2329d8ed8ffcfd11a0e7",
+      "dependencies": []
+    },
+    {
+      "key": "@tanstack/react-query@5.104.0",
+      "name": "@tanstack/react-query",
+      "version": "5.104.0",
+      "license": "MIT",
+      "notice_sha256": "a405ee70c632bb938acb7ac5f210e814409b3760ea9d2329d8ed8ffcfd11a0e7",
+      "dependencies": [
+        "@tanstack/query-core@5.104.0"
+      ]
+    },
+    {
+      "key": "@types/node@26.6.3",
+      "name": "@types/node",
+      "version": "26.6.3",
+      "license": "MIT",
+      "notice_sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+      "dependencies": [
+        "undici-types@8.9.0"
+      ]
+    },
+    {
+      "key": "@types/qrcode@1.5.6",
+      "name": "@types/qrcode",
+      "version": "1.5.6",
+      "license": "MIT",
+      "notice_sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+      "dependencies": [
+        "@types/node@26.6.3"
+      ]
+    },
+    {
+      "key": "ansi-regex@5.0.1",
+      "name": "ansi-regex",
+      "version": "5.0.1",
+      "license": "MIT",
+      "notice_sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+      "dependencies": []
+    },
+    {
+      "key": "ansi-styles@4.3.0",
+      "name": "ansi-styles",
+      "version": "4.3.0",
+      "license": "MIT",
+      "notice_sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+      "dependencies": [
+        "color-convert@2.0.1"
+      ]
+    },
+    {
+      "key": "aria-hidden@1.2.6",
+      "name": "aria-hidden",
+      "version": "1.2.6",
+      "license": "MIT",
+      "notice_sha256": "30f0cfddf483d1128e3610205020f2041a6c5e837aa999e0aa82e5576187d4a9",
+      "dependencies": [
+        "tslib@2.8.1"
+      ]
+    },
+    {
+      "key": "camelcase@5.3.1",
+      "name": "camelcase",
+      "version": "5.3.1",
+      "license": "MIT",
+      "notice_sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+      "dependencies": []
+    },
+    {
+      "key": "cliui@6.0.0",
+      "name": "cliui",
+      "version": "6.0.0",
+      "license": "ISC",
+      "notice_sha256": "2dc0465729366c3a7890dfa9e972a1ba7048a26c02116fb8b419a6a1ac110149",
+      "dependencies": [
+        "string-width@4.2.3",
+        "strip-ansi@6.0.1",
+        "wrap-ansi@6.2.0"
+      ]
+    },
+    {
+      "key": "clsx@2.1.1",
+      "name": "clsx",
+      "version": "2.1.1",
+      "license": "MIT",
+      "notice_sha256": "9a9edad7baae52622bddf3c15b2ef8a33d2c89f2d25408ad13e8a7481c6b0c97",
+      "dependencies": []
+    },
+    {
+      "key": "color-convert@2.0.1",
+      "name": "color-convert",
+      "version": "2.0.1",
+      "license": "MIT",
+      "notice_sha256": "693866fc419c6f61c8570438ec00659d156ec2b4d4a4d04091711f5f11a365d4",
+      "dependencies": [
+        "color-name@1.1.4"
+      ]
+    },
+    {
+      "key": "color-name@1.1.4",
+      "name": "color-name",
+      "version": "1.1.4",
+      "license": "MIT",
+      "notice_sha256": "c064f7a3e353bc1bc977f3c897941c75ef763f44f41677e0a15370ca0853d6e2",
+      "dependencies": []
+    },
+    {
+      "key": "cookie@1.1.1",
+      "name": "cookie",
+      "version": "1.1.1",
+      "license": "MIT",
+      "notice_sha256": "c02110eedc16c7114f1a9bdc026c65626ce1d9c7e27fd51a8e0feee8a48a6858",
+      "dependencies": []
+    },
+    {
+      "key": "decamelize@1.2.0",
+      "name": "decamelize",
+      "version": "1.2.0",
+      "license": "MIT",
+      "notice_sha256": "6fb9754611c20f6649f68805e8c990e83261f29316e29de9e6cedae607b8634c",
+      "dependencies": []
+    },
+    {
+      "key": "detect-node-es@1.1.0",
+      "name": "detect-node-es",
+      "version": "1.1.0",
+      "license": "MIT",
+      "notice_sha256": "54b32293ea560d22cd9b62af9b2cda1a030d910a48c6601d227c5ff2338d95f8",
+      "dependencies": []
+    },
+    {
+      "key": "dijkstrajs@1.0.3",
+      "name": "dijkstrajs",
+      "version": "1.0.3",
+      "license": "MIT",
+      "notice_sha256": "c46324e45a005413535a6fb7a97e9eacd3cc6bf30335b7d5c10b8ee3af9e60c2",
+      "dependencies": []
+    },
+    {
+      "key": "emoji-regex@8.0.0",
+      "name": "emoji-regex",
+      "version": "8.0.0",
+      "license": "MIT",
+      "notice_sha256": "483acb265f182907d1caf6cff9c16c96f31325ed23792832cc5d8b12d5f88c8a",
+      "dependencies": []
+    },
+    {
+      "key": "find-up@4.1.0",
+      "name": "find-up",
+      "version": "4.1.0",
+      "license": "MIT",
+      "notice_sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+      "dependencies": [
+        "locate-path@5.0.0",
+        "path-exists@4.0.0"
+      ]
+    },
+    {
+      "key": "get-caller-file@2.0.5",
+      "name": "get-caller-file",
+      "version": "2.0.5",
+      "license": "ISC",
+      "notice_sha256": "902dbb4154679fb2b8d7c33878183f45b268d01eae5e5033dddaa8852d45f213",
+      "dependencies": []
+    },
+    {
+      "key": "get-nonce@1.0.1",
+      "name": "get-nonce",
+      "version": "1.0.1",
+      "license": "MIT",
+      "notice_sha256": "acf3b087b348d2f2e731b9d4131af185aad694c1204ce14a46909483fd42da05",
+      "dependencies": []
+    },
+    {
+      "key": "hls.js@1.7.3",
+      "name": "hls.js",
+      "version": "1.7.3",
+      "license": "Apache-2.0",
+      "notice_sha256": "ca8773cf798c7ed997d4dd7c8e23c348699f8d5b7462636694cc14de6cda12db",
+      "dependencies": []
+    },
+    {
+      "key": "html-parse-stringify@3.1.0",
+      "name": "html-parse-stringify",
+      "version": "3.1.0",
+      "license": "MIT",
+      "notice_sha256": "f51aa7a410f3d3ff9352a5422b76c072588ac76b63861f59447502caeacacc16",
+      "dependencies": [
+        "void-elements@3.1.0"
+      ]
+    },
+    {
+      "key": "i18next-browser-languagedetector@8.2.1",
+      "name": "i18next-browser-languagedetector",
+      "version": "8.2.1",
+      "license": "MIT",
+      "notice_sha256": "95bdba2cfae72e5337ecc7ccc33154492e33a533549628e385d32d98d1642859",
+      "dependencies": [
+        "@babel/runtime@7.29.7"
+      ]
+    },
+    {
+      "key": "i18next@24.2.3",
+      "name": "i18next",
+      "version": "24.2.3",
+      "license": "MIT",
+      "notice_sha256": "def56080ea8d5d30d11771d221d1c9e98f3942afb8c61dd6136be5e806c926d6",
+      "dependencies": [
+        "@babel/runtime@7.29.7"
+      ]
+    },
+    {
+      "key": "is-fullwidth-code-point@3.0.0",
+      "name": "is-fullwidth-code-point",
+      "version": "3.0.0",
+      "license": "MIT",
+      "notice_sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+      "dependencies": []
+    },
+    {
+      "key": "locate-path@5.0.0",
+      "name": "locate-path",
+      "version": "5.0.0",
+      "license": "MIT",
+      "notice_sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+      "dependencies": [
+        "p-locate@4.1.0"
+      ]
+    },
+    {
+      "key": "lucide-react@0.468.0",
+      "name": "lucide-react",
+      "version": "0.468.0",
+      "license": "ISC",
+      "notice_sha256": "1e7290b35280a048667bbf0ebabac1c7fd52a75300e8b2946ac165715997f2bc",
+      "dependencies": []
+    },
+    {
+      "key": "p-limit@2.3.0",
+      "name": "p-limit",
+      "version": "2.3.0",
+      "license": "MIT",
+      "notice_sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+      "dependencies": [
+        "p-try@2.2.0"
+      ]
+    },
+    {
+      "key": "p-locate@4.1.0",
+      "name": "p-locate",
+      "version": "4.1.0",
+      "license": "MIT",
+      "notice_sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+      "dependencies": [
+        "p-limit@2.3.0"
+      ]
+    },
+    {
+      "key": "p-try@2.2.0",
+      "name": "p-try",
+      "version": "2.2.0",
+      "license": "MIT",
+      "notice_sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+      "dependencies": []
+    },
+    {
+      "key": "path-exists@4.0.0",
+      "name": "path-exists",
+      "version": "4.0.0",
+      "license": "MIT",
+      "notice_sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+      "dependencies": []
+    },
+    {
+      "key": "pngjs@5.0.0",
+      "name": "pngjs",
+      "version": "5.0.0",
+      "license": "MIT",
+      "notice_sha256": "176b07a18c0bb3836aaeb61088fd0bf11a38f66e6f15e3fbda85faa225250d6e",
+      "dependencies": []
+    },
+    {
+      "key": "qrcode@1.5.4",
+      "name": "qrcode",
+      "version": "1.5.4",
+      "license": "MIT",
+      "notice_sha256": "8df47c6ad9ac2c41eb9b2a72def9908959da0ede8dadd56c7b249c1bdb0c5ce6",
+      "dependencies": [
+        "dijkstrajs@1.0.3",
+        "pngjs@5.0.0",
+        "yargs@15.4.1"
+      ]
+    },
+    {
+      "key": "react-dom@19.3.0",
+      "name": "react-dom",
+      "version": "19.3.0",
+      "license": "MIT",
+      "notice_sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+      "dependencies": [
+        "scheduler@0.28.0"
+      ]
+    },
+    {
+      "key": "react-hook-form@7.89.0",
+      "name": "react-hook-form",
+      "version": "7.89.0",
+      "license": "MIT",
+      "notice_sha256": "e8eeb472f0a5889c2c51625b86a3f9b8630680adb9f49a125352e2e426392780",
+      "dependencies": []
+    },
+    {
+      "key": "react-i18next@15.7.4",
+      "name": "react-i18next",
+      "version": "15.7.4",
+      "license": "MIT",
+      "notice_sha256": "95bdba2cfae72e5337ecc7ccc33154492e33a533549628e385d32d98d1642859",
+      "dependencies": [
+        "@babel/runtime@7.29.7",
+        "html-parse-stringify@3.1.0"
+      ]
+    },
+    {
+      "key": "react-remove-scroll-bar@2.3.8",
+      "name": "react-remove-scroll-bar",
+      "version": "2.3.8",
+      "license": "MIT",
+      "notice_sha256": "a79aae0c0f21990d9d963bb3c5a79cdcea9a46f8523ba55c58d7fe776b6ebc84",
+      "dependencies": [
+        "react-style-singleton@2.2.3",
+        "tslib@2.8.1"
+      ]
+    },
+    {
+      "key": "react-remove-scroll@2.7.2",
+      "name": "react-remove-scroll",
+      "version": "2.7.2",
+      "license": "MIT",
+      "notice_sha256": "30f0cfddf483d1128e3610205020f2041a6c5e837aa999e0aa82e5576187d4a9",
+      "dependencies": [
+        "react-remove-scroll-bar@2.3.8",
+        "react-style-singleton@2.2.3",
+        "tslib@2.8.1",
+        "use-callback-ref@1.3.3",
+        "use-sidecar@1.1.3"
+      ]
+    },
+    {
+      "key": "react-router-dom@7.18.4",
+      "name": "react-router-dom",
+      "version": "7.18.4",
+      "license": "MIT",
+      "notice_sha256": "77c9ee6a9c5d5782fb0c50b50d101189116314c14f7df0a1b0d385fc96a7ba49",
+      "dependencies": [
+        "react-router@7.18.4"
+      ]
+    },
+    {
+      "key": "react-router@7.18.4",
+      "name": "react-router",
+      "version": "7.18.4",
+      "license": "MIT",
+      "notice_sha256": "77c9ee6a9c5d5782fb0c50b50d101189116314c14f7df0a1b0d385fc96a7ba49",
+      "dependencies": [
+        "cookie@1.1.1",
+        "set-cookie-parser@2.7.2"
+      ]
+    },
+    {
+      "key": "react-style-singleton@2.2.3",
+      "name": "react-style-singleton",
+      "version": "2.2.3",
+      "license": "MIT",
+      "notice_sha256": "30f0cfddf483d1128e3610205020f2041a6c5e837aa999e0aa82e5576187d4a9",
+      "dependencies": [
+        "get-nonce@1.0.1",
+        "tslib@2.8.1"
+      ]
+    },
+    {
+      "key": "react@19.3.0",
+      "name": "react",
+      "version": "19.3.0",
+      "license": "MIT",
+      "notice_sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+      "dependencies": []
+    },
+    {
+      "key": "require-directory@2.1.1",
+      "name": "require-directory",
+      "version": "2.1.1",
+      "license": "MIT",
+      "notice_sha256": "a92e52eb1fa7cd746e3827bf01d3a3589bbc8e1e51348b1da042aad165525ad1",
+      "dependencies": []
+    },
+    {
+      "key": "require-main-filename@2.0.0",
+      "name": "require-main-filename",
+      "version": "2.0.0",
+      "license": "ISC",
+      "notice_sha256": "365496ca1f56da40b23c9815fc40fa9005847b2f8f8fd1c1a4929ef25ec8cd1d",
+      "dependencies": []
+    },
+    {
+      "key": "scheduler@0.28.0",
+      "name": "scheduler",
+      "version": "0.28.0",
+      "license": "MIT",
+      "notice_sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+      "dependencies": []
+    },
+    {
+      "key": "set-blocking@2.0.0",
+      "name": "set-blocking",
+      "version": "2.0.0",
+      "license": "ISC",
+      "notice_sha256": "365496ca1f56da40b23c9815fc40fa9005847b2f8f8fd1c1a4929ef25ec8cd1d",
+      "dependencies": []
+    },
+    {
+      "key": "set-cookie-parser@2.7.2",
+      "name": "set-cookie-parser",
+      "version": "2.7.2",
+      "license": "MIT",
+      "notice_sha256": "c5c6c5183a789d122f267c405f685037efb87e27fcde28ab1dd7378a2d2f5962",
+      "dependencies": []
+    },
+    {
+      "key": "string-width@4.2.3",
+      "name": "string-width",
+      "version": "4.2.3",
+      "license": "MIT",
+      "notice_sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+      "dependencies": [
+        "emoji-regex@8.0.0",
+        "is-fullwidth-code-point@3.0.0",
+        "strip-ansi@6.0.1"
+      ]
+    },
+    {
+      "key": "strip-ansi@6.0.1",
+      "name": "strip-ansi",
+      "version": "6.0.1",
+      "license": "MIT",
+      "notice_sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+      "dependencies": [
+        "ansi-regex@5.0.1"
+      ]
+    },
+    {
+      "key": "tailwind-merge@3.7.0",
+      "name": "tailwind-merge",
+      "version": "3.7.0",
+      "license": "MIT",
+      "notice_sha256": "d4c70c7ce38cea8778f0aed3fc0bef0a9dbd27f13bd8b6773cbd6d37941971e5",
+      "dependencies": []
+    },
+    {
+      "key": "tslib@2.8.1",
+      "name": "tslib",
+      "version": "2.8.1",
+      "license": "0BSD",
+      "notice_sha256": "210b19e543130388c68654b7497e967119ce17145f66ab7d85688fbd70f08751",
+      "dependencies": []
+    },
+    {
+      "key": "undici-types@8.9.0",
+      "name": "undici-types",
+      "version": "8.9.0",
+      "license": "MIT",
+      "notice_sha256": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27",
+      "dependencies": []
+    },
+    {
+      "key": "use-callback-ref@1.3.3",
+      "name": "use-callback-ref",
+      "version": "1.3.3",
+      "license": "MIT",
+      "notice_sha256": "30f0cfddf483d1128e3610205020f2041a6c5e837aa999e0aa82e5576187d4a9",
+      "dependencies": [
+        "tslib@2.8.1"
+      ]
+    },
+    {
+      "key": "use-sidecar@1.1.3",
+      "name": "use-sidecar",
+      "version": "1.1.3",
+      "license": "MIT",
+      "notice_sha256": "30f0cfddf483d1128e3610205020f2041a6c5e837aa999e0aa82e5576187d4a9",
+      "dependencies": [
+        "detect-node-es@1.1.0",
+        "tslib@2.8.1"
+      ]
+    },
+    {
+      "key": "void-elements@3.1.0",
+      "name": "void-elements",
+      "version": "3.1.0",
+      "license": "MIT",
+      "notice_sha256": "405a272eaef556691ad7dda96db3237c9544afe18725842a1a5b3ec308960222",
+      "dependencies": []
+    },
+    {
+      "key": "which-module@2.0.1",
+      "name": "which-module",
+      "version": "2.0.1",
+      "license": "ISC",
+      "notice_sha256": "852bf81203aa93aa89afc9f881ebb035322dc7334aaceff435c557634c94a815",
+      "dependencies": []
+    },
+    {
+      "key": "wrap-ansi@6.2.0",
+      "name": "wrap-ansi",
+      "version": "6.2.0",
+      "license": "MIT",
+      "notice_sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+      "dependencies": [
+        "ansi-styles@4.3.0",
+        "string-width@4.2.3",
+        "strip-ansi@6.0.1"
+      ]
+    },
+    {
+      "key": "y18n@4.0.3",
+      "name": "y18n",
+      "version": "4.0.3",
+      "license": "ISC",
+      "notice_sha256": "2034cce3b6fafcddd642c4175e01d3ddfc332a53b9f20fdc46b1466dc89ac469",
+      "dependencies": []
+    },
+    {
+      "key": "yargs-parser@18.1.3",
+      "name": "yargs-parser",
+      "version": "18.1.3",
+      "license": "ISC",
+      "notice_sha256": "365496ca1f56da40b23c9815fc40fa9005847b2f8f8fd1c1a4929ef25ec8cd1d",
+      "dependencies": [
+        "camelcase@5.3.1",
+        "decamelize@1.2.0"
+      ]
+    },
+    {
+      "key": "yargs@15.4.1",
+      "name": "yargs",
+      "version": "15.4.1",
+      "license": "MIT",
+      "notice_sha256": "2f1a503bfab84b3ba7393627308b3274501e459e3b5185bbb56bbf16cb1602d4",
+      "dependencies": [
+        "cliui@6.0.0",
+        "decamelize@1.2.0",
+        "find-up@4.1.0",
+        "get-caller-file@2.0.5",
+        "require-directory@2.1.1",
+        "require-main-filename@2.0.0",
+        "set-blocking@2.0.0",
+        "string-width@4.2.3",
+        "which-module@2.0.1",
+        "y18n@4.0.3",
+        "yargs-parser@18.1.3"
+      ]
+    },
+    {
+      "key": "zod@4.6.5",
+      "name": "zod",
+      "version": "4.6.5",
+      "license": "MIT",
+      "notice_sha256": "3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8",
+      "dependencies": []
+    }
+  ]
+}

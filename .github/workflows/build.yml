@@ -47,8 +47,9 @@ on:
 
 concurrency:
   group: build-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ inputs.profile_source_run_id || 'full' }}
-  # Keep long native comparisons and rollback evidence intact across checkpoints.
-  cancel-in-progress: false
+  # A newer PR source supersedes its older development checks. Manual/tag/release
+  # runs keep their complete comparison and rollback evidence.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -96,6 +97,7 @@ jobs:
           node build/validate_sbom.cjs inventory/SBOM.cdx.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
+          retention-days: 14
           name: flow-cross-inventory
           path: inventory/SBOM.cdx.json
           if-no-files-found: error
@@ -167,6 +169,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
+          retention-days: 14
           name: flow-sparse-native-layers
           path: |
             _out/sparse-native-layers/results/**/report.json
@@ -283,6 +286,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'windows-amd64' || startsWith(matrix.target, 'android-')
         with:
+          retention-days: 14
           name: flow-runtime-notices-${{ matrix.target }}
           path: _out/RUNTIME_NOTICES-${{ matrix.target }}.txt
           if-no-files-found: error
@@ -367,6 +371,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'linux-amd64'
         with:
+          retention-days: 14
           name: flow-api-contracts
           path: _out/api-contracts.json
           if-no-files-found: error
@@ -417,6 +422,7 @@ jobs:
         if: failure() && matrix.target == 'linux-amd64'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
+          retention-days: 14
           name: flow-fuzz-failures
           path: server/**/testdata/fuzz/**
           if-no-files-found: ignore
@@ -433,6 +439,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always() && matrix.target == 'linux-amd64'
         with:
+          retention-days: 14
           name: flow-console-check
           path: _out/console-check
           if-no-files-found: ignore
@@ -457,6 +464,11 @@ jobs:
           python3 build/playback_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/controlled-playback --duration 20 --debug
           python3 build/startup_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/startup-check --assert-fast
           python3 build/startup_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/startup-custom-check --profile custom --assert-fast
+          mkdir -p _out/startup-piece-fixtures
+          ffmpeg -hide_banner -loglevel error -stream_loop 1 -i _out/controlled-playback/fixtures/variable.mp4 -c copy -movflags +faststart _out/startup-piece-fixtures/variable.mp4
+          python3 build/startup_piece_check.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/startup-piece-fixtures --output _out/startup-piece-ordering --case ordering --assert-fixed
+          python3 build/startup_piece_check.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/startup-piece-fixtures --output _out/startup-piece-progress --case progress --assert-fixed
+          python3 build/startup_piece_check.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/startup-piece-fixtures --output _out/startup-piece-missing-index --case missing-index --assert-fixed
           python3 build/discovery_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/discovery-check
           python3 build/preparation_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/preparation-check
           python3 build/peerhint_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/peerhint-check
@@ -464,11 +476,13 @@ jobs:
           python3 build/adaptive_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/adaptive-check
           python3 build/request_capacity_check.py --executable _out/TorrServer-LT-linux-amd64 --output _out/request-capacity
           python3 build/request_cancel_check.py --executable _out/TorrServer-LT-linux-amd64 --output _out/request-cancel
+          python3 build/integrity_harness.py --executable _out/TorrServer-LT-linux-amd64 --output _out/integrity-check
           python3 build/sparse_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/sparse-check
           python3 build/sparse_harness.py --executable _out/TorrServer-LT-linux-amd64 --fixtures _out/controlled-playback/fixtures --output _out/sparse-rate-check --rate-aware --cases below complementary late-have
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always() && matrix.target == 'linux-amd64'
         with:
+          retention-days: 14
           name: flow-controlled-playback
           path: |
             _out/controlled-playback/report.json
@@ -479,6 +493,10 @@ jobs:
             _out/startup-check/state/server-output.log
             _out/startup-custom-check/report.json
             _out/startup-custom-check/state/server-output.log
+            _out/startup-piece-*/report.json
+            _out/startup-piece-*/state/server-output.log
+            _out/integrity-check/report.json
+            _out/integrity-check/state/server-output.log
             _out/discovery-check/report.json
             _out/preparation-check/report.json
             _out/preparation-check/state/server-output.log
@@ -507,6 +525,7 @@ jobs:
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
+          retention-days: 14
           name: TorrServer-LT-${{ matrix.target }}
           path: _out/TorrServer-LT-${{ matrix.target }}*
           if-no-files-found: error
@@ -514,6 +533,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'windows-amd64'
         with:
+          retention-days: 14
           name: TorrServer-Flow-Tray
           path: tray/FlowTray.ps1
           if-no-files-found: error
@@ -537,6 +557,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always() && matrix.target == 'linux-amd64' && inputs.evaluate_pgo
         with:
+          retention-days: 14
           name: flow-pgo-evaluation
           path: |
             _out/pgo-training/cpu-top.txt
@@ -559,6 +580,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'windows-amd64'
         with:
+          retention-days: 14
           name: flow-interface-guard-windows
           path: |
             _out/FlowNetworkGuard-windows-amd64.exe
@@ -573,6 +595,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'windows-amd64'
         with:
+          retention-days: 14
           name: flow-windows-update-fixture
           path: _out/TorrServer-LT-windows-amd64.exe
           if-no-files-found: error
@@ -588,6 +611,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'windows-amd64' && inputs.version == ''
         with:
+          retention-days: 14
           name: flow-windows-update-candidate
           path: _out/TorrServer-LT-windows-amd64.exe
           if-no-files-found: error
@@ -603,6 +627,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: matrix.target == 'linux-amd64' || matrix.target == 'windows-amd64'
         with:
+          retention-days: 14
           name: flow-native-profile-${{ matrix.target }}
           path: _out/TorrServer-LT-${{ matrix.target }}${{ matrix.target == 'windows-amd64' && '.exe' || '' }}
           if-no-files-found: error
@@ -642,21 +667,34 @@ jobs:
           - {mbps: 120, case: mixed-peers, cache: 512, piece: 4, backend: disk}
           - {mbps: 90, case: bursts, cache: 512, piece: 4, backend: ram}
           - {mbps: 120, case: bursts, cache: 2048, piece: 4, backend: disk}
+          - {mbps: 90, case: stragglers, cache: 512, piece: 8, backend: ram}
+          - {mbps: 120, case: stragglers, cache: 512, piece: 8, backend: disk}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: TorrServer-LT-linux-amd64
           path: _out
+      - name: Verify immutable stable straggler baseline
+        if: matrix.case == 'stragglers'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASELINE_SHA256: c2150033a8c101ef35bf4035a427733812baed6bc3a6c4015b5c15723dc368d4
+        run: |
+          gh release download MatriX.145.Flow-v1.1.3 --repo "$GITHUB_REPOSITORY" --pattern TorrServer-LT-linux-amd64 --dir _baseline
+          python3 -c 'import hashlib,os,pathlib; p=pathlib.Path("_baseline/TorrServer-LT-linux-amd64"); assert hashlib.file_digest(p.open("rb"),"sha256").hexdigest()==os.environ["BASELINE_SHA256"], "Stable baseline digest mismatch"'
+          chmod +x _baseline/TorrServer-LT-linux-amd64
+          _baseline/TorrServer-LT-linux-amd64 --version
       - name: Rotated original-quality byte transport comparisons
         run: |
           chmod +x _out/TorrServer-LT-linux-amd64
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
-          python3 build/high_bitrate_matrix.py --executable _out/TorrServer-LT-linux-amd64 --output _out/high-bitrate --mbps '${{ matrix.mbps }}' --cases '${{ matrix.case }}' --cache-mb '${{ matrix.cache }}' --piece-mb '${{ matrix.piece }}' --rotations 3 --experiments ${{ matrix.backend == 'disk' && '--disk' || '' }}
+          python3 build/high_bitrate_matrix.py --executable _out/TorrServer-LT-linux-amd64 --output _out/high-bitrate --mbps '${{ matrix.mbps }}' --cases '${{ matrix.case }}' --cache-mb '${{ matrix.cache }}' --piece-mb '${{ matrix.piece }}' --rotations ${{ matrix.case == 'stragglers' && '5' || '3' }} --seconds ${{ matrix.case == 'stragglers' && '30' || '120' }} --experiments ${{ matrix.backend == 'disk' && '--disk' || '' }} ${{ matrix.case == 'stragglers' && '--baseline _baseline/TorrServer-LT-linux-amd64' || '' }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
+          retention-days: 14
           name: high-bitrate-${{ matrix.mbps }}-${{ matrix.case }}-${{ matrix.backend }}
           path: |
             _out/high-bitrate/**/report.json
@@ -715,6 +753,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
+          retention-days: 14
           name: flow-windows-service-check
           path: |
             service-test-state/service-test.json

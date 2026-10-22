@@ -9,6 +9,26 @@ import (
 	"server/lt"
 )
 
+func TestTrackerCategoriesRemainDistinctAndSafe(t *testing.T) {
+	tor := &Torrent{}
+	for _, category := range []string{"HTTP", "DNS", "ASIO", "LIBTORRENT", "secret.invalid/token"} {
+		tor.recordTrackerAlert(&lt.Alert{Type: "tracker_error", URL: "https://tracker.example/a", ErrorCategory: category, ErrorCode: 503, FailureCount: 3})
+		got := tor.FlowTrackers()[0]
+		if got.ErrorCode != 503 || got.FailureCount != 3 {
+			t.Fatal(got)
+		}
+		if category == "HTTP" && got.Error != "HTTP_5XX" {
+			t.Fatal(got)
+		}
+		if category != "HTTP" && got.Error == "HTTP_5XX" {
+			t.Fatal("code interpreted without category")
+		}
+		if category == "secret.invalid/token" && got.ErrorCategory != "UNKNOWN" {
+			t.Fatal("unbounded native category")
+		}
+	}
+}
+
 func TestTrackerDiagnosticsRedactCredentialsAndBoundHistory(t *testing.T) {
 	tor := &Torrent{}
 	secretURL := "https://user:password@tracker.example/announce/secret-key?passkey=another-secret"

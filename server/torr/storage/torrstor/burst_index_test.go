@@ -58,6 +58,19 @@ func TestResidentMatroskaIndexReachesAdaptiveControllerWithoutFetching(t *testin
 	if len(c.pieces) != 1 || c.ActiveReaders() != 0 {
 		t.Fatal("successful inspection fetched media or created readers")
 	}
+	disabled := settings.CloneSettings(settings.BTsets())
+	disabled.Flow.ContainerBurstHints = false
+	settings.StoreBTsets(disabled)
+	if _, source := c.burstDemand(1, 128, 1024); source != "unknown" {
+		t.Fatal("disabled hints continued to influence existing demand")
+	}
+	if n, err := (residentIndexReader{c, FileInfo{Index: 1, Length: 64 * flow.MiB}}).ReadAt(make([]byte, 1), 0); n != 0 || err != io.EOF {
+		t.Fatal("an existing index reader ignored the hot disable")
+	}
+	settings.StoreBTsets(&settings.BTSets{CacheSize: 64 * flow.MiB, ReaderReadAHead: 95, Flow: f})
+	if _, source := c.burstDemand(1, 128, 1024); source != "matroska-cues-coarse" {
+		t.Fatal("re-enabled hints lost their verified resident index")
+	}
 }
 
 func TestResidentIndexReaderNeverFetchesMissingOrUnverifiedBytes(t *testing.T) {

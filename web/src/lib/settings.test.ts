@@ -51,6 +51,26 @@ describe("settings round trip and bounds", () => {
     expect(mergeSettings(original, flat).Flow?.RateAwareDeadlines).toBe(true);
     expect(original.Flow?.RateAwareDeadlines).toBe(false);
   });
+  it("keeps untouched null, absent and empty lists during a hot preference change", () => {
+    for (const lists of [
+      {},
+      { TrustedProxies: null, TorznabUrls: null },
+      { TrustedProxies: [], TorznabUrls: [] },
+    ]) {
+      const baseline = {
+        CacheSize: 2147483648,
+        ForceEncrypt: true,
+        ...lists,
+        Flow: { PublicMetadataCache: false },
+      } as unknown as BTSettings;
+      const flat = flattenSettings(baseline);
+      flat["Flow.PublicMetadataCache"] = true;
+      expect(mergeSettings(baseline, flat)).toEqual({
+        ...baseline,
+        Flow: { PublicMetadataCache: true },
+      });
+    }
+  });
   it("rejects non-integer, out-of-bound and cross-field values instead of normalizing", () => {
     const invalid = {
       ...flattenSettings(original),

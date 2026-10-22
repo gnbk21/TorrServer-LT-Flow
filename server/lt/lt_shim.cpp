@@ -519,6 +519,18 @@ json status_to_json(lt::torrent_handle const& h) {
 // ============================================================================
 namespace {
 
+char const* safe_error_category(lt::error_code const& error) {
+    std::string const name = error.category().name();
+    if (name == "system") return "SYSTEM";
+    if (name == "generic") return "GENERIC";
+    if (name == "asio.netdb" || name == "asio.addrinfo") return "DNS";
+    if (name == "asio.misc") return "ASIO";
+    if (name == "asio.ssl" || name == "asio.ssl.stream" || name == "ssl") return "TLS";
+    if (name == "http" || name == "http error") return "HTTP";
+    if (name == "libtorrent") return "LIBTORRENT";
+    return "UNKNOWN";
+}
+
 json alert_to_json(lt::alert const* a) {
     json j;
     j["type"]     = a->what();
@@ -529,6 +541,8 @@ json alert_to_json(lt::alert const* a) {
     if (auto const* seed = lt::alert_cast<lt::url_seed_alert>(a)) {
         j["message"] = "web seed unavailable";
         j["error_code"] = seed->error.value();
+        j["error_category"] = safe_error_category(seed->error);
+        j["url"] = std::string(seed->server_url());
     }
 
     // torrent_alert is an abstract base — its `alert_type` constant is
@@ -567,6 +581,17 @@ json alert_to_json(lt::alert const* a) {
         j["piece"] = static_cast<int>(fa->piece_index);
     } else if (auto const* fa = lt::alert_cast<lt::peer_disconnected_alert>(a)) {
         j["error_code"] = fa->error.value();
+        j["error_category"] = safe_error_category(fa->error);
+        j["transport"] = fa->socket_type == lt::socket_type_t::utp || fa->socket_type == lt::socket_type_t::utp_ssl ? "utp"
+            : fa->socket_type == lt::socket_type_t::tcp || fa->socket_type == lt::socket_type_t::tcp_ssl
+                || fa->socket_type == lt::socket_type_t::socks5 || fa->socket_type == lt::socket_type_t::socks5_ssl
+                || fa->socket_type == lt::socket_type_t::http || fa->socket_type == lt::socket_type_t::http_ssl ? "tcp" : "unknown";
+#if TORRENT_ABI_VERSION < 4
+        lt::tcp::endpoint const endpoint(fa->endpoint);
+        j["address_family"] = endpoint.address().is_v6() ? "IPV6" : "IPV4";
+#else
+        j["address_family"] = "UNKNOWN";
+#endif
         j["operation"] = static_cast<int>(fa->op);
         j["disconnect_reason"] = fa->error == lt::errors::torrent_paused ? "PAUSED"
             : fa->error == lt::errors::upload_upload_connection ? "REDUNDANT" : "OTHER";
@@ -578,6 +603,10 @@ json alert_to_json(lt::alert const* a) {
     } else if (auto const* fa = lt::alert_cast<lt::tracker_error_alert>(a)) {
         j["url"]   = std::string(fa->tracker_url());
         j["error"] = fa->error.message();
+        j["error_code"] = fa->error.value();
+        j["error_category"] = safe_error_category(fa->error);
+        j["operation"] = static_cast<int>(fa->op);
+        j["failure_count"] = fa->times_in_row;
     } else if (auto const* fa = lt::alert_cast<lt::torrent_error_alert>(a)) {
         j["error"] = fa->error.message();
     } else if (auto const* fa = lt::alert_cast<lt::file_error_alert>(a)) {
@@ -1393,6 +1422,29 @@ int lt_torrent_set_max_connections(lt_torrent tid, int n) {
 }
 
 // ----- metadata accessors -----
+
+int lt_torrent_set_metadata(lt_torrent tid, const uint8_t* buf, size_t len) {
+    WRAP_BEGIN
+    if (!buf || len == 0 || len > (64u << 20))
+        return set_err(LT_ERR_INVALID, "invalid metadata size");
+    auto h = get_torrent(tid);
+    if (!h.is_valid()) return set_err(LT_ERR_NOT_FOUND, "torrent not found");
+    lt::error_code ec;
+    auto atp = parse_torrent_or_info(reinterpret_cast<char const*>(buf), static_cast<int>(len), ec);
+    if (ec || !atp.ti) return set_err(LT_ERR_PARSE, "invalid torrent metadata");
+    auto expected = h.info_hashes();
+    auto actual = atp.ti->info_hashes();
+    if ((!expected.has_v1() && !expected.has_v2())
+        || (expected.has_v1() && (!actual.has_v1() || expected.v1 != actual.v1))
+        || (expected.has_v2() && (!actual.has_v2() || expected.v2 != actual.v2)))
+        return set_err(LT_ERR_INVALID, "torrent metadata identity mismatch");
+    auto current = h.torrent_file();
+    if (current && current->is_valid()) return LT_OK;
+    if (!h.set_metadata(atp.ti->info_section()))
+        return set_err(LT_ERR_INVALID, "torrent metadata was not accepted");
+    return 1;
+    WRAP_END(LT_ERR_INTERNAL)
+}
 
 int lt_torrent_have_metadata(lt_torrent tid) {
     WRAP_BEGIN

@@ -557,7 +557,7 @@
   },
   "flow": {
     "title": "Flow 播放",
-    "buffer": "前方缓冲",
+    "buffer": "服务器前向缓冲",
     "bufferBytes": "前方缓存数据",
     "download": "下载",
     "demand": "播放消耗",
@@ -644,7 +644,8 @@
       "readable_contiguous_bytes": "连续可读字节",
       "verified_contiguous_bytes": "连续已验证字节",
       "frontier_growth_rate": "已验证边界增长（字节/秒）",
-      "burst_hint_source": "容器提示来源"
+      "burst_hint_source": "容器提示来源",
+      "demand_offset_bytes": "当前响应请求位置（字节）"
     },
     "sparseTitle": "分片可用性",
     "sparseUnknown": "可用性未知或采样已过期。",
@@ -736,7 +737,9 @@
       "peer_disconnected": "节点已断开",
       "seek": "已请求跳转",
       "recovery": "跳转响应恢复",
-      "storage": "缓存操作"
+      "storage": "缓存操作",
+      "metadata_recovery": "磁力链接元数据恢复",
+      "integrity_failure": "完整性校验失败"
     },
     "playerEvidence": "播放器测量",
     "playerEvidenceHint": "可选的 Flow Player 报告。导入数据仅保留在此打开的对话框中，不会上传到服务器或更改设置。",
@@ -806,6 +809,80 @@
       "CACHE_WRITE_SLOW": "缓存写入缓慢",
       "CACHE_READ_FAILED": "缓存读取失败",
       "CACHE_WRITE_FAILED": "缓存写入失败"
+    },
+    "startupEvidenceTitle": "启动准备",
+    "startupEvidence": {
+      "head": "开头缓冲区",
+      "tail": "文件末尾预留"
+    },
+    "startupVerified": "已验证：{{ready}} / {{target}} MiB",
+    "startupMissing": "缺失分片：{{count}}",
+    "startupBlockerPiece": "首个缺失分片：{{piece}}",
+    "startupEvidenceHint": "收到的数据可能仍在等待验证。这些数据描述服务器准备情况，而非播放器缓冲区。",
+    "startupBlockers": {
+      "HEAD": "等待开头分片",
+      "INDEX": "等待文件末尾分片",
+      "HEAD_AND_INDEX": "等待开头和末尾分片",
+      "PROBE": "等待媒体分析",
+      "NONE": "所需分片已验证"
+    },
+    "startupWaitExtended": "有效数据仍在到达，启动等待延长至 {{seconds}} 秒。所需分片仍须通过校验。",
+    "startupSuppliers": "已连接来源：{{count}}",
+    "startupUnchoked": "允许传输的来源：{{count}}",
+    "startupBlocks": "数据块：已请求 {{pending}}，未请求 {{waiting}}，已接收/写入中 {{received}}",
+    "startupSupplyTruncated": "节点采样不完整，实际数量可能更高。",
+    "startupSupplyHint": "来源数量仅表示采样的已连接节点。缺失或过期的信息仍视为未知。",
+    "metadataRecovery": {
+      "METADATA_WAIT": "等待节点元数据，然后尝试其他来源。",
+      "METADATA_HTTP": "正在从其他来源获取元数据。",
+      "METADATA_RECOVERED": "已自动恢复匹配的元数据。",
+      "METADATA_PEERS": "已从节点收到元数据。",
+      "METADATA_MISS": "其他来源未返回匹配的元数据。"
+    },
+    "metadataAttempts": "元数据获取尝试次数：{{count}}",
+    "metadataRecoveryHint": "保留相同种子和视频质量。视频仍需要可响应的节点。",
+    "upgrade": {
+      "title": "播放概览",
+      "details": "技术详情",
+      "verifiedBuffer": "服务器已验证缓冲",
+      "readableBuffer": "服务器可读缓冲",
+      "age": "数据采集时间差",
+      "confidence": "码率估计可信度",
+      "integrity": "最近一分钟的完整性校验失败：{{count}}",
+      "failureCount": "连续失败：{{count}}",
+      "retry": "重试获取元数据",
+      "retryAccepted": "已请求重试。请等待状态更新；频繁重试受到限制。",
+      "build": "正在运行的构建",
+      "modified": "此构建包含本地源代码修改。",
+      "channels": {
+        "stable": "稳定版",
+        "preview": "预览版",
+        "development": "开发版"
+      },
+      "causes": {
+        "stale": "当前数据不可用或已过期。",
+        "metadata": "正在等待种子元数据。",
+        "idle": "播放器没有活动的视频请求。",
+        "seek": "正在恢复所选位置的数据传输。",
+        "ready": "服务器当前读取位置有可用数据。",
+        "storage": "最近观测到本地存储等待。",
+        "missing": "已采样的连接节点均不具备所需分片。",
+        "discovery": "正在等待可提供数据的节点连接。",
+        "block": "正在等待下一批请求的数据块。",
+        "unknown": "现有数据不足以确定等待原因。"
+      },
+      "actions": {
+        "inspect": "打开技术详情或导出诊断。",
+        "waitMetadata": "请保持本次尝试开启。恢复仅使用已授权的来源；视频数据仍需要节点提供。",
+        "leaveOpen": "请保持播放器开启。服务器正在传输并不能证明手机播放流畅。",
+        "waitBlock": "请停止拖动进度条，等待所需数据到达。",
+        "waitSuppliers": "请保持本次尝试开启以继续发现节点。已知节点不一定可以连接或提供数据。"
+      },
+      "sessionSummary": "整个会话的汇总",
+      "sampleCount": "已记录的采样数：{{count}}",
+      "minimumBuffer": "采样中最小的手机缓冲：{{milliseconds}} 毫秒",
+      "mirrorFailure": "最近观测到的镜像错误；并非当前可用性检查",
+      "operation": "操作 {{value}}"
     }
   },
   "search": {
@@ -953,7 +1030,9 @@
         "ContainerBurstHints": "已缓存容器索引的峰值提示（实验）",
         "MSXAllowLAN": "允许 MSX 代理访问局域网",
         "StreamTransportBufferKiB": "传输缓冲区（受控实验）",
-        "NextEpisodeWarmup": "预热下一集文件头/索引"
+        "NextEpisodeWarmup": "预热下一集文件头/索引",
+        "MetadataFallback": "自动恢复磁力链接元数据",
+        "PublicMetadataCache": "免费的公共元数据缓存"
       }
     },
     "maintenance": {
@@ -1053,7 +1132,9 @@
     "changed": "已修改",
     "draftConflict": "编辑期间服务器设置已更改。您的修改仍保留在草稿中。应用前请重新加载已保存的设置；这将丢弃草稿。",
     "reloadSaved": "丢弃草稿并重新加载设置",
-    "requestsPerMinute": "请求/分钟"
+    "requestsPerMinute": "请求/分钟",
+    "metadataFallbackHelp": "15 秒后尝试磁力链接中最多两个 HTTPS .torrent 地址。哈希必须匹配。",
+    "publicMetadataCacheHelp": "将卡住的 v1 磁力哈希发送给 Torrage 和 iTorrents。免费且无需账户。服务可能不可用。获取元数据前无法判断私有状态。"
   },
   "preparation": {
     "title": "准备剧集",

@@ -15,6 +15,7 @@ import (
 	"golang.org/x/sys/windows/svc/mgr"
 
 	"server"
+	"server/torr"
 	"server/web"
 )
 
@@ -192,12 +193,14 @@ func (flowService) Execute(_ []string, requests <-chan svc.ChangeRequest, change
 			case svc.Interrogate:
 				changes <- request.CurrentStatus
 			case svc.Stop, svc.Shutdown:
+				torr.RecordShutdownReason("SERVICE_STOP")
 				changes <- svc.Status{State: svc.StopPending}
 				stopped := make(chan struct{})
 				go func() { server.Stop(); close(stopped) }()
 				select {
 				case <-stopped:
 				case <-time.After(30 * time.Second):
+					torr.RecordShutdownReason("SHUTDOWN_TIMEOUT")
 					return false, 1
 				}
 				return false, 0

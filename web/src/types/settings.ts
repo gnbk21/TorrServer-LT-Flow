@@ -45,6 +45,8 @@ export interface FlowSettings {
   DHTStatePersistence?: boolean;
   PreparationQuotaMB?: number;
   PeerResumeHints?: boolean;
+  MetadataFallback?: boolean;
+  PublicMetadataCache?: boolean;
   ScarcePieceHints?: boolean;
   RateAwareDeadlines?: boolean;
   CapacityAwareRequests?: boolean;

@@ -61,6 +61,8 @@ export const commonSettings = new Set([
   "Flow.AdaptiveStartup",
   "Flow.AdaptiveReadAhead",
   "Flow.SwarmProfile",
+  "Flow.MetadataFallback",
+  "Flow.PublicMetadataCache",
   "Flow.TargetBufferSeconds",
   "Flow.NextEpisodeWarmup",
   "Flow.MetricsEnabled",
@@ -108,6 +110,10 @@ export function mergeSettings(
   const result = structuredClone(original);
   for (const [path, value] of Object.entries(values)) {
     if (path === "TrustedProxies") {
+      // The server distinguishes nil and empty slices when planning a restart.
+      // Preserve the original representation when this editor was not changed.
+      if (String(value) === (original.TrustedProxies || []).join("\n"))
+        continue;
       result.TrustedProxies = String(value)
         .split(/\r?\n/)
         .map((s) => s.trim())
@@ -115,6 +121,8 @@ export function mergeSettings(
       continue;
     }
     if (path === "TorznabUrls") {
+      if (String(value) === JSON.stringify(original.TorznabUrls || []))
+        continue;
       result.TorznabUrls = JSON.parse(String(value));
       continue;
     }

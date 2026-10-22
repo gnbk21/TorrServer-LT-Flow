@@ -123,14 +123,16 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 	// playback position.
 	reader.SetContext(req.Context())
 	classification, hint, flowSeq := t.flowStart(fileID, file, group, req)
-	if group != torrstor.ProbeReaderGroup {
+	if flowSeq != 0 && group != torrstor.ProbeReaderGroup {
 		if sessionID := t.FlowSessionID(fileID, group); sessionID != "" {
 			resp.Header().Set("X-Flow-Session", sessionID)
 		}
 	}
 	started := time.Now()
 	var recorder *flow.ResponseRecorder
-	if sets.CurrentFlow().MetricsEnabled {
+	// Own and retire the observer admitted by flowStart even when settings
+	// change between admission and response setup.
+	if flowSeq != 0 {
 		recorder = flow.NewResponseRecorder(resp)
 		recorder.OnBodyStart = func(offset int64) {
 			t.flowBodyStart(fileID, group, flowSeq, offset)

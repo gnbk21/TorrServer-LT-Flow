@@ -221,6 +221,7 @@ func main() {
 
 	if params.Service == "run" {
 		if err := runWindowsService(); err != nil {
+			torr.RecordShutdownReason("SERVER_ERROR")
 			log.TLogln("Flow service error:", err)
 			log.Close()
 			os.Exit(1)
@@ -250,6 +251,7 @@ func main() {
 	log.StopConsoleStatus()
 	exitCode := 0
 	if err != "" {
+		torr.RecordShutdownReason("SERVER_ERROR")
 		log.Event("ERROR", "Server", err)
 		exitCode = 1
 	} else {

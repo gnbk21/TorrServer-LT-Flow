@@ -455,7 +455,7 @@
   },
   "flow": {
     "title": "Flow playback",
-    "buffer": "Buffer ahead",
+    "buffer": "Server buffer ahead",
     "bufferBytes": "Cached ahead",
     "download": "Download",
     "demand": "Playback demand",
@@ -542,7 +542,8 @@
       "readable_contiguous_bytes": "Readable contiguous bytes",
       "verified_contiguous_bytes": "Verified contiguous bytes",
       "frontier_growth_rate": "Verified frontier growth (bytes/s)",
-      "burst_hint_source": "Container hint source"
+      "burst_hint_source": "Container hint source",
+      "demand_offset_bytes": "Current response demand offset (bytes)"
     },
     "sparseTitle": "Piece availability",
     "sparseUnknown": "Availability is unknown or the sample is stale.",
@@ -634,7 +635,9 @@
       "peer_disconnected": "Peer disconnected",
       "seek": "Seek requested",
       "recovery": "Seek response recovered",
-      "storage": "Cache operation"
+      "storage": "Cache operation",
+      "metadata_recovery": "Magnet metadata recovery",
+      "integrity_failure": "Integrity verification failed"
     },
     "playerEvidence": "Player measurements",
     "playerEvidenceHint": "Optional Flow Player report. Import stays in this open dialog; it is not uploaded or applied as a server setting.",
@@ -704,6 +707,80 @@
       "CACHE_WRITE_SLOW": "Slow cache write",
       "CACHE_READ_FAILED": "Cache read failed",
       "CACHE_WRITE_FAILED": "Cache write failed"
+    },
+    "startupEvidenceTitle": "Startup preparation",
+    "startupEvidence": {
+      "head": "Opening buffer",
+      "tail": "End-of-file reserve"
+    },
+    "startupVerified": "Verified: {{ready}} / {{target}} MiB",
+    "startupMissing": "Missing pieces: {{count}}",
+    "startupBlockerPiece": "First missing piece: {{piece}}",
+    "startupEvidenceHint": "Received bytes may still await verification. This describes server preparation, not the player buffer.",
+    "startupBlockers": {
+      "HEAD": "Waiting for opening pieces",
+      "INDEX": "Waiting for end-of-file pieces",
+      "HEAD_AND_INDEX": "Waiting for opening and end-of-file pieces",
+      "PROBE": "Waiting for media probe",
+      "NONE": "Required pieces verified"
+    },
+    "startupWaitExtended": "Startup wait extended to {{seconds}} s while useful data arrives. Required pieces still need verification.",
+    "startupSuppliers": "Connected suppliers: {{count}}",
+    "startupUnchoked": "Unchoked suppliers: {{count}}",
+    "startupBlocks": "Blocks: {{pending}} requested, {{waiting}} unrequested, {{received}} received/writing",
+    "startupSupplyTruncated": "Partial peer sample; counts may be lower bounds.",
+    "startupSupplyHint": "Source counts describe sampled connected peers. Missing or stale evidence remains unknown.",
+    "metadataRecovery": {
+      "METADATA_WAIT": "Waiting for peer metadata before trying alternate sources.",
+      "METADATA_HTTP": "Retrieving metadata from an alternate source.",
+      "METADATA_RECOVERED": "Matching metadata recovered automatically.",
+      "METADATA_PEERS": "Metadata arrived from peers.",
+      "METADATA_MISS": "Alternate sources returned no matching metadata."
+    },
+    "metadataAttempts": "Metadata source attempts: {{count}}",
+    "metadataRecoveryHint": "Keeps the same torrent and video quality. Video still requires responsive peers.",
+    "upgrade": {
+      "title": "Playback overview",
+      "details": "Technical details",
+      "verifiedBuffer": "Verified server buffer",
+      "readableBuffer": "Readable server buffer",
+      "age": "Evidence age",
+      "confidence": "Media-rate confidence",
+      "integrity": "Integrity failures in the last minute: {{count}}",
+      "failureCount": "Consecutive failures: {{count}}",
+      "retry": "Retry metadata recovery",
+      "retryAccepted": "Recovery requested. Wait for the next status update; repeated retries are limited.",
+      "build": "Running build",
+      "modified": "This build includes local source changes.",
+      "channels": {
+        "stable": "Stable release",
+        "preview": "Preview release",
+        "development": "Development build"
+      },
+      "causes": {
+        "stale": "Current evidence is unavailable or out of date.",
+        "metadata": "Waiting for torrent metadata.",
+        "idle": "No active video request from the player.",
+        "seek": "Recovering the requested playback position.",
+        "ready": "Data is available at the current server read position.",
+        "storage": "Recent local storage waits were observed.",
+        "missing": "No sampled connected peer has the required piece.",
+        "discovery": "Waiting for a useful peer connection.",
+        "block": "Waiting for the next requested blocks.",
+        "unknown": "There is not enough evidence to identify the current wait."
+      },
+      "actions": {
+        "inspect": "Open technical details or export diagnostics.",
+        "waitMetadata": "Keep the attempt open. Recovery uses only authorized sources and still requires peers for the video.",
+        "leaveOpen": "Keep the player open. Server delivery does not establish whether the phone is displaying video smoothly.",
+        "waitBlock": "Leave the seek bar still while the requested data arrives.",
+        "waitSuppliers": "Keep the attempt open while discovery continues. Known peers are not necessarily reachable suppliers."
+      },
+      "sessionSummary": "Whole-session totals",
+      "sampleCount": "Recorded samples: {{count}}",
+      "minimumBuffer": "Smallest sampled phone buffer: {{milliseconds}} ms",
+      "mirrorFailure": "Last observed mirror failure; not a current availability check",
+      "operation": "Operation {{value}}"
     }
   },
   "torrent": {
@@ -937,7 +1014,9 @@
         "ContainerBurstHints": "Resident container burst hints (experiment)",
         "MSXAllowLAN": "Allow MSX proxy access to LAN",
         "StreamTransportBufferKiB": "Transport buffer (controlled experiment)",
-        "NextEpisodeWarmup": "Next episode header/index warmup"
+        "NextEpisodeWarmup": "Next episode header/index warmup",
+        "MetadataFallback": "Automatic magnet metadata recovery",
+        "PublicMetadataCache": "Use free public metadata caches"
       }
     },
     "maintenance": {
@@ -1037,7 +1116,9 @@
     "changed": "Changed",
     "draftConflict": "Settings changed on the server while this draft was open. Your edits are preserved. Reload saved settings before applying; this discards the draft.",
     "reloadSaved": "Discard draft and reload saved settings",
-    "requestsPerMinute": "requests/min"
+    "requestsPerMinute": "requests/min",
+    "metadataFallbackHelp": "After 15 seconds, try up to two supplied HTTPS .torrent URLs. Results must match the magnet hash.",
+    "publicMetadataCacheHelp": "Sends stalled v1 magnet hashes to Torrage and iTorrents. Free; no account needed. Services may be unavailable. Private status is unknown before metadata arrives."
   },
   "runtime": {
     "torrents": "Torrents",

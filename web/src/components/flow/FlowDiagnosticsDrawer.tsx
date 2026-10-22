@@ -8,6 +8,8 @@ import { RequestError } from "../common/RequestState";
 import { IncidentTimeline } from "./IncidentTimeline";
 import { PlayerEvidence } from "./PlayerEvidence";
 import { NextEpisodeWarmup } from "./NextEpisodeWarmup";
+import { StartupEvidence } from "./StartupEvidence";
+import { PlaybackOverview } from "./PlaybackOverview";
 export interface FlowDiagnosticsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -51,7 +53,9 @@ export function FlowDiagnosticsDrawer({
         <p>{t("flow.noMetrics")}</p>
       ) : (
         <div className="space-y-5">
+          <PlaybackOverview status={status} now={now} />
           <IncidentTimeline status={status} />
+          {status.startup && <StartupEvidence startup={status.startup} />}
           <PlayerEvidence status={status} />
           {status.next_episode_warmup && (
             <NextEpisodeWarmup
@@ -59,249 +63,265 @@ export function FlowDiagnosticsDrawer({
               status={status}
             />
           )}
-          {status.storage_io && (
-            <section className="panel">
-              <h3 className="font-semibold">{t("flow.ioTitle")}</h3>
-              <p className="text-sm text-slate-400">{t("flow.ioHint")}</p>
-              <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
-                {Object.entries(status.storage_io).map(([key, value]) => (
-                  <div key={key}>
-                    <dt>{t(`flow.io.${key}`)}</dt>
-                    <dd className="font-mono">{value.toLocaleString()}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          )}
-          {status.sparse && (
-            <section className="panel" aria-live="polite">
-              <h3 className="font-semibold">{t("flow.sparseTitle")}</h3>
-              {!status.sparse.known ||
-              !status.sparse.sampled_at_ms ||
-              now - status.sparse.sampled_at_ms < 0 ||
-              now - status.sparse.sampled_at_ms >= 5000 ? (
-                <p>{t("flow.sparseUnknown")}</p>
-              ) : (
-                <div className="space-y-2 mt-2 text-sm">
-                  <p>
-                    {t("flow.sparsePeers", {
-                      useful: status.sparse.useful_peers,
-                      total: status.sparse.sampled_peers,
-                      downloading: status.sparse.useful_downloading_peers,
-                    })}
-                  </p>
-                  <p>
-                    {t("flow.sparseChoke", {
-                      choked: status.sparse.choked_peers,
-                      snubbed: status.sparse.snubbed_peers,
-                      pending: status.sparse.pending_connections,
-                    })}
-                  </p>
-                  <p>
-                    {t("flow.sparseSources", {
-                      tracker: status.sparse.tracker_peers,
-                      dht: status.sparse.dht_peers,
-                      pex: status.sparse.pex_peers,
-                      incoming: status.sparse.incoming_peers,
-                    })}
-                  </p>
-                  <p>
-                    {t("flow.sparseQueue", {
-                      blocks: status.sparse.queued_blocks,
-                      bytes: status.sparse.outstanding_bytes,
-                      ms: status.sparse.max_queue_ms,
-                    })}
-                  </p>
-                  <p>
-                    {t("flow.sparseFailures", {
-                      failed: status.sparse.failed_bytes,
-                      redundant: status.sparse.redundant_bytes,
-                    })}
-                  </p>
-                  <p>
-                    {t("flow.sparseRequests", {
-                      timeouts: status.sparse.request_timeouts ?? 0,
-                      dropped: status.sparse.requests_dropped ?? 0,
-                    })}
-                  </p>
-                  {status.sparse.private && <p>{t("flow.privatePolicy")}</p>}
-                  {!!status.sparse.urgent?.length && (
-                    <div className="space-y-2">
-                      <h4 className="font-semibold">{t("flow.urgentTitle")}</h4>
-                      {status.sparse.urgent
-                        .filter((piece) => !piece.verified)
-                        .slice(0, 8)
-                        .map((piece) => (
-                          <p key={piece.piece}>
-                            {t("flow.urgentProgress", piece)}
-                            {piece.oldest_request_age_ms !== undefined &&
-                              piece.oldest_request_age_ms >= 0 && (
-                                <>
-                                  {" "}
-                                  ·{" "}
-                                  {t("flow.urgentAge", {
-                                    ms: piece.oldest_request_age_ms,
-                                  })}
-                                </>
-                              )}
-                          </p>
-                        ))}
-                      <p className="text-slate-400">{t("flow.urgentHint")}</p>
-                    </div>
-                  )}
-                  {status.sparse.urgent_truncated && (
-                    <p>{t("flow.sparseTruncated")}</p>
-                  )}
-                  {status.sparse.request_age_truncated && (
-                    <p>{t("flow.sparseTruncated")}</p>
-                  )}
-                  {status.sparse.truncated && (
-                    <p>{t("flow.sparseTruncated")}</p>
-                  )}
-                  <p className="text-slate-400">{t("flow.sparseHint")}</p>
-                </div>
-              )}
-            </section>
-          )}
-          {status.startup?.wait_reason && (
-            <section className="panel" aria-live="polite">
-              <h3 className="font-semibold">{t("flow.startupWait")}</h3>
-              <p>
-                {t(`flow.startupStages.${status.startup.wait_reason}`, {
-                  defaultValue: "—",
-                })}
-              </p>
-              <p className="text-sm text-slate-400 mt-2">
-                {t("flow.startupTimingHint")}
-              </p>
-            </section>
-          )}
-          {Object.entries({
-            startup: status.startup,
-            network: status.network,
-          }).map(([group, data]) => (
-            <section key={group}>
-              <h3 className="font-semibold mb-3">{t(`flow.${group}`)}</h3>
-              {group === "network" && (
-                <p className="text-sm text-slate-400 mb-3">
-                  {t("flow.connectivityHint")}
-                </p>
-              )}
-              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {Object.entries(data || {}).map(([key, value]) => (
-                  <div key={key}>
-                    <dt className="text-sm text-slate-400">
-                      {t(`flow.metrics.${key}`, {
-                        defaultValue: key.replaceAll("_", " "),
-                      })}
-                    </dt>
-                    <dd className="font-mono break-all">
-                      {key.endsWith("_ms") && typeof value === "number"
-                        ? value < 0
-                          ? "—"
-                          : `${value} ms`
-                        : key === "wait_reason" && typeof value === "string"
-                          ? t(`flow.startupStages.${value}`, {
-                              defaultValue: "—",
-                            })
-                          : typeof value === "object" && value !== null
-                            ? redactDiagnostic(JSON.stringify(value))
-                            : redactDiagnostic(value)}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          ))}
-          {status.sessions?.map((s) => (
-            <section className="panel" key={s.group}>
-              <h3>
-                {t("flow.session")} · {s.group} ·{" "}
-                {t("flow.fileIndex", { index: s.file_index })}
-              </h3>
-              <p className="mt-2 text-sm text-slate-400">
-                {t("flow.reserveHint")}
-              </p>
-              {s.wait_explanation && !fresh && (
-                <p className="mt-3 text-sm">{t("flow.sparseUnknown")}</p>
-              )}
-              {s.wait_explanation && fresh && (
-                <div className="mt-3 space-y-2 text-sm">
-                  <p>
-                    {t(`flow.sparseReasons.${s.wait_explanation.reason}`, {
-                      defaultValue: t("flow.sparseUnknown"),
-                    })}
-                  </p>
-                  <p>
-                    {t("flow.waitConfidence", {
-                      confidence: t(
-                        `flow.confidence.${s.wait_explanation.confidence}`,
-                      ),
-                    })}
-                  </p>
-                  <ul className="list-disc pl-5 space-y-1">
-                    {s.wait_explanation.actions.map((action) => (
-                      <li key={action}>{t(`flow.waitActions.${action}`)}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-                {Object.entries(s)
-                  .filter(
-                    ([k]) =>
-                      k !== "traces" &&
-                      k !== "wait_explanation" &&
-                      k !== "file_index" &&
-                      k !== "required_piece_suppliers",
-                  )
-                  .map(([key, value]) => (
+          <details className="space-y-4">
+            <summary>{t("flow.upgrade.details")}</summary>
+            {status.storage_io && (
+              <section className="panel">
+                <h3 className="font-semibold">{t("flow.ioTitle")}</h3>
+                <p className="text-sm text-slate-400">{t("flow.ioHint")}</p>
+                <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+                  {Object.entries(status.storage_io).map(([key, value]) => (
                     <div key={key}>
-                      <dt className="text-sm text-slate-400">
-                        {t(`flow.metrics.${key}`, {
-                          defaultValue: key.replaceAll("_", " "),
-                        })}
-                      </dt>
-                      <dd className="font-mono break-all">
-                        {key === "wait_reason"
-                          ? t(`flow.sparseReasons.${value}`, {
-                              defaultValue: t("flow.sparseUnknown"),
-                            })
-                          : key === "buffer_ahead_seconds" &&
-                              s.playback_consumption_rate <= 0
-                            ? "—"
-                            : redactDiagnostic(value)}
-                      </dd>
+                      <dt>{t(`flow.io.${key}`)}</dt>
+                      <dd className="font-mono">{value.toLocaleString()}</dd>
                     </div>
                   ))}
-              </dl>
-              {s.required_piece_suppliers !== undefined && (
-                <p className="mt-3 text-sm">
-                  {t("flow.sparseSuppliers", {
-                    count: s.required_piece_suppliers,
+                </dl>
+              </section>
+            )}
+            {status.sparse && (
+              <section className="panel">
+                <h3 className="font-semibold">{t("flow.sparseTitle")}</h3>
+                {!status.sparse.known ||
+                !status.sparse.sampled_at_ms ||
+                now - status.sparse.sampled_at_ms < 0 ||
+                now - status.sparse.sampled_at_ms >= 5000 ? (
+                  <p>{t("flow.sparseUnknown")}</p>
+                ) : (
+                  <div className="space-y-2 mt-2 text-sm">
+                    <p>
+                      {t("flow.sparsePeers", {
+                        useful: status.sparse.useful_peers,
+                        total: status.sparse.sampled_peers,
+                        downloading: status.sparse.useful_downloading_peers,
+                      })}
+                    </p>
+                    <p>
+                      {t("flow.sparseChoke", {
+                        choked: status.sparse.choked_peers,
+                        snubbed: status.sparse.snubbed_peers,
+                        pending: status.sparse.pending_connections,
+                      })}
+                    </p>
+                    <p>
+                      {t("flow.sparseSources", {
+                        tracker: status.sparse.tracker_peers,
+                        dht: status.sparse.dht_peers,
+                        pex: status.sparse.pex_peers,
+                        incoming: status.sparse.incoming_peers,
+                      })}
+                    </p>
+                    <p>
+                      {t("flow.sparseQueue", {
+                        blocks: status.sparse.queued_blocks,
+                        bytes: status.sparse.outstanding_bytes,
+                        ms: status.sparse.max_queue_ms,
+                      })}
+                    </p>
+                    <p>
+                      {t("flow.sparseFailures", {
+                        failed: status.sparse.failed_bytes,
+                        redundant: status.sparse.redundant_bytes,
+                      })}
+                    </p>
+                    <p>
+                      {t("flow.sparseRequests", {
+                        timeouts: status.sparse.request_timeouts ?? 0,
+                        dropped: status.sparse.requests_dropped ?? 0,
+                      })}
+                    </p>
+                    {status.sparse.private && <p>{t("flow.privatePolicy")}</p>}
+                    {!!status.sparse.urgent?.length && (
+                      <div className="space-y-2">
+                        <h4 className="font-semibold">
+                          {t("flow.urgentTitle")}
+                        </h4>
+                        {status.sparse.urgent
+                          .filter((piece) => !piece.verified)
+                          .slice(0, 8)
+                          .map((piece) => (
+                            <p key={piece.piece}>
+                              {t("flow.urgentProgress", piece)}
+                              {piece.oldest_request_age_ms !== undefined &&
+                                piece.oldest_request_age_ms >= 0 && (
+                                  <>
+                                    {" "}
+                                    ·{" "}
+                                    {t("flow.urgentAge", {
+                                      ms: piece.oldest_request_age_ms,
+                                    })}
+                                  </>
+                                )}
+                            </p>
+                          ))}
+                        <p className="text-slate-400">{t("flow.urgentHint")}</p>
+                      </div>
+                    )}
+                    {status.sparse.urgent_truncated && (
+                      <p>{t("flow.sparseTruncated")}</p>
+                    )}
+                    {status.sparse.request_age_truncated && (
+                      <p>{t("flow.sparseTruncated")}</p>
+                    )}
+                    {status.sparse.truncated && (
+                      <p>{t("flow.sparseTruncated")}</p>
+                    )}
+                    <p className="text-slate-400">{t("flow.sparseHint")}</p>
+                  </div>
+                )}
+              </section>
+            )}
+            {status.startup?.wait_reason && (
+              <section className="panel" aria-live="polite">
+                <h3 className="font-semibold">{t("flow.startupWait")}</h3>
+                <p>
+                  {t(`flow.startupStages.${status.startup.wait_reason}`, {
+                    defaultValue: "—",
                   })}
                 </p>
-              )}
-              {s.traces && (
-                <details>
-                  <summary>{t("flow.traces")}</summary>
-                  <pre className="overflow-auto text-xs">
-                    {JSON.stringify(s.traces, null, 2)}
-                  </pre>
-                </details>
-              )}
-            </section>
-          ))}
-          <section>
-            <h3>{t("flow.trackers")}</h3>
-            {status.trackers?.map((tr) => (
-              <div key={tr.id} className="panel my-2 break-all">
-                {tr.protocol} · {tr.host} · {tr.status} · {tr.peers}{" "}
-                {t("flow.peers")}
-                {tr.error && <p>{redactDiagnostic(tr.error)}</p>}
-              </div>
+                <p className="text-sm text-slate-400 mt-2">
+                  {t("flow.startupTimingHint")}
+                </p>
+              </section>
+            )}
+            {Object.entries({
+              startup: status.startup,
+              network: status.network,
+            }).map(([group, data]) => (
+              <section key={group}>
+                <h3 className="font-semibold mb-3">{t(`flow.${group}`)}</h3>
+                {group === "network" && (
+                  <p className="text-sm text-slate-400 mb-3">
+                    {t("flow.connectivityHint")}
+                  </p>
+                )}
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {Object.entries(data || {})
+                    .filter(([key]) => key !== "progress")
+                    .map(([key, value]) => (
+                      <div key={key}>
+                        <dt className="text-sm text-slate-400">
+                          {t(`flow.metrics.${key}`, {
+                            defaultValue: key.replaceAll("_", " "),
+                          })}
+                        </dt>
+                        <dd className="font-mono break-all">
+                          {key.endsWith("_ms") && typeof value === "number"
+                            ? value < 0
+                              ? "—"
+                              : `${value} ms`
+                            : key === "wait_reason" && typeof value === "string"
+                              ? t(`flow.startupStages.${value}`, {
+                                  defaultValue: "—",
+                                })
+                              : typeof value === "object" && value !== null
+                                ? redactDiagnostic(JSON.stringify(value))
+                                : redactDiagnostic(value)}
+                        </dd>
+                      </div>
+                    ))}
+                </dl>
+              </section>
             ))}
-          </section>
+            {status.sessions?.map((s) => (
+              <section className="panel" key={s.group}>
+                <h3>
+                  {t("flow.session")} · {s.group} ·{" "}
+                  {t("flow.fileIndex", { index: s.file_index })}
+                </h3>
+                <p className="mt-2 text-sm text-slate-400">
+                  {t("flow.reserveHint")}
+                </p>
+                {s.wait_explanation && !fresh && (
+                  <p className="mt-3 text-sm">{t("flow.sparseUnknown")}</p>
+                )}
+                {s.wait_explanation && fresh && (
+                  <div className="mt-3 space-y-2 text-sm">
+                    <p>
+                      {t(`flow.sparseReasons.${s.wait_explanation.reason}`, {
+                        defaultValue: t("flow.sparseUnknown"),
+                      })}
+                    </p>
+                    <p>
+                      {t("flow.waitConfidence", {
+                        confidence: t(
+                          `flow.confidence.${s.wait_explanation.confidence}`,
+                        ),
+                      })}
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {s.wait_explanation.actions.map((action) => (
+                        <li key={action}>{t(`flow.waitActions.${action}`)}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                  {Object.entries(s)
+                    .filter(
+                      ([k]) =>
+                        k !== "traces" &&
+                        k !== "wait_explanation" &&
+                        k !== "file_index" &&
+                        k !== "required_piece_suppliers",
+                    )
+                    .map(([key, value]) => (
+                      <div key={key}>
+                        <dt className="text-sm text-slate-400">
+                          {t(`flow.metrics.${key}`, {
+                            defaultValue: key.replaceAll("_", " "),
+                          })}
+                        </dt>
+                        <dd className="font-mono break-all">
+                          {key === "wait_reason"
+                            ? t(`flow.sparseReasons.${value}`, {
+                                defaultValue: t("flow.sparseUnknown"),
+                              })
+                            : key === "buffer_ahead_seconds" &&
+                                s.playback_consumption_rate <= 0
+                              ? "—"
+                              : redactDiagnostic(value)}
+                        </dd>
+                      </div>
+                    ))}
+                </dl>
+                {s.required_piece_suppliers !== undefined && (
+                  <p className="mt-3 text-sm">
+                    {t("flow.sparseSuppliers", {
+                      count: s.required_piece_suppliers,
+                    })}
+                  </p>
+                )}
+                {s.traces && (
+                  <details>
+                    <summary>{t("flow.traces")}</summary>
+                    <pre className="overflow-auto text-xs">
+                      {JSON.stringify(s.traces, null, 2)}
+                    </pre>
+                  </details>
+                )}
+              </section>
+            ))}
+            <section>
+              <h3>{t("flow.trackers")}</h3>
+              {status.trackers?.map((tr) => (
+                <div key={tr.id} className="panel my-2 break-all">
+                  {tr.protocol} · {tr.host} · {tr.status} · {tr.peers}{" "}
+                  {t("flow.peers")}
+                  {tr.error && <p>{redactDiagnostic(tr.error)}</p>}
+                  {tr.error_category && (
+                    <p>
+                      {tr.error_category} / {tr.error_code ?? "—"} ·{" "}
+                      {t("flow.upgrade.operation", { value: tr.operation ?? "—" })} ·{" "}
+                      {t("flow.upgrade.failureCount", {
+                        count: tr.failure_count ?? 0,
+                      })}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </section>
+          </details>
         </div>
       )}
     </Modal>

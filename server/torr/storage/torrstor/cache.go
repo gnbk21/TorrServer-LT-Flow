@@ -86,6 +86,7 @@ type Cache struct {
 	flowRates         flow.RateWindow
 	flowLastRefresh   time.Time
 	flowAhead         atomic.Int64 // zero retains the upstream window
+	flowUrgentActive  atomic.Bool
 	flowWaiting       atomic.Int64 // actual external reads blocked on missing bytes
 	flowReconnect     atomic.Bool
 	flowBufferFull    atomic.Bool // sampled from contiguous active windows
@@ -616,6 +617,45 @@ func (c *Cache) VerifiedContiguousAvailable(start, end int64) int64 {
 		pos += min(n, end-pos)
 	}
 	return pos - start
+}
+
+// ContiguousBuffers samples both prefixes at the same demand offset and from
+// the same per-piece observations. Writers can advance between pieces, but the
+// verified prefix can never exceed the simultaneously reported readable one.
+func (c *Cache) ContiguousBuffers(start, end int64) (readable, verified int64) {
+	if c == nil || c.PieceLength <= 0 || start < 0 || end <= start {
+		return
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	verifying := true
+	for pos := start; pos < end; {
+		index, off := int(pos/c.PieceLength), pos%c.PieceLength
+		p := c.pieces[index]
+		if p == nil || index >= c.NumPieces {
+			break
+		}
+		p.mu.RLock()
+		n, complete := min(p.availableFromLocked(off), end-pos), p.complete
+		if !complete && (c.verifiedReads.Load() || c.reuseVerified[index]) {
+			n = 0
+		}
+		p.mu.RUnlock()
+		if n <= 0 {
+			break
+		}
+		readable += n
+		if complete && verifying {
+			verified += n
+		} else {
+			verifying = false
+		}
+		pos += n
+		if off+n < c.PieceLength {
+			break
+		}
+	}
+	return
 }
 
 // registerReader / unregisterReader track active streaming clients so

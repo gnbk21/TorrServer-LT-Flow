@@ -4,59 +4,71 @@ import (
 	_ "embed"
 )
 
+//go:embed pages/DEPENDENCIES.json
+var DEPENDENCIESjson []byte
+
 //go:embed pages/THIRD_PARTY_NOTICES.txt
 var THIRDPARTYNOTICEStxt []byte
 
-//go:embed pages/assets/Add-Cb9ihC3l.js
-var AssetsAddCb9ihC3ljs []byte
+//go:embed pages/assets/Add-BBGTTrOr.js
+var AssetsAddBBGTTrOrjs []byte
 
-//go:embed pages/assets/AddTorrentModal-BNDi13E_.js
-var AssetsAddTorrentModalBNDi13Ejs []byte
+//go:embed pages/assets/AddTorrentModal-B6N7Y0yZ.js
+var AssetsAddTorrentModalB6N7Y0yZjs []byte
 
-//go:embed pages/assets/Button-KTs46vB5.js
-var AssetsButtonKTs46vB5js []byte
+//go:embed pages/assets/Button-CCSVwGD1.js
+var AssetsButtonCCSVwGD1js []byte
 
-//go:embed pages/assets/CacheMap-BzFLc-Cu.js
-var AssetsCacheMapBzFLcCujs []byte
+//go:embed pages/assets/CacheMap-CVIXegNO.js
+var AssetsCacheMapCVIXegNOjs []byte
 
-//go:embed pages/assets/Dashboard-BPbZNBIm.js
-var AssetsDashboardBPbZNBImjs []byte
+//go:embed pages/assets/Certificates-Duge-qsI.js
+var AssetsCertificatesDugeqsIjs []byte
 
-//go:embed pages/assets/FlowDiagnosticsDrawer-DimfGnaY.js
-var AssetsFlowDiagnosticsDrawerDimfGnaYjs []byte
+//go:embed pages/assets/Dashboard-DOdtT9ho.js
+var AssetsDashboardDOdtT9hojs []byte
 
-//go:embed pages/assets/GstRuntimeStatus-BraJLjwx.js
-var AssetsGstRuntimeStatusBraJLjwxjs []byte
+//go:embed pages/assets/FlowDiagnosticsDrawer-C-KAAWy2.js
+var AssetsFlowDiagnosticsDrawerCKAAWy2js []byte
 
-//go:embed pages/assets/PhonePairingModal-q2f4nXtU.js
-var AssetsPhonePairingModalq2f4nXtUjs []byte
+//go:embed pages/assets/GstRuntimeStatus-BaVp8kSj.js
+var AssetsGstRuntimeStatusBaVp8kSjjs []byte
 
-//go:embed pages/assets/PlaybackLinks-Ccfy1QQ_.js
-var AssetsPlaybackLinksCcfy1QQjs []byte
+//go:embed pages/assets/IntegrationSettings-DdmGHoAm.js
+var AssetsIntegrationSettingsDdmGHoAmjs []byte
 
-//go:embed pages/assets/PosterSearch-DyWxdSkx.js
-var AssetsPosterSearchDyWxdSkxjs []byte
+//go:embed pages/assets/LANTest-BO65DpB_.js
+var AssetsLANTestBO65DpBjs []byte
 
-//go:embed pages/assets/Settings-BBBxb4x-.js
-var AssetsSettingsBBBxb4xjs []byte
+//go:embed pages/assets/MaintenancePanel-DD_i33vc.js
+var AssetsMaintenancePanelDDi33vcjs []byte
 
-//go:embed pages/assets/TorrentFilesDialog-Cs5RQYL6.js
-var AssetsTorrentFilesDialogCs5RQYL6js []byte
+//go:embed pages/assets/PhonePairingModal-B9B6goIL.js
+var AssetsPhonePairingModalB9B6goILjs []byte
 
-//go:embed pages/assets/Torrents-D-lwNDwX.js
-var AssetsTorrentsDlwNDwXjs []byte
+//go:embed pages/assets/PlaybackLinks-CyJs0zWJ.js
+var AssetsPlaybackLinksCyJs0zWJjs []byte
 
-//go:embed pages/assets/VideoPlayer-CzNiQMuu.js
-var AssetsVideoPlayerCzNiQMuujs []byte
+//go:embed pages/assets/PosterSearch-BLLIAbD8.js
+var AssetsPosterSearchBLLIAbD8js []byte
 
-//go:embed pages/assets/client-Dr26AKOf.js
-var AssetsclientDr26AKOfjs []byte
+//go:embed pages/assets/Settings-BniYuRTj.js
+var AssetsSettingsBniYuRTjjs []byte
 
-//go:embed pages/assets/clipboard-BX4bd3OW.js
-var AssetsclipboardBX4bd3OWjs []byte
+//go:embed pages/assets/TorrentFilesDialog-DkYKblAv.js
+var AssetsTorrentFilesDialogDkYKblAvjs []byte
 
-//go:embed pages/assets/createLucideIcon-D7zlQbrg.js
-var AssetscreateLucideIconD7zlQbrgjs []byte
+//go:embed pages/assets/Torrents-CesEfiFK.js
+var AssetsTorrentsCesEfiFKjs []byte
+
+//go:embed pages/assets/VideoPlayer-C-JJqa8_.js
+var AssetsVideoPlayerCJJqa8js []byte
+
+//go:embed pages/assets/certificates-BcpjYZeC.js
+var AssetscertificatesBcpjYZeCjs []byte
+
+//go:embed pages/assets/client-Bff0tzE6.js
+var AssetsclientBff0tzE6js []byte
 
 //go:embed pages/assets/format-B_YcZLV7.js
 var AssetsformatBYcZLV7js []byte
@@ -64,44 +76,50 @@ var AssetsformatBYcZLV7js []byte
 //go:embed pages/assets/hls-D9b4QHpD.js
 var AssetshlsD9b4QHpDjs []byte
 
-//go:embed pages/assets/index-DVKn9Oxb.css
-var AssetsindexDVKn9Oxbcss []byte
+//go:embed pages/assets/index-BaSJXbEp.css
+var AssetsindexBaSJXbEpcss []byte
 
-//go:embed pages/assets/index-ya6-oKxm.js
-var Assetsindexya6oKxmjs []byte
+//go:embed pages/assets/index-rnIUJKpw.js
+var AssetsindexrnIUJKpwjs []byte
 
-//go:embed pages/assets/integrations-WHdJYyGB.js
-var AssetsintegrationsWHdJYyGBjs []byte
+//go:embed pages/assets/integrations-BiAj9lh0.js
+var AssetsintegrationsBiAj9lh0js []byte
+
+//go:embed pages/assets/mediaBase-AGe_Bzpk.js
+var AssetsmediaBaseAGeBzpkjs []byte
+
+//go:embed pages/assets/observationTime-CO_ThDIH.js
+var AssetsobservationTimeCOThDIHjs []byte
 
 //go:embed pages/assets/preload-helper-uBIymjUX.js
 var AssetspreloadhelperuBIymjUXjs []byte
 
-//go:embed pages/assets/redact-C8NqrjZt.js
-var AssetsredactC8NqrjZtjs []byte
+//go:embed pages/assets/redact-ie8nnS8E.js
+var Assetsredactie8nnS8Ejs []byte
 
 //go:embed pages/assets/rolldown-runtime-CbXtAM7H.js
 var AssetsrolldownruntimeCbXtAM7Hjs []byte
 
-//go:embed pages/assets/translation-BDIIZ4z3.js
-var AssetstranslationBDIIZ4z3js []byte
+//go:embed pages/assets/translation-Ba9yUB0Z.js
+var AssetstranslationBa9yUB0Zjs []byte
 
-//go:embed pages/assets/translation-BJTOjV1o.js
-var AssetstranslationBJTOjV1ojs []byte
+//go:embed pages/assets/translation-BfqL-8Bw.js
+var AssetstranslationBfqL8Bwjs []byte
 
-//go:embed pages/assets/translation-BZ8kwz1c.js
-var AssetstranslationBZ8kwz1cjs []byte
+//go:embed pages/assets/translation-BudGHXbW.js
+var AssetstranslationBudGHXbWjs []byte
 
-//go:embed pages/assets/translation-CJ0GZYvA.js
-var AssetstranslationCJ0GZYvAjs []byte
+//go:embed pages/assets/translation-COhfX19q.js
+var AssetstranslationCOhfX19qjs []byte
 
-//go:embed pages/assets/translation-DRZDcE4R.js
-var AssetstranslationDRZDcE4Rjs []byte
+//go:embed pages/assets/translation-C_ANWPNH.js
+var AssetstranslationCANWPNHjs []byte
 
-//go:embed pages/assets/translation-UeTjBAnL.js
-var AssetstranslationUeTjBAnLjs []byte
+//go:embed pages/assets/translation-xfy43eM-.js
+var Assetstranslationxfy43eMjs []byte
 
-//go:embed pages/assets/useQuery-xJfTCyZ4.js
-var AssetsuseQueryxJfTCyZ4js []byte
+//go:embed pages/assets/useQuery-BS_7MZO8.js
+var AssetsuseQueryBS7MZO8js []byte
 
 //go:embed pages/browserconfig.xml
 var Browserconfigxml []byte

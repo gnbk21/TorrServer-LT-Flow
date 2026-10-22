@@ -148,3 +148,16 @@ it with `--path <state-directory>`. Linux/macOS/Android automation remains under
 the host's service/package manager; the Windows scripts do not manage these
 hosts. Phone/Just Player and multi-hour acceptance evidence is recorded
 separately from compilation and controlled local tests.
+# Source and container build consistency
+
+The obsolete standalone `Dockerfile.builder` has been retired. It used separate
+dependency defaults and omitted Flow's reviewed native patches. Source builds
+use `build/linux-amd64.sh` (or the corresponding target script), which shares
+the pins and patch recipe in `build/_common.sh` and `build/_deps.sh`. Build the
+web assets with the existing web build step before the native executable.
+
+Containers use `Dockerfile.runtime` with those verified native outputs under
+`dist/amd64/torrserver`, `dist/arm64/torrserver` or `dist/armv7/torrserver`.
+The release workflow verifies the actual version/linkage for all three
+architectures before publishing. Do not build an unpatched second engine for
+containers. See `.github/workflows/build-docker.yml` for the complete procedure.

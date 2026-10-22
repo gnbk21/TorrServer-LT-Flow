@@ -21,6 +21,9 @@ type residentIndexReader struct {
 }
 
 func (r residentIndexReader) ReadAt(dst []byte, off int64) (int, error) {
+	if !settings.CurrentFlow().ContainerBurstHints || !settings.CurrentFlow().Enabled {
+		return 0, io.EOF
+	}
 	if off < 0 || off > r.file.Length || int64(len(dst)) > r.file.Length-off {
 		return 0, io.EOF
 	}
@@ -78,10 +81,12 @@ func (c *Cache) requestBurstIndex(file FileInfo) {
 		index, _ := flow.ReadBurstIndex(residentIndexReader{c, file}, file.Length)
 		c.indexMu.Lock()
 		defer c.indexMu.Unlock()
-		if !c.indexClosed {
+		if !c.indexClosed && settings.CurrentFlow().ContainerBurstHints {
 			entry := c.indexes[file.Index]
 			entry.index = index
 			c.indexes[file.Index] = entry
+		} else {
+			delete(c.indexes, file.Index)
 		}
 		c.indexBusy = false
 	}()
@@ -90,6 +95,9 @@ func (c *Cache) requestBurstIndex(file FileInfo) {
 func (c *Cache) burstDemand(file int, anchor int, average float64) (float64, string) {
 	c.indexMu.Lock()
 	defer c.indexMu.Unlock()
+	if !settings.CurrentFlow().ContainerBurstHints {
+		return average, "unknown"
+	}
 	entry, ok := c.indexes[file]
 	if !ok || len(entry.index.Points) == 0 {
 		return average, "unknown"

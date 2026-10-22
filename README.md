@@ -4,6 +4,14 @@ TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/Torr
 
 > **Flow 1.1:** dashboard/library improvements, streaming resilience, native v2/hybrid support and release hardening. [Download](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.3), [release notes](RELEASE_1_1_NOTES.md), and [verification/field limits](RELEASE_1_1_VERIFICATION.md). Legacy remains the default; experiments remain off. Physical phone/network recovery checks are disclosed separately.
 
+Development work in [PR #6](https://github.com/gnbk21/TorrServer-LT-Flow/pull/6)
+adds clearer streaming diagnostics, seek/metadata recovery fixes, responsive
+settings and optional player evidence. See the [implementation and acceptance
+checklist](OCTOBER_UPGRADE_CHECKLIST.md), [completed automated verification and
+remaining field limits](OCTOBER_UPGRADE_VERIFICATION.md), and
+[MatriX.147 review](UPSTREAM_MATRIX147_REVIEW.md).
+These changes are separate from the stable download above.
+
 ## Run on Windows
 
 1. Open [Flow 1.1](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.3), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.3.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
@@ -58,7 +66,7 @@ for the peer-retention fix, controlled measurements and diagnostic guidance.
 - **Adaptive startup:** schedules a bounded head buffer and the container index/tail; an optional `ffprobe` result can refine the startup target without blocking playback indefinitely.
 - **Adaptive read-ahead:** sizes the forward cache window from media bitrate and observed playback, within the configured cache budget. It can be disabled independently of other Flow features.
 - **Warm mobile sessions:** briefly protects data around the last playhead after a player disconnects, so a quick reconnect can resume from cached pieces.
-- **Seek and Range diagnostics:** tracks startup, buffering, piece waits, seek recovery, and HTTP Range timing. A torrent card opens live diagnostics; detailed Range traces are opt-in.
+- **Seek and Range diagnostics:** tracks startup, buffering, piece waits, seek recovery, and HTTP Range timing. A torrent card opens live diagnostics; detailed Range traces are opt-in. [Diagnostic history and analysis](DIAGNOSTICS.md) explains retained startup/delivery evidence and its limits.
 - **Windows background operation:** includes a restricted service account and a separate tray companion. See [Flow development notes](FLOW.md) for service and tray commands.
 
 Flow also provides rolling 60-second health metrics, smoother adaptive
@@ -133,6 +141,15 @@ limits, and the [implementation ledger](SPARSE_IMPLEMENTATION.md) for evidence.
 ## Swarm profiles
 
 Select a profile in **Settings → Flow → Swarm profile**. `connection_speed` is outgoing connection attempts per second; `torrent_connect_boost` is the number of peers tried when a torrent is added. These are tuning choices, not measured speed rankings.
+
+Current development builds keep bootstrap demand separate from later prebuffering
+and preserve the original head/index deadline order. In **Adaptive**, verified
+bootstrap data plus continuing useful progress can renew the ordinary 120-second
+startup wait in 30-second steps, capped at 300 seconds. This retains the required
+index, verification and buffer gates; other profiles keep the 120-second wait.
+Diagnostics expose sampled suppliers and request queues for missing startup
+pieces. See [startup-fix verification](STARTUP_FIX_VERIFICATION.md) for controlled
+comparisons and limits; this is newer than the published 1.1.3 executable.
 
 | Profile | What it does |
 | --- | --- |
@@ -310,3 +327,7 @@ Stable releases are tagged from `master`; ongoing integration uses `develop`.
 The broader field checks remain tracked separately in [project status](STATUS.md).
 
 Use torrents you are authorized to access. TorrServer-Flow retains the upstream [GPL-3.0 license](LICENSE) and acknowledges the work of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) and [TorrServer](https://github.com/YouROK/TorrServer).
+
+### Automatic magnet metadata recovery
+
+Development builds can recover stalled magnet metadata from supplied HTTPS .torrent URLs after 15 seconds. Optional free Torrage/iTorrents lookup requires enabling **Settings > Flow > Free public metadata caches**; it sends the v1 info-hash to those services. Results must match every known torrent hash. Recovery preserves the same release, native handle, tracker tiers and encryption settings. Cache misses and unavailable video peers can still prevent playback. [Behavior, bounds and privacy](METADATA_RECOVERY.md). Stable 1.1.3 predates this feature.

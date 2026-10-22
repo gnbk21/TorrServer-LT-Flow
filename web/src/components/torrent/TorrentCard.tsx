@@ -34,11 +34,11 @@ export function TorrentCard({
   const [confirm, setConfirm] = useState(false);
   return (
     <article
-      className={`panel space-y-4 ${isActiveStream ? "border-blue-400" : ""}`}
+      className={`panel min-w-0 space-y-4 ${isActiveStream ? "border-blue-400" : ""}`}
     >
       <div className="flex gap-4">
         <div
-          className={`${compact ? "w-12" : "w-20"} aspect-[2/3] shrink-0 rounded-lg bg-slate-800 overflow-hidden flex items-center justify-center`}
+          className={`${compact ? "w-12" : "w-20"} max-w-[25%] aspect-[2/3] shrink-0 rounded-lg bg-slate-800 overflow-hidden flex items-center justify-center`}
         >
           {torrent.poster && torrent.poster !== broken ? (
             <img
@@ -64,7 +64,10 @@ export function TorrentCard({
                 })}
           </span>
           <h2 className="text-lg font-semibold break-words">
-            <button className="text-left" onClick={onOpenFiles}>
+            <button
+              className="max-w-full [overflow-wrap:anywhere] text-left"
+              onClick={onOpenFiles}
+            >
               {torrent.title || torrent.name || torrent.hash}
             </button>
           </h2>

@@ -7,6 +7,9 @@ on:
         required: true
         type: string
 
+concurrency:
+  group: october-${{ github.workflow }}-build-web-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
 
@@ -55,6 +58,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
+          retention-days: 14
           name: ${{ inputs.artifact-name }}-interface-evidence
           path: |
             web/lab-results/**/measurement.json
@@ -67,6 +71,7 @@ jobs:
           go run gen_web.go
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
+          retention-days: 14
           name: ${{ inputs.artifact-name }}
           path: server/web/pages/template
           if-no-files-found: error

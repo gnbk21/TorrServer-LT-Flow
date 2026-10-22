@@ -9,6 +9,7 @@ export const sourcesSchema = z.object({
         origin: z.string(),
         disabled: z.boolean(),
         allow_local: z.boolean(),
+        last_failure:z.object({category:z.enum(["UNKNOWN","SYSTEM","GENERIC","DNS","ASIO","TLS","HTTP","LIBTORRENT"]),code:z.number().int(),count:z.number().int().nonnegative(),at:z.string().datetime({offset:true})}).optional(),
       }),
     )
     .max(16),

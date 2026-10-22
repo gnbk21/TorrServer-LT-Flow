@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import type { BTSettings } from "../types/settings";
 import { useForm, type RegisterOptions } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -24,10 +24,24 @@ import {
 import { Button } from "../components/common/Button";
 import { Modal } from "../components/common/Modal";
 import { Loading, RequestError } from "../components/common/RequestState";
-import IntegrationSettings from "../components/settings/IntegrationSettings";
-import { MaintenancePanel } from "../components/settings/MaintenancePanel";
-import { LANTest } from "../components/settings/LANTest";
-import { Certificates } from "../components/settings/Certificates";
+const IntegrationSettings = lazy(
+  () => import("../components/settings/IntegrationSettings"),
+);
+const MaintenancePanel = lazy(() =>
+  import("../components/settings/MaintenancePanel").then((m) => ({
+    default: m.MaintenancePanel,
+  })),
+);
+const LANTest = lazy(() =>
+  import("../components/settings/LANTest").then((m) => ({
+    default: m.LANTest,
+  })),
+);
+const Certificates = lazy(() =>
+  import("../components/settings/Certificates").then((m) => ({
+    default: m.Certificates,
+  })),
+);
 const groups: Record<string, string[]> = {
   general: [
     "CacheSize",
@@ -105,6 +119,12 @@ export default function Settings() {
   }>();
   const { setDirty } = useDirty();
   const [tab, setTab] = useState("general");
+  const [visited, setVisited] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    setVisited((previous) =>
+      previous.has(tab) ? previous : new Set([...previous, tab]),
+    );
+  }, [tab]);
   const [search, setSearch] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState<unknown>();
@@ -293,6 +313,8 @@ export default function Settings() {
           "Flow.DiagnosticHistory": t("settings.historyHint"),
           "Flow.DHTStatePersistence": t("settings.dhtHint"),
           "Flow.PeerResumeHints": t("settings.peerHintsHelp"),
+          "Flow.MetadataFallback": t("settings.metadataFallbackHelp"),
+          "Flow.PublicMetadataCache": t("settings.publicMetadataCacheHelp"),
           "Flow.ScarcePieceHints": t("settings.scarceHintsHelp"),
           "Flow.RateAwareDeadlines": t("settings.rateDeadlinesHelp"),
           "Flow.CapacityAwareRequests": t("settings.highBitrateExperimentHelp"),
@@ -508,16 +530,20 @@ export default function Settings() {
       )}
       {notice && <p role="status">{notice}</p>}
       <div hidden={tab !== "security"}>
-        <Certificates
-          visible={tab === "security"}
-          onDirty={setCertificateDirty}
-          disabled={
-            formState.isDirty ||
-            integrationDirty ||
-            !!configuration.data?.pending ||
-            !!configuration.data?.applying
-          }
-        />
+        {visited.has("security") && (
+          <Suspense fallback={<Loading />}>
+            <Certificates
+              visible={tab === "security"}
+              onDirty={setCertificateDirty}
+              disabled={
+                formState.isDirty ||
+                integrationDirty ||
+                !!configuration.data?.pending ||
+                !!configuration.data?.applying
+              }
+            />
+          </Suspense>
+        )}
       </div>
       <form
         id="flow-settings-form"
@@ -527,7 +553,11 @@ export default function Settings() {
         {tab === "flow" && (
           <p className="panel text-sm">{t("settings.flowHint")}</p>
         )}
-        {tab === "network" && <LANTest />}
+        {tab === "network" && (
+          <Suspense fallback={<Loading />}>
+            <LANTest />
+          </Suspense>
+        )}
         {tab === "general" && (
           <div className="actions">
             {[256, 512, 1024, 2048, 4096].map((mib) => (
@@ -741,8 +771,16 @@ export default function Settings() {
           {t(dirty ? "settings.unsaved" : "settings.savedState")}
         </p>
       </div>
-      <IntegrationSettings tab={tab} onDirty={setIntegrationDirty} />
-      {tab === "advanced" && <MaintenancePanel dirty={dirty} />}
+      {(visited.has("integrations") || visited.has("advanced") || visited.has("security")) && (
+        <Suspense fallback={<Loading />}>
+          <IntegrationSettings tab={tab} onDirty={setIntegrationDirty} />
+        </Suspense>
+      )}
+      {tab === "advanced" && (
+        <Suspense fallback={<Loading />}>
+          <MaintenancePanel dirty={dirty} />
+        </Suspense>
+      )}
       {tab === "advanced" && (
         <section className="panel border-rose-900 space-y-3">
           <h2>{t("settings.danger")}</h2>

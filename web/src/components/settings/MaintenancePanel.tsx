@@ -76,6 +76,18 @@ export function MaintenancePanel({ dirty }: { dirty: boolean }) {
   return (
     <section className="panel space-y-4">
       <h2 className="font-semibold">{t("settings.maintenance.title")}</h2>
+      {runtime.data?.build && (
+        <div className="text-sm break-all space-y-1">
+          <p>
+            {t("flow.upgrade.build")}: {runtime.data.build.version}
+          </p>
+          <p>
+            {t(`flow.upgrade.channels.${runtime.data.build.channel}`)} ·{" "}
+            {runtime.data.build.source || "—"}
+          </p>
+          {runtime.data.build.modified && <p>{t("flow.upgrade.modified")}</p>}
+        </div>
+      )}
       <p className="text-sm text-slate-300">
         {t("settings.maintenance.exclusions")}
       </p>

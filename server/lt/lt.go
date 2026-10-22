@@ -473,6 +473,20 @@ func (t *Torrent) HaveMetadata() (bool, error) {
 	return rc != 0, nil
 }
 
+// SetMetadata verifies metainfo against all known magnet identities and keeps
+// the existing native handle, peers, tracker tiers and streaming ownership.
+// It returns false when metadata was already available before installation.
+func (t *Torrent) SetMetadata(data []byte) (bool, error) {
+	if t == nil || len(data) == 0 || len(data) > 64<<20 {
+		return false, ErrInvalid
+	}
+	rc := C.lt_torrent_set_metadata(t.id, (*C.uint8_t)(unsafe.Pointer(&data[0])), C.size_t(len(data)))
+	if rc < 0 {
+		return false, codeToErr(rc)
+	}
+	return rc == 1, nil
+}
+
 // Metadata returns the raw info-dict bytes once metadata has been received.
 func (t *Torrent) Metadata() ([]byte, error) {
 	return cAlloc(func(n *C.size_t) *C.char {
@@ -711,6 +725,9 @@ type Alert struct {
 	Type             string `json:"type"`
 	Category         uint32 `json:"category"`
 	ErrorCode        int    `json:"error_code,omitempty"`
+	ErrorCategory    string `json:"error_category,omitempty"`
+	AddressFamily    string `json:"address_family,omitempty"`
+	FailureCount     int    `json:"failure_count,omitempty"`
 	Operation        int    `json:"operation,omitempty"`
 	DisconnectReason string `json:"disconnect_reason,omitempty"`
 	Message          string `json:"message"`

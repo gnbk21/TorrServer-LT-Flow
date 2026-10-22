@@ -11,6 +11,7 @@ import (
 
 type FlowStatusResponse struct {
 	Hash              string                       `json:"hash"`
+	Integrity         *flow.IntegritySnapshot      `json:"integrity,omitempty"`
 	Startup           torr.FlowStartupStatus       `json:"startup"`
 	Sessions          []torr.FlowSessionStatus     `json:"sessions"`
 	Trackers          []torr.FlowTrackerDiagnostic `json:"trackers"`
@@ -34,7 +35,8 @@ func flowStatus(c *gin.Context) {
 	}
 	timeline := t.FlowTimeline()
 	warmup := t.NextEpisodeWarmupStatus()
-	c.JSON(http.StatusOK, FlowStatusResponse{Hash: c.Param("hash"), Startup: t.FlowStartup(), Sessions: t.FlowStatusWithTraces(c.Query("traces") != "false"), Trackers: t.FlowTrackers(), Network: torr.NetworkStatusSnapshot(), Sparse: t.SparseStatus(), StorageIO: lt.StorageIOStats(), Timeline: &timeline, SampledAt: time.Now().UTC().Format(time.RFC3339Nano), NextEpisodeWarmup: &warmup})
+	integrity := t.FlowIntegrity()
+	c.JSON(http.StatusOK, FlowStatusResponse{Hash: c.Param("hash"), Integrity: &integrity, Startup: t.FlowStartup(), Sessions: t.FlowStatusWithTraces(c.Query("traces") != "false"), Trackers: t.FlowTrackers(), Network: torr.NetworkStatusSnapshot(), Sparse: t.SparseStatus(), StorageIO: lt.StorageIOStats(), Timeline: &timeline, SampledAt: time.Now().UTC().Format(time.RFC3339Nano), NextEpisodeWarmup: &warmup})
 }
 
 func nextEpisodeWarmup(c *gin.Context) {
@@ -61,6 +63,19 @@ func nextEpisodeWarmup(c *gin.Context) {
 
 func flowNetwork(c *gin.Context) {
 	c.JSON(http.StatusOK, torr.NetworkStatusSnapshot())
+}
+
+func retryMetadata(c *gin.Context) {
+	t := torr.GetTorrentInfo(c.Param("hash"))
+	if t == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "torrent not found"})
+		return
+	}
+	if err := t.RetryMetadataRecovery(); err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": errorMessage(err)})
+		return
+	}
+	c.JSON(http.StatusAccepted, gin.H{"accepted": true})
 }
 
 func flowTray(c *gin.Context) {

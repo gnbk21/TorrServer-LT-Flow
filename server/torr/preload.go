@@ -59,13 +59,6 @@ const preloadConnections = 200
 // not a random rare middle straggler that holds the bar at 99%.
 const headDeadlineLeadPieces = 8
 
-// stragglerEscalatePieces is how few gate pieces may remain before the wait loop deadlines
-// the still-incomplete ones (deadline 0) to force libtorrent's end-game re-request of their
-// last blocks. Kept small so only the final stragglers are made time-critical — never the
-// bulk head (that floods the queue, see headDeadlineLeadPieces) — which is exactly the
-// situation a deadline is safe and needed: a flaky peer stalling a near-complete piece.
-const stragglerEscalatePieces = 8
-
 // preloadWarmGrace is how long the &preload path keeps the swarm hot and prefetches
 // a readahead window PAST the head after the gate releases, bridging the gap until
 // the player connects. The &preload client (TorrServe/Lampa) polls Stat→Working,
@@ -85,7 +78,7 @@ const preloadWarmGrace = 8 * time.Second
 // `index` so playback starts with a buffer. Because the torrent sits at piece
 // priority 0 (lazy streaming, see signalGotInfo), this is what actually pulls
 // the head of the file: it raises priority + ordered deadlines on the piece
-// range and blocks until they arrive (or the torrent closes / 2 min elapses),
+// range and blocks until they arrive (or the torrent closes / its bounded wait expires),
 // updating PreloadedBytes/PreloadSize for the UI to poll.
 // probe selects the explicit &preload path used by TorrServe/Lampa. Flow starts
 // an asynchronous media probe after bootstrap for either entry path; the probe
@@ -100,7 +93,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 		ctx = context.Background()
 	}
 	// Snapshot the libtorrent handle once. Preload runs DETACHED (it survives the
-	// request, blocking up to 2 min on the buffer fill), so the torrent can be
+	// request, retaining the bounded buffer wait), so the torrent can be
 	// dropped mid-flight and clear its published handle — a later load could then
 	// deref a nil receiver and crash the server (panic in the call AND again in the
 	// deferred SetMaxConnections). The captured handle stays non-nil; once the
@@ -238,13 +231,16 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	if flowEnabled {
 		t.flowStartupStarted = time.Now()
 		metadataMs := t.flowStartup.MetadataReadyMs
+		metadataRecovery := t.flowStartup.MetadataRecovery
 		dhtPeerMs := t.flowStartup.FirstDHTPeerMs
 		t.flowStartup = FlowStartupStatus{FileIndex: index, State: "BOOTSTRAP_PRELOAD",
-			MetadataReadyMs: metadataMs, FirstDHTPeerMs: dhtPeerMs, FirstPeerMs: -1, FirstUsefulBlockMs: -1,
+			MetadataRecovery: metadataRecovery,
+			MetadataReadyMs:  metadataMs, FirstDHTPeerMs: dhtPeerMs, FirstPeerMs: -1, FirstUsefulBlockMs: -1,
 			BootstrapHeadTargetBytes: int64(probeHeadCount) * plen,
 			BootstrapTailTargetBytes: int64(len(gatePieces)-headCount) * plen,
 			StartupTargetBytes:       int64(headCount) * plen, ProbeSuccess: probeCached, ProbeCached: probeCached}
 	}
+	t.startupRecordedAt = time.Time{}
 	t.mu.Unlock()
 
 	t.startupStage("FIRST_BLOCK")
@@ -256,15 +252,19 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 
 	// prioritise raises priority 7 + an ascending deadline ramp (startN*10 ms,
 	// +10 ms per piece) on a piece list. libtorrent's time-critical picker always
-	// prioritises the more-recent deadline and assigns the *fastest* peers to the
+	// prioritises the earliest deadline and assigns the *fastest* peers to the
 	// most urgent piece, and bandwidth is zero-sum (see libtorrent streaming.html),
-	// so the ramp puts piece 0 first and each later piece strictly after it. A
+	// so earlier entries in the list remain ahead of later entries. A
 	// piece libtorrent believes it HAS but the cache evicted (a second viewer
 	// joins after the first played past the head) must be un-haved first or the
 	// picker never re-downloads it and the wait below sits out its full 2 minutes
 	// — the second device hangs in "buffering" forever while the first keeps
 	// playing. Same reconciliation the Reader does on seek-back.
+	var deadlineMu sync.Mutex // moov refinement shares the preload's deadline owner
+	deadlined := make(map[int]bool)
 	prioritise := func(pieces []int, startN int) {
+		deadlineMu.Lock()
+		defer deadlineMu.Unlock()
 		for i, p := range pieces {
 			if !cache.Have(p) && lh.HasPiece(p) {
 				_ = lh.WeDontHave(p, 7) // un-have + top priority, atomically
@@ -272,6 +272,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 				_ = lh.SetPiecePriority(p, 7)
 			}
 			_ = lh.SetPieceDeadline(p, (startN+i)*10, false)
+			deadlined[p] = true
 		}
 	}
 
@@ -281,10 +282,13 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	// time-critical set. Any stale deadline from a prior preload is cleared so it
 	// can't keep the piece time-critical. Used for the head past the racing lead.
 	prioritiseNoDeadline := func(pieces []int) {
+		deadlineMu.Lock()
+		defer deadlineMu.Unlock()
 		for _, p := range pieces {
 			// Native deadline removal demotes an incomplete piece to priority 1.
 			// Remove it first, then restore our intended sequential-fill priority.
 			_ = lh.ResetPieceDeadline(p)
+			delete(deadlined, p)
 			if !cache.Have(p) && lh.HasPiece(p) {
 				_ = lh.WeDontHave(p, 7) // un-have + top priority, atomically
 			} else {
@@ -463,9 +467,17 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	}
 	defer func() { detCancel(); <-detDone }()
 
-	// Cancel the wait if the torrent is closed or the requesting client goes
-	// away (ctx is the HTTP request's context); cap the total at 2 minutes.
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	// Adaptive may renew the ordinary two-minute budget while verified bootstrap
+	// data exists and useful gate bytes keep arriving. Cancellation stays prompt;
+	// even sustained progress cannot exceed the five-minute hard limit.
+	progressWait := flowEnabled && flowSettings.SwarmProfile == "adaptive"
+	waitLimit := flow.StartupWaitBase
+	if progressWait {
+		waitLimit = flow.StartupWaitMaximum
+	}
+	waitBudget := flow.NewStartupWait(time.Now(), progressWait)
+	waitExpired := false
+	ctx, cancel := context.WithTimeout(ctx, waitLimit)
 	defer cancel()
 	go func() {
 		select {
@@ -490,8 +502,8 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	// multi-file bug. On a multi-file torrent the tail's last piece is the boundary
 	// piece shared with the next file, so it also costs that file's leading bytes;
 	// that cost now shows as honest buffering progress instead of a post-100% hang.
-	// The 2-min ctx cap (above) bounds the pathological case (boundary piece with
-	// no seeders) so the stream still starts. gateCount >= headCount >= 1.
+	// The bounded startup wait limits a pathological missing boundary piece;
+	// an incomplete gate is reported as a timeout. gateCount >= headCount >= 1.
 	gateCount := len(gatePieces)
 	total := int64(gateCount) * plen
 	probed := false
@@ -553,6 +565,16 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 		}
 
 		if flowEnabled {
+			progress := startupGateProgress(snap, headFirst, headLast, probeHeadLast, tailFirst, tailLast, plen, twoPhase && !probed)
+			if progress.BlockedOn == "NONE" && !probeStartedAt.IsZero() && time.Since(probeStartedAt) < time.Duration(flowSettings.ProbeGraceMs)*time.Millisecond {
+				t.mu.Lock()
+				finished := t.flowProbeFinishedIndex == index
+				t.mu.Unlock()
+				if !finished {
+					progress.BlockedOn = "PROBE"
+				}
+			}
+			t.recordStartupProgress(progress, false)
 			stage := "HEAD_INDEX"
 			if probed {
 				stage = "PREBUFFER"
@@ -582,24 +604,22 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 			t.startupStage(stage)
 		}
 
-		// End-game the final stragglers: once only a few gate pieces remain, deadline each
-		// still-incomplete one (deadline 0 = most urgent) so libtorrent re-requests its
-		// outstanding blocks from every peer. The head past the racing lead carries NO
-		// deadline (deadlining the whole head floods the time-critical queue — see
-		// headDeadlineLeadPieces), so a flaky peer can leave a piece at e.g. 124/128 blocks
-		// for a minute, holding the gate — observed as "switched series and the stream
-		// didn't start". Only a handful of pieces are deadlined here (rem <= a few), so it
-		// can't flood; refreshed each tick until they land. Cheap no-op once done.
-		if rem := gateCount - done; rem > 0 && rem <= stragglerEscalatePieces {
-			for _, p := range gatePieces {
-				if st, ok := snap[p]; !ok || !st.Completed {
-					_ = lh.SetPieceDeadline(p, 0, false)
-				}
-			}
+		// Escalate only this phase's remaining pieces, once. Resetting all deadlines
+		// every 200 ms erased tail-first ordering and accidentally activated phase 2
+		// during bootstrap on large-piece torrents. Libtorrent owns retry/end-game.
+		activeGate := gatePieces
+		if twoPhase && !probed {
+			activeGate = probePieces
 		}
+		deadlineMu.Lock()
+		for i, p := range preloadStragglers(snap, activeGate, tailFirst, tailLast, deadlined) {
+			_ = lh.SetPieceDeadline(p, i*10, false)
+			deadlined[p] = true
+		}
+		deadlineMu.Unlock()
 
 		// Phase 1 done: the small head + tail are resident. Probe BitRate/Duration
-		// NOW — synchronously, from the just-filled cache, so ffprobe reads the
+		// NOW — asynchronously, from the just-filled cache, so ffprobe reads the
 		// header (small head) and the duration (EOF tail, even for an unknown-size
 		// MKV) without ever blocking on a slow piece. The value is published while
 		// the bar is still low, then phase 2 prioritises the rest of the head so the
@@ -761,6 +781,16 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 			readerTookOver = true
 			break
 		}
+		if waitBudget.Expired(time.Now(), got, done > 0) {
+			waitExpired = true
+			break
+		}
+		if flowEnabled {
+			t.mu.Lock()
+			t.flowStartup.WaitBudgetMs = waitBudget.Budget().Milliseconds()
+			t.flowStartup.WaitExtended = waitBudget.Budget() > flow.StartupWaitBase
+			t.mu.Unlock()
+		}
 		select {
 		case <-ctx.Done(): // timeout or torrent closed
 		case <-tick.C:
@@ -773,13 +803,16 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	// priorities. It must not re-reserve an obsolete file after a new preload.
 	detCancel()
 	<-detDone
+	if flowEnabled {
+		t.recordStartupProgress(startupProgress(cache.PiecesSnapshot(), headFirst, headLast, tailFirst, tailLast, plen), true)
+	}
 	outcome := "READY"
 	if !preloadOK {
 		outcome = "FAILED"
 		if readerTookOver {
 			outcome = "READER_WINDOW"
 		}
-		if ctx.Err() == context.DeadlineExceeded {
+		if waitExpired || ctx.Err() == context.DeadlineExceeded {
 			outcome = "TIMEOUT"
 		} else if ctx.Err() != nil {
 			outcome = "CANCELLED"

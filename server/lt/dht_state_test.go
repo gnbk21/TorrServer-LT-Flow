@@ -148,28 +148,60 @@ func TestDHTRestoredNodeIsContactedWithoutPublicBootstrap(t *testing.T) {
 	}
 	// Rebind the live session without rebuilding it. Restored/verified hints
 	// must also bootstrap the new UDP socket after a network/listener change.
-	reservation, err := net.ListenUDP("udp4", &net.UDPAddr{IP: local})
-	if err != nil {
-		t.Fatal(err)
+	// A free UDP port can still belong to an existing TCP listener. Libtorrent
+	// binds both protocols and may then choose another port, which would make
+	// this fixture's exact-source-port assertion fail for the wrong reason.
+	var newPort int
+	for attempt := 0; attempt < 8; attempt++ {
+		tcpReservation, reserveErr := net.ListenTCP("tcp4", &net.TCPAddr{IP: local})
+		if reserveErr != nil {
+			t.Fatal(reserveErr)
+		}
+		port := tcpReservation.Addr().(*net.TCPAddr).Port
+		udpReservation, reserveErr := net.ListenUDP("udp4", &net.UDPAddr{IP: local, Port: port})
+		if reserveErr != nil {
+			tcpReservation.Close()
+			continue
+		}
+		newPort = port
+		udpReservation.Close()
+		tcpReservation.Close()
+		break
 	}
-	newPort := reservation.LocalAddr().(*net.UDPAddr).Port
-	reservation.Close()
+	if newPort == 0 {
+		t.Fatal("could not reserve a matching TCP/UDP fixture port")
+	}
 	if err := s.ApplySettings(SessionConfig{"listen_interfaces": net.JoinHostPort(local.String(), strconv.Itoa(newPort))}); err != nil {
 		t.Fatal(err)
 	}
 	recoveryDeadline := time.Now().Add(5 * time.Second)
 	recovered := false
+	alertCounts := make(map[string]int)
+	queryPorts := make(map[int]int)
+	newListenerReady := false
 	for time.Now().Before(recoveryDeadline) {
-		s.PopAlerts()
+		alerts, popErr := s.PopAlerts()
+		if popErr != nil {
+			t.Fatal(popErr)
+		}
+		for _, alert := range alerts {
+			alertCounts[alert.Type]++
+			if alert.Type == "listen_succeeded" && alert.Port == newPort && alert.Transport == "udp" {
+				newListenerReady = true
+			}
+		}
 		conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 		n, sender, err = conn.ReadFromUDP(buf)
+		if err == nil && bytes.Contains(buf[:n], []byte("1:q")) {
+			queryPorts[sender.Port]++
+		}
 		if err == nil && sender.Port == newPort && bytes.Contains(buf[:n], []byte("1:q")) {
 			recovered = true
 			break
 		}
 	}
 	if !recovered {
-		t.Fatal("new UDP listener did not reuse verified DHT hints")
+		t.Fatalf("new UDP listener did not reuse verified DHT hints: ready=%t new_port=%d query_ports=%v alert_counts=%v", newListenerReady, newPort, queryPorts, alertCounts)
 	}
 	if data, err := s.DHTState(); err != nil || len(data) == 0 {
 		t.Fatalf("native snapshot: %v", err)

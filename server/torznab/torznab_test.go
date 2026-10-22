@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"server/settings"
+	"server/version"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -82,6 +83,32 @@ func TestNormalizeHost(t *testing.T) {
 				t.Fatalf("got %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestTorznabIdentifiesBothSearchAndCapabilitiesRequests(t *testing.T) {
+	previous := settings.BTsets()
+	settings.StoreBTsets(&settings.BTSets{Flow: settings.DefaultFlowSettings()})
+	t.Cleanup(func() { settings.StoreBTsets(previous) })
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		if r.URL.Path != "/indexer/api" || r.Header.Get("User-Agent") != "TorrServer-Flow-Torznab/"+version.Version {
+			t.Error("wrong endpoint or missing product identity")
+		}
+		if r.URL.Query().Get("t") == "caps" {
+			_, _ = w.Write([]byte(`<caps><limits max="100" default="50"/></caps>`))
+		} else {
+			_, _ = w.Write([]byte(`<rss><channel/></rss>`))
+		}
+	}))
+	defer srv.Close()
+	searchOne(context.Background(), srv.URL+"/indexer/api/", "fixture", "episode", "fixture", "", 0, 0)
+	if _, err := FetchCaps(context.Background(), srv.URL+"/indexer/api/", "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if calls.Load() != 2 {
+		t.Fatal("search or capabilities request missing")
 	}
 }
 

@@ -9,18 +9,20 @@ import (
 	sets "server/settings"
 	"server/torr"
 	"server/torr/storage/torrstor"
+	"server/version"
 )
 
 // RuntimeStatus is a read-only snapshot for the web UI: integration flags plus
 // structured BitTorrent client stats (and the raw /stat text).
 type RuntimeStatus struct {
-	DLNAEnabled    bool   `json:"dlna_enabled"`
-	BonjourEnabled bool   `json:"bonjour_enabled"`
-	FriendlyName   string `json:"friendly_name"`
-	WebDAVEnabled  bool   `json:"webdav_enabled"`
-	WebDAVPath     string `json:"webdav_path"`
-	FusePath       string `json:"fuse_path"`
-	FuseEnabled    bool   `json:"fuse_enabled"`
+	Build          version.BuildIdentity `json:"build"`
+	DLNAEnabled    bool                  `json:"dlna_enabled"`
+	BonjourEnabled bool                  `json:"bonjour_enabled"`
+	FriendlyName   string                `json:"friendly_name"`
+	WebDAVEnabled  bool                  `json:"webdav_enabled"`
+	WebDAVPath     string                `json:"webdav_path"`
+	FusePath       string                `json:"fuse_path"`
+	FuseEnabled    bool                  `json:"fuse_enabled"`
 
 	// BitTorrent client (structured alternative to plaintext GET /stat).
 	BT              *torr.ClientStatusSnapshot `json:"bt,omitempty"`
@@ -59,6 +61,7 @@ func runtimeStatus(c *gin.Context) {
 
 	bt := torr.SnapshotClientStatus()
 	c.JSON(http.StatusOK, RuntimeStatus{
+		Build:           version.Identity(),
 		DLNAEnabled:     dlna,
 		BonjourEnabled:  bonjour,
 		FriendlyName:    friendly,

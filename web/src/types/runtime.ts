@@ -36,6 +36,12 @@ export interface ClientStatus {
 }
 
 export interface RuntimeStatus {
+  build?: {
+    version: string;
+    channel: "stable" | "preview" | "development";
+    source: string;
+    modified: boolean;
+  };
   resources?: {
     budget_bytes: number;
     warm_budget_bytes: number;

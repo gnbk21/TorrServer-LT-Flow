@@ -73,7 +73,7 @@ export function Modal({
           className={`fixed z-50 inset-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-full ${widths[maxWidth]} sm:max-h-[90dvh] flex flex-col bg-slate-900 sm:rounded-2xl border border-slate-700 shadow-xl`}
         >
           <header className="flex justify-between gap-3 p-5 border-b border-slate-700">
-            <div>
+            <div className="min-w-0 [overflow-wrap:anywhere]">
               <Dialog.Title className="font-semibold text-lg">
                 {title}
               </Dialog.Title>
