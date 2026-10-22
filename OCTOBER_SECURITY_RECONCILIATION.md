@@ -30,8 +30,9 @@ That approval is not extended to new findings.
   The authoritative toolchain requirement is now Go **1.26.10**, the same-line
   security update. All CI targets read `server/go.mod`; the scan remains
   mandatory. [Official Go release history](https://go.dev/doc/devel/release#go1.26.0)
-  records the 19 October certificate-verification security fix. A fresh build
-  and scan are required; this finding was not dismissed or bypassed.
+  records the 19 October certificate-verification security fix. Fresh native
+  builds and reachable-vulnerability scans passed on `f780398f` and corrected
+  test source `d482e8c0`; this finding was not dismissed or bypassed.
 
 - Retained native errors contain a closed category/transport/family enum plus
   numeric code/operation/count. Signed mirror URLs and raw exceptions never
@@ -49,4 +50,11 @@ That approval is not extended to new findings.
 This is source/alert reconciliation with automated boundary tests. It is not an
 external penetration test, a zero-alert assertion, physical VPN leak acceptance
 or proof of decoded phone playback. The exact current native scan/build results
-belong in the final October verification record.
+are recorded in the [final October verification](OCTOBER_UPGRADE_VERIFICATION.md).
+
+Final refresh: all 30 retained open alerts still identify `develop` source
+`26f22bb310a2bc6e9beef60216b8be7a33fdd401`. The four final PR analyses
+(native Go/C++, Windows WFP, JavaScript/TypeScript and Actions) for merge revision
+`1b8e6f6f995a84d4b06a94b9f98dc36dd9b9fa00` completed without execution errors
+and each reports zero results. Those PR results do not erase the retained
+base-branch alerts. No additional alert dispositions were recorded.

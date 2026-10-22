@@ -7,7 +7,9 @@ TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/Torr
 Development work in [PR #6](https://github.com/gnbk21/TorrServer-LT-Flow/pull/6)
 adds clearer streaming diagnostics, seek/metadata recovery fixes, responsive
 settings and optional player evidence. See the [implementation and acceptance
-checklist](OCTOBER_UPGRADE_CHECKLIST.md) and [MatriX.147 review](UPSTREAM_MATRIX147_REVIEW.md).
+checklist](OCTOBER_UPGRADE_CHECKLIST.md), [completed automated verification and
+remaining field limits](OCTOBER_UPGRADE_VERIFICATION.md), and
+[MatriX.147 review](UPSTREAM_MATRIX147_REVIEW.md).
 These changes are separate from the stable download above.
 
 ## Run on Windows
