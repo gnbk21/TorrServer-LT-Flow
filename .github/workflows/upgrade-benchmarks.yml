@@ -70,8 +70,7 @@ jobs:
           SCENARIO: ${{ matrix.scenario }}
         run: |
           chmod +x _out/candidate/TorrServer-LT-linux-amd64 _out/stable/TorrServer-LT-linux-amd64
-          sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg
+          bash build/ci-apt.sh ffmpeg
           options=()
           case "$MODE" in
             profiles) options+=(--baseline _out/stable/TorrServer-LT-linux-amd64) ;;

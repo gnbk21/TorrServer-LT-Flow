@@ -42,3 +42,23 @@ shared OS DNS protection and complete native profile attribution remain separate
 Exact tagged run, package hashes/source/version, provenance, managed Windows
 installation/update and public container identities will be recorded here after
 their checks complete. The old installation remains unchanged during release work.
+
+## CI repair before publication
+
+Original unpublished source `a1c1f2db798fce90bef3b10560189f4aad44919f`, run
+`39808722352`, encountered slow HTTP downloads from Azure's Ubuntu mirror. The
+Linux profiler setup timed out before capture began; this was not a Flow runtime
+failure. Earlier download delay/cancellation and this failed setup are retained.
+
+The owner requested essential checks. The release repair uses the official HTTPS
+Ubuntu archive, parallel validation and one shared web build. Every platform is
+rebuilt and core correctness, security, functional, Windows lifecycle and release
+provenance checks remain required. Only duplicate full comparisons/CPU capture
+reuse successful accepted runtime run `39761266311` at `d482e8c0`. The classifier
+checks both its identity/conclusion and a strict CI/document-only diff allowlist;
+any runtime, web, native patch, dependency, build recipe or distribution change
+requires full validation. No new two-hour tests run.
+
+The tag had no published release/assets when repaired. The corrected source,
+actual essential results and final distribution identities are recorded after
+publication; the old source and failed evidence above remain historical.

@@ -75,7 +75,11 @@ existing skip), 104 browser checks and 122 generated-media streaming trials.
 The straggler comparisons include 200 targets proven to need fresh peer data;
 speed results were mixed, so they do not justify changing defaults. Exact tagged
 builds, identity, inventories, reproducible packages and provenance gate this
-publication. Downloaded distribution results are recorded in
+publication. The original unpublished tag was repaired after CI package downloads
+timed out. Essential checks were repeated on the corrected tag. Duplicate full
+streaming comparisons and CPU capture reuse the accepted successful run
+`39761266311`; a fail-closed source comparison verifies the runtime, web, native
+patches, dependencies and build/distribution inputs are unchanged. Downloaded distribution results are recorded in
 [1.1.4 verification](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/RELEASE_1_1_4_VERIFICATION.md).
 
 This owner-authorized stable release discloses remaining field checks: broader
@@ -87,9 +91,8 @@ are not passed. Controlled HTTP checks do not measure phone decoding or prove
 ISP/VPN behavior. Native profiling does not establish complete C++ attribution;
 the Windows interface guard does not guarantee protection of shared OS DNS.
 
-Four final implementation PR CodeQL analyses reported zero results, while 30
-reviewed findings remain open on the older base branch. No new dismissals were
-made. See [security scope](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/OCTOBER_SECURITY_RECONCILIATION.md).
+Exact release-source CodeQL scans passed on master and develop. The same 30
+reviewed findings remain open; a passing scan is not a zero-alert claim. No new dismissals were made. See [security scope](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/OCTOBER_SECURITY_RECONCILIATION.md).
 Windows assets are not Authenticode signed. The optional player's independent
 native decoder rebuild/redistribution audit remains unfinished; its APK is not
 included in stable assets. MatriX.147 automatic sidecar subtitle conversion was

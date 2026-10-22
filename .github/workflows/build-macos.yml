@@ -23,6 +23,10 @@ on:
   # Reused by ts_release.yml on a tag; `version` stamps the binaries.
   workflow_call:
     inputs:
+      web_artifact:
+        description: 'Validated embedded UI artifact from this same workflow run'
+        type: string
+        default: ''
       version:
         type: string
         default: ''
@@ -35,12 +39,14 @@ permissions:
 
 jobs:
   web:
+    if: ${{ !inputs.web_artifact }}
     uses: ./.github/workflows/build-web.yml
     with:
       artifact-name: flow-web-macos
 
   macos:
     needs: web
+    if: ${{ !cancelled() && (needs.web.result == 'success' || (inputs.web_artifact != '' && needs.web.result == 'skipped')) }}
     name: macos/${{ matrix.arch }}
     runs-on: macos-latest          # Apple Silicon (arm64)
     timeout-minutes: 90
@@ -58,7 +64,7 @@ jobs:
       - name: Download freshly generated web UI
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: flow-web-macos
+          name: ${{ inputs.web_artifact || 'flow-web-macos' }}
           path: server/web/pages/template
 
       # amd64 cgo/b2 objects build with `-arch x86_64`; the binary runs on the
