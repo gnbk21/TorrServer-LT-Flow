@@ -177,6 +177,52 @@ def paced(server, info_hash, index, source, rate, seconds, bursts):
         connection.close()
 
 
+def select_cold_piece(snapshot, source_bytes, piece_bytes, high, used, previous=None):
+    """Use the real rolling-cache map; an old offset is not necessarily cold."""
+    count = (source_bytes + piece_bytes - 1) // piece_bytes
+    if snapshot.get('PiecesLength') != piece_bytes or snapshot.get('PiecesCount') != count:
+        raise AssertionError('Cold-seek cache geometry is unknown or mismatched')
+    pieces = snapshot.get('Pieces')
+    if not isinstance(pieces, dict):
+        raise AssertionError('Cold-seek cache availability is unknown')
+    candidates = []
+    for piece in range(2, count - 2):
+        if piece in used or previous is not None and abs(piece - previous) < 2:
+            continue
+        state = pieces.get(str(piece))
+        if state is None or (state.get('Size') == 0 and state.get('Completed') is False):
+            candidates.append(piece)
+    if not candidates:
+        raise AssertionError('Fixture has no proven uncached seek target; cannot claim cold-seek coverage')
+    return max(candidates) if high else min(candidates)
+
+
+def piece_request_count(swarm, piece):
+    peers = swarm.status()['peers']
+    if any(p.get('request_counts_truncated', True) for p in peers):
+        raise AssertionError('Cold-seek peer request evidence is truncated or unavailable')
+    return sum(p['requested_piece_counts'].get(piece, 0) for p in peers)
+
+
+def measure_cold_seeks(server, swarm, info_hash, index, piece_bytes, records, resources):
+    used, previous = set(), None
+    for attempt in range(4):
+        snapshot = server.json('/cache', {'action': 'get', 'hash': info_hash})
+        piece = select_cold_piece(snapshot, len(swarm.data), piece_bytes, attempt % 2 == 1, used, previous)
+        before = piece_request_count(swarm, piece)
+        result = range_read(server, info_hash, index, swarm.data, piece * piece_bytes, piece * piece_bytes + 65535)
+        after = piece_request_count(swarm, piece)
+        result.update(piece=piece, resident_bytes_before=0, peer_requests_before=before,
+                      peer_requests_after=after, cold_verified=after > before)
+        records.append(result)
+        if not result['cold_verified']:
+            raise AssertionError('Uncached target did not require a new peer request; cold-seek proof failed')
+        runtime = server.json('/runtime/status')
+        resources.append({'memory': runtime['memory'], 'allocation': runtime.get('cache_allocation')})
+        used.add(piece)
+        previous = piece
+
+
 def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, preload=False,
         *, reqq=512, strict=False, latency_ms=0, piece_mb=4, disk=False,
         capacity_aware=False, urgent_horizon=False, burst_hints=False, startup_mb=32, transport_kib=1024,
@@ -329,6 +375,32 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
             seeks = sorted(item['ttfb_ms'] for item in report['ranges'] if not item.get('cancelled'))
             report['seek_ttfb_p95_ms'] = seeks[min(len(seeks)-1, int(len(seeks)*.95))]
             report['seek_ttfb_p99_ms'] = seeks[min(len(seeks)-1, int(len(seeks)*.99))]
+            if case == 'stragglers':
+                stage = 'cold_range_validation'
+                report['cold_ranges'] = []
+                report['cold_resource_samples'] = []
+                measure_cold_seeks(server, swarm, info_hash, index, piece_mb*MIB, report['cold_ranges'], report['cold_resource_samples'])
+                cold = sorted(item['ttfb_ms'] for item in report['cold_ranges'])
+                report['cold_seek_ttfb_p95_ms'] = cold[min(len(cold)-1, int(len(cold)*.95))]
+                report['cold_seek_ttfb_p99_ms'] = cold[min(len(cold)-1, int(len(cold)*.99))]
+                report['cold_total_first_byte_wait_ms'] = sum(cold)
+                report['cold_first_byte_wait_over_250ms_ms'] = sum(value for value in cold if value >= 250)
+                # Include the cold recovery work in final duplicate/resource evidence.
+                deadline = time.monotonic()+5
+                while True:
+                    status = server.json('/flow/status/'+info_hash)
+                    active = sum(s['active_readers'] for s in status.get('sessions') or [])
+                    if active == 0: break
+                    if time.monotonic() >= deadline: raise AssertionError('Cold-seek readers did not retire')
+                    time.sleep(.1)
+                report['active_readers_after_cold_seeks'] = active
+                report['native_redundant_bytes'] = status.get('sparse', {}).get('redundant_bytes')
+                report['peak_observed_rss_bytes'] = max(report['peak_observed_rss_bytes'],
+                    max(s['memory'].get('rss_bytes', 0) for s in report['cold_resource_samples']))
+                report['peak_observed_cache_bytes'] = max(report['peak_observed_cache_bytes'],
+                    max((s['allocation'] or {}).get('resident_bytes', 0) for s in report['cold_resource_samples']))
+                if report['peak_observed_cache_bytes'] > (cache_mb+2*piece_mb)*MIB:
+                    raise AssertionError('Cold recovery exceeded cache budget plus two-piece allowance')
             report['runtime'] = server.json('/runtime/status')
             report['swarm'] = swarm.status()
             report['passed'] = True

@@ -66,7 +66,8 @@ def compare(args):
                        for key in ('ttfb_ms','total_read_wait_ms','blocked_over_250ms_ms',
                                    'read_wait_p95_ms','read_wait_p99_ms','read_wait_max_ms','behind_schedule_ms')}
             metrics.update({key:[r[key] for r in results if r.get(key) is not None]
-                            for key in ('preload_ready_ms','cpu_seconds','peak_observed_rss_bytes','peak_observed_cache_bytes','seek_ttfb_p95_ms','seek_ttfb_p99_ms','native_redundant_bytes')})
+                            for key in ('preload_ready_ms','cpu_seconds','peak_observed_rss_bytes','peak_observed_cache_bytes','seek_ttfb_p95_ms','seek_ttfb_p99_ms','cold_seek_ttfb_p95_ms','cold_seek_ttfb_p99_ms','cold_total_first_byte_wait_ms','cold_first_byte_wait_over_250ms_ms','native_redundant_bytes')})
+            metrics['cold_seek_ttfb_ms'] = [item['ttfb_ms'] for result in results for item in result.get('cold_ranges', []) if item.get('cold_verified')]
             for key, values in metrics.items():
                 if values:
                     summary[key] = dict(values=values, median=statistics.median(values),

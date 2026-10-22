@@ -146,7 +146,7 @@ class LocalSwarm:
             if any(when < 0 or value < 1 for when, value in plan.rate_events):
                 raise ValueError("invalid variable delivery rate")
         self.started = None
-        self.peer_stats = [dict(requests=0, sent_bytes=0, connections=0, disconnects=0, requested_pieces=[], first_request_seconds={}, first_sent_seconds=None, peak_pending_requests=0, close_reasons={}, capacity_overflows=[], late_cancel_completions=0) for _ in self.plans]
+        self.peer_stats = [dict(requests=0, sent_bytes=0, connections=0, disconnects=0, requested_pieces=[], requested_piece_counts={}, request_counts_truncated=False, first_request_seconds={}, first_sent_seconds=None, peak_pending_requests=0, close_reasons={}, capacity_overflows=[], late_cancel_completions=0) for _ in self.plans]
         self.stop = threading.Event()
         self.lock = threading.Lock()
         self.sent_bytes = self.connections = self.requests = self.disconnects = self.announces = 0
@@ -308,6 +308,11 @@ class LocalSwarm:
                                     stats['requests'] += 1
                                     if len(stats['requested_pieces']) < 2048:
                                         stats['requested_pieces'].append(piece)
+                                    counts = stats['requested_piece_counts']
+                                    if piece in counts or len(counts) < 2048:
+                                        counts[piece] = counts.get(piece, 0) + 1
+                                    else:
+                                        stats['request_counts_truncated'] = True
                                     if piece not in stats['first_request_seconds'] and len(stats['first_request_seconds']) < 2048:
                                         stats['first_request_seconds'][piece] = elapsed()
                                     disconnect = plan.disconnect_after > 0 and stats['requests'] >= plan.disconnect_after and stats['disconnects'] == 0
@@ -408,5 +413,5 @@ class LocalSwarm:
         with self.lock:
             return {"sent_bytes": self.sent_bytes, "connections": self.connections, "requests": self.requests,
                     "disconnects": self.disconnects, "tracker_announces": self.announces,
-                    "peers": [dict(s, requested_pieces=list(s['requested_pieces']), first_request_seconds=dict(s['first_request_seconds']), close_reasons=dict(s['close_reasons']), capacity_overflows=list(s['capacity_overflows'])) for s in self.peer_stats],
+                    "peers": [dict(s, requested_pieces=list(s['requested_pieces']), requested_piece_counts=dict(s['requested_piece_counts']), first_request_seconds=dict(s['first_request_seconds']), close_reasons=dict(s['close_reasons']), capacity_overflows=list(s['capacity_overflows'])) for s in self.peer_stats],
                     "rate_limit_bytes_per_second": self.rate, "block_delay_ms": self.delay * 1000}

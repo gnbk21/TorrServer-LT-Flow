@@ -11,6 +11,25 @@ from controlled_peer import LocalSwarm, PeerPlan, bdecode, bencode
 
 
 class WireTests(unittest.TestCase):
+    def test_refetch_counts_survive_the_bounded_wire_history(self):
+        with LocalSwarm([self.file], piece_length=16384) as swarm:
+            with swarm.lock:
+                swarm.peer_stats[0]['requested_pieces'] = [0] * 2048
+            sock = self.connect(swarm)
+            self.initial(sock)
+            for _ in range(2):
+                self.send(sock, b'\x06' + struct.pack('!III', 1, 0, 16384))
+                self.assertEqual(self.message(sock)[9:], swarm.data[16384:32768])
+            stats = swarm.status()['peers'][0]
+            self.assertEqual(len(stats['requested_pieces']), 2048)
+            self.assertEqual(stats['requested_piece_counts'][1], 2)
+            self.assertFalse(stats['request_counts_truncated'])
+            # Returned snapshots must not change while a caller analyzes them.
+            self.send(sock, b'\x06' + struct.pack('!III', 1, 0, 16384))
+            self.message(sock)
+            self.assertEqual(stats['requested_piece_counts'][1], 2)
+            self.assertEqual(swarm.status()['peers'][0]['requested_piece_counts'][1], 3)
+
     def test_delayed_tail_does_not_hold_later_pieces_in_fixture(self):
         with LocalSwarm([self.file], piece_length=32768, peers=[PeerPlan(final_block_delay_ms=250)], high_throughput=True) as swarm:
             sock = self.connect(swarm)
