@@ -41,11 +41,11 @@ jobs:
           github-token: ${{ github.token }}
       - name: Prepare Linux fixture and pinned Perfetto tools
         if: matrix.profiler == 'perfetto'
+        timeout-minutes: 10
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg
+          bash build/ci-apt.sh ffmpeg
           chmod +x profile-binary/TorrServer-LT-linux-amd64
           mkdir -p profile-tools
           curl -fLSs --retry 3 https://github.com/google/perfetto/releases/download/v58.2/linux-amd64.zip -o profile-tools/perfetto.zip

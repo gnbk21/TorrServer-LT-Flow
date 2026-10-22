@@ -27,8 +27,13 @@ jobs:
       - name: Verify installer channel selection
         shell: pwsh
         run: ./build/test-release-channels.ps1
-  cross:
+  web:
     needs: classify
+    uses: ./.github/workflows/build-web.yml
+    with:
+      artifact-name: flow-web-cross
+  cross:
+    needs: [classify, web]
     permissions:
       contents: read
       actions: read
@@ -36,12 +41,14 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       version: ${{ github.ref_name }}
+      web_artifact: flow-web-cross
       release_channel: ${{ needs.classify.outputs.channel }}
   macos:
-    needs: classify
+    needs: [classify, web]
     uses: ./.github/workflows/build-macos.yml
     with:
       version: ${{ github.ref_name }}
+      web_artifact: flow-web-cross
   release:
     needs: [classify, cross, macos]
     runs-on: ubuntu-latest
