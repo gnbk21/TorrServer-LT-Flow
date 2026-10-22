@@ -419,8 +419,13 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
             report.setdefault('cpu_seconds', cpu_end-cpu_start if cpu_start is not None and cpu_end is not None else None)
             report.setdefault('playback_wall_seconds', time.monotonic()-playback_start)
         if report['samples']:
-            report['peak_observed_rss_bytes'] = max((s.get('memory', {}).get('rss_bytes', 0) for s in report['samples']), default=0)
-            report['peak_observed_cache_bytes'] = max(s['cache_used'] for s in report['samples'])
+            cold_resources = report.get('cold_resource_samples', [])
+            report['peak_observed_rss_bytes'] = max(
+                [s.get('memory', {}).get('rss_bytes', 0) for s in report['samples']]
+                + [s['memory'].get('rss_bytes', 0) for s in cold_resources])
+            report['peak_observed_cache_bytes'] = max(
+                [s['cache_used'] for s in report['samples']]
+                + [(s['allocation'] or {}).get('resident_bytes', 0) for s in cold_resources])
             report['qualified_consumption_observed'] = any(
                 session.get('observed_confidence') == 'stable'
                 for sample in report['samples'] for session in sample['sessions'])
