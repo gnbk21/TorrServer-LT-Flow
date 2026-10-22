@@ -121,6 +121,9 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('actions/runs/39761266311', classify)
         self.assertIn('d482e8c06d0e7cce7575f5300f30cfc70290153b\\tsuccess', classify)
         self.assertIn('scope=full', classify)
+        self.assertIn("run-id: '39761266311'", classify)
+        self.assertIn('Make validated UI available in this run', classify)
+        self.assertIn("needs.classify.outputs.validation_scope == 'essential'", job('ts_release.yml', 'web'))
         self.assertIn('if [ "$FLOW_TAG" = MatriX.145.Flow-v1.1.4 ]', classify)
         for name in ('native-profiling', 'high-bitrate-comparison'):
             self.assertIn("inputs.validation_scope != 'essential'", job('build.yml', name))

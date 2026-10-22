@@ -44,10 +44,13 @@ dependency inventory and GitHub attestations still run before publication.
 The original unpublished tag's run failed while downloading Ubuntu dependencies;
 the Linux profiler never started. The owner requested essential checks so the
 release could proceed. The corrected tag rebuilds every platform and repeats
-web validation, native simulations, native unit/race/vulnerability/fuzz checks,
+native simulations, native unit/race/vulnerability/fuzz checks,
 all eight functional groups, Windows lifecycle checks and packaging/provenance.
 
-Only duplicate full streaming comparisons and native CPU capture are omitted.
+The unchanged embedded UI is downloaded from that accepted full run after its
+source/conclusion check, copied into the current run, and smoke-tested in the
+final native package. Its earlier full browser/unit/laboratory results are reused.
+Duplicate full streaming comparisons and native CPU capture are omitted.
 The full accepted runtime run `39761266311` already passed those checks, including
 122 original-byte streaming trials. Before selecting essential scope, the
 classifier verifies that run's exact commit and successful conclusion and rejects

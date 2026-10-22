@@ -75,7 +75,9 @@ existing skip), 104 browser checks and 122 generated-media streaming trials.
 The straggler comparisons include 200 targets proven to need fresh peer data;
 speed results were mixed, so they do not justify changing defaults. Exact tagged
 builds, identity, inventories, reproducible packages and provenance gate this
-publication. The original unpublished tag was repaired after CI package downloads
+publication. Source-identical embedded web assets and their full browser/unit/
+laboratory results are reused from the accepted run; final packaged UI smoke
+checks are repeated. The original unpublished tag was repaired after CI package downloads
 timed out. Essential checks were repeated on the corrected tag. Duplicate full
 streaming comparisons and CPU capture reuse the accepted successful run
 `39761266311`; a fail-closed source comparison verifies the runtime, web, native

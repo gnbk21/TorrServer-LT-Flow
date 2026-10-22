@@ -70,3 +70,11 @@ smokes passed but do not replace those missing gates. The subsequent correction
 keeps shared-web wrapper jobs successful and adds an independent actual-job
 receipt gate before packaging. Local release/policy tests: 73 passed; actionlint
 passed. This scheduling failure remains part of the evidence history.
+
+The final essential repair also reuses the accepted run's identical generated web
+assets and full web/unit/browser/laboratory results, after the strict source and
+successful-run check. It copies them into the current run for every builder;
+actual final native UI smoke and backend/frontend API contracts are checked
+again. No change to web sources, dependency lockfiles or the embedding generator
+is permitted by that eligibility check. The final publication gate requires 25
+actual successful core roles; broader matrices are explicitly earlier evidence.

@@ -41,6 +41,22 @@ jobs:
             scope=essential
           fi
           echo "validation_scope=$scope" >> "$GITHUB_OUTPUT"
+      - name: Reuse source-identical fully validated embedded UI
+        if: steps.scope.outputs.validation_scope == 'essential'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: flow-web-cross
+          run-id: '39761266311'
+          github-token: ${{ github.token }}
+          path: server/web/pages/template
+      - name: Make validated UI available in this run
+        if: steps.scope.outputs.validation_scope == 'essential'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: flow-web-cross
+          path: server/web/pages/template
+          retention-days: 14
+          if-no-files-found: error
       - run: python3 -m unittest discover -s build -p '*_test.py'
       - name: Verify installer channel selection
         shell: pwsh
@@ -50,6 +66,7 @@ jobs:
     uses: ./.github/workflows/build-web.yml
     with:
       artifact-name: flow-web-cross
+      reuse-artifact: ${{ needs.classify.outputs.validation_scope == 'essential' && 'flow-web-cross' || '' }}
   cross:
     needs: [classify, web]
     permissions:
