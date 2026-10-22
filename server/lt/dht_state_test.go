@@ -148,12 +148,29 @@ func TestDHTRestoredNodeIsContactedWithoutPublicBootstrap(t *testing.T) {
 	}
 	// Rebind the live session without rebuilding it. Restored/verified hints
 	// must also bootstrap the new UDP socket after a network/listener change.
-	reservation, err := net.ListenUDP("udp4", &net.UDPAddr{IP: local})
-	if err != nil {
-		t.Fatal(err)
+	// A free UDP port can still belong to an existing TCP listener. Libtorrent
+	// binds both protocols and may then choose another port, which would make
+	// this fixture's exact-source-port assertion fail for the wrong reason.
+	var newPort int
+	for attempt := 0; attempt < 8; attempt++ {
+		tcpReservation, reserveErr := net.ListenTCP("tcp4", &net.TCPAddr{IP: local})
+		if reserveErr != nil {
+			t.Fatal(reserveErr)
+		}
+		port := tcpReservation.Addr().(*net.TCPAddr).Port
+		udpReservation, reserveErr := net.ListenUDP("udp4", &net.UDPAddr{IP: local, Port: port})
+		if reserveErr != nil {
+			tcpReservation.Close()
+			continue
+		}
+		newPort = port
+		udpReservation.Close()
+		tcpReservation.Close()
+		break
 	}
-	newPort := reservation.LocalAddr().(*net.UDPAddr).Port
-	reservation.Close()
+	if newPort == 0 {
+		t.Fatal("could not reserve a matching TCP/UDP fixture port")
+	}
 	if err := s.ApplySettings(SessionConfig{"listen_interfaces": net.JoinHostPort(local.String(), strconv.Itoa(newPort))}); err != nil {
 		t.Fatal(err)
 	}
