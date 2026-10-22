@@ -7,8 +7,12 @@ permissions:
 jobs:
   classify:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     outputs:
       channel: ${{ steps.tag.outputs.channel }}
+      validation_scope: ${{ steps.scope.outputs.validation_scope }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -23,6 +27,20 @@ jobs:
             python3 -c 'import json; a=json.load(open("RELEASE_ACCEPTANCE.json")); assert a["stable_approved"] is True and a["evidence"] and not a["remaining"], "Stable acceptance is incomplete"'
           fi
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
+      - id: scope
+        name: Verify evidence before selecting essential patch checks
+        env:
+          FLOW_TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          scope=full
+          if [ "$FLOW_TAG" = MatriX.145.Flow-v1.1.4 ]; then
+            python3 build/essential_release.py d482e8c06d0e7cce7575f5300f30cfc70290153b
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/39761266311" --jq '[.head_sha,.conclusion] | @tsv' > accepted-runtime-check.txt
+            python3 -c 'from pathlib import Path; assert Path("accepted-runtime-check.txt").read_text().strip()=="d482e8c06d0e7cce7575f5300f30cfc70290153b\tsuccess", "Accepted full validation is not successful"'
+            scope=essential
+          fi
+          echo "validation_scope=$scope" >> "$GITHUB_OUTPUT"
       - run: python3 -m unittest discover -s build -p '*_test.py'
       - name: Verify installer channel selection
         shell: pwsh
@@ -42,6 +60,7 @@ jobs:
     with:
       version: ${{ github.ref_name }}
       web_artifact: flow-web-cross
+      validation_scope: ${{ needs.classify.outputs.validation_scope }}
       release_channel: ${{ needs.classify.outputs.channel }}
   macos:
     needs: [classify, web]

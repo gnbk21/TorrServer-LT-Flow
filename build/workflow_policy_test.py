@@ -103,6 +103,19 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn("'5' || '3'", matrix)
         self.assertIn("'30' || '120'", matrix)
 
+    def test_essential_scope_requires_unchanged_runtime_and_successful_full_run(self):
+        classify = job('ts_release.yml', 'classify')
+        self.assertIn('python3 build/essential_release.py d482e8c06d0e7cce7575f5300f30cfc70290153b', classify)
+        self.assertIn('actions/runs/39761266311', classify)
+        self.assertIn('d482e8c06d0e7cce7575f5300f30cfc70290153b\\tsuccess', classify)
+        self.assertIn('scope=full', classify)
+        self.assertIn('if [ "$FLOW_TAG" = MatriX.145.Flow-v1.1.4 ]', classify)
+        for name in ('native-profiling', 'high-bitrate-comparison'):
+            self.assertIn("inputs.validation_scope != 'essential'", job('build.yml', name))
+        for name in ('native-streaming-tests', 'linux-validation', 'controlled-integration',
+                     'windows-service', 'release-inventory', 'windows-network-notifications'):
+            self.assertNotIn('validation_scope', job('build.yml', name))
+
     def test_apt_keeps_signed_repositories_and_browser_cache_tracks_lockfile(self):
         script = (ROOT / 'build/ci-apt.sh').read_text()
         self.assertIn('https://archive.ubuntu.com/ubuntu', script)

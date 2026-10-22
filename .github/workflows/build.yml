@@ -39,6 +39,10 @@ on:
         description: 'Validated embedded UI artifact from this same workflow run'
         type: string
         default: ''
+      validation_scope:
+        description: 'full, or essential when the caller proves an unchanged previously validated runtime'
+        type: string
+        default: full
       release_channel:
         type: string
         default: 'development'
@@ -650,7 +654,7 @@ jobs:
 
   native-profiling:
     needs: cross
-    if: ${{ always() && !inputs.capacity_case && (inputs.profile_source_run_id || needs.cross.result == 'success') }}
+    if: ${{ always() && inputs.validation_scope != 'essential' && !inputs.capacity_case && (inputs.profile_source_run_id || needs.cross.result == 'success') }}
     permissions:
       contents: read
       actions: read
@@ -669,6 +673,7 @@ jobs:
 
   high-bitrate-comparison:
     needs: cross
+    if: inputs.validation_scope != 'essential'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
