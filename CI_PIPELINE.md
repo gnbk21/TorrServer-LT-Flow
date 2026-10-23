@@ -111,3 +111,12 @@ tagged binaries, regenerates deterministic subset inventories/packages, and
 attests the recovery packaging commit separately from the binary source.
 Default releases retain all 25 required roles. See
 [the diagnosis and recovery boundaries](MACOS_RUNNER_INCIDENT.md).
+
+## Completed 1.1.5 recovery measurement
+
+Tagged run `39982129539` passed 23 non-macOS roles; two Mac jobs could not
+acquire runners on either attempt. Owner-approved recovery `39989260946`
+published six platforms in 3.2 minutes after its dispatch and
+completed containers in 12.2 minutes. These figures exclude earlier
+Mac queue failures; they are not a full-suite speedup claim. Default all-platform
+gates remain unchanged. [Evidence](RELEASE_1_1_5_VERIFICATION.md).

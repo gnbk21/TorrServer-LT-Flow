@@ -72,3 +72,11 @@ findings (23 high and seven critical) now identify this source; rule/path/ID
 comparison found no new alerts. Earlier source references above are historical.
 No new dismissals were made. Boundary capabilities and field limits remain
 as documented; successful scan execution does not mean zero findings.
+
+## Published 1.1.5 binary-source reconciliation
+
+Source `04cbb1ae08bfb87f25249876201066880c08a2d5` passed exact-source master/develop CodeQL.
+At that source the same 30 open findings (23 high, seven critical) remained;
+ID/rule/path comparison found no new alerts. No additional dismissals were made.
+The recovery packaging commit is distinct from the binary source.
+See [release evidence](RELEASE_1_1_5_VERIFICATION.md).

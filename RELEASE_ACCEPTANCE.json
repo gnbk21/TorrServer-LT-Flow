@@ -230,6 +230,34 @@
       "additional_dht_retry_policy_added": false,
       "verification_record": "RELEASE_1_1_5_VERIFICATION.md",
       "field_acceptance_passed": false
+    },
+    {
+      "scope": "Owner-approved six-platform 1.1.5 publication",
+      "source_commit": "04cbb1ae08bfb87f25249876201066880c08a2d5",
+      "ci_run": 39982129539,
+      "recovery_run": 39989260946,
+      "packaging_commit": "7a349d65d2718a08fe32f1478c4943495216f5aa",
+      "result": "passed for included platforms",
+      "validation_scope": "essential",
+      "required_roles_passed": 23,
+      "pending_platforms": [
+        "darwin-amd64",
+        "darwin-arm64"
+      ],
+      "verification_record": "RELEASE_1_1_5_VERIFICATION.md",
+      "windows_executable_sha256": "2476b1404055809da71b9cb140e1822a2922d3d80420ccf9a00126ee47de7f9b",
+      "windows_package_sha256": "aac99a0be55ee9170389893c914e3e852723e661b52e7739a046cad9daf19e97",
+      "release_assets": 29,
+      "downloaded_assets": 5,
+      "live_install_update_powershell_versions": [
+        "5.1",
+        "7"
+      ],
+      "published_package_query_cases": 12,
+      "container_index_digest": "sha256:6f5670042aebe998cd67c5f9c99f0a55efb5cc198baa62fc8ab68ff0be15caea",
+      "full_performance_matrix_repeated": false,
+      "physical_field_checks_passed": false,
+      "exact_final_endurance_passed": false
     }
   ],
   "remaining": [],
@@ -253,8 +281,8 @@
     "Shared OS DNS leak protection and complete native profiling attribution"
   ],
   "release_target": "MatriX.145.Flow-v1.1.5",
-  "published_tag": "MatriX.145.Flow-v1.1.4",
-  "published_source_commit": "1b1a92e094bdfb35e4462a6b7e08f6b5d9aafc95",
+  "published_tag": "MatriX.145.Flow-v1.1.5",
+  "published_source_commit": "04cbb1ae08bfb87f25249876201066880c08a2d5",
   "patch_validation": {
     "tag": "MatriX.145.Flow-v1.1.5",
     "mode": "api_compatibility",
