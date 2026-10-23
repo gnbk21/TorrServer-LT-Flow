@@ -39,14 +39,17 @@ jobs:
             gh api "repos/$GITHUB_REPOSITORY/actions/runs/39761266311" --jq '[.head_sha,.conclusion] | @tsv' > accepted-runtime-check.txt
             python3 -c 'from pathlib import Path; assert Path("accepted-runtime-check.txt").read_text().strip()=="d482e8c06d0e7cce7575f5300f30cfc70290153b\tsuccess", "Accepted full validation is not successful"'
             scope=essential
+            echo "validation_scope=$scope" >> "$GITHUB_OUTPUT"
+            echo "web_run_id=39761266311" >> "$GITHUB_OUTPUT"
+          else
+            python3 build/essential_release.py --release-tag "$FLOW_TAG" --repository "$GITHUB_REPOSITORY" --github-output "$GITHUB_OUTPUT"
           fi
-          echo "validation_scope=$scope" >> "$GITHUB_OUTPUT"
       - name: Reuse source-identical fully validated embedded UI
         if: steps.scope.outputs.validation_scope == 'essential'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: flow-web-cross
-          run-id: '39761266311'
+          run-id: ${{ steps.scope.outputs.web_run_id }}
           github-token: ${{ github.token }}
           path: server/web/pages/template
       - name: Make validated UI available in this run
@@ -161,9 +164,9 @@ jobs:
           fail_on_unmatched_files: true
           prerelease: ${{ needs.classify.outputs.channel == 'preview' }}
           make_latest: ${{ needs.classify.outputs.channel == 'stable' }}
-          name: ${{ github.ref_name == 'MatriX.145.Flow-v1.1.4' && 'TorrServer-Flow 1.1.4' || github.ref_name }}
+          name: ${{ github.ref_name == 'MatriX.145.Flow-v1.1.5' && 'TorrServer-Flow 1.1.5' || github.ref_name == 'MatriX.145.Flow-v1.1.4' && 'TorrServer-Flow 1.1.4' || github.ref_name }}
           generate_release_notes: true
-          body_path: ${{ github.ref_name == 'MatriX.145.Flow-v1.1.4' && 'RELEASE_1_1_4_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.1.3' && 'RELEASE_1_1_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.0.1' && 'RELEASE_1_0_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v0.2.0-preview.7' && 'PREVIEW_2_7_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v0.2.0-preview.5' && 'PREVIEW_2_NOTES.md' || 'DISTRIBUTION.md' }}
+          body_path: ${{ github.ref_name == 'MatriX.145.Flow-v1.1.5' && 'RELEASE_1_1_5_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.1.4' && 'RELEASE_1_1_4_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.1.3' && 'RELEASE_1_1_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.0.1' && 'RELEASE_1_0_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v0.2.0-preview.7' && 'PREVIEW_2_7_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v0.2.0-preview.5' && 'PREVIEW_2_NOTES.md' || 'DISTRIBUTION.md' }}
   docker:
     needs: [classify, release]
     permissions:

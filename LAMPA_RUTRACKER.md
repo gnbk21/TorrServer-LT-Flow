@@ -11,6 +11,9 @@ The parser and TorrServer addresses are separate settings.
 2. Choose **Add indexer**, select **RuTracker.org** (not RuTracker.RU), and enter
    your own free RuTracker account credentials in Jackett. Use its **Test** and
    save controls. Search successfully in Jackett before configuring the phone.
+   Also add the other trackers you want to retain, such as RuTor. Switching
+   Lampa's parser address replaces its selected search backend; it does not
+   automatically combine your old public JacRed feed with local Jackett.
 3. Enable Jackett's **External access** for your phone on the private LAN. Allow
    its private-network firewall rule if necessary; no router port forwarding is
    needed. Keep the API key private and use dashboard protection when available.

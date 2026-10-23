@@ -103,3 +103,12 @@ Evidence retained locally under `.tools/upstream1471`: release/compare API
 responses, dependency diff, pinned libtorrent source and `query_repro.go`.
 No Flow executable, settings, running session or published release was changed
 by this review.
+
+## Implementation follow-up: 23 October 2026
+
+[PR #8](https://github.com/gnbk21/TorrServer-LT-Flow/pull/8) adapts canonical
+link/text decoding and adds actual API, authentication and native lifecycle
+regressions. Candidate `a2542441` passed native/security checks. The cold DHT
+fixture returned a local advertised peer in 4.003 seconds despite a delayed
+bootstrap; no additional native retry policy was added. This is not a claim
+that all network/empty-swarm cases are fast. See [1.1.5 verification](RELEASE_1_1_5_VERIFICATION.md).

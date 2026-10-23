@@ -56,7 +56,7 @@ The full accepted runtime run `39761266311` already passed those checks, includi
 classifier verifies that run's exact commit and successful conclusion and rejects
 any changed runtime, web, dependency, native patch, compiler recipe, packaging or
 distribution input. Only an explicit list of CI files and top-level release
-documents can differ. Other tags continue to use full validation.
+documents can differ. Releases without an explicit accepted patch plan use full validation.
 
 The previous tag source and failed run remain documented; no published release
 or owner installation was replaced. Exact elapsed time depends on runner
@@ -77,3 +77,26 @@ essential-scope times for one run, not a measured speedup of the full suite.
 Exact-source master/develop CodeQL workflows separately repeated full web
 validation successfully. [Distribution verification](RELEASE_1_1_4_VERIFICATION.md)
 records the final receipts and reused evidence.
+
+## Reusable focused compatibility-patch validation
+
+The original essential shortcut applied only to the 1.1.4 repair. Starting with
+1.1.5, a stable patch can declare `patch_validation` in RELEASE_ACCEPTANCE.json.
+The same selector works for subsequent patch versions without a workflow edit.
+An absent or nonmatching plan chooses full validation; invalid matching plans fail.
+
+The API-compatibility policy permits only a reviewed list of query/playback/search
+files and named tests to differ from an exact successful full engine build. It
+rejects changes to engine/cache/scheduler code, native patches, frontend sources,
+dependencies and build/distribution recipes. A separate exact tested candidate
+is pinned: every later runtime or test change is rejected. Both accepted GitHub
+receipts must match their source, repository, expected workflow and successful
+completed conclusion. The candidate must pass native CodeQL/protocol/cache/API
+regressions; the baseline must be a full build run.
+
+The tag still rebuilds all targets, runs native unit/race/vulnerability/fuzz and
+all eight functional groups, checks Windows lifecycle and requires all 25 actual
+publication roles plus checksums/reproducibility/provenance. Only unchanged UI
+validation and earlier full performance/CPU matrices are reused. This is
+component-specific evidence reuse, not a claim of identical entire runtime or
+new performance acceptance. Broader changes continue through the full path.
