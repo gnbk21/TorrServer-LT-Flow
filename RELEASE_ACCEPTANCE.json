@@ -217,6 +217,19 @@
       ],
       "physical_field_checks_passed": false,
       "exact_final_endurance_passed": false
+    },
+    {
+      "scope": "1.1.5 API compatibility candidate; final tagged gates still mandatory",
+      "source_commit": "a2542441569236bb73f85b5f832b74aed058148d",
+      "native_security_run": 39977825793,
+      "branch_run": 39977825956,
+      "macos_run": 39977825892,
+      "native_validation_job": 120505747476,
+      "result": "passed",
+      "cold_dht_fixture_peer_result_ms": 4003.339052,
+      "additional_dht_retry_policy_added": false,
+      "verification_record": "RELEASE_1_1_5_VERIFICATION.md",
+      "field_acceptance_passed": false
     }
   ],
   "remaining": [],
@@ -226,8 +239,8 @@
     "policy": "Publish stable releases as Latest after automated gates pass, while explicitly disclosing unfinished field and resource validation authorized by the owner.",
     "field_checks_are_not_passed": true,
     "tagged_gate_required": "ts_release.yml rebuilds and verifies the exact tagged source before publication.",
-    "requested_release": "MatriX.145.Flow-v1.1.4",
-    "latest_owner_request": "So can you release it as 1.1.4?",
+    "requested_release": "MatriX.145.Flow-v1.1.5",
+    "latest_owner_request": "So how long until release?",
     "further_two_hour_tests": "Skipped at owner request; earlier completed runs are identified separately, not exact-final acceptance."
   },
   "remaining_field_validation": [
@@ -239,7 +252,15 @@
     "Independent optional player decoder rebuild/redistribution audit; APK excluded from stable assets",
     "Shared OS DNS leak protection and complete native profiling attribution"
   ],
-  "release_target": "MatriX.145.Flow-v1.1.4",
+  "release_target": "MatriX.145.Flow-v1.1.5",
   "published_tag": "MatriX.145.Flow-v1.1.4",
-  "published_source_commit": "1b1a92e094bdfb35e4462a6b7e08f6b5d9aafc95"
+  "published_source_commit": "1b1a92e094bdfb35e4462a6b7e08f6b5d9aafc95",
+  "patch_validation": {
+    "tag": "MatriX.145.Flow-v1.1.5",
+    "mode": "api_compatibility",
+    "candidate_commit": "a2542441569236bb73f85b5f832b74aed058148d",
+    "candidate_run": 39977825793,
+    "baseline_commit": "d482e8c06d0e7cce7575f5300f30cfc70290153b",
+    "baseline_run": 39761266311
+  }
 }

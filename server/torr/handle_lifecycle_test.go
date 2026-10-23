@@ -3,6 +3,7 @@ package torr
 import (
 	"bytes"
 	"crypto/sha1"
+	"fmt"
 	"runtime"
 	"server/lt"
 	"server/settings"
@@ -11,6 +12,51 @@ import (
 	"testing"
 	"time"
 )
+
+func TestWaitInfoUnblocksOnConcurrentNativeRemoval(t *testing.T) {
+	old := settings.BTsets()
+	settings.StoreBTsets(&settings.BTSets{TorrentDisconnectTimeout: 30, Flow: settings.DefaultFlowSettings()})
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	session, err := lt.NewSession(lt.SessionConfig{"enable_dht": false, "enable_lsd": false, "enable_upnp": false, "enable_natpmp": false, "listen_interfaces": "127.0.0.1:0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	bt := &BTServer{session: session, torrents: map[Hash]*Torrent{}}
+	for iteration := 0; iteration < 16; iteration++ {
+		hash := fmt.Sprintf("%040x", iteration+1)
+		handle, err := session.AddTorrent(lt.AddTorrentParams{Link: "magnet:?xt=urn:btih:" + hash, SavePath: t.TempDir(), Paused: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		torrent := &Torrent{bt: bt, TorrentSpec: &TorrentSpec{InfoHash: NewHashFromHex(hash)}, gotInfoCh: make(chan struct{}), closeCh: make(chan struct{})}
+		torrent.lh.Store(handle)
+		results := make(chan bool, 8)
+		start := make(chan struct{})
+		for worker := 0; worker < cap(results); worker++ {
+			go func() { <-start; results <- torrent.WaitInfo() }()
+		}
+		close(start)
+		torrent.Close()
+		for worker := 0; worker < cap(results); worker++ {
+			select {
+			case ready := <-results:
+				if ready {
+					t.Fatal("removed metadata-less torrent reported ready")
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatal("metadata waiter outlived removal")
+			}
+		}
+		if torrent.WaitInfo() {
+			t.Fatal("closed torrent reported metadata ready")
+		}
+	}
+	var absent *Torrent
+	if absent.WaitInfo() {
+		t.Fatal("nil torrent reported ready")
+	}
+}
 
 // Metadata/preload callers can retain a snapshot while cleanup detaches it.
 // Exercise the actual Close/LTHandle paths under the race detector.

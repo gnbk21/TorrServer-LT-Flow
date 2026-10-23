@@ -234,6 +234,12 @@ The optional `-gst` build includes LT's one-frame cue tolerance and a bounded
 cold-source warmup/retry with shared-probe cancellation. Direct Just Player
 streaming remains the primary path and does not require GStreamer.
 
+## Lampa and RuTracker search
+
+For RuTracker results in Lampa, configure a parser that indexes RuTracker.
+See the [free local Jackett setup](LAMPA_RUTRACKER.md); its search address is
+separate from Flow's playback address.
+
 ## Startup diagnostics
 
 Flow 1.1 returns explicit preload requests when the buffer

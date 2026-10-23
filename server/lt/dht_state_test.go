@@ -2,11 +2,150 @@ package lt
 
 import (
 	"bytes"
+	"encoding/binary"
 	"net"
 	"strconv"
 	"testing"
 	"time"
 )
+
+// Empty routing state, an immediate magnet lookup and a bootstrap node that is
+// initially unavailable exercise the cold-start ordering behind upstream 147.1.
+// There are no public DHT nodes, trackers or real torrent identities in this test.
+func TestDHTColdMagnetFindsPeersAfterDelayedBootstrap(t *testing.T) {
+	var local net.IP
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addresses, _ := iface.Addrs()
+		for _, address := range addresses {
+			ip, _, err := net.ParseCIDR(address.String())
+			if err == nil && ip.To4() != nil && !ip.IsLoopback() && !ip.IsLinkLocalUnicast() {
+				local = ip.To4()
+				break
+			}
+		}
+		if local != nil {
+			break
+		}
+	}
+	if local == nil {
+		t.Fatal("cold DHT fixture needs a local IPv4 interface")
+	}
+	node, err := net.ListenUDP("udp4", &net.UDPAddr{IP: local})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer node.Close()
+	// Reserve a local destination; no real peer or payload is involved.
+	peer, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: local})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer peer.Close()
+	s, err := NewSession(SessionConfig{
+		"enable_dht": true, "enable_lsd": false, "enable_upnp": false, "enable_natpmp": false,
+		"dht_bootstrap_nodes": node.LocalAddr().String(), "dht_ignore_dark_internet": false,
+		"dht_enforce_node_id": false, "dht_restrict_routing_ips": false, "dht_restrict_search_ips": false,
+		"listen_interfaces": net.JoinHostPort(local.String(), "0"), "dht_announce_interval": 60,
+		"alert_mask": 0x7fffffff,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	initial, err := s.DHTState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count, err := DHTStateNodes(initial); err != nil || count != 0 {
+		t.Fatalf("cold fixture already has routing nodes: %d %v", count, err)
+	}
+	h, err := s.AddTorrent(AddTorrentParams{Link: "magnet:?xt=urn:btih:1111111111111111111111111111111111111111", SavePath: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now()
+	if err := h.ForceDhtAnnounce(); err != nil {
+		t.Fatal(err)
+	}
+	var available time.Time
+	deadline := started.Add(35 * time.Second)
+	buf := make([]byte, 4096)
+	var firstContact, firstLookup time.Time
+	for time.Now().Before(deadline) {
+		alerts, err := s.PopAlerts()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, alert := range alerts {
+			if alert.Type == "dht_reply" && alert.Peers > 0 {
+				if firstLookup.IsZero() {
+					t.Fatal("peer result without fixture lookup")
+				}
+				t.Logf("cold DHT: bootstrap available=%s first_contact=%s first_get_peers=%s peer_result=%s", available.Sub(started), firstContact.Sub(started), firstLookup.Sub(started), time.Since(started))
+				return
+			}
+		}
+		node.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
+		n, from, err := node.ReadFromUDP(buf)
+		if err != nil {
+			if e, ok := err.(net.Error); ok && e.Timeout() {
+				continue
+			}
+			t.Fatal(err)
+		}
+		if firstContact.IsZero() {
+			firstContact = time.Now()
+			// Delay from the actual first query, rather than from session
+			// creation: even a slow runner must exercise an unavailable node.
+			available = firstContact.Add(time.Second)
+		}
+		if time.Now().Before(available) {
+			continue
+		}
+		packet := buf[:n]
+		at := bytes.Index(packet, []byte("1:t"))
+		if at < 0 {
+			continue
+		}
+		at += 3
+		colon := bytes.IndexByte(packet[at:], ':')
+		if colon < 1 {
+			t.Fatal("fixture received malformed transaction")
+		}
+		length, err := strconv.Atoi(string(packet[at : at+colon]))
+		if err != nil || length < 1 || length > 16 || at+colon+1+length > n {
+			t.Fatal("invalid transaction ID")
+		}
+		tx := packet[at+colon+1 : at+colon+1+length]
+		reply := append([]byte("d1:rd2:id20:"), bytes.Repeat([]byte{0x31}, 20)...)
+		if bytes.Contains(packet, []byte("1:q9:get_peers")) {
+			if firstLookup.IsZero() {
+				firstLookup = time.Now()
+			}
+			compact := append([]byte(nil), local...)
+			compact = binary.BigEndian.AppendUint16(compact, uint16(peer.Addr().(*net.TCPAddr).Port))
+			reply = append(reply, []byte("5:token2:ok6:valuesl6:")...)
+			reply = append(reply, compact...)
+			reply = append(reply, 'e')
+		} else {
+			reply = append(reply, []byte("5:nodes0:")...)
+		}
+		reply = append(reply, []byte("e1:t"+strconv.Itoa(len(tx))+":")...)
+		reply = append(reply, tx...)
+		reply = append(reply, []byte("1:y1:re")...)
+		if _, err := node.WriteToUDP(reply, from); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Fatalf("cold DHT did not return fixture peers within 35s: contacted=%t lookup=%t", !firstContact.IsZero(), !firstLookup.IsZero())
+}
 
 func dhtFixture(endpoint []byte) []byte {
 	return append(append([]byte("d9:dht stated5:nodesl6:"), endpoint...), []byte("ee8:settingsd16:connection_speedi999eee")...)
