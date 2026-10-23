@@ -2,6 +2,12 @@
 
 Version: `MatriX.145.Flow-v1.1.5`.
 
+**Platform availability:** Windows, Linux and Android are included. macOS Intel
+and Apple Silicon assets are pending: GitHub could not assign macOS ARM runners
+on two attempts, and neither Mac build executed. Mac users should retain 1.1.4.
+The owner approved this partial platform release; this does not claim Mac checks
+passed. [Runner diagnosis](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/MACOS_RUNNER_INCIDENT.md).
+
 A compatibility update adapting the applicable MatriX.147.1 query fix.
 
 - Preserve literal `%` and `+` in playback metadata and searches, including
@@ -23,9 +29,12 @@ A compatibility update adapting the applicable MatriX.147.1 query fix.
 
 ## Verification and updating
 
-The tagged release repeats native unit/race/vulnerability/fuzz, source identity,
+The tagged release passed native unit/race/vulnerability/fuzz, source identity,
 all eight functional groups, Windows lifecycle, platform builds, checksums,
-reproducible packaging and provenance gates. Earlier full performance matrices
+reproducible packaging and provenance gates for the included platforms. The
+recovery distribution uses the original tagged binary source and a separately
+identified packaging workflow commit; BUILDINFO and GitHub attestations record
+those distinct identities. Earlier full performance matrices
 and generated UI are reused only after source/receipt checks; this is not a
 claim that those performance comparisons were repeated for 1.1.5.
 See [the verification record](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/RELEASE_1_1_5_VERIFICATION.md).

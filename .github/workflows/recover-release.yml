@@ -1,0 +1,111 @@
+name: Recover approved 1.1.5 distribution
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: recover-flow-1.1.5
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact tagged gates and GitHub scheduler failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/master
+          python3 -m unittest discover -s build -p '*release*test.py'
+          python3 build/recover_release.py
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+      - working-directory: web
+        run: yarn install --frozen-lockfile
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: TorrServer-*
+          path: artifacts
+          run-id: 39982129539
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: flow-runtime-notices-*
+          path: artifacts
+          run-id: 39982129539
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: flow-interface-guard-windows
+          path: artifacts/interface-guard
+          run-id: 39982129539
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: flow-web-cross
+          path: server/web/pages/template
+          run-id: 39982129539
+          github-token: ${{ github.token }}
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: _src
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
+      - run: bash build/_fetch_sources.sh
+      - working-directory: server
+        run: go mod download
+      - name: Package only the six verified platforms, preserving binary source
+        env:
+          FLOW_PACKAGING_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          for output in dist reproducibility-check; do
+            python3 build/release.py --tag MatriX.145.Flow-v1.1.5 --commit 04cbb1ae08bfb87f25249876201066880c08a2d5 --artifacts artifacts --native-sources _src --output "$output" --platform-scope non-macos --packaging-commit "$FLOW_PACKAGING_COMMIT"
+          done
+          cmp dist/SHA256SUMS reproducibility-check/SHA256SUMS
+          node build/validate_sbom.cjs dist/SBOM.cdx.json
+      - name: Attest recovered distribution and evidence
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-checksums: dist/SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: flow115-recovery-evidence
+          path: recovery-evidence.json
+          if-no-files-found: error
+      - name: Publish verified platforms as Latest
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          tag_name: MatriX.145.Flow-v1.1.5
+          name: TorrServer-Flow 1.1.5
+          files: dist/*
+          fail_on_unmatched_files: true
+          prerelease: false
+          make_latest: true
+          body_path: RELEASE_1_1_5_NOTES.md
+  docker:
+    needs: release
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    uses: ./.github/workflows/build-docker.yml
+    with:
+      release_channel: stable
+      artifact_run_id: '39982129539'
+      source_ref: 04cbb1ae08bfb87f25249876201066880c08a2d5
+      version: MatriX.145.Flow-v1.1.5

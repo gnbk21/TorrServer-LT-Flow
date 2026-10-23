@@ -12,9 +12,11 @@ REQUIRED = ('classify', 'web / web', 'cross / sources',
             'macos / macos/arm64', 'macos / macos/amd64')
 
 
-def validate_jobs(jobs, scope):
+def validate_jobs(jobs, scope, platform_scope='all'):
     if scope not in ('essential', 'full'):
         raise ValueError('Unknown validation scope')
+    if platform_scope not in ('all', 'non-macos'):
+        raise ValueError('Unknown platform scope')
     # Successful jobs from earlier attempts remain valid when failed jobs are
     # rerun. A later skipped/failed attempt for the same role supersedes success.
     latest = {}
@@ -22,6 +24,8 @@ def validate_jobs(jobs, scope):
         latest[row['name']] = row
     required = [*REQUIRED, *('cross / '+t for t in TARGETS),
                 *('cross / controlled-integration ('+g+')' for g in GROUPS)]
+    if platform_scope == 'non-macos':
+        required = [name for name in required if not name.startswith('macos / macos/')]
     errors = [name for name in required if latest.get(name, {}).get('conclusion') != 'success']
     if scope == 'full':
         for prefix, count in (('cross / high-bitrate-comparison (', 10),

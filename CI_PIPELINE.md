@@ -100,3 +100,14 @@ publication roles plus checksums/reproducibility/provenance. Only unchanged UI
 validation and earlier full performance/CPU matrices are reused. This is
 component-specific evidence reuse, not a claim of identical entire runtime or
 new performance acceptance. Broader changes continue through the full path.
+
+## Explicit 1.1.5 runner-capacity recovery
+
+Both Mac jobs failed before acquiring machines on two attempts. The owner
+approved a six-platform release with Mac assets pending. The separate manual
+recovery workflow verifies all 23 applicable successful roles, exact source/tag,
+exact security receipt and GitHub's scheduler annotations. It reuses those
+tagged binaries, regenerates deterministic subset inventories/packages, and
+attests the recovery packaging commit separately from the binary source.
+Default releases retain all 25 required roles. See
+[the diagnosis and recovery boundaries](MACOS_RUNNER_INCIDENT.md).
