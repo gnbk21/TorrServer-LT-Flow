@@ -59,6 +59,13 @@ func TestDHTColdMagnetFindsPeersAfterDelayedBootstrap(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
+	initial, err := s.DHTState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count, err := DHTStateNodes(initial); err != nil || count != 0 {
+		t.Fatalf("cold fixture already has routing nodes: %d %v", count, err)
+	}
 	h, err := s.AddTorrent(AddTorrentParams{Link: "magnet:?xt=urn:btih:1111111111111111111111111111111111111111", SavePath: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +74,7 @@ func TestDHTColdMagnetFindsPeersAfterDelayedBootstrap(t *testing.T) {
 	if err := h.ForceDhtAnnounce(); err != nil {
 		t.Fatal(err)
 	}
-	available := started.Add(time.Second)
+	var available time.Time
 	deadline := started.Add(35 * time.Second)
 	buf := make([]byte, 4096)
 	var firstContact, firstLookup time.Time
@@ -95,6 +102,9 @@ func TestDHTColdMagnetFindsPeersAfterDelayedBootstrap(t *testing.T) {
 		}
 		if firstContact.IsZero() {
 			firstContact = time.Now()
+			// Delay from the actual first query, rather than from session
+			// creation: even a slow runner must exercise an unavailable node.
+			available = firstContact.Add(time.Second)
 		}
 		if time.Now().Before(available) {
 			continue

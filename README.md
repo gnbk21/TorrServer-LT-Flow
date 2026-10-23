@@ -236,6 +236,10 @@ streaming remains the primary path and does not require GStreamer.
 
 ## Startup diagnostics
 
+For RuTracker results in Lampa, configure a parser that indexes RuTracker.
+See the [free local Jackett setup](LAMPA_RUTRACKER.md); its search address is
+separate from Flow's playback address.
+
 Flow 1.1 returns explicit preload requests when the buffer
 is ready; an owned worker keeps the existing eight-second warm handoff in the
 background. Same-file requests share that worker, and an episode switch or
