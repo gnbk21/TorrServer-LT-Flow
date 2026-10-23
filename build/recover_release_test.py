@@ -3,7 +3,7 @@ import unittest
 
 from recover_release import REPOSITORY, TAG, SOURCE, RUN, SECURITY_RUN, validate
 from release import PLATFORMS, selected_platforms
-from release_gates_test import ReleaseGateTests
+import release_gates_test
 from release_gates import validate_jobs
 
 
@@ -13,7 +13,7 @@ class RecoveryTests(unittest.TestCase):
                    conclusion='failure', path='.github/workflows/ts_release.yml',
                    repository=dict(full_name=REPOSITORY))
         security = dict(run, id=SECURITY_RUN, path='.github/workflows/codeql.yml', conclusion='success')
-        jobs = ReleaseGateTests().rows()
+        jobs = release_gates_test.ReleaseGateTests().rows()
         annotations = {}
         for job in jobs:
             if job['name'].startswith('macos / macos/'):
