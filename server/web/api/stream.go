@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"net/http"
-	"net/url"
 	"server/flow"
 	"server/log"
 	"server/torrshash"
@@ -56,7 +55,7 @@ import (
 //	@Success		200	"Data returned according to query"
 //	@Router			/stream [get]
 func stream(c *gin.Context) {
-	link := c.Query("link")
+	link := utils.DecodeQueryLink(c.Query("link"))
 	indexStr := c.Query("index")
 	_, preload := c.GetQuery("preload")
 	_, stat := c.GetQuery("stat")
@@ -69,9 +68,9 @@ func stream(c *gin.Context) {
 	_, m3u := c.GetQuery("m3u")
 	_, fromlast := c.GetQuery("fromlast")
 	_, play := c.GetQuery("play")
-	title := c.Query("title")
-	poster := c.Query("poster")
-	category := c.Query("category")
+	title := utils.DecodeQueryValue(c.Query("title"))
+	poster := utils.DecodeQueryLink(c.Query("poster"))
+	category := utils.DecodeQueryValue(c.Query("category"))
 
 	data := ""
 
@@ -100,11 +99,6 @@ func stream(c *gin.Context) {
 		abortWithJSONError(c, http.StatusBadRequest, errors.New("link should not be empty"))
 		return
 	}
-
-	link, _ = url.QueryUnescape(link)
-	title, _ = url.QueryUnescape(title)
-	poster, _ = url.QueryUnescape(poster)
-	category, _ = url.QueryUnescape(category)
 
 	var spec *torr.TorrentSpec
 	var torrsHash *torrshash.TorrsHash
@@ -263,25 +257,20 @@ func shouldPreloadOnPlay(r *http.Request) bool {
 }
 
 func streamNoAuth(c *gin.Context) {
-	link := c.Query("link")
+	link := utils.DecodeQueryLink(c.Query("link"))
 	indexStr := c.Query("index")
 	_, preload := c.GetQuery("preload")
 	_, m3u := c.GetQuery("m3u")
 	_, fromlast := c.GetQuery("fromlast")
 	_, play := c.GetQuery("play")
-	title := c.Query("title")
-	poster := c.Query("poster")
-	category := c.Query("category")
+	title := utils.DecodeQueryValue(c.Query("title"))
+	poster := utils.DecodeQueryLink(c.Query("poster"))
+	category := utils.DecodeQueryValue(c.Query("category"))
 
 	if link == "" {
 		abortWithJSONError(c, http.StatusBadRequest, errors.New("link should not be empty"))
 		return
 	}
-
-	link, _ = url.QueryUnescape(link)
-	title, _ = url.QueryUnescape(title)
-	poster, _ = url.QueryUnescape(poster)
-	category, _ = url.QueryUnescape(category)
 
 	var spec *torr.TorrentSpec
 	var torrsHash *torrshash.TorrsHash

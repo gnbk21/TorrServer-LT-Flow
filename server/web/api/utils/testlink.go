@@ -5,11 +5,9 @@ import (
 	"net/url"
 )
 
+// TestLink checks the canonical link that the caller will execute. Do not
+// unescape again here: validation and parsing must see identical URL components.
 func TestLink(link string, auth bool) error {
-	link, err := url.QueryUnescape(link)
-	if err != nil {
-		return err
-	}
 	ur, err := url.Parse(link)
 	if err != nil {
 		return err

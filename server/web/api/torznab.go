@@ -2,7 +2,6 @@ package api
 
 import (
 	"net/http"
-	"net/url"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -10,6 +9,7 @@ import (
 	"server/rutor/models"
 	sets "server/settings"
 	"server/torznab"
+	"server/web/api/utils"
 )
 
 // torznabSearch godoc
@@ -33,7 +33,7 @@ func torznabSearch(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, []string{})
 		return
 	}
-	query := c.Query("query")
+	query := utils.DecodeQueryValue(c.Query("query"))
 	indexStr := c.DefaultQuery("index", "-1")
 	index := -1
 	if i, err := strconv.Atoi(indexStr); err == nil {
@@ -55,7 +55,6 @@ func torznabSearch(c *gin.Context) {
 		limit = 250
 	}
 
-	query, _ = url.QueryUnescape(query)
 	list := torznab.Search(c.Request.Context(), query, index, cat, offset, limit)
 	if list == nil {
 		list = []*models.TorrentDetails{}

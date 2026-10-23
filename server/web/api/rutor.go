@@ -2,13 +2,13 @@ package api
 
 import (
 	"net/http"
-	"net/url"
 
 	"github.com/gin-gonic/gin"
 
 	"server/rutor"
 	"server/rutor/models"
 	sets "server/settings"
+	"server/web/api/utils"
 )
 
 // rutorSearch godoc
@@ -28,8 +28,7 @@ func rutorSearch(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, []string{})
 		return
 	}
-	query := c.Query("query")
-	query, _ = url.QueryUnescape(query)
+	query := utils.DecodeQueryValue(c.Query("query"))
 	list := rutor.Search(query)
 	if list == nil {
 		list = []*models.TorrentDetails{}
