@@ -33,7 +33,7 @@ type Timeline struct {
 }
 
 func (t *Timeline) Record(e HistoryEvent, elapsed time.Duration) {
-	if !validHistoryEvent(e) || e.Type == "sparse" || e.Type == "dht" || e.Type == "peer_disconnected" || e.Type == "peer_summary" || e.Type == "playback_sample" || e.Type == "startup_sample" || e.Type == "response" || elapsed < 0 {
+	if !validHistoryEvent(e) || e.Type == "sparse" || e.Type == "stream_sample" || e.Type == "dht" || e.Type == "peer_disconnected" || e.Type == "peer_summary" || e.Type == "playback_sample" || e.Type == "startup_sample" || e.Type == "response" || elapsed < 0 {
 		return
 	}
 	observed := e.Time

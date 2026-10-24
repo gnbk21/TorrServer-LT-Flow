@@ -226,7 +226,8 @@ def measure_cold_seeks(server, swarm, info_hash, index, piece_bytes, records, re
 def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, preload=False,
         *, reqq=512, strict=False, latency_ms=0, piece_mb=4, disk=False,
         capacity_aware=False, urgent_horizon=False, burst_hints=False, startup_mb=32, transport_kib=1024,
-        capture_go=False, capture_native=None, perfetto_tools=None):
+        capture_go=False, capture_native=None, perfetto_tools=None,
+        frontier_recovery=False, adaptive_peer_requests=False):
     report = {'profile': profile, 'case': case, 'cache_mb': cache_mb,
               'nominal_demand_mbps': rate*8/1_000_000,
               'piece_bytes': piece_mb*MIB, 'requested_seconds': seconds,
@@ -241,7 +242,8 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                  PeerPlan(rate=int(1.7*rate),request_queue=reqq,strict_request_queue=strict,request_latency_ms=latency_ms)]
     report.update(peer_advertised_request_queue=reqq, strict_peer_capacity=strict, request_latency_ms=latency_ms,
                   storage_backend='disk' if disk else 'ram', capacity_aware=capacity_aware,
-                  urgent_horizon=urgent_horizon, burst_hints=burst_hints, startup_reserve_mb=startup_mb, transport_buffer_kib=transport_kib)
+                  urgent_horizon=urgent_horizon, burst_hints=burst_hints, startup_reserve_mb=startup_mb, transport_buffer_kib=transport_kib,
+                  frontier_recovery=frontier_recovery, adaptive_peer_requests=adaptive_peer_requests)
     server = OwnedServer(executable, root, profile=capture_go, extra_settings={
         'CacheSize': cache_mb*MIB, 'PreloadCache': 10,
         'UseDisk': disk, 'TorrentsSavePath': str((root/'cache').resolve()) if disk else '',
@@ -250,6 +252,7 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                  'StartupBufferMaxMB': startup_mb, 'StartupBufferSeconds': 2,
                  'WarmSessionTimeoutSec': 30, 'GlobalCacheBudgetMB': cache_mb,
                  'CapacityAwareRequests': capacity_aware, 'AdaptiveUrgentHorizon': urgent_horizon,
+                 'FrontierRecovery': frontier_recovery, 'AdaptivePeerRequests': adaptive_peer_requests,
                  'ContainerBurstHints': burst_hints, 'DiagnosticHistory': False,
                  'StreamTransportBufferKiB': transport_kib}})
     swarm, cpu_start, playback_start, info_hash = None, None, None, None
@@ -302,6 +305,7 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                         'cache_size': max((s['cache_size'] for s in sessions), default=0),
                         'sessions': sessions,
                         'storage_io': status.get('storage_io'),
+                        'stream_control': status.get('sparse', {}).get('stream'),
                         'redundant_bytes': status.get('sparse', {}).get('redundant_bytes'),
                         'urgent': status.get('sparse', {}).get('urgent'),
                         'urgent_truncated': status.get('sparse', {}).get('urgent_truncated')})

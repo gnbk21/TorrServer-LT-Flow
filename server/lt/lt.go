@@ -860,31 +860,32 @@ type SparseWindow struct {
 }
 
 type SparseSnapshot struct {
-	Urgent                 []UrgentPiece  `json:"urgent"`
-	UrgentTruncated        bool           `json:"urgent_truncated"`
-	RequestAgeTruncated    bool           `json:"request_age_truncated"`
-	RequestTimeouts        uint64         `json:"request_timeouts"`
-	RequestsDropped        uint64         `json:"requests_dropped"`
-	Private                bool           `json:"private"`
-	Known                  bool           `json:"known"`
-	SampledAtMs            int64          `json:"sampled_at_ms"`
-	SampledPeers           int            `json:"sampled_peers"`
-	Truncated              bool           `json:"truncated"`
-	UsefulPeers            int            `json:"useful_peers"`
-	UsefulDownloadingPeers int            `json:"useful_downloading_peers"`
-	ChokedPeers            int            `json:"choked_peers"`
-	SnubbedPeers           int            `json:"snubbed_peers"`
-	PendingConnections     int            `json:"pending_connections"`
-	TrackerPeers           int            `json:"tracker_peers"`
-	DHTPeers               int            `json:"dht_peers"`
-	PEXPeers               int            `json:"pex_peers"`
-	IncomingPeers          int            `json:"incoming_peers"`
-	OutstandingBytes       int64          `json:"outstanding_bytes"`
-	QueuedBlocks           int64          `json:"queued_blocks"`
-	MaxQueueMs             int64          `json:"max_queue_ms"`
-	FailedBytes            int64          `json:"failed_bytes"`
-	RedundantBytes         int64          `json:"redundant_bytes"`
-	Windows                []SparseWindow `json:"windows"`
+	Stream                 *flow.StreamEvidence `json:"stream,omitempty"`
+	Urgent                 []UrgentPiece        `json:"urgent"`
+	UrgentTruncated        bool                 `json:"urgent_truncated"`
+	RequestAgeTruncated    bool                 `json:"request_age_truncated"`
+	RequestTimeouts        uint64               `json:"request_timeouts"`
+	RequestsDropped        uint64               `json:"requests_dropped"`
+	Private                bool                 `json:"private"`
+	Known                  bool                 `json:"known"`
+	SampledAtMs            int64                `json:"sampled_at_ms"`
+	SampledPeers           int                  `json:"sampled_peers"`
+	Truncated              bool                 `json:"truncated"`
+	UsefulPeers            int                  `json:"useful_peers"`
+	UsefulDownloadingPeers int                  `json:"useful_downloading_peers"`
+	ChokedPeers            int                  `json:"choked_peers"`
+	SnubbedPeers           int                  `json:"snubbed_peers"`
+	PendingConnections     int                  `json:"pending_connections"`
+	TrackerPeers           int                  `json:"tracker_peers"`
+	DHTPeers               int                  `json:"dht_peers"`
+	PEXPeers               int                  `json:"pex_peers"`
+	IncomingPeers          int                  `json:"incoming_peers"`
+	OutstandingBytes       int64                `json:"outstanding_bytes"`
+	QueuedBlocks           int64                `json:"queued_blocks"`
+	MaxQueueMs             int64                `json:"max_queue_ms"`
+	FailedBytes            int64                `json:"failed_bytes"`
+	RedundantBytes         int64                `json:"redundant_bytes"`
+	Windows                []SparseWindow       `json:"windows"`
 }
 
 // UrgentPiece is a copied native frontier. Finished blocks may still await hash

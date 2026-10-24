@@ -877,6 +877,40 @@
       "minimumBuffer": "Cel mai mic tampon măsurat al telefonului: {{milliseconds}} ms",
       "mirrorFailure": "Ultima eroare observată a oglinzii; nu este o verificare curentă a disponibilității",
       "operation": "Operație {{value}}"
+    },
+    "stream": {
+      "title": "Transfer de la surse și recuperare",
+      "useful_bytes": "Octeți primiți prima dată",
+      "redundant_bytes": "Octeți primiți redundant",
+      "obsolete_bytes": "Primiți după anulare (parte din cei redundanți)",
+      "recovery_requests": "Cereri duplicate în limita bugetului",
+      "recovery_suppressed": "Cereri duplicate blocate",
+      "active_hedges": "Cereri duplicate în așteptare",
+      "peak_hedges": "Maxim de duplicate în așteptare",
+      "budget_changes": "Ajustări ale bugetului de cereri",
+      "service": "Servire P50 ≤ {{p50}} ms · P95 ≤ {{p95}} ms · {{samples}} cereri finalizate",
+      "hint": "Timpul include coada sursei și transferul, nu doar RTT-ul rețelei. Percentilele sunt limite superioare pe durata torrentului. Octeții primiți nu garantează verificarea sau redarea fluentă.",
+      "timings": "Timpi de pornire",
+      "timingHint": "Fazele se suprapun și au origini diferite: nu le adunați. Conectarea și negocierea descriu prima conexiune de ieșire reușită observată. Măsurătorile lipsă rămân necunoscute.",
+      "unknown": "Nemăsurat",
+      "milliseconds": "{{value}} ms",
+      "phases": {
+        "DISCOVERY": "Descoperire până la prima conectare",
+        "CONNECT": "Conectarea socketului",
+        "HANDSHAKE": "Negociere BitTorrent/criptare",
+        "METADATA": "Metadate disponibile",
+        "FIRST_PAYLOAD": "Primele date primite",
+        "BOOTSTRAP": "Antet și index",
+        "PROBE": "Analiza media",
+        "RESERVE": "Buffer inițial",
+        "FIRST_BYTE": "Primul octet redat"
+      },
+      "bases": {
+        "NATIVE_TORRENT": "de la crearea torrentului în motor",
+        "TORRENT": "de la adăugarea torrentului",
+        "PRELOAD": "de la preîncărcare",
+        "OPERATION": "durata operației"
+      }
     }
   },
   "search": {
@@ -1026,7 +1060,9 @@
         "StreamTransportBufferKiB": "Buffer de transport (experiment controlat)",
         "NextEpisodeWarmup": "Încălzirea antetului/indexului episodului următor",
         "MetadataFallback": "Recuperare automată a metadatelor magnet",
-        "PublicMetadataCache": "Cache-uri publice gratuite de metadate"
+        "PublicMetadataCache": "Cache-uri publice gratuite de metadate",
+        "FrontierRecovery": "Recuperarea blocurilor urgente întârziate (experiment)",
+        "AdaptivePeerRequests": "Buget adaptiv de cereri per sursă (experiment)"
       }
     },
     "maintenance": {
@@ -1128,7 +1164,9 @@
     "reloadSaved": "Elimină ciorna și reîncarcă setările",
     "requestsPerMinute": "cereri/min",
     "metadataFallbackHelp": "După 15 secunde, încearcă două URL-uri HTTPS .torrent furnizate. Hash-ul trebuie să corespundă magnetului.",
-    "publicMetadataCacheHelp": "Trimite hash-urile magnet v1 blocate la Torrage și iTorrents. Gratuit, fără cont. Serviciile pot fi indisponibile. Statutul privat este necunoscut înaintea metadatelor."
+    "publicMetadataCacheHelp": "Trimite hash-urile magnet v1 blocate la Torrage și iTorrents. Gratuit, fără cont. Serviciile pot fi indisponibile. Statutul privat este necunoscut înaintea metadatelor.",
+    "streamRecoveryHelp": "Solicită blocul urgent de la altă sursă în limite comune pentru duplicate și capacitate. Dezactivat implicit; depinde de sursele disponibile.",
+    "streamRequestsHelp": "Ajustează cererile după timpul de servire și limitele sursei. Dezactivat implicit. Comparați pornirea, derularea și traficul redundant."
   },
   "preparation": {
     "title": "Pregătește episodul",

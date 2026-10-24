@@ -323,6 +323,8 @@ export default function Settings() {
           "Flow.ScarcePieceHints": t("settings.scarceHintsHelp"),
           "Flow.RateAwareDeadlines": t("settings.rateDeadlinesHelp"),
           "Flow.CapacityAwareRequests": t("settings.highBitrateExperimentHelp"),
+          "Flow.FrontierRecovery": t("settings.streamRecoveryHelp"),
+          "Flow.AdaptivePeerRequests": t("settings.streamRequestsHelp"),
           "Flow.AdaptiveUrgentHorizon": t("settings.highBitrateExperimentHelp"),
           "Flow.ContainerBurstHints": t("settings.highBitrateExperimentHelp"),
           "Flow.StreamTransportBufferKiB": t("settings.transportHelp"),

@@ -50,6 +50,8 @@ export interface FlowSettings {
   ScarcePieceHints?: boolean;
   RateAwareDeadlines?: boolean;
   CapacityAwareRequests?: boolean;
+  FrontierRecovery?: boolean;
+  AdaptivePeerRequests?: boolean;
   AdaptiveUrgentHorizon?: boolean;
   ContainerBurstHints?: boolean;
   StreamTransportBufferKiB?: number;

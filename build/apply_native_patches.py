@@ -25,20 +25,20 @@ def recipe():
 
 def apply(directory):
     directory = directory.resolve(strict=True)
-    for patch in sorted(PATCH_DIR.glob("*.patch")):
-        args = ["git", "-C", str(directory), "apply", "--whitespace=error"]
-        if subprocess.run(args + ["--reverse", "--check", str(patch)],
-                          capture_output=True).returncode == 0:
-            continue
-        checked = subprocess.run(args + ["--check", str(patch)], capture_output=True, text=True)
-        if checked.returncode:
-            raise RuntimeError(f"Reviewed patch {patch.name} does not match source: {checked.stderr}")
+    patches = sorted(PATCH_DIR.glob("*.patch"))
+    args = ["git", "-C", str(directory), "apply", "--whitespace=error"]
+
+    def isolate(patch):
         for line in patch.read_text(encoding="utf-8").splitlines():
             if not line.startswith("+++ b/"):
                 continue
-            target = (directory / line[6:]).resolve(strict=True)
+            target = (directory / line[6:]).resolve(strict=False)
             if not target.is_relative_to(directory):
                 raise ValueError("Patch path escapes source directory")
+            # A reviewed patch can introduce a new header. git apply owns that
+            # creation; only existing files need their shared hardlink broken.
+            if not target.exists():
+                continue
             with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as output:
                 output.write(target.read_bytes())
                 temporary = Path(output.name)
@@ -47,6 +47,20 @@ def apply(directory):
                 os.replace(temporary, target)
             finally:
                 temporary.unlink(missing_ok=True)
+
+    # Later reviewed patches can touch earlier hunks' context. Normalize the
+    # applied stack in reverse order before validating/applying it forwards;
+    # testing each old patch's reverse against the final tree is insufficient.
+    for patch in reversed(patches):
+        if subprocess.run(args + ["--reverse", "--check", str(patch)],
+                          capture_output=True).returncode == 0:
+            isolate(patch)
+            subprocess.run(args + ["--reverse", str(patch)], check=True)
+    for patch in patches:
+        checked = subprocess.run(args + ["--check", str(patch)], capture_output=True, text=True)
+        if checked.returncode:
+            raise RuntimeError(f"Reviewed patch {patch.name} does not match source: {checked.stderr}")
+        isolate(patch)
         subprocess.run(args + [str(patch)], check=True)
         print(f"Applied {patch.name}")
 

@@ -24,6 +24,7 @@ const HistoryRecordBytes = 4096
 // request headers or arbitrary metadata. Strings are checked against enums.
 // Torrent is a process-local sequence, not a persistent media identity.
 type HistoryEvent struct {
+	Stream            *StreamEvidence  `json:"stream,omitempty"`
 	Startup           *StartupHistory  `json:"startup,omitempty"`
 	Playback          *PlaybackHistory `json:"playback,omitempty"`
 	Response          *ResponseHistory `json:"response,omitempty"`
@@ -130,7 +131,7 @@ func NewHistory(dir string) (*History, error) {
 
 func validHistoryEvent(e HistoryEvent) bool {
 	switch e.Type {
-	case "engine_started", "engine_stopped", "shutdown_requested", "previous_run", "metadata", "metadata_recovery", "startup", "startup_sample", "playback_sample", "response", "peer_summary", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht", "sparse", "seek", "recovery", "storage", "integrity_failure", "tracker_failure":
+	case "engine_started", "engine_stopped", "shutdown_requested", "previous_run", "metadata", "metadata_recovery", "startup", "startup_sample", "stream_sample", "playback_sample", "response", "peer_summary", "first_byte", "first_block", "probe", "dht_peer", "peer_disconnected", "dht", "sparse", "seek", "recovery", "storage", "integrity_failure", "tracker_failure":
 	default:
 		return false
 	}
@@ -149,7 +150,7 @@ func validHistoryEvent(e HistoryEvent) bool {
 	default:
 		return false
 	}
-	if e.Startup != nil && !e.Startup.valid() || e.Playback != nil && !e.Playback.valid() || e.Response != nil && !e.Response.valid() {
+	if !e.Stream.Valid() || e.Startup != nil && !e.Startup.valid() || e.Playback != nil && !e.Playback.valid() || e.Response != nil && !e.Response.valid() {
 		return false
 	}
 	return true

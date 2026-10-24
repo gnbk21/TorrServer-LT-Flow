@@ -781,6 +781,40 @@
       "minimumBuffer": "Smallest sampled phone buffer: {{milliseconds}} ms",
       "mirrorFailure": "Last observed mirror failure; not a current availability check",
       "operation": "Operation {{value}}"
+    },
+    "stream": {
+      "title": "Peer delivery and recovery",
+      "useful_bytes": "First-copy received bytes",
+      "redundant_bytes": "Redundant received bytes",
+      "obsolete_bytes": "Received after cancellation (subset of redundant)",
+      "recovery_requests": "Budgeted duplicate requests",
+      "recovery_suppressed": "Duplicate requests suppressed",
+      "active_hedges": "Outstanding duplicate requests",
+      "peak_hedges": "Peak outstanding duplicates",
+      "budget_changes": "Peer request-budget adjustments",
+      "service": "Service P50 ≤ {{p50}} ms · P95 ≤ {{p95}} ms · {{samples}} completed requests",
+      "hint": "Service time includes the remote queue and transfer; it is not network RTT. Percentiles are bucket upper bounds over this torrent lifetime. Received bytes are not a verification or decoded-playback guarantee.",
+      "timings": "Startup timings",
+      "timingHint": "Phases overlap and use different starting points; do not add them together. Connect and handshake describe the first observed successful outgoing connection. Missing measurements remain unknown.",
+      "unknown": "Not measured",
+      "milliseconds": "{{value}} ms",
+      "phases": {
+        "DISCOVERY": "Discovery to first dial",
+        "CONNECT": "Socket connection",
+        "HANDSHAKE": "BitTorrent/security handshake",
+        "METADATA": "Metadata available",
+        "FIRST_PAYLOAD": "First payload received",
+        "BOOTSTRAP": "Header/index bootstrap",
+        "PROBE": "Media probe",
+        "RESERVE": "Startup reserve gate",
+        "FIRST_BYTE": "First playback byte"
+      },
+      "bases": {
+        "NATIVE_TORRENT": "since native torrent creation",
+        "TORRENT": "since torrent addition",
+        "PRELOAD": "since preload start",
+        "OPERATION": "operation duration"
+      }
     }
   },
   "torrent": {
@@ -1016,7 +1050,9 @@
         "StreamTransportBufferKiB": "Transport buffer (controlled experiment)",
         "NextEpisodeWarmup": "Next episode header/index warmup",
         "MetadataFallback": "Automatic magnet metadata recovery",
-        "PublicMetadataCache": "Use free public metadata caches"
+        "PublicMetadataCache": "Use free public metadata caches",
+        "FrontierRecovery": "Late-block frontier recovery (experiment)",
+        "AdaptivePeerRequests": "Adaptive peer request budget (experiment)"
       }
     },
     "maintenance": {
@@ -1118,7 +1154,9 @@
     "reloadSaved": "Discard draft and reload saved settings",
     "requestsPerMinute": "requests/min",
     "metadataFallbackHelp": "After 15 seconds, try up to two supplied HTTPS .torrent URLs. Results must match the magnet hash.",
-    "publicMetadataCacheHelp": "Sends stalled v1 magnet hashes to Torrage and iTorrents. Free; no account needed. Services may be unavailable. Private status is unknown before metadata arrives."
+    "publicMetadataCacheHelp": "Sends stalled v1 magnet hashes to Torrage and iTorrents. Free; no account needed. Services may be unavailable. Private status is unknown before metadata arrives.",
+    "streamRecoveryHelp": "Requests an urgent late block from an alternate peer within shared duplicate limits. Includes peer-capacity guards. Off by default; improvement depends on available suppliers.",
+    "streamRequestsHelp": "Adjusts peer request credit using measured service time and capacity limits. Includes peer-capacity guards. Off by default; compare startup, seeks and wasted bytes."
   },
   "runtime": {
     "torrents": "Torrents",

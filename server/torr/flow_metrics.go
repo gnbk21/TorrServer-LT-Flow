@@ -32,6 +32,7 @@ type FlowRangeTrace struct {
 var diagnosticSequence atomic.Uint64
 
 type FlowStartupStatus struct {
+	Phases             []flow.StartupPhase  `json:"phases,omitempty"`
 	MetadataRecovery   *MetadataRecovery    `json:"metadata_recovery,omitempty"`
 	WaitBudgetMs       int64                `json:"wait_budget_ms"`
 	WaitExtended       bool                 `json:"wait_extended"`
@@ -62,6 +63,7 @@ func (t *Torrent) FlowStartup() FlowStartupStatus {
 	if t == nil {
 		return FlowStartupStatus{}
 	}
+	stream := t.SparseStatus().Stream
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	s := t.flowStartup
@@ -79,6 +81,18 @@ func (t *Torrent) FlowStartup() FlowStartupStatus {
 	if !t.flowStartupStarted.IsZero() && s.WaitReason != "READER_WINDOW" && s.WaitReason != "READY" && s.WaitReason != "PLAYING" && s.WaitReason != "FAILED" && s.WaitReason != "TIMEOUT" && s.WaitReason != "CANCELLED" {
 		s.ElapsedMs = time.Since(t.flowStartupStarted).Milliseconds()
 	}
+	// Legacy timing fields use zero for not-yet-observed. The phase contract
+	// keeps these unknown instead of presenting an unfinished operation as 0 ms.
+	measured := func(value int64) int64 {
+		if value <= 0 {
+			return -1
+		}
+		return value
+	}
+	s.Phases = flow.StartupPhases(stream, s.MetadataReadyMs,
+		measured(s.BootstrapCompleteMs), measured(s.ProbeStartMs),
+		measured(s.ProbeCompleteMs), measured(s.StartupPrebufferMs),
+		measured(s.TimeToFirstByteMs), s.ProbeCached)
 	return s
 }
 

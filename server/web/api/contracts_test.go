@@ -26,6 +26,10 @@ func TestExportFrontendContracts(t *testing.T) {
 	}
 	hash := "0123456789012345678901234567890123456789"
 	measuredDuration := int64(2)
+	stream := &flow.StreamEvidence{Known: true, FirstDialMs: 0, FirstConnectMs: 5,
+		FirstHandshakeMs: 10, FirstPayloadMs: 20, ConnectDurationMs: 5, HandshakeDurationMs: 5,
+		Service:     []flow.StreamService{{Transport: "tcp", AddressFamily: "IPV4", Samples: 8, P50Ms: 100, P95Ms: 250}},
+		UsefulBytes: 16384, RecoveryRequests: 1, PeakHedges: 1}
 	cases := []struct {
 		Kind    string `json:"kind"`
 		Payload any    `json:"payload"`
@@ -35,7 +39,9 @@ func TestExportFrontendContracts(t *testing.T) {
 		{"torrent", state.TorrentStatus{Hash: hash, Title: "Generated fixture", Stat: state.TorrentInDB}},
 		{"library", LibraryResponse{Items: []state.TorrentStatus{{Hash: hash, Title: "Fixture", Stat: state.TorrentInDB}}, Total: 1, LibraryTotal: 1, Page: 1, Limit: 50, Categories: []string{}, SampledAt: "2026-10-10T00:00:00Z"}},
 		{"active", map[string]any{"items": []activeTorrent{{Torrent: state.TorrentStatus{Hash: hash, Title: "Fixture", Stat: state.TorrentWorking}, Status: compactFlowStatus{Hash: hash, Sessions: []torr.FlowSessionStatus{}}}}, "sampled_at": "2026-10-10T00:00:00Z"}},
-		{"flow", FlowStatusResponse{Hash: hash, Sessions: []torr.FlowSessionStatus{{Group: "contract", FileIndex: 1, State: "PLAYING"}}}},
+		{"flow", FlowStatusResponse{Hash: hash, Sparse: lt.SparseSnapshot{Known: true, Stream: stream},
+			Startup:  torr.FlowStartupStatus{Phases: flow.StartupPhases(stream, 0, 20, 20, 25, 50, 60, false)},
+			Sessions: []torr.FlowSessionStatus{{Group: "contract", FileIndex: 1, State: "PLAYING"}}}},
 		{"flow", FlowStatusResponse{Hash: hash, Sessions: nil}},
 		{"flow", FlowStatusResponse{Hash: hash, NextEpisodeWarmup: &torr.NextEpisodeStatus{Enabled: true, CurrentFileIndex: 1, NextEpisodeStatus: torrstor.NextEpisodeStatus{FileIndex: 2, State: "waiting", Reason: "PLAYBACK_RESERVE", BudgetBytes: 32 << 20}}}},
 		{"flow", FlowStatusResponse{Hash: hash, SampledAt: "2026-10-10T00:00:00Z", Timeline: &flow.TimelineSnapshot{Source: "server", Events: []flow.TimelineEvent{{Time: time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC), Type: "seek", ElapsedMs: 1000, OperationMs: &measuredDuration, File: 1}, {Time: time.Date(2026, 10, 10, 0, 0, 1, 0, time.UTC), Type: "metadata", ElapsedMs: 1001, File: 1}}, Dropped: 0}, Sessions: []torr.FlowSessionStatus{{SessionID: "ABCDEFGHIJKLMNOPQRSTUV", FileIndex: 1, State: "PLAYING"}}}},

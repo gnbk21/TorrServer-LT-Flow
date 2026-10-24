@@ -9,6 +9,7 @@ import { IncidentTimeline } from "./IncidentTimeline";
 import { PlayerEvidence } from "./PlayerEvidence";
 import { NextEpisodeWarmup } from "./NextEpisodeWarmup";
 import { StartupEvidence } from "./StartupEvidence";
+import { StreamEvidence } from "./StreamEvidence";
 import { PlaybackOverview } from "./PlaybackOverview";
 export interface FlowDiagnosticsDrawerProps {
   isOpen: boolean;
@@ -57,6 +58,15 @@ export function FlowDiagnosticsDrawer({
           <PlaybackOverview status={status} now={now} />
           <IncidentTimeline status={status} />
           {status.startup && <StartupEvidence startup={status.startup} />}
+          <StreamEvidence
+            evidence={status.sparse?.stream}
+            fresh={
+              fresh &&
+              !!status.sparse?.sampled_at_ms &&
+              now - status.sparse.sampled_at_ms >= 0 &&
+              now - status.sparse.sampled_at_ms < 5000
+            }
+          />
           <PlayerEvidence status={status} />
           {status.next_episode_warmup && (
             <NextEpisodeWarmup

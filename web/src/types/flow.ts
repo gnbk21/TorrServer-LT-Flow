@@ -29,6 +29,11 @@ export interface StartupPieceSupply {
 }
 
 export interface FlowStartup {
+  phases?: Array<{
+    phase: string;
+    basis: "NATIVE_TORRENT" | "TORRENT" | "PRELOAD" | "OPERATION";
+    duration_ms?: number;
+  }>;
   metadata_recovery?: {
     state: string;
     source?: string;
@@ -263,6 +268,7 @@ export interface StorageIO {
 }
 
 export interface SparseSnapshot {
+  stream?: StreamEvidence;
   request_age_truncated?: boolean;
   urgent_truncated?: boolean;
   urgent?: {
@@ -305,4 +311,32 @@ export interface SparseSnapshot {
     availability: number[];
     unchoked_suppliers: number;
   }[];
+}
+
+export interface StreamEvidence {
+  known: boolean;
+  first_dial_ms: number;
+  first_connect_ms: number;
+  first_handshake_ms: number;
+  first_payload_ms: number;
+  connect_duration_ms: number;
+  handshake_duration_ms: number;
+  service: Array<{
+    transport: "tcp" | "utp" | "unknown";
+    address_family: "IPV4" | "IPV6";
+    samples: number;
+    p50_ms: number;
+    p95_ms: number;
+  }>;
+  useful_bytes: number;
+  redundant_bytes: number;
+  obsolete_bytes: number;
+  recovery_requests: number;
+  recovery_suppressed: number;
+  active_hedges: number;
+  peak_hedges: number;
+  active_hedge_bytes: number;
+  budget_changes: number;
+  frontiers: number;
+  recovery_scan_truncated: boolean;
 }
