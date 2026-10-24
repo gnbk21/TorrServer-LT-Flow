@@ -43,11 +43,25 @@ func (s *StreamEvidence) Valid() bool {
 		s.ActiveHedgeBytes > 256<<10 || s.Frontiers < 0 || s.Frontiers > 8 {
 		return false
 	}
+	for _, value := range []int64{s.FirstDialMs, s.FirstConnectMs, s.FirstHandshakeMs, s.FirstPayloadMs, s.ConnectDurationMs, s.HandshakeDurationMs} {
+		if value < -1 {
+			return false
+		}
+	}
+	if s.ObsoleteBytes > s.RedundantBytes || s.ActiveHedges > s.PeakHedges {
+		return false
+	}
+	seen := map[string]bool{}
 	for _, row := range s.Service {
 		if SafeTransport(row.Transport) != row.Transport || (row.AddressFamily != "IPV4" && row.AddressFamily != "IPV6") ||
 			row.P50Ms < 0 || row.P95Ms < row.P50Ms || row.P95Ms > 300000 {
 			return false
 		}
+		key := row.Transport + "/" + row.AddressFamily
+		if seen[key] {
+			return false
+		}
+		seen[key] = true
 	}
 	return true
 }

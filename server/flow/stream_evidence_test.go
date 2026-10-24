@@ -36,6 +36,8 @@ func TestStreamHistoryRejectsUnboundedOrIdentifyingGroups(t *testing.T) {
 		func(s *StreamEvidence) { s.ActiveHedges = 17 },
 		func(s *StreamEvidence) { s.ActiveHedgeBytes = 256<<10 + 1 },
 		func(s *StreamEvidence) { s.Frontiers = 9 },
+		func(s *StreamEvidence) { s.FirstHandshakeMs = -2 },
+		func(s *StreamEvidence) { s.ObsoleteBytes = 1 },
 		func(s *StreamEvidence) { s.Service = []StreamService{{Transport: "192.0.2.1", AddressFamily: "IPV4"}} },
 	} {
 		copy := *s

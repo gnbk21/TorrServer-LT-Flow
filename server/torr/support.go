@@ -3,6 +3,7 @@ package torr
 import "server/flow"
 
 type SupportTorrent struct {
+	Stream          *flow.StreamEvidence    `json:"stream,omitempty"`
 	Startup         FlowStartupStatus       `json:"startup"`
 	Sessions        []FlowSessionStatus     `json:"sessions"`
 	TrackerStates   map[string]int          `json:"tracker_states"`
@@ -38,6 +39,7 @@ func SupportPlayback() ([]SupportTorrent, bool) {
 		}
 		row := SupportTorrent{Startup: tor.FlowStartup(), Sessions: []FlowSessionStatus{}, TrackerStates: map[string]int{}, Timeline: tor.FlowTimeline()}
 		row.Integrity = tor.FlowIntegrity()
+		row.Stream = tor.SparseStatus().Stream
 		row.MirrorFailures = tor.FlowWebSeedFailures()
 		row.TrackerFailures = []SupportNetworkFailure{}
 		for _, session := range tor.FlowStatus() {

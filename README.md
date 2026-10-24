@@ -86,6 +86,11 @@ Flow settings are in the web interface's **Flow** tab and under `BitTorr.Flow` i
 
 ## Adaptive reliability
 
+Development builds also provide opt-in **frontier recovery** and **adaptive peer
+request credit**, plus connection/startup and block-service diagnostics. These
+refine the existing parallel torrent scheduler; Legacy remains the default and
+both experiments remain off. See [behavior, limits and short comparison tests](PARALLEL_STREAMING_IMPLEMENTATION.md).
+
 Flow 1.1 includes verified useful-delivery rates, confidence and
 buffer risk; shared active/warm RAM budgets; preparation scheduling; Windows
 network notifications and recovery; configuration revisions, idle application

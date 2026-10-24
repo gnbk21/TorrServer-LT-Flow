@@ -95,7 +95,15 @@
  		// progress of this torrent increased
  		t->state_updated();
  
-@@ -2928,6 +2949,26 @@
+@@ -2910,6 +2931,7 @@
+ 			TORRENT_ASSERT_VAL(m_received_in_piece == p.length, m_received_in_piece);
+ 			m_received_in_piece = 0;
+ #endif
++			t->flow_stream.redundant_bytes+=p.length;
+ 			t->add_redundant_bytes(p.length, aux::waste_reason::piece_unknown);
+ 
+ 			// the bytes of the piece we just completed have been deducted from
+@@ -2928,6 +2950,26 @@
  		TORRENT_ASSERT_VAL(m_received_in_piece == p.length, m_received_in_piece);
  		m_received_in_piece = 0;
  #endif
@@ -122,12 +130,12 @@
  		// if the block we got is already finished, then ignore it
  		if (picker.is_downloaded(block_finished))
  		{
-@@ -3656,6 +3697,17 @@
+@@ -3656,6 +3698,17 @@
  			return false;
  		}
  
 +		std::shared_ptr<flow_hedge_credit> flow_credit;
-+		if((flags & busy) && m_settings.get_bool(settings_pack::flow_frontier_recovery)) {
++		if(t->picker().num_peers(block)>0 && m_settings.get_bool(settings_pack::flow_frontier_recovery)) {
 +			int const length=std::min(t->block_size(),
 +				t->torrent_file().piece_size(block.piece_index)-block.block_index*t->block_size());
 +			if(t->picker().num_peers(block)>=2) {
@@ -140,7 +148,7 @@
  		if ((flags & busy) && !(flags & time_critical))
  		{
  			// this block is busy (i.e. it has been requested
-@@ -3705,6 +3757,8 @@
+@@ -3705,6 +3758,8 @@
  		}
  
  		pending_block pb(block);
@@ -149,7 +157,7 @@
  		pb.busy = (flags & busy) ? true : false;
  		if (flags & time_critical)
  		{
-@@ -4851,13 +4905,25 @@
+@@ -4851,13 +4906,27 @@
  			TORRENT_ASSERT(bs > 0);
  
  			std::int64_t const desired_queue_size = std::int64_t(queue_time) * download_rate / bs;
@@ -163,10 +171,12 @@
 +
 +		if(m_settings.get_bool(settings_pack::flow_adaptive_peer_requests)) {
 +			auto t=m_torrent.lock();
++			auto const before=flow_service.budget_changes;
 +			if(t && !m_slow_start) m_desired_queue_size=std::uint16_t(flow_service.credit(
 +				m_desired_queue_size,download_rate,t->block_size(),int(m_max_out_request_queue),
 +				m_settings.get_int(settings_pack::max_out_request_queue),
 +				total_milliseconds(clock_type::now().time_since_epoch())));
++			if(t) t->flow_stream.budget_changes+=flow_service.budget_changes-before;
 +		}
  		if (m_desired_queue_size > m_max_out_request_queue)
  			m_desired_queue_size = m_max_out_request_queue;
@@ -178,7 +188,7 @@
  
  #ifndef TORRENT_DISABLE_LOGGING
  		if (previous_queue_size != m_desired_queue_size)
-@@ -6366,6 +6432,14 @@
+@@ -6366,6 +6435,14 @@
  
  		TORRENT_ASSERT(!m_connected);
  		m_connected = true;
@@ -203,7 +213,7 @@
  #include "libtorrent/aux_/bandwidth_limit.hpp"
  #include "libtorrent/aux_/bandwidth_queue_entry.hpp"
  #include "libtorrent/storage_defs.hpp"
-@@ -1365,6 +1366,19 @@
+@@ -1365,6 +1366,29 @@
  		ssl::context* ssl_ctx() const { return m_ssl_ctx.get(); }
  #endif
  
@@ -214,16 +224,26 @@
 +		bool flow_recovery_ready(piece_index_t piece) const;
 +		bool flow_pick_busy(piece_index_t piece, std::vector<piece_block>& out) const;
 +		int flow_frontier_count() const {
++			#ifndef TORRENT_DISABLE_STREAMING
 +			auto const now=clock_type::now();
 +			return m_flow_frontiers_at!=time_point{} && now>=m_flow_frontiers_at
 +				&& now-m_flow_frontiers_at<=seconds(3) ? int(m_flow_frontiers.size()) : 0;
++			#else
++			return 0;
++			#endif
 +		}
-+		bool flow_scan_truncated() const { return m_flow_scan_truncated; }
++		bool flow_scan_truncated() const {
++			#ifndef TORRENT_DISABLE_STREAMING
++			return m_flow_scan_truncated;
++			#else
++			return false;
++			#endif
++		}
 +
  		int num_time_critical_pieces() const
  		{
  #ifndef TORRENT_DISABLE_STREAMING
-@@ -1377,6 +1391,11 @@
+@@ -1377,6 +1401,11 @@
  #ifndef TORRENT_DISABLE_STREAMING
  		// Give newly free bounded request credit to deadlines before refill.
  		void flow_request_time_critical_pieces();
@@ -439,7 +459,7 @@
  #include "libtorrent/create_torrent.hpp"
  #include "libtorrent/load_torrent.hpp"
  #include "libtorrent/torrent_info.hpp"
-@@ -587,3 +588,45 @@
+@@ -587,3 +588,85 @@
  	sim.run();
  	TEST_CHECK(checked);
  }
@@ -484,6 +504,46 @@
 +	TEST_CHECK(bool(a));
 +	TEST_CHECK(!flow_hedge_credit::acquire(other,session,16384,2000));
 +	TEST_EQUAL(other->active.load(),1);
++}
++
++TORRENT_TEST(flow_stream_policy_clock_hysteresis_and_lifecycle)
++{
++	using namespace lt::aux;
++	flow_service_model model;
++	for(int i=0;i<16;++i) model.observe(100,1000+i*100);
++	int previous=100;
++	auto const first=model.credit(previous,1024*1024,16384,512,1500,2600);
++	TEST_CHECK(first>=75 && first<previous);
++	TEST_EQUAL(model.credit(first,1024*1024,16384,512,1500,2700),first);
++	auto const second=model.credit(first,1024*1024,16384,512,1500,3200);
++	TEST_CHECK(second>=first-first/4 && second<=first);
++	TEST_EQUAL(model.credit(second,0,16384,512,1500,3800),second);
++	TEST_EQUAL(model.credit(second,1024*1024,16384,512,1500,15001),second);
++	model.observe(100,900);
++	TEST_CHECK(!model.fresh(900));
++	model.observe(400000,1000);
++	TEST_CHECK(!model.fresh(1000));
++
++	flow_cancel_filter cancelled;
++	TEST_CHECK(!cancelled.contains(0,0));
++	cancelled.add(0,0); cancelled.add(1000000,1023);
++	TEST_CHECK(cancelled.contains(0,0));
++	TEST_CHECK(cancelled.contains(1000000,1023));
++
++	auto a=std::make_shared<flow_hedge_budget>(16,256*1024);
++	auto b=std::make_shared<flow_hedge_budget>(16,256*1024);
++	auto session=std::make_shared<flow_hedge_budget>(2,32768);
++	auto one=flow_hedge_credit::acquire(a,session,16384,0);
++	auto two=flow_hedge_credit::acquire(b,session,16384,0);
++	TEST_CHECK(bool(one) && bool(two));
++	TEST_CHECK(!flow_hedge_credit::acquire(a,session,16384,1000));
++	TEST_EQUAL(a->active.load(),1);
++	TEST_EQUAL(a->bytes.load(),16384);
++	one.reset();
++	TEST_CHECK(!flow_hedge_credit::acquire(a,session,32769,1000));
++	two.reset();
++	TEST_EQUAL(session->active.load(),0);
++	TEST_EQUAL(session->bytes.load(),0);
 +}
 --- /dev/null
 +++ b/include/libtorrent/aux_/flow_stream_policy.hpp
@@ -625,7 +685,7 @@
 +	std::int64_t created_ms,first_dial_ms=-1,first_connect_ms=-1,first_handshake_ms=-1,first_payload_ms=-1;
 +	std::int64_t connect_duration_ms=-1,handshake_duration_ms=-1;
 +	std::array<flow_histogram,6> service{};
-+	std::uint64_t useful_bytes=0,redundant_bytes=0,obsolete_bytes=0,recovery_requests=0,recovery_suppressed=0;
++	std::uint64_t useful_bytes=0,redundant_bytes=0,obsolete_bytes=0,recovery_requests=0,recovery_suppressed=0,budget_changes=0;
 +	void milestone(std::int64_t& field,std::int64_t now) {
 +		if(field<0 && now>=created_ms) field=now-created_ms;
 +	}

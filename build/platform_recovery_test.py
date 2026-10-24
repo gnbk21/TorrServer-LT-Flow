@@ -11,6 +11,7 @@ class PlatformRecoveryTests(unittest.TestCase):
         jobs=ReleaseGateTests().rows()
         jobs += [dict(id=100+i,name=f'cross / high-bitrate-comparison ({i})',conclusion='success') for i in range(10)]
         jobs += [dict(id=200+i,name=f'cross / native-profiling / capture ({i})',conclusion='success') for i in range(2)]
+        jobs += [dict(id=300+i,name=f'cross / Parallel streaming ({i})',conclusion='success') for i in range(6)]
         return run,security,jobs
     def test_full_source_identical_success_required(self):
         run,security,jobs=self.evidence();validate(run,security,jobs,run['head_branch'],'a'*40)

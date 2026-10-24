@@ -183,8 +183,6 @@ static json stream_observations_json(lt::aux::torrent const& tor) {
             {"address_family",i%2?"IPV6":"IPV4"},{"samples",sample.samples},
             {"p50_ms",sample.percentile(50)},{"p95_ms",sample.percentile(95)}});
     }
-    std::uint64_t budget_changes=0;
-    for(auto const* peer:tor) budget_changes+=peer->flow_service.budget_changes;
     return {{"known",true},{"first_dial_ms",obs.first_dial_ms},
         {"first_connect_ms",obs.first_connect_ms},{"first_handshake_ms",obs.first_handshake_ms},
         {"first_payload_ms",obs.first_payload_ms},{"connect_duration_ms",obs.connect_duration_ms},
@@ -193,7 +191,7 @@ static json stream_observations_json(lt::aux::torrent const& tor) {
         {"obsolete_bytes",obs.obsolete_bytes},{"recovery_requests",obs.recovery_requests},
         {"recovery_suppressed",obs.recovery_suppressed},{"active_hedges",tor.flow_hedges->active.load()},
         {"peak_hedges",tor.flow_hedges->peak.load()},{"active_hedge_bytes",tor.flow_hedges->bytes.load()},
-        {"budget_changes",budget_changes},{"frontiers",tor.flow_frontier_count()},
+        {"budget_changes",obs.budget_changes},{"frontiers",tor.flow_frontier_count()},
         {"recovery_scan_truncated",tor.flow_scan_truncated()}};
 }
 #endif

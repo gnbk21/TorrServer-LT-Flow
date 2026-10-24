@@ -12,9 +12,9 @@ from controlled_peer import LocalSwarm, PeerPlan
 from playback_harness import OwnedServer, range_read, upload, MIB
 
 
-def trial(executable, directory, fixture, late):
+def trial(executable, directory, fixture, late, stream_controls=False):
     directory.mkdir(parents=True, exist_ok=False)
-    report = {'late_completion_enabled': late, 'passed': False}
+    report = {'late_completion_enabled': late, 'stream_controls': stream_controls, 'passed': False}
     server = None
     swarm = None
     try:
@@ -22,6 +22,7 @@ def trial(executable, directory, fixture, late):
             'EnableDebug': True, 'CacheSize': 64*MIB, 'PreloadCache': 10,
             'Flow': {'Enabled': True, 'RangeTraceEnabled': True,
                      'SwarmProfile': 'legacy', 'CapacityAwareRequests': True,
+                     'FrontierRecovery': stream_controls, 'AdaptivePeerRequests': stream_controls,
                      'BootstrapHeadMB': 4, 'ProbeGraceMs': 300,
                      'StartupBufferMinMB': 4, 'StartupBufferMaxMB': 4,
                      'GlobalCacheBudgetMB': 64}})
@@ -90,7 +91,8 @@ def check(args):
               'fixture_sha256': hashlib.sha256(fixture.read_bytes()).hexdigest(), 'trials': []}
     for late in (False, True):
         for count in range(args.repeat):
-            result = trial(args.executable, args.output/f'late-{int(late)}-trial-{count}', fixture, late)
+            result = trial(args.executable, args.output/f'late-{int(late)}-trial-{count}', fixture, late,
+                           getattr(args, 'stream_controls', False))
             report['trials'].append(result)
             report['passed'] = all(r['passed'] for r in report['trials'])
             (args.output/'report.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
@@ -107,4 +109,5 @@ if __name__ == '__main__':
     parser.add_argument('--executable', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--repeat', type=int, choices=range(1, 11), default=3)
+    parser.add_argument('--stream-controls', action='store_true')
     raise SystemExit(0 if check(parser.parse_args()) else 1)

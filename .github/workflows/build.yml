@@ -777,6 +777,9 @@ jobs:
           options=()
           if [[ "$BACKEND" == disk ]]; then options+=(--disk); fi
           python build/parallel_streaming_check.py --executable "$EXECUTABLE" --output _out/parallel-streaming --case "$CASE" --rotations 3 "${options[@]}"
+          if [[ "$CASE" == stragglers ]]; then
+            python build/request_cancel_check.py --executable "$EXECUTABLE" --output _out/parallel-streaming/cancellation --repeat 1 --stream-controls
+          fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
