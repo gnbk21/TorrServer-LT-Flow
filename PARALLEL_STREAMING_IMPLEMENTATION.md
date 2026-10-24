@@ -121,7 +121,11 @@ frontier alone, request credit alone and both. Rotated order limits order bias.
     python build/parallel_streaming_check.py --executable PATH --output NEW_DIRECTORY --case stragglers --rotations 3 --disk
 
 CI covers healthy peers, delayed blocks, small queues, mixed peers, outages, RAM
-and disk, including Windows. Reports retain failed trials, executable identity,
+and disk, including Windows. Healthy peers are tested at 100.66 Mbps; constrained
+queue/latency cases use lower demand matched to their calibrated supply. A separate
+owned Linux namespace checks jitter, configured packet loss, reordering and an
+outage with both controls enabled, preserving qdisc observations before reset.
+Reports retain failed trials, executable identity,
 startup and seek timing, total/worst read waits, lateness, duplicate bytes, CPU,
 RSS and integrity/capacity results. Native simulations cover clock freshness,
 hysteresis, cancellation ambiguity and credit ownership. Existing independent

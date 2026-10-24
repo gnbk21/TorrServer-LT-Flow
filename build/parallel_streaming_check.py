@@ -54,7 +54,10 @@ def check(args):
     with args.executable.open("rb") as source:
         digest = hashlib.file_digest(source, "sha256").hexdigest()
     case, reqq, latency, piece = CASES[args.case]
-    rate = MIB if latency else 4*MIB
+    # Exercise the new policies at high bitrate as well as under constrained
+    # small-queue/latency fixtures. The latter deliberately use lower demand
+    # so insufficient fixture supply cannot masquerade as a policy regression.
+    rate = 12*MIB if args.case == "healthy" else MIB if latency else 4*MIB
     with LocalSwarm([fixture], peers=[PeerPlan(rate=2*rate)],
                     piece_length=piece*MIB, high_throughput=True) as swarm:
         supply = calibrate(swarm)
