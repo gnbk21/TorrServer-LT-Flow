@@ -780,6 +780,10 @@ jobs:
           if [[ "$CASE" == stragglers ]]; then
             python build/request_cancel_check.py --executable "$EXECUTABLE" --output _out/parallel-streaming/cancellation --repeat 1 --stream-controls
           fi
+          if [[ "$CASE" == small-queue ]]; then
+            bash build/ci-apt.sh iproute2 util-linux
+            sudo python3 build/netem_check.py --executable "$EXECUTABLE" --output _out/parallel-streaming/network --stream-controls
+          fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

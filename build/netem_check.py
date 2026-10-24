@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Short native TCP loss/jitter/outage regression in an owned network namespace.
+"""Short native TCP loss/jitter/reordering/outage regression in an owned namespace.
 
 Requires Linux, iproute2 and CAP_SYS_ADMIN/CAP_NET_ADMIN (CI uses sudo).
 No host qdisc, route, interface or public swarm is modified. Kernel scheduling
@@ -54,26 +54,35 @@ def run(args):
     command('ip', 'link', 'set', 'lo', 'up')
     args.output.mkdir(parents=True, exist_ok=False)
     # Generated exact bytes; direct Range integrity, not a decoder/media test.
-    source = (bytes(range(256))*4096)*32
+    source = hashlib.shake_256(b'Flow owned network impairment fixture').digest(32*MIB)
     fixture = args.output/'generated.mkv'; fixture.write_bytes(source)
     report = dict(executable_sha256=hashlib.sha256(args.executable.read_bytes()).hexdigest(),
                   fixture_sha256=hashlib.sha256(source).hexdigest(), seed=147115,
                   namespace=os.readlink('/proc/self/ns/net'), tcp_only=True,
-                  http_delivery_only=True, cases=[])
+                  http_delivery_only=True, stream_controls=args.stream_controls,
+                  passed=False, cases=[])
     try:
-        for case in ('jitter', 'loss', 'outage'):
+        for case in ('jitter', 'loss', 'reordering', 'outage'):
             server = OwnedServer(args.executable, args.output/case, extra_settings={
                 'CacheSize':8*MIB,'DisableUTP':True,'DisableTCP':False,
-                'Flow':{'Enabled':True,'SwarmProfile':'adaptive','PublicMetadataCache':False}})
+                'Flow':{'Enabled':True,'SwarmProfile':'legacy' if args.stream_controls else 'adaptive',
+                        'CapacityAwareRequests':args.stream_controls,
+                        'FrontierRecovery':args.stream_controls,
+                        'AdaptivePeerRequests':args.stream_controls,'PublicMetadataCache':False}})
             timer=None
             try:
                 server.ready()
-                with LocalSwarm([fixture],peers=[PeerPlan(rate=4*MIB)],high_throughput=True) as swarm:
+                peers = ([PeerPlan(rate=2*MIB, request_queue=64, strict_request_queue=True),
+                          PeerPlan(rate=2*MIB, request_queue=64, strict_request_queue=True,
+                                   request_latency_ms=100)] if args.stream_controls
+                         else [PeerPlan(rate=4*MIB)])
+                with LocalSwarm([fixture],peers=peers,high_throughput=True) as swarm:
                     status=upload(server,swarm);index=status['file_stats'][0]['id']
                     range_read(server,swarm.info_hash.hex(),index,source,0,65535)
                     before=resources(server.process.pid)
                     if case=='jitter': shaping('delay','20ms','10ms','distribution','normal')
                     elif case=='loss': shaping('delay','10ms','loss','random','1%')
+                    elif case=='reordering': shaping('delay','10ms','reorder','25%','50%')
                     else:
                         shaping('loss','100%')
                         timer=threading.Timer(2,lambda:shaping('delay','5ms'));timer.start()
@@ -87,6 +96,7 @@ def run(args):
                         delivery=future.result()
                     elapsed=time.monotonic()-began
                     if case=='outage' and elapsed<1.5: raise AssertionError('outage did not exercise an uncached request')
+                    impaired_qdisc=json.loads(command('tc','-j','-s','qdisc','show','dev','lo'))
                     shaping('delay','0ms')
                     # A second uncached range must still work after recovery.
                     recovered=range_read(server,swarm.info_hash.hex(),index,source,28*MIB,28*MIB+65535)
@@ -94,9 +104,18 @@ def run(args):
                     peak={key:max(row[key] for row in [before,after,*samples]) for key in before}
                     if peak['rss_bytes']>MIB*1024 or peak['descriptors']>1024 or peak['threads']>256:
                         raise AssertionError('bounded fixture exceeded its resource envelope')
+                    evidence=server.json('/flow/status/'+swarm.info_hash.hex()).get('sparse',{}).get('stream')
+                    if args.stream_controls:
+                        if not evidence or not evidence.get('known'):
+                            raise AssertionError('Native stream control observations unavailable')
+                        if (evidence['peak_hedges']>16 or evidence['active_hedge_bytes']>256*1024
+                                or any(p['peak_pending_requests']>64 or p['capacity_overflows']
+                                       for p in swarm.status()['peers'])):
+                            raise AssertionError('Stream controls exceeded duplicate or peer capacity')
                     report['cases'].append(dict(case=case,elapsed_ms=elapsed*1000,delivery=delivery,
                         recovered=recovered,before=before,after=after,peak=peak,
-                        qdisc=json.loads(command('tc','-j','-s','qdisc','show','dev','lo')),passed=True))
+                        stream_control=evidence,
+                        qdisc=impaired_qdisc,passed=True))
             finally:
                 try:
                     if timer is not None:timer.join(5)
@@ -114,6 +133,7 @@ if __name__=='__main__':
     parser.add_argument('--executable',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--parent-namespace')
+    parser.add_argument('--stream-controls',action='store_true')
     args=parser.parse_args()
     args.executable=args.executable.resolve();args.output=args.output.resolve()
     if sys.platform!='linux':parser.error('Linux network namespaces are required')
@@ -122,6 +142,7 @@ if __name__=='__main__':
     else:
         argv=['unshare','--net',sys.executable,str(Path(__file__).resolve()),'--executable',str(args.executable),
               '--output',str(args.output),'--parent-namespace',os.readlink('/proc/self/ns/net')]
+        if args.stream_controls: argv.append('--stream-controls')
         child=subprocess.Popen(argv,start_new_session=True)
         try:
             code=child.wait(180)
