@@ -63,6 +63,7 @@ export const libraryApi = {
     }
   },
   active: async (signal?: AbortSignal): Promise<ActiveSnapshot> => {
+    const started = performance.now();
     try {
       const snapshot = activeSchema.parse(
         await api.get<unknown>("/flow/active", signal),
@@ -71,7 +72,11 @@ export const libraryApi = {
         ...snapshot,
         items: snapshot.items.map((item) => ({
           ...item,
-          status: observeFlow(item.status, snapshot.sampled_at),
+          status: observeFlow(
+            item.status,
+            snapshot.sampled_at,
+            performance.now() - started,
+          ),
         })),
       };
     } catch (error) {

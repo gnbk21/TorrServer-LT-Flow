@@ -1516,6 +1516,12 @@ test("recent diagnostic history is fetched only on request and states incomplete
     page.getByRole("heading", { name: "Troubleshooting and recent sessions" }),
   ).toBeVisible();
   expect(reads).toBe(0);
+  await page
+    .getByRole("button", {
+      name: "Troubleshooting and recent sessions",
+      exact: true,
+    })
+    .click();
   await page.getByRole("button", { name: "Load recent sessions" }).click();
   await expect(
     page.getByText("Incomplete evidence", { exact: true }),

@@ -140,18 +140,23 @@ jobs:
             recovery-notes.md
           if-no-files-found: error
           retention-days: 14
-      - name: Publish explicitly selected new release
+      - name: Publish explicitly selected new release without replacing assets
         if: inputs.publish
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
-        with:
-          tag_name: ${{ inputs.tag }}
-          files: |
-            dist/*
-            recovery-evidence.json
-          body_path: recovery-notes.md
-          prerelease: ${{ contains(inputs.tag, '-rc.') || contains(inputs.tag, '-preview.') || contains(inputs.tag, '-alpha.') || contains(inputs.tag, '-beta.') }}
-          make_latest: ${{ inputs.latest && !contains(inputs.tag, '-rc.') && !contains(inputs.tag, '-preview.') && !contains(inputs.tag, '-alpha.') && !contains(inputs.tag, '-beta.') }}
-          fail_on_unmatched_files: true
+        env:
+          FLOW_LATEST: ${{ inputs.latest }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "$FLOW_TAG^{commit}")" = "$FLOW_SOURCE"
+          channel=$(python3 build/release.py --classify --tag "$FLOW_TAG")
+          options=(--latest=false)
+          if [ "$channel" = preview ]; then
+            options+=(--prerelease)
+          elif [ "$FLOW_LATEST" = true ]; then
+            options=(--latest)
+          fi
+          # Create fails atomically if another workflow published first. The
+          # usual upsert action could otherwise replace existing release assets.
+          gh release create "$FLOW_TAG" dist/* recovery-evidence.json --repo "$GITHUB_REPOSITORY" --verify-tag --title "$FLOW_TAG" --notes-file recovery-notes.md "${options[@]}"
 
   docker:
     needs: recover

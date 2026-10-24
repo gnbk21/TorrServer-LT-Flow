@@ -47,3 +47,11 @@ actual behavior and relevant verification, not simply related code.
 - Native engine compilation, exported Go/TypeScript contracts, storage fault
   injection, authenticated storage integration, Windows updater candidate and
   Linux netem evidence await the candidate CI run. No owner installation was changed.
+- Production payload regression found and fixed by deferring optional diagnostics,
+  history validation and inactive playback cards. The 200 KiB gate is unchanged.
+- Freshness now conservatively includes request elapsed time, so a slow response
+  cannot renew an already stale sample. Playback chart retention uses monotonic time.
+- Native build startup exposed an existing reusable-workflow permission mismatch;
+  both container callers now grant the callee's required artifact-read permission.
+- Windows link-specific recovery fixtures are gated to Windows and wired into the
+  actual Windows service job; platform-neutral inventory checks remain in tagging.

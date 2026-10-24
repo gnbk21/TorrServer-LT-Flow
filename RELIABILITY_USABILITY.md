@@ -126,3 +126,9 @@ current evidence and remaining checks. Final reconciliation must cover native
 contracts, storage rollback fault injection, Windows updater recovery, browser
 regressions, controlled network cases and security boundaries before this
 milestone is declared complete.
+
+Optional history/troubleshooting and inactive playback cards are loaded on demand
+so the dashboard retains its existing 200 KiB compressed initial-JavaScript gate.
+Request elapsed time is included conservatively in freshness; charts retain their
+window using browser monotonic time. Platform recovery uses atomic release
+creation rather than asset upsert to refuse a concurrent existing release.

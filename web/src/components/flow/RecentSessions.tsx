@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { flowApi, type SessionSummaries } from "../../api/flow";
+import {
+  sessionHistoryApi,
+  type SessionSummaries,
+} from "../../api/sessionHistory";
 import { Button } from "../common/Button";
 import { RequestError } from "../common/RequestState";
 import { LANTest } from "../settings/LANTest";
@@ -21,7 +24,7 @@ export function RecentSessions() {
     setBusy(true);
     setError(undefined);
     try {
-      setData(await flowApi.getSessions(request.signal));
+      setData(await sessionHistoryApi.getSessions(request.signal));
     } catch (e) {
       setError(e);
     } finally {
@@ -29,8 +32,7 @@ export function RecentSessions() {
     }
   };
   return (
-    <section className="panel space-y-4">
-      <h2 className="font-semibold">{t("reliability.diagnostics")}</h2>
+    <div className="space-y-4">
       <details>
         <summary>{t("reliability.guide")}</summary>
         <div className="space-y-3 py-3">
@@ -105,6 +107,6 @@ export function RecentSessions() {
           </table>
         </div>
       )}
-    </section>
+    </div>
   );
 }

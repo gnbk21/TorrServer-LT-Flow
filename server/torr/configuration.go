@@ -31,7 +31,7 @@ func ApplyStoragePreferences(prefs map[string]interface{}, revision string) erro
 	if FlowHasActiveWork() {
 		return ErrStorageBusy
 	}
-	token, _ := flow.Maintenance.Acquire(120 * time.Second)
+	token, _ := flow.Maintenance.Acquire(0)
 	if token == "" {
 		return ErrStorageBusy
 	}
@@ -39,7 +39,14 @@ func ApplyStoragePreferences(prefs map[string]interface{}, revision string) erro
 	if FlowHasActiveWork() {
 		return ErrStorageBusy
 	}
-	err := settings.SetStoragePreferences(prefs)
+	configControl.applying = true
+	configControl.effective = settings.CloneSettings(settings.BTsets())
+	defer func() { configControl.applying = false; configControl.effective = nil }()
+	err := func() error {
+		configControl.Unlock()
+		defer configControl.Lock()
+		return settings.SetStoragePreferences(prefs)
+	}()
 	if settings.StorageRecoveryPending() {
 		configControl.error = "STORAGE_RECOVERY_REQUIRED"
 	}

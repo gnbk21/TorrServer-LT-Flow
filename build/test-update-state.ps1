@@ -22,6 +22,7 @@ try {
         try { [void](Resolve-FlowStateFile $state $name) } catch { $rejected=$true }
         if (-not $rejected) { throw 'Unsafe inventory entry accepted.' }
     }
+    if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
     $outside=Join-Path $root 'outside'
     [void](New-Item -ItemType Directory -Path $outside)
     [void](New-Item -ItemType Junction -Path (Join-Path $state 'ssl') -Target $outside)
@@ -38,6 +39,7 @@ try {
     if (-not $rejected) { throw 'A multiply linked state file was accepted.' }
     Remove-Item -LiteralPath (Join-Path $state 'settings.json')
     'original' | Set-Content -LiteralPath (Join-Path $state 'settings.json')
+    }
     'tampered' | Set-Content -LiteralPath (Join-Path $backup 'settings.json')
     $rejected=$false
     try { Restore-FlowStateSnapshot $state $backup } catch { $rejected=$true }

@@ -43,3 +43,37 @@ func TestSessionSummariesBoundedPrivateAndRecovered(t *testing.T) {
 		t.Fatal("partial history claimed complete")
 	}
 }
+
+func TestSessionSummaryRetentionAndObservedClosure(t *testing.T) {
+	dir := t.TempDir()
+	history, err := NewHistory(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id := uint64(1); id <= 70; id++ {
+		history.Record(HistoryEvent{Type: "playback_sample", Torrent: 1, Playback: &PlaybackHistory{Session: id, State: "EXPIRED", WaitReason: "READY", BufferBytes: 10}})
+	}
+	history.Record(HistoryEvent{Type: "engine_stopped"})
+	if !history.Close(time.Second) {
+		t.Fatal("history did not close")
+	}
+	result := ReadSessionSummaries(dir, true)
+	if len(result.Items) != 64 || !result.Truncated {
+		t.Fatal("session retention not bounded", len(result.Items), result.Truncated)
+	}
+	// A separate complete history confirms only the server's session ending.
+	complete := t.TempDir()
+	history, err = NewHistory(complete)
+	if err != nil {
+		t.Fatal(err)
+	}
+	history.Record(HistoryEvent{Type: "playback_sample", Torrent: 1, Playback: &PlaybackHistory{Session: 1, State: "PLAYING", WaitReason: "READY"}})
+	history.Record(HistoryEvent{Type: "engine_stopped"})
+	if !history.Close(time.Second) {
+		t.Fatal("history did not close")
+	}
+	result = ReadSessionSummaries(complete, true)
+	if len(result.Items) != 1 || result.Truncated || result.Items[0].Incomplete {
+		t.Fatal("observed closure missing", result)
+	}
+}

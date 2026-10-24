@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { api } from "./client";
 import { observeFlow } from "../lib/observation";
 import { flowSchema, networkSchema } from "./schemas";
@@ -8,34 +7,7 @@ import {
   FlowTrayStatus,
 } from "../types/flow";
 
-export const summariesSchema = z.object({
-  enabled: z.boolean(),
-  truncated: z.boolean(),
-  items: z
-    .array(
-      z.object({
-        started: z.string().datetime(),
-        last_observed: z.string().datetime(),
-        samples: z.number().nonnegative(),
-        bytes_served: z.number().nonnegative(),
-        peak_recent_read_stalls: z.number().nonnegative(),
-        peak_recent_wait_p95_ms: z.number().nonnegative(),
-        minimum_buffer_bytes: z.number().nonnegative(),
-        maximum_buffer_bytes: z.number().nonnegative(),
-        range_requests: z.number().nonnegative(),
-        range_cancels: z.number().nonnegative(),
-        incomplete: z.boolean(),
-      }),
-    )
-    .max(64),
-});
-export type SessionSummaries = z.infer<typeof summariesSchema>;
-
 export const flowApi = {
-  getSessions: (signal?: AbortSignal) =>
-    api
-      .get("/flow/sessions", signal)
-      .then((value) => summariesSchema.parse(value)),
   retryMetadata: (hash: string, signal?: AbortSignal) =>
     api.post(`/flow/metadata-retry/${encodeURIComponent(hash)}`, {}, signal),
   warmup: (
@@ -62,15 +34,22 @@ export const flowApi = {
       throw new Error("Invalid playback capability response");
     return data;
   },
-  getStatus: (hash: string, signal?: AbortSignal, includeTraces = false) =>
-    api
-      .get<unknown>(
-        `/flow/status/${encodeURIComponent(hash)}${includeTraces ? "" : "?traces=false"}`,
-        signal,
-      )
-      .then((data) =>
-        observeFlow(flowSchema.parse(data) as FlowStatusResponse),
-      ),
+  getStatus: async (
+    hash: string,
+    signal?: AbortSignal,
+    includeTraces = false,
+  ) => {
+    const started = performance.now();
+    const data = await api.get<unknown>(
+      `/flow/status/${encodeURIComponent(hash)}${includeTraces ? "" : "?traces=false"}`,
+      signal,
+    );
+    return observeFlow(
+      flowSchema.parse(data) as FlowStatusResponse,
+      undefined,
+      performance.now() - started,
+    );
+  },
 
   getNetwork: (signal?: AbortSignal) =>
     api

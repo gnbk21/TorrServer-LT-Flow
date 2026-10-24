@@ -38,3 +38,18 @@ test("compact active responses use their envelope time; unknown age stays unknow
     Number.isFinite(observationNow(observeFlow(input, "2026-10-24T12:00:00Z"))),
   ).toBe(true);
 });
+
+test("slow responses cannot renew stale server measurements", () => {
+  const server = Date.parse("2026-10-24T12:00:00Z");
+  const status = {
+    hash: "fixture",
+    sampled_at: new Date(server).toISOString(),
+    sessions: [
+      { buffer_sample_age_ms: 2000, buffer_sampled_at_ms: server - 2000 },
+    ],
+  } as FlowStatusResponse;
+  const received = observeFlow(status, undefined, 9000);
+  expect(
+    observationNow(received) - received.sessions![0]!.buffer_sampled_at_ms!,
+  ).toBeGreaterThanOrEqual(11000);
+});

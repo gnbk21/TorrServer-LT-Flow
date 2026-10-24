@@ -21,10 +21,14 @@ export function observationNow(value?: Observed): number {
 export function observeFlow(
   status: FlowStatusResponse,
   anchor?: string,
+  requestElapsed = 0,
 ): FlowStatusResponse {
   const serverNow = Date.parse(status.sampled_at ?? anchor ?? "");
   // Unknown server time cannot establish freshness on a clock-skewed client.
-  const observation = { serverNow, receivedAt: performance.now() };
+  const observation = {
+    serverNow: serverNow + Math.max(0, requestElapsed),
+    receivedAt: performance.now(),
+  };
   return {
     ...status,
     sampled_at: status.sampled_at ?? anchor,
