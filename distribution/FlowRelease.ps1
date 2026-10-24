@@ -91,7 +91,7 @@ function Compare-FlowVersions {
 # Version 1 inventory: only these application-owned names may participate in
 # updater recovery. A shared state directory is never treated as owned wholesale.
 function Test-FlowOwnedStateName([string]$Relative) {
-    return $Relative -cin @('config.db','settings.json','viewed.json','accs.db','torrserver.db','flow-settings-good.json','flow-settings-pending.json', 'flow-storage-transaction.json','wip.txt','bip.txt','wip.txt.bak','bip.txt.bak','server.pem','server.key','ssl/uploaded.crt','ssl/uploaded.key') -or $Relative -cmatch '^ssl/pair-[A-Za-z0-9-]+/uploaded\.(crt|key)$'
+    return $Relative -cin @('config.db','settings.json','viewed.json','accs.db','torrserver.db','flow-settings-good.json','flow-settings-pending.json','flow-storage-transaction.json','flow-preparation.json','flow-dht.bin','tg_langs.json','wip.txt','bip.txt','wip.txt.bak','bip.txt.bak','server.pem','server.key','ssl/uploaded.crt','ssl/uploaded.key') -or $Relative -cmatch '^ssl/pair-[A-Za-z0-9-]+/uploaded\.(crt|key)$'
 }
 
 function Resolve-FlowStateFile([string]$Directory, [string]$Relative) {
@@ -122,7 +122,7 @@ function Resolve-FlowStateFile([string]$Directory, [string]$Relative) {
 }
 
 function Get-FlowOwnedState([string]$Directory) {
-    $names = @('config.db','settings.json','viewed.json','accs.db','torrserver.db','flow-settings-good.json','flow-settings-pending.json','flow-storage-transaction.json','wip.txt','bip.txt','wip.txt.bak','bip.txt.bak','server.pem','server.key','ssl/uploaded.crt','ssl/uploaded.key')
+    $names = @('config.db','settings.json','viewed.json','accs.db','torrserver.db','flow-settings-good.json','flow-settings-pending.json','flow-storage-transaction.json','flow-preparation.json','flow-dht.bin','tg_langs.json','wip.txt','bip.txt','wip.txt.bak','bip.txt.bak','server.pem','server.key','ssl/uploaded.crt','ssl/uploaded.key')
     # Validate ssl before listing; never traverse a directory junction.
     [void](Resolve-FlowStateFile $Directory 'ssl/uploaded.crt')
     $ssl = Join-Path $Directory 'ssl'

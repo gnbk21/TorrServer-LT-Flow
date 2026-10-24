@@ -20,6 +20,9 @@ remain outside recovery. Recognized new state is quarantined; captured state
 is restored only after every inventory entry and digest validates. Junctions,
 symbolic links and multiply linked files are rejected. Private backups may
 contain account credentials and keys and must remain owner protected.
+Preparation metadata, DHT state and Telegram language preferences are included.
+Media pieces, rebuildable per-torrent peer hints and diagnostic history are not
+rolled back; recovery does not scan those directories or rewind diagnostics.
 
 ## Storage migration
 

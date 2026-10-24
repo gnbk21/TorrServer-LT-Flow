@@ -6,14 +6,23 @@ $state=Join-Path $root 'shared'; $backup=Join-Path $root 'backup'
 [void](New-Item -ItemType Directory -Path $state,$backup)
 try {
     'original' | Set-Content -LiteralPath (Join-Path $state 'settings.json')
+    foreach ($name in @('flow-preparation.json','flow-dht.bin','tg_langs.json')) {
+        'owned metadata' | Set-Content -LiteralPath (Join-Path $state $name)
+    }
     'unrelated' | Set-Content -LiteralPath (Join-Path $state 'notes.txt')
     Save-FlowStateSnapshot $state $backup
     if (Test-Path -LiteralPath (Join-Path $backup 'notes.txt')) { throw 'Unrelated file copied.' }
     'changed' | Set-Content -LiteralPath (Join-Path $state 'settings.json')
+    foreach ($name in @('flow-preparation.json','flow-dht.bin','tg_langs.json')) {
+        'changed metadata' | Set-Content -LiteralPath (Join-Path $state $name)
+    }
     'new user file' | Set-Content -LiteralPath (Join-Path $state 'new-document.json')
     'new Flow file' | Set-Content -LiteralPath (Join-Path $state 'flow-settings-pending.json')
     Restore-FlowStateSnapshot $state $backup
     if ((Get-Content -LiteralPath (Join-Path $state 'settings.json')).Trim() -ne 'original') { throw 'Original not restored.' }
+    foreach ($name in @('flow-preparation.json','flow-dht.bin','tg_langs.json')) {
+        if ((Get-Content -LiteralPath (Join-Path $state $name)).Trim() -ne 'owned metadata') { throw 'Flow metadata not restored.' }
+    }
     foreach($name in @('notes.txt','new-document.json')) { if (-not (Test-Path -LiteralPath (Join-Path $state $name))) { throw 'Unrelated file moved.' } }
     if (Test-Path -LiteralPath (Join-Path $state 'flow-settings-pending.json')) { throw 'New recognized state not quarantined.' }
     if (-not (Test-Path -LiteralPath (Join-Path $backup 'failed-state/flow-settings-pending.json'))) { throw 'Recognized state lost.' }
