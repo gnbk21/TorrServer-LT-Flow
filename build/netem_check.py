@@ -31,6 +31,19 @@ def resources(pid):
                 threads=int(status['Threads']), descriptors=len(list(Path(f'/proc/{pid}/fd').iterdir())))
 
 
+def wait_stream_observations(server, info_hash, timeout=5):
+    # Sampling crosses the Go ticker and native executor. A very short byte
+    # check can finish before either has published its first snapshot.
+    deadline = time.monotonic()+timeout
+    while True:
+        evidence=server.json('/flow/status/'+info_hash).get('sparse',{}).get('stream')
+        if evidence and evidence.get('known'):
+            return evidence
+        if time.monotonic()>=deadline:
+            raise AssertionError('Native stream control observations unavailable')
+        time.sleep(.1)
+
+
 SEED_SUPPORTED = True
 
 def shaping(*options):
@@ -65,7 +78,7 @@ def run(args):
         for case in ('jitter', 'loss', 'reordering', 'outage'):
             server = OwnedServer(args.executable, args.output/case, extra_settings={
                 'CacheSize':8*MIB,'DisableUTP':True,'DisableTCP':False,
-                'Flow':{'Enabled':True,'SwarmProfile':'legacy' if args.stream_controls else 'adaptive',
+                'Flow':{'Enabled':True,'MetricsEnabled':True,'SwarmProfile':'legacy' if args.stream_controls else 'adaptive',
                         'CapacityAwareRequests':args.stream_controls,
                         'FrontierRecovery':args.stream_controls,
                         'AdaptivePeerRequests':args.stream_controls,'PublicMetadataCache':False}})
@@ -79,6 +92,8 @@ def run(args):
                 with LocalSwarm([fixture],peers=peers,high_throughput=True) as swarm:
                     status=upload(server,swarm);index=status['file_stats'][0]['id']
                     range_read(server,swarm.info_hash.hex(),index,source,0,65535)
+                    if args.stream_controls:
+                        wait_stream_observations(server,swarm.info_hash.hex())
                     before=resources(server.process.pid)
                     if case=='jitter': shaping('delay','20ms','10ms','distribution','normal')
                     elif case=='loss': shaping('delay','10ms','loss','random','1%')
@@ -124,6 +139,9 @@ def run(args):
                     server.close()
         report['seed_supported']=SEED_SUPPORTED
         report['passed']=True
+    except Exception as error:
+        report['error']=str(error)
+        raise
     finally:
         (args.output/'report.json').write_text(json.dumps(report,indent=2)+'\n')
 
