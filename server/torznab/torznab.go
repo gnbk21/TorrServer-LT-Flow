@@ -346,6 +346,13 @@ func FetchCaps(ctx context.Context, host, key string) (*Caps, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx, cancel := context.WithTimeout(ctx, httpTimeout)
+	defer cancel()
+	release, err := searchstatus.Acquire(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 
 	u, err := normalizeHost(host)
 	if err != nil {
@@ -369,13 +376,16 @@ func FetchCaps(ctx context.Context, host, key string) (*Caps, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
 	if err != nil {
 		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, searchstatus.HTTP(resp.StatusCode)
+	}
+	if len(body) > 1<<20 {
+		return nil, searchstatus.Invalid()
 	}
 
 	return ParseCapsBytes(body)

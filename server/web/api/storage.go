@@ -31,7 +31,7 @@ func GetStorageSettings(c *gin.Context) {
 
 // UpdateStorageSettings godoc
 // @Summary Update storage configuration settings
-// @Description Updates the storage preferences for settings and viewed history. Requires application restart for changes to take effect.
+// @Description Transactionally updates storage preferences and live routing while idle. Optional revision protects against stale configuration.
 // @Tags API
 // @Accept json,x-www-form-urlencoded
 // @Produce json

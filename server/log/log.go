@@ -194,9 +194,9 @@ func closeConsoleOutput() {
 
 func Close() {
 	StopConsoleStatus()
-	stopRotations()
 	closeMu.Lock()
 	defer closeMu.Unlock()
+	stopRotations()
 	closeConsoleOutput()
 	if logFile != nil {
 		logFile.Close()

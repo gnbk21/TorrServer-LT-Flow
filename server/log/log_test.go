@@ -99,6 +99,19 @@ func TestConcurrentConsoleCloseRestoresOnce(t *testing.T) {
 	}
 }
 
+func TestConcurrentCloseJoinsRotationOnce(t *testing.T) {
+	Init("", filepath.Join(t.TempDir(), "access.log"))
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Add(1)
+		go func() { defer wg.Done(); Close() }()
+	}
+	wg.Wait()
+	if len(rotations) != 0 || webLogFile != nil {
+		t.Fatal("concurrent cleanup retained a rotation owner")
+	}
+}
+
 func TestAPIConsoleCleanupKeepsAccessLogUsable(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "access.log")

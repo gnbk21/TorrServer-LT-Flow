@@ -98,8 +98,11 @@ def run(args):
                         recovered=recovered,before=before,after=after,peak=peak,
                         qdisc=json.loads(command('tc','-j','-s','qdisc','show','dev','lo')),passed=True))
             finally:
-                if timer is not None:timer.join(5)
-                shaping('delay','0ms');server.close()
+                try:
+                    if timer is not None:timer.join(5)
+                    shaping('delay','0ms')
+                finally:
+                    server.close()
         report['seed_supported']=SEED_SUPPORTED
         report['passed']=True
     finally:

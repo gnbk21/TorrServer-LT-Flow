@@ -198,6 +198,13 @@ func Test(ctx context.Context, host, key string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx, cancel := context.WithTimeout(ctx, httpTimeout)
+	defer cancel()
+	release, err := searchstatus.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
 
 	endpoint, err := searchURL(host, "test", key)
 	if err != nil {
@@ -215,7 +222,7 @@ func Test(ctx context.Context, host, key string) error {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
 	if err != nil {
 		return err
 	}
@@ -224,8 +231,8 @@ func Test(ctx context.Context, host, key string) error {
 	}
 
 	var probe []item
-	if err := json.Unmarshal(body, &probe); err != nil {
-		return fmt.Errorf("unexpected response (not a JacRed search endpoint)")
+	if len(body) > 1<<20 || json.Unmarshal(body, &probe) != nil || strings.TrimSpace(string(body)) == "null" {
+		return searchstatus.Invalid()
 	}
 	return nil
 }
