@@ -163,6 +163,9 @@ func recoverStorageTransaction(b, j TorrServerDB) error {
 	if err != nil {
 		return err
 	}
+	if ReadOnly {
+		return errors.New("storage recovery requires a writable start")
+	}
 	if !info.Mode().IsRegular() || info.Size() > BackupLimit {
 		return errors.New("invalid storage recovery file")
 	}

@@ -53,12 +53,13 @@ func TestSessionSummaryRetentionAndObservedClosure(t *testing.T) {
 	for id := uint64(1); id <= 70; id++ {
 		history.Record(HistoryEvent{Type: "playback_sample", Torrent: 1, Playback: &PlaybackHistory{Session: id, State: "EXPIRED", WaitReason: "READY", BufferBytes: 10}})
 	}
+	history.Record(HistoryEvent{Type: "response", Torrent: 1, Response: &ResponseHistory{Session: 7, Method: "GET", Classification: "PLAYBACK", BytesServed: 9}})
 	history.Record(HistoryEvent{Type: "engine_stopped"})
 	if !history.Close(time.Second) {
 		t.Fatal("history did not close")
 	}
 	result := ReadSessionSummaries(dir, true)
-	if len(result.Items) != 64 || !result.Truncated {
+	if len(result.Items) != 64 || !result.Truncated || result.Items[0].BytesServed != 9 {
 		t.Fatal("session retention not bounded", len(result.Items), result.Truncated)
 	}
 	// A separate complete history confirms only the server's session ending.

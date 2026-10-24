@@ -73,7 +73,7 @@ func ReadSessionSummaries(dir string, enabled bool) SessionSummaries {
 			if e.Type == "engine_stopped" {
 				closed[e.Run] = true
 			}
-			if e.Dropped > 0 {
+			if e.Dropped > 0 || e.Truncated {
 				out.Truncated = true
 			}
 			var id uint64
@@ -98,6 +98,15 @@ func ReadSessionSummaries(dir string, enabled bool) SessionSummaries {
 				rows[key] = row
 				order = append(order, key)
 			}
+			// Retain the most recently observed sessions, including an older
+			// session that becomes active again after a newer session starts.
+			for index, existing := range order {
+				if existing == key {
+					order = append(order[:index], order[index+1:]...)
+					break
+				}
+			}
+			order = append(order, key)
 			row.LastObserved = e.Time
 			if p := e.Playback; p != nil {
 				if row.Samples == 0 {

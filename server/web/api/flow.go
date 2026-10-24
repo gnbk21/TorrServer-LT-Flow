@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"server/flow"
 	"server/lt"
-	"server/settings"
+	sets "server/settings"
 	"server/torr"
 	"time"
 )
@@ -110,5 +110,5 @@ func flowControl(c *gin.Context) {
 
 func flowSessions(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
-	c.JSON(http.StatusOK, flow.ReadSessionSummaries(settings.Path, settings.CurrentFlow().DiagnosticHistory))
+	c.JSON(http.StatusOK, flow.ReadSessionSummaries(sets.Path, sets.CurrentFlow().DiagnosticHistory))
 }
