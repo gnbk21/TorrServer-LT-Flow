@@ -813,6 +813,7 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && inputs.release_channel != 'stable' && inputs.release_channel != 'preview'
     permissions:
       contents: read
+      actions: read
       packages: write
     uses: ./.github/workflows/build-docker.yml
     with:

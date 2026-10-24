@@ -173,6 +173,7 @@ jobs:
     needs: [classify, release]
     permissions:
       contents: read
+      actions: read
       packages: write
     uses: ./.github/workflows/build-docker.yml
     with:
