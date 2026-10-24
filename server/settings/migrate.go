@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -173,7 +174,9 @@ func MigrateSingle(source, target TorrServerDB, xpath, name string) (bool, error
 	}
 
 	// Perform migration
-	target.Set(xpath, name, sourceData)
+	if err := putChecked(target, xpath, name, sourceData); err != nil {
+		return false, err
+	}
 	if IsDebug() {
 		log.TLogln(fmt.Sprintf("Migrating %s/%s", xpath, name))
 	}
@@ -230,7 +233,9 @@ func MigrateAll(source, target TorrServerDB, xpath string) (int, int, error) {
 		}
 
 		// Perform migration
-		target.Set(xpath, name, sourceData)
+		if err := putChecked(target, xpath, name, sourceData); err != nil {
+			return migratedCount, skippedCount, err
+		}
 
 		// Verify migration
 		if err := verifyMigration(source, target, xpath, name, sourceData); err != nil {
@@ -292,25 +297,21 @@ func isByteArraysEqualJson(a, b []byte) (bool, error) {
 	if len(a) == 0 || len(b) == 0 {
 		return false, nil
 	}
-	// Quick check: same length and byte equality
-	if len(a) == len(b) {
-		// Fast path: byte-by-byte comparison
-		for i := range a {
-			if a[i] != b[i] {
-				break // Need to parse as JSON
-			}
-		}
-		// If we get here, bytes are identical
+	if bytes.Equal(a, b) {
 		return true, nil
 	}
 	// Parse as JSON for structural comparison
 	var objectA, objectB interface{}
 
-	if err := json.Unmarshal(a, &objectA); err != nil {
+	decoderA := json.NewDecoder(bytes.NewReader(a))
+	decoderA.UseNumber()
+	if err := decoderA.Decode(&objectA); err != nil {
 		return false, fmt.Errorf("error unmarshalling A: %w", err)
 	}
 
-	if err := json.Unmarshal(b, &objectB); err != nil {
+	decoderB := json.NewDecoder(bytes.NewReader(b))
+	decoderB.UseNumber()
+	if err := decoderB.Decode(&objectB); err != nil {
 		return false, fmt.Errorf("error unmarshalling B: %w", err)
 	}
 
@@ -318,31 +319,7 @@ func isByteArraysEqualJson(a, b []byte) (bool, error) {
 }
 
 // Optimized version for performance
-func isByteArraysEqualJsonOptimized(a, b []byte) (bool, error) {
-	// Fast paths
-	if a == nil && b == nil {
-		return true, nil
-	}
-	if len(a) != len(b) {
-		return false, nil
-	}
-	if len(a) == 0 {
-		return true, nil
-	}
-	// Byte equality (fastest check)
-	equal := true
-	for i := range a {
-		if a[i] != b[i] {
-			equal = false
-			break
-		}
-	}
-	if equal {
-		return true, nil
-	}
-	// Parse as JSON (slower but accurate)
-	return isByteArraysEqualJson(a, b)
-}
+func isByteArraysEqualJsonOptimized(a, b []byte) (bool, error) { return isByteArraysEqualJson(a, b) }
 
 func verifyMigration(source, target TorrServerDB, xpath, name string, originalData []byte) error {
 	// Get migrated data

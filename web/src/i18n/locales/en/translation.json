@@ -1208,5 +1208,43 @@
   },
   "flowHelp": {
     "MSXAllowLAN": "Off by default. Allows explicitly requested private or loopback IP addresses. Hostnames resolving to LAN and link-local metadata services remain blocked."
+  },
+  "reliability": {
+    "searchSources": "Search sources",
+    "integrationOK": "Connection test passed.",
+    "storageIdle": "Stop playback and preparation and resolve scheduled settings before changing storage. Data and preferences move together.",
+    "cooldown": "The server requested a pause. Polling resumes after its retry delay.",
+    "forbidden": "Access denied. Check account permissions and server access rules.",
+    "diagnostics": "Troubleshooting and recent sessions",
+    "guide": "Find where the problem starts",
+    "historyHelp": "Opt-in history contains anonymous server delivery evidence, not phone playback measurements. Buffers are sampled; stalls and waits are peaks of recent windows, not totals.",
+    "recentSessions": "Load recent sessions",
+    "historyOff": "History is off. Enable it explicitly in settings to record future sessions.",
+    "historyEmpty": "No recorded sessions.",
+    "historyTruncated": "History is partial, rotated or contains dropped records.",
+    "incomplete": "Incomplete evidence",
+    "observedEnd": "Server session end observed",
+    "searchStates": {
+      "pending": "Searching…",
+      "ok": "Available",
+      "empty": "No matches",
+      "timeout": "Timed out; retry source",
+      "auth_required": "Authentication required; check API key",
+      "unavailable": "Unavailable; check address and connection",
+      "invalid_response": "Invalid response; check API endpoint",
+      "cancelled": "Cancelled"
+    },
+    "guideSteps": {
+      "parser": "Search or parser error: test saved JacRed/Torznab in Integrations. The parser runs before Flow receives the torrent.",
+      "preload": "Lampa preload waiting: check metadata, connected suppliers and startup wait reason. A .torrent avoids metadata waiting but cannot create missing seeders.",
+      "playback": "Playback stutters: compare contiguous buffer, supply rate and read waits. Run the connection test on the phone to check server-to-phone delivery separately. It does not test the decoder."
+    },
+    "summary": {
+      "observed": "Last observed",
+      "delivery": "Bytes delivered",
+      "buffer": "Sampled buffer range",
+      "stalls": "Peak recent stalls / wait p95",
+      "coverage": "Coverage"
+    }
   }
 }

@@ -1178,5 +1178,43 @@
   },
   "flowHelp": {
     "MSXAllowLAN": "Désactivé par défaut. Autorise les adresses IP privées ou de boucle locale explicitement indiquées. Les noms résolus vers le réseau local et les services link-local restent bloqués."
+  },
+  "reliability": {
+    "searchSources": "Sources de recherche",
+    "integrationOK": "Test de connexion réussi.",
+    "storageIdle": "Arrêtez lecture et préparation et résolvez les réglages différés avant de changer de stockage. Données et préférences sont transférées ensemble.",
+    "cooldown": "Le serveur demande de patienter. Les actualisations reprendront après le délai indiqué.",
+    "forbidden": "Accès refusé. Vérifiez les droits du compte et les règles du serveur.",
+    "diagnostics": "Diagnostic et sessions récentes",
+    "guide": "Localiser le problème",
+    "historyHelp": "L’historique facultatif contient des mesures anonymes du serveur, pas de la lecture du téléphone. Le tampon est échantillonné ; blocages et attente sont les maxima des fenêtres récentes, pas des totaux.",
+    "recentSessions": "Charger les sessions récentes",
+    "historyOff": "L’historique est désactivé. Activez-le dans les réglages pour enregistrer les prochaines sessions.",
+    "historyEmpty": "Aucune session enregistrée.",
+    "historyTruncated": "Historique partiel : rotation ou enregistrements perdus.",
+    "incomplete": "Données incomplètes",
+    "observedEnd": "Fin de session serveur observée",
+    "searchStates": {
+      "pending": "Recherche…",
+      "ok": "Disponible",
+      "empty": "Aucun résultat",
+      "timeout": "Délai dépassé ; réessayez",
+      "auth_required": "Authentification requise ; vérifiez la clé API",
+      "unavailable": "Indisponible ; vérifiez l’adresse et la connexion",
+      "invalid_response": "Réponse invalide ; vérifiez le point d’accès API",
+      "cancelled": "Annulé"
+    },
+    "guideSteps": {
+      "parser": "Erreur de recherche ou du parseur : testez JacRed/Torznab dans Intégrations. Le parseur intervient avant la réception du torrent par Flow.",
+      "preload": "Préchargement Lampa en attente : vérifiez métadonnées, fournisseurs connectés et cause d’attente. Un fichier .torrent évite l’attente des métadonnées mais ne crée pas de sources.",
+      "playback": "Lecture saccadée : comparez tampon contigu, débit reçu et attentes de lecture. Testez la connexion sur le téléphone pour isoler le transfert serveur-téléphone. Ce test ne vérifie pas le décodeur."
+    },
+    "summary": {
+      "observed": "Dernière observation",
+      "delivery": "Octets transmis",
+      "buffer": "Plage du tampon",
+      "stalls": "Pic de blocages / attente p95",
+      "coverage": "Couverture"
+    }
   }
 }

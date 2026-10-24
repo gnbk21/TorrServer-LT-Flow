@@ -1,3 +1,4 @@
+import type { Observed } from "../lib/observation";
 export interface FlowRangeTrace {
   timestamp: string;
   group: string;
@@ -74,8 +75,9 @@ export interface FlowStartup {
   time_to_first_byte_ms: number;
 }
 
-export interface FlowSession {
+export interface FlowSession extends Observed {
   buffer_sampled_at_ms?: number;
+  buffer_sample_age_ms?: number;
   buffer_offset_bytes?: number;
   session_id?: string;
   readable_contiguous_bytes?: number;
@@ -208,7 +210,7 @@ export interface FlowTrackerSummary {
   error?: string;
   last_at: string;
 }
-export interface FlowStatusResponse {
+export interface FlowStatusResponse extends Observed {
   integrity?: {
     failures: number;
     recent_failures: number;

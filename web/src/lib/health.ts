@@ -1,4 +1,5 @@
 import type { FlowSession } from "../types/flow";
+import { observationNow } from "./observation";
 export type FlowHealthState =
   "HEALTHY" | "MARGINAL" | "BUFFER_RISK" | "STALLED" | "WARM_IDLE" | "UNKNOWN";
 export interface HealthDerivation {
@@ -6,13 +7,18 @@ export interface HealthDerivation {
   label: string;
   description: string;
 }
-export function deriveFlowHealth(session?: FlowSession): HealthDerivation {
+export function deriveFlowHealth(
+  session?: FlowSession,
+  now = observationNow(session),
+): HealthDerivation {
   let state: FlowHealthState = "UNKNOWN";
   if (
-    session?.buffer_sampled_at_ms !== undefined &&
-    (session.buffer_sampled_at_ms <= 0 ||
-      Date.now() - session.buffer_sampled_at_ms < 0 ||
-      Date.now() - session.buffer_sampled_at_ms >= 10000)
+    session &&
+    (session.buffer_sampled_at_ms === undefined ||
+      session.buffer_sampled_at_ms <= 0 ||
+      !Number.isFinite(now) ||
+      now - session.buffer_sampled_at_ms < 0 ||
+      now - session.buffer_sampled_at_ms >= 10000)
   )
     return {
       state,

@@ -2,6 +2,8 @@ package api
 
 import (
 	"net/http"
+	"server/searchstatus"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -29,9 +31,14 @@ func jacredSearch(c *gin.Context) {
 		return
 	}
 	query := utils.DecodeQueryValue(c.Query("query"))
-	list := jacred.Search(c.Request.Context(), query)
+	started := time.Now()
+	list, err := jacred.SearchDetailed(c.Request.Context(), query)
 	if list == nil {
 		list = []*models.TorrentDetails{}
+	}
+	if c.Query("details") == "true" {
+		c.JSON(200, detailedSearchResponse{list, []searchstatus.Status{searchstatus.Outcome("jacred", -1, len(list), started, err)}})
+		return
 	}
 	c.JSON(200, list)
 }
@@ -49,7 +56,8 @@ func jacredTest(c *gin.Context) {
 	}
 
 	if err := jacred.Test(c.Request.Context(), req.Host, req.Key); err != nil {
-		c.JSON(200, gin.H{"success": false, "error": errorMessage(err)})
+		outcome := searchstatus.Outcome("jacred", -1, 0, time.Now(), err)
+		c.JSON(200, gin.H{"success": false, "error": errorMessage(err), "state": outcome.State})
 		return
 	}
 	c.JSON(200, gin.H{"success": true})

@@ -32,6 +32,19 @@ def run(executable, output):
         text = json.dumps(support)
         if "fixture-secret-key" in text or "private-token" in text or "local-fixture-only" in text:
             raise AssertionError("Support report leaked credentials")
+        expect_status(server,"/flow/sessions",401,headers={"Authorization":"Basic invalid"})
+        if server.json("/flow/sessions")!={"enabled":False,"truncated":False,"items":[]}:
+            raise AssertionError("Session history ignored consent")
+        server.json("/viewed",{"action":"set","hash":"a"*40,"file_index":1})
+        revision=server.json("/settings",{"action":"state"})["revision"]
+        server.json("/storage/settings",{"settings":"bbolt","viewed":"json","revision":revision})
+        expect_status(server,"/storage/settings",409,{"settings":"json","revision":revision})
+        if len(server.json("/viewed",{"action":"list","hash":"a"*40}))!=1:
+            raise AssertionError("Storage migration lost watched positions")
+        # Legacy callers may echo the read-only count and omit the revision.
+        server.json("/storage/settings",{"settings":"json","viewed":"bbolt","viewedCount":1})
+        if len(server.json("/viewed",{"action":"list","hash":"a"*40}))!=1:
+            raise AssertionError("Reverse migration lost watched positions")
         backup = server.json("/flow/backup")
         text = json.dumps(backup)
         if "fixture-secret-key" in text or "private-token" in text:
@@ -63,6 +76,7 @@ def run(executable, output):
                 response=connection.getresponse()
                 if response.status!=206 or response.read(1)!=b'\0': raise AssertionError("Owned busy playback did not start")
                 expect_status(server,"/flow/maintenance",409,{"enabled":True})
+                expect_status(server,"/storage/settings",409,{"settings":"bbolt","viewed":"json"})
             finally:
                 connection.close()
                 if "response" in locals(): response.close()
@@ -90,7 +104,7 @@ def run(executable, output):
             raise AssertionError("Doctor missed occupied listener")
         if "fixture-secret-key" in doctor.stdout.decode() or "local-fixture-only" in doctor.stdout.decode():
             raise AssertionError("Doctor leaked credentials")
-        result = {"passed":True,"authenticated":True,"maintenance_exclusive":True,"active_playback_rejected":True,"restore_recovery":True,"doctor_busy_listener":True,"library_export_allowlist":True,"library_export_authenticated":True,"support_bytes":len(json.dumps(support))}
+        result = {"passed":True,"authenticated":True,"maintenance_exclusive":True,"active_playback_rejected":True,"restore_recovery":True,"doctor_busy_listener":True,"storage_transactional_routing":True,"storage_revision_conflict":True,"storage_busy_rejected":True,"history_consent":True,"library_export_allowlist":True,"library_export_authenticated":True,"support_bytes":len(json.dumps(support))}
         (output / "report.json").write_text(json.dumps(result,indent=2)+"\n",encoding="utf-8")
         print(json.dumps(result))
     finally:

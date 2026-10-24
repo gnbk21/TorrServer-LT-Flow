@@ -2,7 +2,6 @@ package settings
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -52,6 +51,11 @@ func InitSets(readOnly, searchWA, streamWA bool) {
 	jsonDB := NewJsonDB()
 	if jsonDB == nil {
 		log.TLogln("Error open jsonDB")
+		os.Exit(1)
+	}
+
+	if err := recoverStorageTransaction(bboltDB, jsonDB); err != nil {
+		log.TLogln("Storage recovery failed; refusing to modify the databases:", err)
 		os.Exit(1)
 	}
 
@@ -308,114 +312,26 @@ func logConfiguration(settingsInJson, viewedInJson bool) {
 		settingsLoc, viewedLoc))
 }
 
-// SwitchSettingsStorage - simplified version
-func SwitchSettingsStorage(useJson bool) error {
-	if ReadOnly {
-		return errors.New("read-only mode")
+// Compatibility helpers use the same transactional path as the web API.
+func SwitchSettingsStorage(useJSON bool) error {
+	value := "bbolt"
+	if useJSON {
+		value = "json"
 	}
-	// Acquire exclusive lock for migration
-	dbMigrationLock.Lock()
-	defer dbMigrationLock.Unlock()
-
-	bboltDB := NewTDB()
-	if bboltDB == nil {
-		return errors.New("failed to open BBolt DB")
-	}
-	// DON'T CLOSE! They're still in use by tdb
-	// defer bboltDB.CloseDB()
-
-	jsonDB := NewJsonDB()
-	if jsonDB == nil {
-		return errors.New("failed to open JSON DB")
-	}
-	// DON'T CLOSE! They're still in use by tdb
-	// defer jsonDB.CloseDB()
-
-	log.TLogln(fmt.Sprintf("Switching Settings storage to %s",
-		map[bool]string{true: "JSON", false: "BBolt"}[useJson]))
-
-	// Update storage preference (must be called before migrate as this setting migrate too)
-	if BTsets() != nil {
-		BTsets().StoreSettingsInJson = useJson
-		SetBTSets(BTsets())
-	}
-
-	var err error
-	if useJson {
-		err = MigrateSettingsToJson(bboltDB, jsonDB)
-		if err == nil {
-			bboltDB.Rem("Settings", "BitTorr") // drop the source so it can't overwrite later
-		}
-	} else {
-		err = MigrateSettingsFromJson(jsonDB, bboltDB)
-		if err == nil {
-			jsonDB.Rem("Settings", "BitTorr") // drop the source so it can't overwrite later
-		}
-	}
-
-	if err != nil {
-		return err
-	}
-
-	log.TLogln("Settings storage switched. Restart required for routing changes.")
-	return nil
+	return SetStoragePreferences(map[string]interface{}{"settings": value})
 }
-
-// SwitchViewedStorage - simplified version
-func SwitchViewedStorage(useJson bool) error {
-	if ReadOnly {
-		return errors.New("read-only mode")
+func SwitchViewedStorage(useJSON bool) error {
+	value := "bbolt"
+	if useJSON {
+		value = "json"
 	}
-	// Acquire exclusive lock for migration
-	dbMigrationLock.Lock()
-	defer dbMigrationLock.Unlock()
-
-	bboltDB := NewTDB()
-	if bboltDB == nil {
-		return errors.New("failed to open BBolt DB")
-	}
-	// DON'T CLOSE! They're still in use by tdb
-	// defer bboltDB.CloseDB()
-
-	jsonDB := NewJsonDB()
-	if jsonDB == nil {
-		return errors.New("failed to open JSON DB")
-	}
-	// DON'T CLOSE! They're still in use by tdb
-	// defer jsonDB.CloseDB()
-
-	log.TLogln(fmt.Sprintf("Switching Viewed storage to %s",
-		map[bool]string{true: "JSON", false: "BBolt"}[useJson]))
-
-	var err error
-	if useJson {
-		err = MigrateViewedToJson(bboltDB, jsonDB)
-		if err == nil {
-			bboltDB.Clear("Viewed")
-		}
-	} else {
-		err = MigrateViewedFromJson(jsonDB, bboltDB)
-		if err == nil {
-			jsonDB.Clear("Viewed")
-		}
-	}
-
-	if err != nil {
-		return err
-	}
-
-	// Update preference
-	if BTsets() != nil {
-		BTsets().StoreViewedInJson = useJson
-		SetBTSets(BTsets())
-	}
-
-	log.TLogln("Viewed storage switched. Restart required for routing changes.")
-	return nil
+	return SetStoragePreferences(map[string]interface{}{"viewed": value})
 }
 
 // Used in /storage/settings web API
 func GetStoragePreferences() map[string]interface{} {
+	dbMigrationLock.RLock()
+	defer dbMigrationLock.RUnlock()
 	prefs := map[string]interface{}{
 		"settings": "json",  // Default fallback
 		"viewed":   "bbolt", // Default fallback
@@ -448,44 +364,6 @@ func GetStoragePreferences() map[string]interface{} {
 }
 
 // Used in /storage/settings web API
-func SetStoragePreferences(prefs map[string]interface{}) error {
-	if ReadOnly || BTsets() == nil {
-		return errors.New("cannot change storage preferences. Read-only mode")
-	}
-
-	if IsDebug() {
-		log.TLogln(fmt.Sprintf("SetStoragePreferences received: %v", prefs))
-	}
-
-	// Apply changes
-	if settingsPref, ok := prefs["settings"].(string); ok && settingsPref != "" {
-		useJson := (settingsPref == "json")
-		if IsDebug() {
-			log.TLogln(fmt.Sprintf("Changing settings storage to useJson=%v (was %v)",
-				useJson, BTsets().StoreSettingsInJson))
-		}
-		if BTsets().StoreSettingsInJson != useJson {
-			if err := SwitchSettingsStorage(useJson); err != nil {
-				return fmt.Errorf("failed to switch settings storage: %w", err)
-			}
-		}
-	}
-
-	if viewedPref, ok := prefs["viewed"].(string); ok && viewedPref != "" {
-		useJson := (viewedPref == "json")
-		if IsDebug() {
-			log.TLogln(fmt.Sprintf("Changing viewed storage to useJson=%v (was %v)",
-				useJson, BTsets().StoreViewedInJson))
-		}
-		if BTsets().StoreViewedInJson != useJson {
-			if err := SwitchViewedStorage(useJson); err != nil {
-				return fmt.Errorf("failed to switch viewed storage: %w", err)
-			}
-		}
-	}
-
-	return nil
-}
 
 func CloseDB() {
 	if tdb != nil {

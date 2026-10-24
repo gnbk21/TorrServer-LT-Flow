@@ -2,7 +2,9 @@ package api
 
 import (
 	"net/http"
+	"server/searchstatus"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -28,6 +30,11 @@ import (
 //	@Produce		json
 //	@Success		200	{array}	models.TorrentDetails	"Torznab torrent search result(s)"
 //	@Router			/torznab/search [get]
+type detailedSearchResponse struct {
+	Items   []*models.TorrentDetails `json:"items"`
+	Sources []searchstatus.Status    `json:"sources"`
+}
+
 func torznabSearch(c *gin.Context) {
 	if !sets.BTsets().EnableTorznabSearch {
 		c.JSON(http.StatusBadRequest, []string{})
@@ -55,9 +62,13 @@ func torznabSearch(c *gin.Context) {
 		limit = 250
 	}
 
-	list := torznab.Search(c.Request.Context(), query, index, cat, offset, limit)
+	list, outcomes := torznab.SearchDetailed(c.Request.Context(), query, index, cat, offset, limit)
 	if list == nil {
 		list = []*models.TorrentDetails{}
+	}
+	if c.Query("details") == "true" {
+		c.JSON(200, detailedSearchResponse{list, outcomes})
+		return
 	}
 	c.JSON(200, list)
 }
@@ -150,7 +161,8 @@ func torznabTest(c *gin.Context) {
 	}
 
 	if err := torznab.Test(c.Request.Context(), req.Host, req.Key); err != nil {
-		c.JSON(200, gin.H{"success": false, "error": errorMessage(err)})
+		outcome := searchstatus.Outcome("torznab", 0, 0, time.Now(), err)
+		c.JSON(200, gin.H{"success": false, "error": errorMessage(err), "state": outcome.State})
 		return
 	}
 	c.JSON(200, gin.H{"success": true})

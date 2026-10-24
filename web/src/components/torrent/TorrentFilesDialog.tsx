@@ -1,3 +1,4 @@
+import { pollingDelay } from "../../api/client";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -46,7 +47,7 @@ export function TorrentFilesDialog({
     enabled: isOpen,
     refetchInterval: (q) =>
       isOpen && !document.hidden && !q.state.data?.file_stats?.length
-        ? 2000
+        ? pollingDelay(2000)
         : false,
   });
   const viewed = useQuery({

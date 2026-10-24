@@ -15,6 +15,36 @@ import (
 )
 
 var ErrSettingsConflict = errors.New("settings changed; reload before applying your draft")
+var ErrStorageBusy = errors.New("stop playback and preparation before changing storage")
+
+func ApplyStoragePreferences(prefs map[string]interface{}, revision string) error {
+	configControl.operation.Lock()
+	defer configControl.operation.Unlock()
+	configControl.Lock()
+	defer configControl.Unlock()
+	if revision != "" && revision != configurationRevisionLocked() {
+		return ErrSettingsConflict
+	}
+	if configControl.pending != nil || configControl.applying {
+		return ErrSettingsConflict
+	}
+	if FlowHasActiveWork() {
+		return ErrStorageBusy
+	}
+	token, _ := flow.Maintenance.Acquire(120 * time.Second)
+	if token == "" {
+		return ErrStorageBusy
+	}
+	defer flow.Maintenance.Release(token)
+	if FlowHasActiveWork() {
+		return ErrStorageBusy
+	}
+	err := settings.SetStoragePreferences(prefs)
+	if settings.StorageRecoveryPending() {
+		configControl.error = "STORAGE_RECOVERY_REQUIRED"
+	}
+	return err
+}
 
 type pendingConfiguration struct {
 	Base     string           `json:"base"`

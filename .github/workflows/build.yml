@@ -453,7 +453,7 @@ jobs:
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
         run: |
           set -o pipefail
-          go test -json -count=1 -timeout 180s ./ ./mimetype/ ./torznab/ ./jacred/ ./console/ ./log/ ./diagnostics/ ./flow/ ./netpolicy/ ./netchange/ ./ffprobe/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/api/utils/ ./web/msx/ ./web/pages/template/ ./dlna/ ./web/sslcerts/ ./torr/utils/ ./cmd/ | tee ../_out/native-unit-tests.jsonl
+          go test -json -count=1 -timeout 180s ./ ./mimetype/ ./torznab/ ./jacred/ ./searchstatus/ ./console/ ./log/ ./diagnostics/ ./flow/ ./netpolicy/ ./netchange/ ./ffprobe/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/api/utils/ ./web/msx/ ./web/pages/template/ ./dlna/ ./web/sslcerts/ ./torr/utils/ ./cmd/ | tee ../_out/native-unit-tests.jsonl
           GST_E2E_MKV="$GITHUB_WORKSPACE/_out/gst-e2e.mkv" go test -tags gst -count=1 -timeout 180s ./gstreamer/
 
       - name: Go vet
@@ -508,7 +508,7 @@ jobs:
           PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
           CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
         run: |
-          go test -race -count=1 -timeout 180s ./ ./mimetype/ ./torznab/ ./jacred/ ./console/ ./log/ ./flow/ ./netpolicy/ ./netchange/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/api/utils/ ./web/msx/ ./web/sslcerts/ ./torr/utils/ ./mcp/ ./tgbot/
+          go test -race -count=1 -timeout 180s ./ ./mimetype/ ./torznab/ ./jacred/ ./searchstatus/ ./console/ ./log/ ./flow/ ./netpolicy/ ./netchange/ ./settings/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./web/ ./web/auth/ ./web/api/ ./web/api/utils/ ./web/msx/ ./web/sslcerts/ ./torr/utils/ ./mcp/ ./tgbot/
           go test -race -tags gst -count=1 -timeout 180s ./gstreamer/
           go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
           govulncheck ./...
@@ -545,6 +545,20 @@ jobs:
           name: flow-fuzz-failures
           path: server/**/testdata/fuzz/**
           if-no-files-found: ignore
+
+      - name: Short isolated loss, jitter and outage regression
+        timeout-minutes: 5
+        run: |
+          bash build/ci-apt.sh iproute2 util-linux
+          sudo python3 build/netem_check.py --executable _out/TorrServer-LT-linux-amd64 --output _out/netem
+      - name: Retain network regression evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: flow-netem-evidence
+          path: _out/netem/report.json
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Library persistence measurement
         working-directory: server

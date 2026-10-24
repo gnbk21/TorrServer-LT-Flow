@@ -1,0 +1,168 @@
+name: Recover verified release platforms
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Original completed tagged release run ID
+        required: true
+        type: string
+      security_run:
+        description: Successful CodeQL run for the exact binary source
+        required: true
+        type: string
+      source_commit:
+        description: Original immutable 40-character binary source
+        required: true
+        type: string
+      tag:
+        description: Existing immutable Flow release tag
+        required: true
+        type: string
+      platforms:
+        description: Select verified platforms explicitly; missing macOS requires approval below
+        type: choice
+        options: [all, non-macos]
+        default: all
+      omission_reason:
+        description: Owner-approved explanation for excluding macOS (required for non-macos)
+        type: string
+      publish:
+        description: Publish a NEW release after all checks; otherwise upload a candidate only
+        type: boolean
+        default: false
+      latest:
+        description: Explicitly mark a new stable release Latest
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: recovery-${{ inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+      attestations: write
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FLOW_SOURCE: ${{ inputs.source_commit }}
+      FLOW_TAG: ${{ inputs.tag }}
+      FLOW_RUN: ${{ inputs.source_run }}
+      FLOW_SECURITY_RUN: ${{ inputs.security_run }}
+      FLOW_PLATFORMS: ${{ inputs.platforms }}
+      FLOW_REASON: ${{ inputs.omission_reason }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Validate source, gates and explicit platform selection
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/master
+          python3 -m unittest discover -s build -p '*release*test.py'
+          python3 -m unittest discover -s build -p 'platform_recovery_test.py'
+          options=()
+          if [ "$FLOW_PLATFORMS" = non-macos ]; then
+            options+=(--allow-missing-macos --reason "$FLOW_REASON")
+          fi
+          python3 build/platform_recovery.py --run "$FLOW_RUN" --security-run "$FLOW_SECURITY_RUN" --tag "$FLOW_TAG" --source "$FLOW_SOURCE" --output recovery-evidence.json "${options[@]}"
+      - name: Refuse replacement of published assets
+        if: inputs.publish
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > existing-releases.json
+          python3 -c 'import json,os; assert not any(r["tag_name"]==os.environ["FLOW_TAG"] for page in json.load(open("existing-releases.json")) for r in page), "Existing releases must not be overwritten by platform recovery"'
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+      - working-directory: web
+        run: yarn install --frozen-lockfile
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: TorrServer-*
+          path: artifacts
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: flow-runtime-notices-*
+          path: artifacts
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: flow-interface-guard-windows
+          path: artifacts/interface-guard
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: flow-web-cross
+          path: server/web/pages/template
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: _src
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
+      - run: bash build/_fetch_sources.sh
+      - working-directory: server
+        run: go mod download
+      - name: Package reproducibly with distinct binary and workflow identity
+        run: |
+          set -euo pipefail
+          for output in dist reproducibility-check; do
+            python3 build/release.py --tag "$FLOW_TAG" --commit "$FLOW_SOURCE" --artifacts artifacts --native-sources _src --output "$output" --platform-scope "$FLOW_PLATFORMS" --packaging-commit "$GITHUB_SHA" --availability-reason "$FLOW_REASON" --recovery-provenance
+          done
+          cmp dist/SHA256SUMS reproducibility-check/SHA256SUMS
+          node build/validate_sbom.cjs dist/SBOM.cdx.json
+          python3 -c 'from pathlib import Path; import os; p=Path("recovery-notes.md"); p.write_text("Recovered verified artifacts for "+os.environ["FLOW_TAG"]+". Binary source: "+os.environ["FLOW_SOURCE"]+".\n\n"+(os.environ["FLOW_REASON"] if os.environ["FLOW_PLATFORMS"]!="all" else "All eight platforms included.")+"\nSee recovery-evidence.json for the original successful checks.\n")'
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-checksums: dist/SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: flow-platform-recovery
+          path: |
+            dist/*
+            recovery-evidence.json
+            recovery-notes.md
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish explicitly selected new release
+        if: inputs.publish
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          files: |
+            dist/*
+            recovery-evidence.json
+          body_path: recovery-notes.md
+          prerelease: ${{ contains(inputs.tag, '-rc.') || contains(inputs.tag, '-preview.') || contains(inputs.tag, '-alpha.') || contains(inputs.tag, '-beta.') }}
+          make_latest: ${{ inputs.latest && !contains(inputs.tag, '-rc.') && !contains(inputs.tag, '-preview.') && !contains(inputs.tag, '-alpha.') && !contains(inputs.tag, '-beta.') }}
+          fail_on_unmatched_files: true
+
+  docker:
+    needs: recover
+    if: inputs.publish
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    uses: ./.github/workflows/build-docker.yml
+    with:
+      source_ref: ${{ inputs.source_commit }}
+      artifact_run_id: ${{ inputs.source_run }}
+      version: ${{ inputs.tag }}
+      release_channel: ${{ (contains(inputs.tag, '-rc.') || contains(inputs.tag, '-preview.') || contains(inputs.tag, '-alpha.') || contains(inputs.tag, '-beta.')) && 'preview' || 'stable' }}

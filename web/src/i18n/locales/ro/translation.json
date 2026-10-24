@@ -1172,5 +1172,43 @@
   },
   "flowHelp": {
     "MSXAllowLAN": "Dezactivat implicit. Permite adrese IP private sau loopback indicate explicit. Numele rezolvate către rețeaua locală și serviciile link-local rămân blocate."
+  },
+  "reliability": {
+    "searchSources": "Surse de căutare",
+    "integrationOK": "Testul conexiunii a reușit.",
+    "storageIdle": "Opriți redarea și pregătirea și rezolvați setările programate înainte de schimbarea stocării. Datele și preferințele se transferă împreună.",
+    "cooldown": "Serverul solicită o pauză. Actualizarea reîncepe după intervalul indicat.",
+    "forbidden": "Acces interzis. Verificați permisiunile contului și regulile serverului.",
+    "diagnostics": "Diagnosticare și sesiuni recente",
+    "guide": "Identificați sursa problemei",
+    "historyHelp": "Istoricul opțional conține măsurători anonime ale serverului, nu ale redării telefonului. Tamponul este eșantionat; blocajele și așteptarea sunt maximele ferestrelor recente, nu totaluri.",
+    "recentSessions": "Încărcați sesiunile recente",
+    "historyOff": "Istoricul este dezactivat. Activați-l în setări pentru a înregistra sesiunile viitoare.",
+    "historyEmpty": "Nu există sesiuni înregistrate.",
+    "historyTruncated": "Istoric parțial: rotație sau înregistrări pierdute.",
+    "incomplete": "Date incomplete",
+    "observedEnd": "Sfârșit de sesiune server observat",
+    "searchStates": {
+      "pending": "Se caută…",
+      "ok": "Disponibil",
+      "empty": "Fără rezultate",
+      "timeout": "Timp expirat; reîncercați",
+      "auth_required": "Autentificare necesară; verificați cheia API",
+      "unavailable": "Indisponibil; verificați adresa și conexiunea",
+      "invalid_response": "Răspuns nevalid; verificați adresa API",
+      "cancelled": "Anulat"
+    },
+    "guideSteps": {
+      "parser": "Eroare de căutare sau de parser: testați JacRed/Torznab în Integrări. Parserul intervine înainte ca Flow să primească torrentul.",
+      "preload": "Preîncărcarea Lampa așteaptă: verificați metadatele, sursele conectate și motivul așteptării. Un fișier .torrent evită așteptarea metadatelor, dar nu creează surse.",
+      "playback": "Redare întreruptă: comparați tamponul contiguu, rata de primire și așteptările citirii. Testați conexiunea pe telefon separat de torrent. Testul nu verifică decodorul."
+    },
+    "summary": {
+      "observed": "Ultima observație",
+      "delivery": "Octeți transmiși",
+      "buffer": "Interval tampon",
+      "stalls": "Vârf blocaje / așteptare p95",
+      "coverage": "Acoperire"
+    }
   }
 }

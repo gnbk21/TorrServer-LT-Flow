@@ -47,6 +47,7 @@ export const settingsSchema = z
   .passthrough();
 export const flowSessionSchema = z
   .object({
+    buffer_sample_age_ms: z.number().nonnegative().optional(),
     buffer_sampled_at_ms: z.number().int().nonnegative().optional(),
     buffer_offset_bytes: z.number().int().nonnegative().optional(),
     session_id: z

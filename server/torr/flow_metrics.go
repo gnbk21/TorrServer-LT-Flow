@@ -132,6 +132,7 @@ func (t *Torrent) startupStage(stage string) {
 }
 
 type FlowSessionStatus struct {
+	BufferSampleAgeMs       *int64                `json:"buffer_sample_age_ms,omitempty"`
 	BufferSampledAtMs       int64                 `json:"buffer_sampled_at_ms"`
 	BufferOffsetBytes       int64                 `json:"buffer_offset_bytes"`
 	BurstHintSource         string                `json:"burst_hint_source"`
@@ -557,5 +558,13 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 			}
 		}
 	}
+	sampledNow := time.Now().UnixMilli()
+	for i := range out {
+		out[i].BufferSampleAgeMs = nil
+		if age := sampledNow - out[i].BufferSampledAtMs; out[i].BufferSampledAtMs > 0 && age >= 0 {
+			out[i].BufferSampleAgeMs = &age
+		}
+	}
+
 	return out
 }

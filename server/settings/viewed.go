@@ -38,6 +38,8 @@ func trackTimecode() bool {
 // SetViewed stores the mark with the caller's timecode (a client reporting
 // its position through /viewed).
 func SetViewed(vv *Viewed) {
+	dbMigrationLock.RLock()
+	defer dbMigrationLock.RUnlock()
 	val := vv.TimeCode
 	if !trackTimecode() {
 		val = 0
@@ -57,6 +59,8 @@ func SetViewed(vv *Viewed) {
 // stored for it. Internal callers (playback start, the bot) know nothing about
 // the position, and SetViewed with 0 would reset the one a client saved.
 func MarkViewed(hash string, fileIndex int) {
+	dbMigrationLock.RLock()
+	defer dbMigrationLock.RUnlock()
 	m := readIndexes(tdb.Get("Viewed", hash))
 	if _, ok := m[fileIndex]; ok {
 		return
@@ -71,6 +75,8 @@ func MarkViewed(hash string, fileIndex int) {
 }
 
 func RemViewed(vv *Viewed) {
+	dbMigrationLock.RLock()
+	defer dbMigrationLock.RUnlock()
 	if vv.FileIndex == -1 {
 		tdb.Rem("Viewed", vv.Hash)
 		return
@@ -90,6 +96,8 @@ func RemViewed(vv *Viewed) {
 }
 
 func ListViewed(hash string) []*Viewed {
+	dbMigrationLock.RLock()
+	defer dbMigrationLock.RUnlock()
 	if hash != "" {
 		buf := tdb.Get("Viewed", hash)
 		if len(buf) == 0 {

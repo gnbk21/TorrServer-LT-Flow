@@ -1,8 +1,14 @@
-import { useFlow, useVisibilityGate } from "../../hooks/queries";
+import { pollingDelay } from "../../api/client";
+import { useFlow, useSettings, useVisibilityGate } from "../../hooks/queries";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { searchApi, type SearchSource } from "../../api/search";
+import {
+  searchApi,
+  deduplicateResults,
+  type SearchSource,
+  type SearchOutcome,
+} from "../../api/search";
 import { torrentsApi } from "../../api/torrents";
 import type { Torrent } from "../../types/torrent";
 import type { SearchResultItem } from "../../types/search";
@@ -22,6 +28,8 @@ export function SearchPanel({
   const [query, setQuery] = useState("");
   const [source, setSource] = useState<SearchSource | "all">("all");
   const [results, setResults] = useState<SearchResultItem[]>([]);
+  const settings = useSettings();
+  const [outcomes, setOutcomes] = useState<SearchOutcome[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<unknown>();
@@ -32,7 +40,36 @@ export function SearchPanel({
   const [stage, setStage] = useState("");
   const [ready, setReady] = useState(false);
   const controller = useRef<AbortController>(undefined);
-  useEffect(() => () => controller.current?.abort(), []);
+  const searchRequest = useRef<AbortController>(undefined);
+  useEffect(
+    () => () => {
+      controller.current?.abort();
+      searchRequest.current?.abort();
+    },
+    [],
+  );
+  const resetSearch = () => {
+    searchRequest.current?.abort();
+    setResults([]);
+    setOutcomes([]);
+    setLoading(false);
+    setSearched(false);
+  };
+
+  const sourceGeneration = JSON.stringify([
+    settings.data?.TorznabUrls,
+    settings.data?.JacRedUrl,
+    settings.data?.JacRedKey,
+    enabledSources,
+  ]);
+  useEffect(() => {
+    searchRequest.current?.abort();
+    setResults([]);
+    setOutcomes([]);
+    setLoading(false);
+    setSearched(false);
+  }, [sourceGeneration]);
+
   const sources = (Object.keys(enabledSources) as SearchSource[]).filter(
     (key) => enabledSources[key],
   );
@@ -45,17 +82,19 @@ export function SearchPanel({
     queryFn: ({ signal }) => torrentsApi.get(added!.hash, signal),
     enabled: metadataVisible,
     refetchInterval: (q) =>
-      metadataVisible && q.state.data?.stat !== 5 ? 1500 : false,
+      metadataVisible && q.state.data?.stat !== 5 ? pollingDelay(1500) : false,
   });
   const flow = useFlow(stage === "PREPARING" ? added?.hash : undefined);
   const run = async () => {
-    controller.current?.abort();
+    searchRequest.current?.abort();
     const request = new AbortController();
-    controller.current = request;
+    searchRequest.current = request;
     setLoading(true);
     setError(undefined);
     setRetryAction(() => () => void run());
     setSearched(true);
+    setResults([]);
+    setOutcomes([]);
     try {
       const rows = await searchApi.search(
         query,
@@ -63,10 +102,48 @@ export function SearchPanel({
         undefined,
         request.signal,
         sources,
+        (progress) => {
+          if (!request.signal.aborted) {
+            setResults(progress.items);
+            setOutcomes(progress.sources);
+          }
+        },
+        settings.data?.TorznabUrls?.map((_, index) => index),
       );
       if (!request.signal.aborted) setResults(rows);
     } catch (e) {
       if (!request.signal.aborted) setError(e);
+    } finally {
+      if (!request.signal.aborted) setLoading(false);
+    }
+  };
+  const retrySource = async (outcome: SearchOutcome) => {
+    searchRequest.current?.abort();
+    const request = new AbortController();
+    searchRequest.current = request;
+    setLoading(true);
+    try {
+      await searchApi.search(
+        query,
+        outcome.source,
+        outcome.index,
+        request.signal,
+        [],
+        (progress) => {
+          if (request.signal.aborted) return;
+          setOutcomes((previous) =>
+            previous.map((row) =>
+              row.source === outcome.source && row.index === outcome.index
+                ? (progress.sources[0] ?? row)
+                : row,
+            ),
+          );
+          if (progress.items.length)
+            setResults((previous) =>
+              deduplicateResults([...previous, ...progress.items]),
+            );
+        },
+      );
     } finally {
       if (!request.signal.aborted) setLoading(false);
     }
@@ -155,7 +232,10 @@ export function SearchPanel({
           <input
             required
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              resetSearch();
+              setQuery(e.target.value);
+            }}
           />
         </label>
         <div className="actions">
@@ -163,9 +243,10 @@ export function SearchPanel({
             {t("search.source")}{" "}
             <select
               value={source}
-              onChange={(e) =>
-                setSource(e.target.value as SearchSource | "all")
-              }
+              onChange={(e) => {
+                resetSearch();
+                setSource(e.target.value as SearchSource | "all");
+              }}
             >
               <option value="all">{t("All")}</option>
               {sources.map((value) => (
@@ -186,6 +267,28 @@ export function SearchPanel({
         {!sources.length && <p>{t("search.noSources")}</p>}
       </form>
       {!!error && <RequestError error={error} retry={retryAction} />}
+      {!!outcomes.length && (
+        <ul
+          className="panel text-sm space-y-2"
+          aria-label={t("reliability.searchSources")}
+        >
+          {outcomes.map((row) => (
+            <li key={`${row.source}:${row.index}`}>
+              {row.source}
+              {row.index >= 0 ? ` ${row.index + 1}` : ""}:{" "}
+              {t(`reliability.searchStates.${row.state}`)}{" "}
+              {!["pending", "ok", "empty", "cancelled"].includes(row.state) && (
+                <Button
+                  disabled={loading}
+                  onClick={() => void retrySource(row).catch(setError)}
+                >
+                  {t("WAF.Retry")}
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       {added && (
         <section className="panel space-y-3">
           <h2>{added.title}</h2>
@@ -257,9 +360,13 @@ export function SearchPanel({
           ))}
         </select>
       </label>
-      {searched && !loading && !error && !results.length && (
-        <p className="panel">{t("search.empty")}</p>
-      )}
+      {searched &&
+        !loading &&
+        !error &&
+        !results.length &&
+        outcomes.every((row) => row.state === "empty") && (
+          <p className="panel">{t("search.empty")}</p>
+        )}
       {sorted.map((item, index) => (
         <article
           key={`${item.magnet || item.link}-${index}`}

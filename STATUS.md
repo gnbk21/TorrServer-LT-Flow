@@ -124,3 +124,7 @@ conditions are explicit, not silently completed requirements.
 For test methods and limitations see [MEASUREMENTS.md](MEASUREMENTS.md); for
 installation and recovery see [DISTRIBUTION.md](DISTRIBUTION.md). The per-feature
 implementation ledger is [IMPROVEMENT_CHECKLIST.md](IMPROVEMENT_CHECKLIST.md).
+
+For the development reliability/usability candidate, see
+[RELIABILITY_USABILITY.md](RELIABILITY_USABILITY.md). Those changes are undergoing
+verification and are not part of the published 1.1.5 packages.

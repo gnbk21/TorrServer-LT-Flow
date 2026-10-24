@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 
 	"server/log"
 
@@ -12,6 +13,7 @@ import (
 )
 
 type XPathDBRouter struct {
+	routeMu  sync.RWMutex
 	dbs      []TorrServerDB
 	routes   []string
 	route2db map[string]TorrServerDB
@@ -71,6 +73,8 @@ func (v *XPathDBRouter) xPathToRoute(xPath string) string {
 }
 
 func (v *XPathDBRouter) getDBForXPath(xPath string) TorrServerDB {
+	v.routeMu.RLock()
+	defer v.routeMu.RUnlock()
 	if len(v.dbs) == 0 {
 		return nil
 	}
