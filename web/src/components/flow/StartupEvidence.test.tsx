@@ -4,6 +4,23 @@ import { StartupEvidence } from "./StartupEvidence";
 import type { FlowStartup } from "../../types/flow";
 
 describe("startup preparation evidence", () => {
+  it("separates an unknown operation from a measured zero", () => {
+    render(
+      <StartupEvidence
+        startup={
+          {
+            phases: [
+              { phase: "CONNECT", basis: "OPERATION" },
+              { phase: "PROBE", basis: "OPERATION", duration_ms: 0 },
+            ],
+          } as FlowStartup
+        }
+      />,
+    );
+    expect(screen.getByText(/flow.stream.unknown/)).toBeInTheDocument();
+    expect(screen.getByText(/flow.stream.milliseconds/)).toBeInTheDocument();
+    expect(screen.getByText("flow.stream.timingHint")).toBeInTheDocument();
+  });
   it("shows metadata recovery before a preload progress snapshot exists", () => {
     render(
       <StartupEvidence

@@ -883,6 +883,40 @@
       "minimumBuffer": "Plus petit tampon du téléphone échantillonné : {{milliseconds}} ms",
       "mirrorFailure": "Dernier échec du miroir observé, sans vérification de disponibilité actuelle",
       "operation": "Opération {{value}}"
+    },
+    "stream": {
+      "title": "Livraison des pairs et reprise",
+      "useful_bytes": "Octets reçus en première copie",
+      "redundant_bytes": "Octets reçus en double",
+      "obsolete_bytes": "Reçus après annulation (parmi les doublons)",
+      "recovery_requests": "Requêtes en double autorisées",
+      "recovery_suppressed": "Requêtes en double bloquées",
+      "active_hedges": "Doublons en attente",
+      "peak_hedges": "Maximum de doublons en attente",
+      "budget_changes": "Ajustements du quota par pair",
+      "service": "Service P50 ≤ {{p50}} ms · P95 ≤ {{p95}} ms · {{samples}} requêtes terminées",
+      "hint": "Le service inclut la file distante et le transfert, pas seulement le RTT réseau. Les percentiles sont des bornes supérieures sur la durée de vie du torrent. Les octets reçus ne garantissent ni vérification ni fluidité.",
+      "timings": "Durées du démarrage",
+      "timingHint": "Les phases se chevauchent avec des origines différentes : ne pas les additionner. Connexion et négociation concernent la première connexion sortante réussie observée. Les mesures absentes restent inconnues.",
+      "unknown": "Non mesuré",
+      "milliseconds": "{{value}} ms",
+      "phases": {
+        "DISCOVERY": "Recherche avant la première tentative",
+        "CONNECT": "Connexion du socket",
+        "HANDSHAKE": "Négociation BitTorrent/chiffrement",
+        "METADATA": "Métadonnées disponibles",
+        "FIRST_PAYLOAD": "Premières données reçues",
+        "BOOTSTRAP": "En-tête et index",
+        "PROBE": "Analyse du média",
+        "RESERVE": "Tampon initial",
+        "FIRST_BYTE": "Premier octet de lecture"
+      },
+      "bases": {
+        "NATIVE_TORRENT": "depuis la création native du torrent",
+        "TORRENT": "depuis l’ajout du torrent",
+        "PRELOAD": "depuis le préchargement",
+        "OPERATION": "durée de l’opération"
+      }
     }
   },
   "search": {
@@ -1032,7 +1066,9 @@
         "StreamTransportBufferKiB": "Tampon de transport (expérience contrôlée)",
         "NextEpisodeWarmup": "Préchauffage de l’en-tête/index du prochain épisode",
         "MetadataFallback": "Récupération automatique des métadonnées magnet",
-        "PublicMetadataCache": "Caches publics gratuits de métadonnées"
+        "PublicMetadataCache": "Caches publics gratuits de métadonnées",
+        "FrontierRecovery": "Reprise des blocs urgents en retard (expérience)",
+        "AdaptivePeerRequests": "Quota adaptatif de requêtes par pair (expérience)"
       }
     },
     "maintenance": {
@@ -1134,7 +1170,9 @@
     "reloadSaved": "Supprimer le brouillon et recharger",
     "requestsPerMinute": "requêtes/min",
     "metadataFallbackHelp": "Après 15 secondes, essayer deux URL HTTPS .torrent fournies. L’empreinte doit correspondre au magnet.",
-    "publicMetadataCacheHelp": "Envoie l’empreinte des magnets v1 bloqués à Torrage et iTorrents. Gratuit, sans compte. Services parfois indisponibles. Statut privé inconnu avant récupération."
+    "publicMetadataCacheHelp": "Envoie l’empreinte des magnets v1 bloqués à Torrage et iTorrents. Gratuit, sans compte. Services parfois indisponibles. Statut privé inconnu avant récupération.",
+    "streamRecoveryHelp": "Demande un bloc urgent à un autre pair dans des limites communes de doublons et de capacité. Désactivé par défaut ; dépend des sources disponibles.",
+    "streamRequestsHelp": "Adapte les requêtes au temps de service et aux limites du pair. Désactivé par défaut. Comparer démarrage, recherche et octets redondants."
   },
   "preparation": {
     "title": "Préparer cet épisode",
@@ -1178,5 +1216,43 @@
   },
   "flowHelp": {
     "MSXAllowLAN": "Désactivé par défaut. Autorise les adresses IP privées ou de boucle locale explicitement indiquées. Les noms résolus vers le réseau local et les services link-local restent bloqués."
+  },
+  "reliability": {
+    "searchSources": "Sources de recherche",
+    "integrationOK": "Test de connexion réussi.",
+    "storageIdle": "Arrêtez lecture et préparation et résolvez les réglages différés avant de changer de stockage. Données et préférences sont transférées ensemble.",
+    "cooldown": "Le serveur demande de patienter. Les actualisations reprendront après le délai indiqué.",
+    "forbidden": "Accès refusé. Vérifiez les droits du compte et les règles du serveur.",
+    "diagnostics": "Diagnostic et sessions récentes",
+    "guide": "Localiser le problème",
+    "historyHelp": "L’historique facultatif contient des mesures anonymes du serveur, pas de la lecture du téléphone. Le tampon est échantillonné ; blocages et attente sont les maxima des fenêtres récentes, pas des totaux.",
+    "recentSessions": "Charger les sessions récentes",
+    "historyOff": "L’historique est désactivé. Activez-le dans les réglages pour enregistrer les prochaines sessions.",
+    "historyEmpty": "Aucune session enregistrée.",
+    "historyTruncated": "Historique partiel : rotation ou enregistrements perdus.",
+    "incomplete": "Données incomplètes",
+    "observedEnd": "Fin de session serveur observée",
+    "searchStates": {
+      "pending": "Recherche…",
+      "ok": "Disponible",
+      "empty": "Aucun résultat",
+      "timeout": "Délai dépassé ; réessayez",
+      "auth_required": "Authentification requise ; vérifiez la clé API",
+      "unavailable": "Indisponible ; vérifiez l’adresse et la connexion",
+      "invalid_response": "Réponse invalide ; vérifiez le point d’accès API",
+      "cancelled": "Annulé"
+    },
+    "guideSteps": {
+      "parser": "Erreur de recherche ou du parseur : testez JacRed/Torznab dans Intégrations. Le parseur intervient avant la réception du torrent par Flow.",
+      "preload": "Préchargement Lampa en attente : vérifiez métadonnées, fournisseurs connectés et cause d’attente. Un fichier .torrent évite l’attente des métadonnées mais ne crée pas de sources.",
+      "playback": "Lecture saccadée : comparez tampon contigu, débit reçu et attentes de lecture. Testez la connexion sur le téléphone pour isoler le transfert serveur-téléphone. Ce test ne vérifie pas le décodeur."
+    },
+    "summary": {
+      "observed": "Dernière observation",
+      "delivery": "Octets transmis",
+      "buffer": "Plage du tampon",
+      "stalls": "Pic de blocages / attente p95",
+      "coverage": "Couverture"
+    }
   }
 }

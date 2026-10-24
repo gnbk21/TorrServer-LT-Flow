@@ -32,6 +32,8 @@ export const settingsSchema = z
         SwarmProfile: z.string(),
         RateAwareDeadlines: z.boolean().optional(),
         CapacityAwareRequests: z.boolean().optional(),
+        FrontierRecovery: z.boolean().optional(),
+        AdaptivePeerRequests: z.boolean().optional(),
         AdaptiveUrgentHorizon: z.boolean().optional(),
         ContainerBurstHints: z.boolean().optional(),
         NextEpisodeWarmup: z.boolean().optional(),
@@ -47,6 +49,7 @@ export const settingsSchema = z
   .passthrough();
 export const flowSessionSchema = z
   .object({
+    buffer_sample_age_ms: z.number().nonnegative().optional(),
     buffer_sampled_at_ms: z.number().int().nonnegative().optional(),
     buffer_offset_bytes: z.number().int().nonnegative().optional(),
     session_id: z
@@ -231,6 +234,45 @@ export const flowSchema = z
       .optional(),
     sparse: z
       .object({
+        stream: z
+          .object({
+            known: z.boolean(),
+            first_dial_ms: z.number().int().min(-1),
+            first_connect_ms: z.number().int().min(-1),
+            first_handshake_ms: z.number().int().min(-1),
+            first_payload_ms: z.number().int().min(-1),
+            connect_duration_ms: z.number().int().min(-1),
+            handshake_duration_ms: z.number().int().min(-1),
+            useful_bytes: z.number().int().nonnegative(),
+            redundant_bytes: z.number().int().nonnegative(),
+            obsolete_bytes: z.number().int().nonnegative(),
+            recovery_requests: z.number().int().nonnegative(),
+            recovery_suppressed: z.number().int().nonnegative(),
+            active_hedges: z.number().int().min(0).max(16),
+            peak_hedges: z.number().int().min(0).max(16),
+            active_hedge_bytes: z
+              .number()
+              .int()
+              .min(0)
+              .max(256 * 1024),
+            budget_changes: z.number().int().nonnegative(),
+            frontiers: z.number().int().min(0).max(8),
+            recovery_scan_truncated: z.boolean(),
+            service: z
+              .array(
+                z
+                  .object({
+                    transport: z.enum(["tcp", "utp", "unknown"]),
+                    address_family: z.enum(["IPV4", "IPV6"]),
+                    samples: z.number().int().nonnegative(),
+                    p50_ms: z.number().int().min(0).max(300000),
+                    p95_ms: z.number().int().min(0).max(300000),
+                  })
+                  .refine((row) => row.p95_ms >= row.p50_ms),
+              )
+              .max(6),
+          })
+          .optional(),
         known: z.boolean(),
         urgent_truncated: z.boolean().optional(),
         request_age_truncated: z.boolean().optional(),
@@ -307,7 +349,35 @@ export const flowSchema = z
     hash: z.string(),
     sessions: z.array(flowSessionSchema).nullable().optional(),
     startup: z
-      .object({ state: z.string(), file_index: z.number() })
+      .object({
+        state: z.string(),
+        file_index: z.number(),
+        phases: z
+          .array(
+            z.object({
+              phase: z.enum([
+                "DISCOVERY",
+                "CONNECT",
+                "HANDSHAKE",
+                "METADATA",
+                "FIRST_PAYLOAD",
+                "BOOTSTRAP",
+                "PROBE",
+                "RESERVE",
+                "FIRST_BYTE",
+              ]),
+              basis: z.enum([
+                "NATIVE_TORRENT",
+                "TORRENT",
+                "PRELOAD",
+                "OPERATION",
+              ]),
+              duration_ms: z.number().int().nonnegative().optional(),
+            }),
+          )
+          .max(9)
+          .optional(),
+      })
       .passthrough()
       .optional(),
   })

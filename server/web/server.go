@@ -109,7 +109,10 @@ func Start() {
 	route.Use(api.PlaybackPolicy())
 	route.Use(func(c *gin.Context) {
 		path := c.Request.URL.Path
-		if path == "/flow/maintenance" || strings.HasPrefix(path, "/flow/backup") || path == "/echo" || path == "/flow/tray" || path == "/flow/network" || path == "/runtime/status" || strings.HasPrefix(path, "/shutdown") || path == "/" || strings.HasPrefix(path, "/assets/") {
+		// Storage writes acquire their own exclusive lease after validating the
+		// request. Counting that request here would make it conflict with itself.
+		storageWrite := path == "/storage/settings" && c.Request.Method == http.MethodPost
+		if storageWrite || path == "/flow/maintenance" || strings.HasPrefix(path, "/flow/backup") || path == "/echo" || path == "/flow/tray" || path == "/flow/network" || path == "/runtime/status" || strings.HasPrefix(path, "/shutdown") || path == "/" || strings.HasPrefix(path, "/assets/") {
 			c.Next()
 			return
 		}

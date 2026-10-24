@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 export interface TelemetrySample {
-  timestamp: number;
+  timestamp: number; // monotonic browser milliseconds, never server/wall time
   bufferSeconds: number | null;
   downloadMbps: number;
   demandMbps: number | null;
@@ -15,7 +15,7 @@ export function FlowHistoricalChart({
 }: FlowHistoricalChartProps) {
   const { t } = useTranslation();
   const bounded = samples
-    .filter((sample) => sample.timestamp >= Date.now() - 120_000)
+    .filter((sample) => sample.timestamp >= performance.now() - 120_000)
     .slice(-120);
   const first = bounded[0];
   const last = bounded.at(-1);

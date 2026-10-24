@@ -6,6 +6,8 @@ import (
 	"server/diagnostics"
 	"server/flow"
 	"server/lt"
+	"server/rutor/models"
+	"server/searchstatus"
 	sets "server/settings"
 	"server/torr"
 	"server/torr/state"
@@ -24,6 +26,10 @@ func TestExportFrontendContracts(t *testing.T) {
 	}
 	hash := "0123456789012345678901234567890123456789"
 	measuredDuration := int64(2)
+	stream := &flow.StreamEvidence{Known: true, FirstDialMs: 0, FirstConnectMs: 5,
+		FirstHandshakeMs: 10, FirstPayloadMs: 20, ConnectDurationMs: 5, HandshakeDurationMs: 5,
+		Service:     []flow.StreamService{{Transport: "tcp", AddressFamily: "IPV4", Samples: 8, P50Ms: 100, P95Ms: 250}},
+		UsefulBytes: 16384, RecoveryRequests: 1, PeakHedges: 1}
 	cases := []struct {
 		Kind    string `json:"kind"`
 		Payload any    `json:"payload"`
@@ -33,13 +39,18 @@ func TestExportFrontendContracts(t *testing.T) {
 		{"torrent", state.TorrentStatus{Hash: hash, Title: "Generated fixture", Stat: state.TorrentInDB}},
 		{"library", LibraryResponse{Items: []state.TorrentStatus{{Hash: hash, Title: "Fixture", Stat: state.TorrentInDB}}, Total: 1, LibraryTotal: 1, Page: 1, Limit: 50, Categories: []string{}, SampledAt: "2026-10-10T00:00:00Z"}},
 		{"active", map[string]any{"items": []activeTorrent{{Torrent: state.TorrentStatus{Hash: hash, Title: "Fixture", Stat: state.TorrentWorking}, Status: compactFlowStatus{Hash: hash, Sessions: []torr.FlowSessionStatus{}}}}, "sampled_at": "2026-10-10T00:00:00Z"}},
-		{"flow", FlowStatusResponse{Hash: hash, Sessions: []torr.FlowSessionStatus{{Group: "contract", FileIndex: 1, State: "PLAYING"}}}},
+		{"flow", FlowStatusResponse{Hash: hash, Sparse: lt.SparseSnapshot{Known: true, Stream: stream},
+			Startup:  torr.FlowStartupStatus{Phases: flow.StartupPhases(stream, 0, 20, 20, 25, 50, 60, false)},
+			Sessions: []torr.FlowSessionStatus{{Group: "contract", FileIndex: 1, State: "PLAYING"}}}},
 		{"flow", FlowStatusResponse{Hash: hash, Sessions: nil}},
 		{"flow", FlowStatusResponse{Hash: hash, NextEpisodeWarmup: &torr.NextEpisodeStatus{Enabled: true, CurrentFileIndex: 1, NextEpisodeStatus: torrstor.NextEpisodeStatus{FileIndex: 2, State: "waiting", Reason: "PLAYBACK_RESERVE", BudgetBytes: 32 << 20}}}},
 		{"flow", FlowStatusResponse{Hash: hash, SampledAt: "2026-10-10T00:00:00Z", Timeline: &flow.TimelineSnapshot{Source: "server", Events: []flow.TimelineEvent{{Time: time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC), Type: "seek", ElapsedMs: 1000, OperationMs: &measuredDuration, File: 1}, {Time: time.Date(2026, 10, 10, 0, 0, 1, 0, time.UTC), Type: "metadata", ElapsedMs: 1001, File: 1}}, Dropped: 0}, Sessions: []torr.FlowSessionStatus{{SessionID: "ABCDEFGHIJKLMNOPQRSTUV", FileIndex: 1, State: "PLAYING"}}}},
 		{"flow", FlowStatusResponse{Hash: hash, StorageIO: lt.StorageIO{QueuedBytes: 16384, PeakQueueBytes: 32768, QueuedJobs: 2, CompletedJobs: 7, WaitP95Us: 128, CallbackP95Us: 256}, Sessions: []torr.FlowSessionStatus{{Group: "evidence", FileIndex: 1, State: "PLAYING", ReadableContiguousBytes: 32768, VerifiedContiguousBytes: 16384, Delivery: flow.DeliveryEvidence{DeficitBytes: 4096, DeficitSamples: 4}}}}},
 		{"runtime", RuntimeStatus{Build: version.Identity(), BT: &torr.ClientStatusSnapshot{}, Memory: diagnostics.Memory()}},
 		{"flow", FlowStatusResponse{Hash: hash, Integrity: &flow.IntegritySnapshot{Failures: 2, RecentFailures: 1, WindowSeconds: 60, LastFailureAtMs: 1792600000000}, Trackers: []torr.FlowTrackerDiagnostic{{ID: "fixture", Host: "fixture.example", Protocol: "https", Status: "ERROR", ErrorCategory: "HTTP", ErrorCode: 503, Operation: 16, FailureCount: 2, LastAt: time.Date(2026, 10, 22, 0, 0, 0, 0, time.UTC)}}, Sessions: []torr.FlowSessionStatus{{FileIndex: 1, State: "PLAYING", BufferSampledAtMs: 1792600000000, BufferOffsetBytes: 16384, ReadableContiguousBytes: 32768, VerifiedContiguousBytes: 16384}}}},
+		{"storage", torr.StoragePreferencesSnapshot()},
+		{"sessions", flow.SessionSummaries{Enabled: true, Items: []flow.SessionSummary{{Started: time.Date(2026, 10, 24, 0, 0, 0, 0, time.UTC), LastObserved: time.Date(2026, 10, 24, 0, 1, 0, 0, time.UTC), Samples: 2, BytesServed: 1024, MinimumBufferBytes: 256, MaximumBufferBytes: 512, PeakRecentReadStalls: 1, PeakRecentWaitP95Ms: 4, RangeRequests: 2, RangeCancels: 1, Incomplete: true}}}},
+		{"search", detailedSearchResponse{Items: []*models.TorrentDetails{{Title: "generated", Hash: hash}}, Sources: []searchstatus.Status{{Source: "torznab", Index: 0, State: "ok"}}}},
 		{"network", torr.FlowNetworkStatus{State: "NO_ADDRESS", Connectivity: "INTERNET_WAIT"}},
 		{"preparation", torr.PreparationStatus{Jobs: []torr.PreparationJob{{ID: hash + ":1", Hash: hash, FileIndex: 1, State: "downloading", Length: 100, VerifiedBytes: 60, ContiguousBytes: 40}}, QuotaBytes: 4096 << 20, ReservedBytes: 16384}},
 		{"sources", torr.WebSeedStatus{Sources: []torr.WebSeedSummary{{ID: "01234567890123456789012345678901", Origin: "https://fixture.example", Disabled: false, AllowLocal: false}}}},

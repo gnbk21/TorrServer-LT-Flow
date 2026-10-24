@@ -23,7 +23,7 @@ function flatten(
 describe("modern language coverage", () => {
   const english = flatten(en);
   const keys = Object.keys(english).filter((key) =>
-    /^(nav|status|dashboard|flow|torrent|pairing|search|settings|runtime|app)\./.test(
+    /^(nav|status|dashboard|flow|torrent|pairing|search|settings|runtime|app|reliability)\./.test(
       key,
     ),
   );

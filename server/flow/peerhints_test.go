@@ -41,3 +41,19 @@ func TestPeerHintsExpiryNetworkAndBounds(t *testing.T) {
 		t.Fatal("oversized hints loaded")
 	}
 }
+
+func TestPeerHintsRankRecentUsefulSuppliersAndDeduplicateAddresses(t *testing.T) {
+	got := RankPeerHints([]PeerHint{
+		{IP: "2001:0db8::1", Port: 42, UsefulRate: 2},
+		{IP: "192.0.2.1", Port: 42, UsefulRate: 8, ServiceP95Ms: 500},
+		{IP: "2001:db8::1", Port: 42, UsefulRate: 16, ServiceP95Ms: 100},
+		{IP: "192.0.2.2", Port: 42, UsefulRate: 8, ServiceP95Ms: 100},
+	})
+	if len(got) != 3 || got[0].IP != "2001:db8::1" || got[1].IP != "192.0.2.2" {
+		t.Fatalf("rank/dedup: %+v", got)
+	}
+	legacy := RankPeerHints([]PeerHint{{IP: "192.0.2.3", Port: 42}, {IP: "192.0.2.4", Port: 42}})
+	if len(legacy) != 2 || legacy[0].IP != "192.0.2.3" {
+		t.Fatal("legacy order changed")
+	}
+}

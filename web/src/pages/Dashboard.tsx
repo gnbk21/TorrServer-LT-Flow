@@ -1,5 +1,5 @@
 import { redactDiagnostic } from "../lib/redact";
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import {
   useActive,
@@ -7,106 +7,29 @@ import {
   useNetwork,
   useSettings,
 } from "../hooks/queries";
-import { FlowHealthPanel } from "../components/flow/FlowHealthPanel";
 import { ResourceStatus } from "../components/flow/ResourceStatus";
-import {
-  FlowHistoricalChart,
-  type TelemetrySample,
-} from "../components/flow/FlowHistoricalChart";
-import type { FlowStatusResponse, FlowSession } from "../types/flow";
 import { Loading, RequestError } from "../components/common/RequestState";
 import { humanizeBytes, humanizeSpeed } from "../lib/format";
 import { Link } from "react-router-dom";
-import { PlaybackLinks } from "../components/common/PlaybackLinks";
 import { Button } from "../components/common/Button";
-import { torrentsApi } from "../api/torrents";
 import type { Torrent } from "../types/torrent";
+const SessionCard = lazy(() => import("../components/flow/SessionCard"));
+const FlowHealthPanel = lazy(() =>
+  import("../components/flow/FlowHealthPanel").then((module) => ({
+    default: module.FlowHealthPanel,
+  })),
+);
+const RecentSessions = lazy(() =>
+  import("../components/flow/RecentSessions").then((module) => ({
+    default: module.RecentSessions,
+  })),
+);
 const GstRuntime = lazy(() => import("../components/flow/GstRuntimeStatus"));
 const Files = lazy(() =>
   import("../components/torrent/TorrentFilesDialog").then((module) => ({
     default: module.TorrentFilesDialog,
   })),
 );
-const Diagnostics = lazy(() =>
-  import("../components/flow/FlowDiagnosticsDrawer").then((m) => ({
-    default: m.FlowDiagnosticsDrawer,
-  })),
-);
-function SessionCard({
-  status,
-  session,
-  title,
-  sampledAt,
-  torrent,
-}: {
-  status: FlowStatusResponse;
-  session: FlowSession;
-  title: string;
-  sampledAt: number;
-  torrent?: Torrent;
-}) {
-  const { t } = useTranslation();
-  const [samples, setSamples] = useState<TelemetrySample[]>([]);
-  const [open, setOpen] = useState(false);
-  const [filesOpen, setFilesOpen] = useState(false);
-  useEffect(() => {
-    const now = Date.now();
-    setSamples((previous) =>
-      [
-        ...previous.filter((s) => s.timestamp >= now - 120000),
-        {
-          timestamp: now,
-          bufferSeconds:
-            session.playback_consumption_rate > 0
-              ? session.buffer_ahead_seconds
-              : null,
-          downloadMbps: (session.download_rate * 8) / 1e6,
-          demandMbps:
-            session.playback_consumption_rate > 0
-              ? (session.playback_consumption_rate * 8) / 1e6
-              : null,
-        },
-      ].slice(-120),
-    );
-  }, [session, sampledAt]);
-  return (
-    <div className="space-y-4">
-      <FlowHealthPanel
-        session={session}
-        title={title}
-        onOpenDiagnostics={() => setOpen(true)}
-      />
-      <div className="panel actions">
-        {torrent && (
-          <Button onClick={() => setFilesOpen(true)}>
-            {t("torrent.files")}
-          </Button>
-        )}
-        {session.file_index > 0 && (
-          <PlaybackLinks
-            url={torrentsApi.getStreamUrl(status.hash, session.file_index)}
-          />
-        )}
-      </div>
-      <FlowHistoricalChart samples={samples} />
-      {open && (
-        <Suspense fallback={<Loading />}>
-          <Diagnostics
-            isOpen
-            onClose={() => setOpen(false)}
-            status={status}
-            torrentTitle={title}
-          />
-        </Suspense>
-      )}
-      {filesOpen && torrent && (
-        <Suspense fallback={<Loading />}>
-          <Files isOpen torrent={torrent} onClose={() => setFilesOpen(false)} />
-        </Suspense>
-      )}
-    </div>
-  );
-}
 export default function Dashboard() {
   const { t } = useTranslation();
   const activity = useActive();
@@ -114,6 +37,7 @@ export default function Dashboard() {
   const network = useNetwork();
   const settings = useSettings();
   const [gstOpen, setGstOpen] = useState(false);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const items = activity.data?.items || [];
   const active = items.flatMap(({ torrent, status }) =>
     (status.sessions || [])
@@ -170,7 +94,13 @@ export default function Dashboard() {
         />
       )}
       {active.length || unmeasured.length ? (
-        <>
+        <Suspense
+          fallback={
+            <section className="panel min-h-96">
+              <Loading />
+            </section>
+          }
+        >
           {active.map((row) => (
             <SessionCard
               key={`${row.status.hash}:${row.session.group}:${row.session.file_index}`}
@@ -186,7 +116,7 @@ export default function Dashboard() {
               </Button>
             </section>
           ))}
-        </>
+        </Suspense>
       ) : activity.isPending ? (
         <section className="panel min-h-52 flex items-center" role="status">
           {t("Loading")}
@@ -211,6 +141,21 @@ export default function Dashboard() {
           </div>
         </section>
       )}
+      <section className="panel space-y-4">
+        <h2 className="font-semibold">
+          <Button
+            aria-expanded={diagnosticsOpen}
+            onClick={() => setDiagnosticsOpen((value) => !value)}
+          >
+            {t("reliability.diagnostics")}
+          </Button>
+        </h2>
+        {diagnosticsOpen && (
+          <Suspense fallback={<Loading />}>
+            <RecentSessions />
+          </Suspense>
+        )}
+      </section>
       <section className="panel space-y-4">
         <h2 className="font-semibold">{t("dashboard.server")}</h2>
         <ResourceStatus status={runtime.data} />

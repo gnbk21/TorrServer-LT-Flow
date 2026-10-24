@@ -20,14 +20,15 @@ export function FlowHealthPanel({
   const now = useObservationTime(
     !!session,
     (session?.buffer_sampled_at_ms ?? NaN) + 10000,
-    NaN,
+    (session?.observation?.serverNow ?? NaN) + 10000,
+    session,
   );
-  const health = deriveFlowHealth(session);
+  const health = deriveFlowHealth(session, now);
   const bufferFresh =
-    session?.buffer_sampled_at_ms === undefined ||
-    (session.buffer_sampled_at_ms > 0 &&
-      now >= session.buffer_sampled_at_ms &&
-      now - session.buffer_sampled_at_ms < 10000);
+    session?.buffer_sampled_at_ms !== undefined &&
+    session.buffer_sampled_at_ms > 0 &&
+    now >= session.buffer_sampled_at_ms &&
+    now - session.buffer_sampled_at_ms < 10000;
   const known =
     !!session && bufferFresh && session.playback_consumption_rate > 0;
   const values = [

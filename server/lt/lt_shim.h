@@ -215,6 +215,8 @@ int lt_torrent_set_piece_deadline(lt_torrent t, int piece_idx, int deadline_ms, 
  * the abandoned region after a seek. */
 int lt_torrent_reset_piece_deadline(lt_torrent t, int piece_idx);
 int lt_torrent_clear_piece_deadlines(lt_torrent t);
+/* Immediate blocked reader pieces, at most eight. Expires after three seconds. */
+int lt_torrent_stream_frontiers(lt_torrent t, const char* pieces_json);
 /* Sequential download: make the piece_picker prefer the lowest-indexed wanted
  * (priority>0) piece. Scoped to the reader's window because the rest of the
  * torrent sits at priority 0; complements per-piece deadlines (which still take

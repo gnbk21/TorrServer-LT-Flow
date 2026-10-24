@@ -39,6 +39,8 @@ type FlowSettings struct {
 	ScarcePieceHints         bool // bounded scheduling experiment, off by default
 	RateAwareDeadlines       bool // measured scheduling experiment, off by default
 	CapacityAwareRequests    bool // honor remote and local urgent queue caps, opt-in
+	FrontierRecovery         bool // bounded late-block recovery through alternate peers
+	AdaptivePeerRequests     bool // measured per-peer service horizon and paced credit
 	AdaptiveUrgentHorizon    bool // demand-sized urgent subset, opt-in
 	ContainerBurstHints      bool // resident index estimates only, opt-in
 	StreamTransportBufferKiB int  // 0/direct, 64, 256 or 1024; existing 1024 KiB default

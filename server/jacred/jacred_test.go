@@ -4,9 +4,12 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"server/searchstatus"
 	"server/settings"
+	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestEndpointDoesNotBypassUnavailableInterface(t *testing.T) {
@@ -193,5 +196,32 @@ func TestTestValidatesEndpoint(t *testing.T) {
 
 	if err := Test(context.Background(), errSrv.URL, ""); err == nil {
 		t.Fatal("Test on a 500 endpoint must fail")
+	}
+}
+
+func TestEndpointOutcomeClassification(t *testing.T) {
+	for _, tc := range []struct {
+		name, body, want string
+		status           int
+	}{
+		{"empty", "[]", "empty", 200},
+		{"null", "null", "invalid_response", 200},
+		{"object", "{}", "invalid_response", 200},
+		{"oversized", "[]" + strings.Repeat(" ", 1<<20), "invalid_response", 200},
+		{"credentials", "", "auth_required", 401},
+		{"service", "", "unavailable", 503},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+			started := time.Now()
+			outcome := searchstatus.Outcome("jacred", -1, 0, started, Test(context.Background(), srv.URL, ""))
+			if outcome.State != tc.want {
+				t.Fatalf("state=%s, want %s", outcome.State, tc.want)
+			}
+		})
 	}
 }

@@ -8,6 +8,7 @@ vi.mock("react-i18next", () => ({
 afterEach(cleanup);
 const session = {
   state: "PLAYING",
+  buffer_sampled_at_ms: Date.now(),
   playback_consumption_rate: 0,
   buffer_ahead_seconds: 90,
   buffer_ahead_bytes: 1000,
@@ -19,6 +20,30 @@ const session = {
   buffer_warning: false,
 } as FlowSession;
 describe("Flow health presentation", () => {
+  it("treats missing or stale measurement timestamps as unknown", () => {
+    const view = render(
+      <FlowHealthPanel
+        session={{
+          ...session,
+          buffer_sampled_at_ms: undefined,
+          playback_consumption_rate: 200,
+        }}
+      />,
+    );
+    expect(screen.getByText("flow.health.UNKNOWN")).toBeInTheDocument();
+    view.rerender(
+      <FlowHealthPanel
+        session={{
+          ...session,
+          buffer_sampled_at_ms: Date.now() - 11000,
+          playback_consumption_rate: 200,
+        }}
+      />,
+    );
+    expect(screen.getByText("flow.health.UNKNOWN")).toBeInTheDocument();
+    expect(screen.queryByText("90.0 s")).not.toBeInTheDocument();
+  });
+
   it("does not convert an unknown demand into healthy or stalled playback", () => {
     render(<FlowHealthPanel session={session} />);
     expect(screen.getByText("flow.health.UNKNOWN")).toBeInTheDocument();

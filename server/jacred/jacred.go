@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"server/searchstatus"
 	"strconv"
 	"strings"
 	"time"
@@ -92,48 +93,67 @@ type item struct {
 // shared TorrentDetails model. JacRed is a single self-aggregating server (it
 // already merges ~20 trackers), so unlike Torznab there is no per-indexer list.
 func Search(ctx context.Context, query string) []*models.TorrentDetails {
+	rows, _ := SearchDetailed(ctx, query)
+	return rows
+}
+
+func SearchDetailed(ctx context.Context, query string) ([]*models.TorrentDetails, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx, cancel := context.WithTimeout(ctx, httpTimeout)
+	defer cancel()
+	release, err := searchstatus.Acquire(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	set := settings.BTsets()
-	if !set.EnableJacRedSearch || strings.TrimSpace(set.JacRedUrl) == "" {
-		return nil
+	if set == nil || !set.EnableJacRedSearch || strings.TrimSpace(set.JacRedUrl) == "" {
+		return nil, nil
 	}
 	query = strings.TrimSpace(query)
 	if query == "" {
-		return nil
+		return nil, nil
 	}
 
 	endpoint, err := searchURL(set.JacRedUrl, query, set.JacRedKey)
 	if err != nil {
 		log.TLogln("Error parsing JacRed URL:", err)
-		return nil
+		return nil, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		log.TLogln("Error creating JacRed request:", err)
-		return nil
+		return nil, err
 	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		log.TLogln("Error connecting to JacRed:", err)
-		return nil
+		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (32<<20)+1))
 	if err != nil {
 		log.TLogln("Error reading JacRed response:", err)
-		return nil
+		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		log.TLogln("JacRed returned status:", resp.Status)
-		return nil
+		return nil, searchstatus.HTTP(resp.StatusCode)
 	}
 
-	return parseItems(body)
+	if len(body) > 32<<20 {
+		return nil, searchstatus.Invalid()
+	}
+	var probe []item
+	if json.Unmarshal(body, &probe) != nil || strings.TrimSpace(string(body)) == "null" {
+		return nil, searchstatus.Invalid()
+	}
+	return parseItems(body), nil
 }
 
 func parseItems(body []byte) []*models.TorrentDetails {
@@ -178,6 +198,13 @@ func Test(ctx context.Context, host, key string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx, cancel := context.WithTimeout(ctx, httpTimeout)
+	defer cancel()
+	release, err := searchstatus.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
 
 	endpoint, err := searchURL(host, "test", key)
 	if err != nil {
@@ -195,17 +222,17 @@ func Test(ctx context.Context, host, key string) error {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
 	if err != nil {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("status: %s", resp.Status)
+		return searchstatus.HTTP(resp.StatusCode)
 	}
 
-	var probe []json.RawMessage
-	if err := json.Unmarshal(body, &probe); err != nil {
-		return fmt.Errorf("unexpected response (not a JacRed search endpoint)")
+	var probe []item
+	if len(body) > 1<<20 || json.Unmarshal(body, &probe) != nil || strings.TrimSpace(string(body)) == "null" {
+		return searchstatus.Invalid()
 	}
 	return nil
 }

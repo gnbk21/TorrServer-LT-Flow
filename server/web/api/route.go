@@ -92,6 +92,7 @@ func SetupRoute(route gin.IRouter) {
 	authorized.GET("/flow/library/export", flowLibraryExport)
 	authorized.GET("/flow/active", flowActive)
 	authorized.GET("/flow/network", flowNetwork)
+	authorized.GET("/flow/sessions", flowSessions)
 	authorized.GET("/flow/lan-test", flowLANTest)
 	authorized.GET("/flow/tray", flowTray)
 	authorized.POST("/flow/maintenance", flowMaintenance)

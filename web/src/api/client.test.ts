@@ -1,10 +1,17 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { apiClient, ApiError } from "./client";
+import {
+  apiClient,
+  ApiError,
+  resetManagementCooldown,
+  pollingDelay,
+  retryAfterMilliseconds,
+} from "./client";
 import { settingsApi } from "./settings";
 import { runtimeApi } from "./runtime";
 import { torrentsApi } from "./torrents";
 import { integrationsApi } from "./integrations";
 afterEach(() => {
+  resetManagementCooldown();
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -89,5 +96,40 @@ describe("API contract", () => {
   });
   it("recognizes authorization failures separately", () => {
     expect(new ApiError(403, "Forbidden", null).isUnauthorized).toBe(true);
+  });
+});
+
+describe("management cooldown", () => {
+  it("honors Retry-After without replaying a mutation", async () => {
+    vi.useFakeTimers();
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response("slow down", {
+        status: 429,
+        headers: { "Retry-After": "2" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+    await expect(
+      apiClient("/settings", { method: "POST", body: "{}" }),
+    ).rejects.toMatchObject({ status: 429, retryAfterMs: 2000 });
+    await expect(apiClient("/runtime/status")).rejects.toMatchObject({
+      status: 429,
+    });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(pollingDelay(1000)).toBeGreaterThan(1900);
+    await vi.advanceTimersByTimeAsync(2001);
+    fetcher.mockResolvedValue(new Response("{}"));
+    await apiClient("/runtime/status");
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+  it("uses the server Date for HTTP-date cooldowns and bounds untrusted headers", () => {
+    expect(
+      retryAfterMilliseconds(
+        "Wed, 21 Oct 2026 07:28:10 GMT",
+        "Wed, 21 Oct 2026 07:28:00 GMT",
+      ),
+    ).toBe(10000);
+    expect(retryAfterMilliseconds("999999999", null)).toBe(300000);
+    expect(retryAfterMilliseconds("bad", null)).toBe(0);
   });
 });

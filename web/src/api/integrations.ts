@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { api } from "./client";
 import type { TMDBSettings } from "../types/settings";
 export interface WafSettings {
@@ -11,6 +12,11 @@ export interface WafSettings {
   read_only: boolean;
   warnings: { list: string; line?: number; code: string; reason?: string }[];
 }
+export const storageSchema = z.object({
+  settings: z.enum(["json", "bbolt"]),
+  viewed: z.enum(["json", "bbolt"]),
+  revision: z.string().optional(),
+});
 export interface StorageSettings {
   settings: "json" | "bbolt";
   viewed: "json" | "bbolt";
@@ -53,12 +59,12 @@ export const integrationsApi = {
   testTorznab: (host: string, key = "", signal?: AbortSignal) =>
     api.post<
       { host: string; key: string },
-      { success: boolean; error?: string }
+      { success: boolean; error?: string; state?: string }
     >("/torznab/test", { host, key }, signal),
   testJacred: (host: string, key = "", signal?: AbortSignal) =>
     api.post<
       { host: string; key: string },
-      { success: boolean; error?: string }
+      { success: boolean; error?: string; state?: string }
     >("/jacred/test", { host, key }, signal),
   getWAF: (signal?: AbortSignal) => api.get<WafSettings>("/waf", signal),
   updateWAF: (
@@ -71,9 +77,15 @@ export const integrationsApi = {
   getTMDB: (signal?: AbortSignal) =>
     api.get<TMDBSettings>("/tmdb/settings", signal),
   getStorage: (signal?: AbortSignal) =>
-    api.get<StorageSettings>("/storage/settings", signal),
-  setStorage: (data: StorageSettings) =>
-    api.post<StorageSettings, { status: string }>("/storage/settings", data),
+    api
+      .get("/storage/settings", signal)
+      .then((data) => storageSchema.parse(data)),
+  setStorage: (data: StorageSettings, revision = "") =>
+    api.post("/storage/settings", {
+      settings: data.settings,
+      viewed: data.viewed,
+      revision,
+    }),
   getGst: (signal?: AbortSignal) =>
     api.get<GstSettings>("/gst/settings", signal),
   setGst: (config: NonNullable<GstSettings["config"]>) =>

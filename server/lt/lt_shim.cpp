@@ -170,6 +170,34 @@ static void refresh_connect_candidates(lt::torrent_handle const& h) {
 }
 using json = nlohmann::json;
 
+#ifdef TORRENT_FLOW_STREAM_CONTROL
+// Called only on the session network executor. No peer identities escape.
+static json stream_observations_json(lt::aux::torrent const& tor) {
+    auto const& obs=tor.flow_stream;
+    json service=json::array();
+    char const* transports[]={"tcp","utp","unknown"};
+    for(std::size_t i=0;i<obs.service.size();++i) {
+        auto const& sample=obs.service[i];
+        if(!sample.samples) continue;
+        service.push_back({{"transport",transports[i/2]},
+            {"address_family",i%2?"IPV6":"IPV4"},{"samples",sample.samples},
+            {"p50_ms",sample.percentile(50)},{"p95_ms",sample.percentile(95)}});
+    }
+    std::uint64_t budget_changes=0;
+    for(auto const* peer:tor) budget_changes+=peer->flow_service.budget_changes;
+    return {{"known",true},{"first_dial_ms",obs.first_dial_ms},
+        {"first_connect_ms",obs.first_connect_ms},{"first_handshake_ms",obs.first_handshake_ms},
+        {"first_payload_ms",obs.first_payload_ms},{"connect_duration_ms",obs.connect_duration_ms},
+        {"handshake_duration_ms",obs.handshake_duration_ms},{"service",std::move(service)},
+        {"useful_bytes",obs.useful_bytes},{"redundant_bytes",obs.redundant_bytes},
+        {"obsolete_bytes",obs.obsolete_bytes},{"recovery_requests",obs.recovery_requests},
+        {"recovery_suppressed",obs.recovery_suppressed},{"active_hedges",tor.flow_hedges->active.load()},
+        {"peak_hedges",tor.flow_hedges->peak.load()},{"active_hedge_bytes",tor.flow_hedges->bytes.load()},
+        {"budget_changes",budget_changes},{"frontiers",tor.flow_frontier_count()},
+        {"recovery_scan_truncated",tor.flow_scan_truncated()}};
+}
+#endif
+
 // nlohmann::json::dump() defaults to error_handler_t::strict, which THROWS
 // type_error.316 ("invalid UTF-8 byte ...") when any string in the object is
 // not valid UTF-8. libtorrent error/alert strings come from the OS: on a
@@ -1284,16 +1312,33 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
                                 }
                                 useful += supplies;
                                 downloading += supplies && peer->statistics().download_payload_rate() > 0;
-                                if (!private_torrent && hints.size() < 32 && !peer->on_parole()
+                                if (!private_torrent && !peer->on_parole()
                                     && peer->type() == lt::connection_type::bittorrent
                                     && !peer->is_connecting() && !peer->is_disconnecting()
                                     && peer->statistics().download_payload_rate() > 0) {
                                     auto const ep = peer->remote();
                                     if (ep.port() != 0 && !ep.address().is_unspecified()
                                         && !ep.address().is_multicast())
-                                        hints.push_back({{"ip", ep.address().to_string()}, {"port", ep.port()}});
+                                        hints.push_back({{"ip", ep.address().to_string()}, {"port", ep.port()},
+                                            {"useful_rate",supplies?peer->statistics().download_payload_rate():0},
+#ifdef TORRENT_FLOW_STREAM_CONTROL
+                                            {"service_p95_ms",peer->flow_service.histogram.percentile(95)}
+#else
+                                            {"service_p95_ms",0}
+#endif
+                                        });
                                 }
                             }
+                            // Choose recent useful suppliers across the bounded
+                            // sample, rather than the first 32 native pointers.
+                            std::stable_sort(hints.begin(),hints.end(),[](json const& a,json const& b) {
+                                auto const ar=a.value("useful_rate",std::int64_t(0));
+                                auto const br=b.value("useful_rate",std::int64_t(0));
+                                if(ar!=br) return ar>br;
+                                auto const ap=a.value("service_p95_ms",0), bp=b.value("service_p95_ms",0);
+                                return (ap?ap:300001)<(bp?bp:300001);
+                            });
+                            if(hints.size()>32) hints.erase(hints.begin()+32,hints.end());
                             lt::torrent_status status;
                             for (auto const& entry : receiving) {
                                 auto& row = urgent[urgent_index.at(entry.first.first)];
@@ -1313,6 +1358,9 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
                                 {"urgent", std::move(urgent)}, {"urgent_truncated", blocks_truncated},
                                 {"request_age_truncated", request_age_truncated}};
                         }
+#ifdef TORRENT_FLOW_STREAM_CONTROL
+                        result["stream"]=stream_observations_json(*tor);
+#endif
                     } catch (...) { result = {{"known", false}}; }
                     std::lock_guard<std::mutex> done(snapshot->mu);
                     snapshot->cached = result.dump();
@@ -1905,6 +1953,35 @@ int lt_torrent_reset_piece_deadline(lt_torrent tid, int piece_idx) {
     h.reset_piece_deadline(lt::piece_index_t{piece_idx});
     return LT_OK;
     WRAP_END(LT_ERR_INTERNAL)
+}
+
+int lt_torrent_stream_frontiers(lt_torrent tid, const char* pieces_json) {
+    WRAP_BEGIN
+#if defined(TORRENT_FLOW_STREAM_CONTROL) && !defined(TORRENT_DISABLE_STREAMING)
+    auto h=get_torrent(tid);
+    if(!h.is_valid()) return set_err(LT_ERR_NOT_FOUND,"torrent not found");
+    auto ti=h.torrent_file();
+    if(!ti) return set_err(LT_ERR_INVALID,"metadata required");
+    auto data=json::parse(pieces_json?pieces_json:"[]");
+    if(!data.is_array() || data.size()>8) return set_err(LT_ERR_INVALID,"frontier limit");
+    std::vector<int> pieces;
+    for(auto const& item:data) {
+        if(!item.is_number_integer()) return set_err(LT_ERR_INVALID,"invalid frontier");
+        auto const value=item.get<std::int64_t>();
+        if(value<0 || value>=ti->num_pieces()) return set_err(LT_ERR_INVALID,"invalid frontier");
+        if(std::find(pieces.begin(),pieces.end(),int(value))==pieces.end()) pieces.push_back(int(value));
+    }
+    auto tor=h.native_handle();
+    if(!tor) return set_err(LT_ERR_NOT_FOUND,"torrent unavailable");
+    lt::post(tor->session().get_context(),[tor,pieces=std::move(pieces)]() mutable {
+        if(!tor->is_aborted()) tor->flow_set_frontiers(std::move(pieces));
+    });
+    return LT_OK;
+#else
+    (void)tid; (void)pieces_json;
+    return set_err(LT_ERR_NOT_IMPL,"native stream control unavailable");
+#endif
+    WRAP_END(LT_ERR_INVALID)
 }
 
 int lt_torrent_clear_piece_deadlines(lt_torrent tid) {

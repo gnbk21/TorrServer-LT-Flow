@@ -9,7 +9,73 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
+
+func TestDetailedSearchBoundsParallelRequestsAndKeepsSourceOutcomes(t *testing.T) {
+	old := settings.BTsets()
+	defer settings.StoreBTsets(old)
+	var active, peak atomic.Int32
+	seen := make(chan struct{}, 8)
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		now := active.Add(1)
+		defer active.Add(-1)
+		for previous := peak.Load(); now > previous && !peak.CompareAndSwap(previous, now); previous = peak.Load() {
+		}
+		seen <- struct{}{}
+		select {
+		case <-release:
+		case <-r.Context().Done():
+			return
+		}
+		if r.URL.Query().Get("apikey") == "bad" {
+			w.WriteHeader(401)
+			return
+		}
+		_, _ = w.Write([]byte(`<rss><channel><item><title>generated</title><link>magnet:?xt=urn:btih:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</link></item></channel></rss>`))
+	}))
+	defer srv.Close()
+	configs := []settings.TorznabConfig{}
+	for i := 0; i < 6; i++ {
+		key := "good"
+		if i == 5 {
+			key = "bad"
+		}
+		configs = append(configs, settings.TorznabConfig{Host: srv.URL, Key: key})
+	}
+	settings.StoreBTsets(&settings.BTSets{EnableTorznabSearch: true, TorznabUrls: configs, Flow: settings.DefaultFlowSettings()})
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	done := make(chan struct{})
+	var rows int
+	var states []string
+	go func() {
+		result, statuses := SearchDetailed(ctx, "generated", -1, "", 0, 100)
+		rows = len(result)
+		for _, status := range statuses {
+			states = append(states, status.State)
+		}
+		close(done)
+	}()
+	for i := 0; i < 4; i++ {
+		select {
+		case <-seen:
+		case <-ctx.Done():
+			close(release)
+			t.Fatal("parallel workers did not start")
+		}
+	}
+	if active.Load() != 4 {
+		close(release)
+		t.Fatal("expected four outgoing requests")
+	}
+	close(release)
+	<-done
+	if peak.Load() > 4 || rows != 5 || len(states) != 6 || states[5] != "auth_required" {
+		t.Fatalf("wrong parallel outcome: %d %d %v", peak.Load(), rows, states)
+	}
+}
 
 func TestCapsDoesNotBypassUnavailableInterface(t *testing.T) {
 	previous := settings.BTsets()

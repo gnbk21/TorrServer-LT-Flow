@@ -484,8 +484,9 @@ func buildSessionConfig() (lt.SessionConfig, error) {
 		"min_announce_interval":     30,
 		"max_suggest_pieces":        50,
 		// request_queue_time 1 (default 3): per-peer in-flight requests cover ~1s of
-		// that peer's rate instead of ~3s. Still far above any real BDP (rate×RTT),
-		// so throughput is unaffected, but (a) a far seek pivots in ~1s even on
+		// that peer's rate instead of ~3s. High latency and remote queueing can
+		// still underfill this pipeline; the opt-in adaptive peer policy measures
+		// that tradeoff. This baseline lets (a) a far seek pivot in ~1s even on
 		// peers that ignore our CANCELs (the stale pre-seek queue drains 3x
 		// faster), and (b) the time-critical picker spreads the seek-target
 		// piece's blocks across MORE peers (each takes a shorter slice), so the

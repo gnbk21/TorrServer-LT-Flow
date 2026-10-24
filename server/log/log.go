@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"server/console"
 	"strings"
 	"sync"
@@ -89,7 +90,17 @@ func Init(path, webpath string) {
 	logPath = path
 	webLogPath = webpath
 
-	shared := path != "" && webpath != "" && filepath.Clean(path) == filepath.Clean(webpath)
+	shared := false
+	if path != "" && webpath != "" {
+		left, _ := filepath.Abs(path)
+		right, _ := filepath.Abs(webpath)
+		shared = left == right || (runtime.GOOS == "windows" && strings.EqualFold(left, right))
+		if a, e1 := os.Stat(path); e1 == nil {
+			if b, e2 := os.Stat(webpath); e2 == nil && os.SameFile(a, b) {
+				shared = true
+			}
+		}
+	}
 	if path != "" {
 		path = filepath.Clean(path)
 	}
@@ -105,18 +116,18 @@ func Init(path, webpath string) {
 		}
 		logFile = ff
 		webLogFile = ff
-		webLog = log.New(redactingWriter{ff}, " ", log.LstdFlags)
+		webLog = log.New(redactingWriter{newRotatingLog(ff)}, " ", log.LstdFlags)
 		applyServerLog(ff)
 		return
 	}
 
 	if webpath != "" {
-		ff, err := os.OpenFile(webpath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
+		ff, err := openLogFile(webpath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error create web log file: %v\n", err)
 		} else {
 			webLogFile = ff
-			webLog = log.New(redactingWriter{ff}, " ", log.LstdFlags)
+			webLog = log.New(redactingWriter{newRotatingLog(ff)}, " ", log.LstdFlags)
 		}
 	}
 
@@ -132,12 +143,10 @@ func Init(path, webpath string) {
 }
 
 func openLogFile(path string) (*os.File, error) {
-	if fi, err := os.Lstat(path); err == nil {
-		if fi.Size() >= 100*1024*1024 { // 100MB
-			os.Remove(path)
-		}
+	if err := regularLog(path); err != nil {
+		return nil, err
 	}
-	return os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
+	return os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 }
 
 func applyServerLog(ff *os.File) {
@@ -146,7 +155,17 @@ func applyServerLog(ff *os.File) {
 	}
 	log.SetFlags(log.LstdFlags | log.LUTC | log.Lmsgprefix)
 	log.SetPrefix("UTC0 ")
-	log.SetOutput(redactingWriter{ff})
+	var writer *rotatingLog
+	for _, r := range rotations {
+		if r.file == ff {
+			writer = r
+			break
+		}
+	}
+	if writer == nil {
+		writer = newRotatingLog(ff)
+	}
+	log.SetOutput(redactingWriter{writer})
 }
 
 // CloseConsole restores console output without closing file loggers. The API
@@ -177,6 +196,7 @@ func Close() {
 	StopConsoleStatus()
 	closeMu.Lock()
 	defer closeMu.Unlock()
+	stopRotations()
 	closeConsoleOutput()
 	if logFile != nil {
 		logFile.Close()

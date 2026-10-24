@@ -1,10 +1,7 @@
 name: build-macos
 
-# macOS is built natively on Apple-Silicon runners (macos-latest):
-#  - arm64 builds straight with the native clang;
-#  - amd64 builds with `-arch x86_64` (cgo and b2 alike), so the artifact is a
-#    real Intel binary. This avoids the deprecated/flaky macos-13 Intel runner.
-#
+# Each target uses a supported native host. Keeping Intel and ARM pools
+# separate avoids one architecture's queue starving both release artifacts.
 # libtorrent is built from the PINNED source tag via build/darwin-native.sh —
 # the same b2 engine every cross target uses — NOT taken from Homebrew: brew's
 # libtorrent floats and would silently change what a release links against
@@ -48,15 +45,17 @@ jobs:
     needs: web
     if: ${{ !cancelled() && needs.web.result == 'success' }}
     name: macos/${{ matrix.arch }}
-    runs-on: macos-latest          # Apple Silicon (arm64)
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: arm64
+            runner: macos-15
             artifact: TorrServer-LT-darwin-arm64
           - arch: amd64
+            runner: macos-15-intel
             artifact: TorrServer-LT-darwin-amd64
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -66,12 +65,6 @@ jobs:
         with:
           name: ${{ inputs.web_artifact || 'flow-web-macos' }}
           path: server/web/pages/template
-
-      # amd64 cgo/b2 objects build with `-arch x86_64`; the binary runs on the
-      # arm64 host via Rosetta 2 (present on the runners, assert anyway).
-      - name: Ensure Rosetta 2
-        if: matrix.arch == 'amd64'
-        run: /usr/bin/pgrep -q oahd || sudo softwareupdate --install-rosetta --agree-to-license || true
 
       # Same _src cache key as build.yml, so the Boost+libtorrent sources
       # fetched by the linux matrix are reused here (the cache is not
@@ -88,8 +81,8 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _deps/darwin-${{ matrix.arch }}
-          key: deps-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.7-flowsparse-pcfold2-${{ hashFiles('build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
-          restore-keys: deps-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.7-
+          key: deps-${{ matrix.runner }}-${{ runner.arch }}-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.7-flowsparse-pcfold2-${{ hashFiles('build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
+          restore-keys: deps-${{ matrix.runner }}-${{ runner.arch }}-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.7-
 
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
@@ -122,7 +115,7 @@ jobs:
           CGO_LDFLAGS: "-L${{ github.workspace }}/_deps/darwin-arm64/lib -framework SystemConfiguration -framework CoreFoundation"
         run: go test -count=1 -timeout 180s ./flow/ ./ffprobe/ ./lt/ ./torr/ ./torr/storage/torrstor/ ./dlna/ ./web/sslcerts/ ./torr/utils/
 
-      # The x86_64 binary runs on the arm64 host via Rosetta, so both probe.
+      # Both version probes execute on their native architecture.
       - name: Probe --version
         run: |
           _out/${{ matrix.artifact }} --version

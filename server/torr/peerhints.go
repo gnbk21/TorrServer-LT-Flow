@@ -15,6 +15,7 @@ import (
 )
 
 var peerHintsDiskMu sync.Mutex
+var peerHintsRestoreSlots = make(chan struct{}, 4)
 
 func peerHintsNetwork() string {
 	addresses, err := localNetworkAddresses()
@@ -33,17 +34,29 @@ func (t *Torrent) restorePeerHints(handle *lt.Torrent) {
 	if len(peers) == 0 {
 		return
 	}
-	// One bounded injection per new handle, staggered across simultaneous starts.
-	// Native min_reconnect_time and failure counters own subsequent attempts.
-	timer := time.NewTimer(time.Duration(250+rand.IntN(1751)) * time.Millisecond)
-	defer timer.Stop()
+	// Stagger small ranked batches instead of delaying every useful hint by up
+	// to two seconds and then injecting the entire list at once. Native owns
+	// transport/family fallback, pending limits, failure counters and retries.
 	select {
 	case <-t.closeCh:
 		return
-	case <-timer.C:
+	case peerHintsRestoreSlots <- struct{}{}:
 	}
-	if settings.CurrentFlow().PeerResumeHints && peerHintsNetwork() == network {
-		_ = handle.RestorePeerHints(peers)
+	defer func() { <-peerHintsRestoreSlots }()
+	for start := 0; start < len(peers); start += 4 {
+		timer := time.NewTimer(time.Duration(50+rand.IntN(101)) * time.Millisecond)
+		select {
+		case <-t.closeCh:
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+		if !settings.CurrentFlow().PeerResumeHints || peerHintsNetwork() != network {
+			return
+		}
+		if err := handle.RestorePeerHints(peers[start:min(start+4, len(peers))]); err != nil {
+			return
+		}
 	}
 }
 

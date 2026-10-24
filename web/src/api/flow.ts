@@ -1,4 +1,5 @@
 import { api } from "./client";
+import { observeFlow } from "../lib/observation";
 import { flowSchema, networkSchema } from "./schemas";
 import {
   FlowNetworkStatus,
@@ -33,13 +34,22 @@ export const flowApi = {
       throw new Error("Invalid playback capability response");
     return data;
   },
-  getStatus: (hash: string, signal?: AbortSignal, includeTraces = false) =>
-    api
-      .get<unknown>(
-        `/flow/status/${encodeURIComponent(hash)}${includeTraces ? "" : "?traces=false"}`,
-        signal,
-      )
-      .then((data) => flowSchema.parse(data) as FlowStatusResponse),
+  getStatus: async (
+    hash: string,
+    signal?: AbortSignal,
+    includeTraces = false,
+  ) => {
+    const started = performance.now();
+    const data = await api.get<unknown>(
+      `/flow/status/${encodeURIComponent(hash)}${includeTraces ? "" : "?traces=false"}`,
+      signal,
+    );
+    return observeFlow(
+      flowSchema.parse(data) as FlowStatusResponse,
+      undefined,
+      performance.now() - started,
+    );
+  },
 
   getNetwork: (signal?: AbortSignal) =>
     api

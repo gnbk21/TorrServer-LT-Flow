@@ -24,8 +24,12 @@ var legacySwarmKeys = []string{
 }
 
 func applyFlowSwarmProfile(cfg lt.SessionConfig, f *settings.FlowSettings, disableEndGame bool) {
-	if f != nil && f.Enabled && f.CapacityAwareRequests {
+	if f != nil && f.Enabled && (f.CapacityAwareRequests || f.FrontierRecovery || f.AdaptivePeerRequests) {
 		cfg["flow_capacity_aware_requests"] = true
+	}
+	if f != nil && f.Enabled {
+		cfg["flow_frontier_recovery"] = f.FrontierRecovery
+		cfg["flow_adaptive_peer_requests"] = f.AdaptivePeerRequests
 	}
 	if f == nil || !f.Enabled || f.SwarmProfile == "legacy" || f.SwarmProfile == "adaptive" {
 		return
