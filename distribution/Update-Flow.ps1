@@ -93,6 +93,7 @@ try {
     $stopped = $true
     # State remains in place. Keep a recovery copy of configuration after a clean close.
     $backup = Join-Path ([string]$record.state_directory) ('upgrade-backups/' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N'))
+    [void](Resolve-FlowStateFile $backup 'settings.json')
     [void](New-Item -ItemType Directory -Path $backup -Force)
     # Protect the directory before copying account/configuration files into it.
     $owner = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value

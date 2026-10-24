@@ -96,7 +96,8 @@ function Test-FlowOwnedStateName([string]$Relative) {
 
 function Resolve-FlowStateFile([string]$Directory, [string]$Relative) {
     if (-not (Test-FlowOwnedStateName $Relative)) { throw 'Unrecognized Flow state filename.' }
-    $root = [IO.Path]::GetFullPath($Directory).TrimEnd('\','/')
+    $root = [IO.Path]::GetFullPath($Directory)
+    if ($root.Length -gt [IO.Path]::GetPathRoot($root).Length) { $root = $root.TrimEnd('\','/') }
     $ancestor=$root
     while ($ancestor) {
         if (Test-Path -LiteralPath $ancestor) {
@@ -116,7 +117,7 @@ function Resolve-FlowStateFile([string]$Directory, [string]$Relative) {
         }
     }
     $path = [IO.Path]::GetFullPath($current)
-    if (-not $path.StartsWith($root+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) { throw 'State path escaped its directory.' }
+    if (-not $path.StartsWith($root.TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) { throw 'State path escaped its directory.' }
     return $path
 }
 
@@ -141,6 +142,9 @@ function Get-FlowOwnedState([string]$Directory) {
 }
 
 function Save-FlowStateSnapshot([string]$State, [string]$Backup) {
+    [void](Resolve-FlowStateFile $Backup 'settings.json')
+    $inventoryPath = Join-Path $Backup 'inventory.json'
+    if (Test-Path -LiteralPath $inventoryPath) { throw 'Recovery inventory must be new.' }
     $files = @(Get-FlowOwnedState $State)
     foreach ($file in $files) {
         $destination = Resolve-FlowStateFile $Backup $file.path
@@ -148,7 +152,7 @@ function Save-FlowStateSnapshot([string]$State, [string]$Backup) {
         Copy-Item -LiteralPath (Resolve-FlowStateFile $State $file.path) -Destination $destination
         if ((Get-FileHash -LiteralPath $destination).Hash.ToLowerInvariant() -cne $file.sha256) { throw 'State changed while capturing the update backup.' }
     }
-    @{schema_version=1;files=@($files)} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $Backup 'inventory.json') -Encoding UTF8
+    @{schema_version=1;files=@($files)} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $inventoryPath -Encoding UTF8
 }
 
 function Restore-FlowStateSnapshot([string]$State, [string]$Backup) {

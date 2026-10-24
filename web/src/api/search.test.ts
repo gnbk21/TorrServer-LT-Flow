@@ -77,3 +77,26 @@ test("cancellation cannot publish results from an obsolete search", async () => 
   await expect(result).rejects.toMatchObject({ name: "AbortError" });
   expect(seen).toHaveLength(before);
 });
+
+test("aggregate compatibility retains every indexer's outcome", async () => {
+  vi.spyOn(api, "get").mockResolvedValue({
+    items: [{ Title: "fixture", Hash: "a".repeat(40) }],
+    sources: [
+      { source: "torznab", index: 0, state: "ok" },
+      { source: "torznab", index: 1, state: "auth_required" },
+    ],
+  });
+  const seen: SearchProgress[] = [];
+  await searchApi.search(
+    "fixture",
+    "torznab",
+    undefined,
+    undefined,
+    [],
+    (value) => seen.push(value),
+  );
+  expect(seen.at(-1)?.sources).toEqual([
+    { source: "torznab", index: 0, state: "ok" },
+    { source: "torznab", index: 1, state: "auth_required" },
+  ]);
+});

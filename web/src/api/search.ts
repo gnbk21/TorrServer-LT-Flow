@@ -50,16 +50,6 @@ export interface SearchProgress {
   items: SearchResultItem[];
   sources: SearchOutcome[];
 }
-const states: SearchState[] = [
-  "pending",
-  "ok",
-  "empty",
-  "timeout",
-  "auth_required",
-  "unavailable",
-  "invalid_response",
-  "cancelled",
-];
 const rawSearchSchema = z
   .object({
     Title: z.string().optional(),
@@ -153,10 +143,12 @@ export const searchApi = {
         : [{ source: item, index: index ?? -1 }],
     );
     const results: SearchResultItem[][] = jobs.map(() => []);
-    const outcomes: SearchOutcome[] = jobs.map((job) => ({
-      ...job,
-      state: "pending",
-    }));
+    const outcomes: SearchOutcome[][] = jobs.map((job) => [
+      {
+        ...job,
+        state: "pending",
+      },
+    ]);
     const controller = new AbortController();
     const abort = () => controller.abort(signal?.reason);
     if (signal?.aborted) abort();
@@ -170,7 +162,7 @@ export const searchApi = {
       if (!signal?.aborted)
         progress?.({
           items: deduplicateResults(results.flat()),
-          sources: outcomes.map((row) => ({ ...row })),
+          sources: outcomes.flat().map((row) => ({ ...row })),
         });
     };
     let next = 0;
@@ -211,17 +203,15 @@ export const searchApi = {
             throw new Error("search.invalidResponse");
           results[slot] = rows.map(normalizeSearchItem);
           const reported = !Array.isArray(valid)
-            ? valid.sources?.[0]?.state
-            : undefined;
-          outcomes[slot] = {
-            ...job,
-            state:
-              reported && states.includes(reported)
-                ? reported
-                : rows.length
-                  ? "ok"
-                  : "empty",
-          };
+            ? valid.sources.filter(
+                (row) =>
+                  row.source === item &&
+                  (job.index === -1 || row.index === job.index),
+              )
+            : [];
+          outcomes[slot] = reported.length
+            ? reported
+            : [{ ...job, state: rows.length ? "ok" : "empty" }];
         } catch (error) {
           const state: SearchState = controller.signal.aborted
             ? controller.signal.reason?.name === "TimeoutError"
@@ -233,7 +223,7 @@ export const searchApi = {
                   error.message === "search.invalidResponse"
                 ? "invalid_response"
                 : "unavailable";
-          outcomes[slot] = { ...job, state };
+          outcomes[slot] = [{ ...job, state }];
         }
         publish();
       }

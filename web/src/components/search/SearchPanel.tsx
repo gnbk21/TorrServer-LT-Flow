@@ -54,6 +54,8 @@ export function SearchPanel({
     setOutcomes([]);
     setLoading(false);
     setSearched(false);
+    setError(undefined);
+    setRetryAction(undefined);
   };
 
   const sourceGeneration = JSON.stringify([
@@ -68,6 +70,8 @@ export function SearchPanel({
     setOutcomes([]);
     setLoading(false);
     setSearched(false);
+    setError(undefined);
+    setRetryAction(undefined);
   }, [sourceGeneration]);
 
   const sources = (Object.keys(enabledSources) as SearchSource[]).filter(
@@ -144,6 +148,8 @@ export function SearchPanel({
             );
         },
       );
+    } catch (e) {
+      if (!request.signal.aborted) setError(e);
     } finally {
       if (!request.signal.aborted) setLoading(false);
     }

@@ -17,6 +17,9 @@ try {
     foreach($name in @('notes.txt','new-document.json')) { if (-not (Test-Path -LiteralPath (Join-Path $state $name))) { throw 'Unrelated file moved.' } }
     if (Test-Path -LiteralPath (Join-Path $state 'flow-settings-pending.json')) { throw 'New recognized state not quarantined.' }
     if (-not (Test-Path -LiteralPath (Join-Path $backup 'failed-state/flow-settings-pending.json'))) { throw 'Recognized state lost.' }
+    $rejected=$false
+    try { Save-FlowStateSnapshot $state $backup } catch { $rejected=$true }
+    if (-not $rejected) { throw 'Existing recovery inventory was replaced.' }
     foreach($name in @('../notes.txt','C:/notes.txt','ssl/pair-../uploaded.key','other.json')) {
         $rejected=$false
         try { [void](Resolve-FlowStateFile $state $name) } catch { $rejected=$true }
@@ -30,6 +33,12 @@ try {
     try { [void](Get-FlowOwnedState $state) } catch { $rejected=$true }
     Remove-Item -LiteralPath (Join-Path $state 'ssl') -Force
     if (-not $rejected) { throw 'A junction was followed.' }
+    $backupLink=Join-Path $root 'backup-link'
+    [void](New-Item -ItemType Junction -Path $backupLink -Target $outside)
+    $rejected=$false
+    try { Save-FlowStateSnapshot $state (Join-Path $backupLink 'nested') } catch { $rejected=$true }
+    Remove-Item -LiteralPath $backupLink -Force
+    if (-not $rejected -or (Test-Path -LiteralPath (Join-Path $outside 'nested'))) { throw 'A backup ancestor junction was followed.' }
     $linked=Join-Path $outside 'private.txt'
     'external fixture' | Set-Content -LiteralPath $linked
     Remove-Item -LiteralPath (Join-Path $state 'settings.json')
