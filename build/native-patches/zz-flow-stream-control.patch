@@ -62,12 +62,13 @@
  
  		sent_syn(aux::is_v6(m_remote));
  
-@@ -2661,6 +2663,19 @@
+@@ -2661,6 +2663,20 @@
  		}
  	}
  
 +	void peer_connection::flow_handshake_complete()
 +	{
++		if(!is_outgoing()) return;
 +		if(auto t=m_torrent.lock()) {
 +			auto& obs=t->flow_stream;
 +			if(obs.first_handshake_ms<0) {
@@ -82,7 +83,7 @@
  	void peer_connection::incoming_piece_fragment(int const bytes)
  	{
  		TORRENT_ASSERT(is_single_thread());
-@@ -2674,6 +2689,11 @@
+@@ -2674,6 +2690,11 @@
  		m_received_in_piece += bytes;
  #endif
  
@@ -94,7 +95,7 @@
  		// progress of this torrent increased
  		t->state_updated();
  
-@@ -2928,6 +2948,26 @@
+@@ -2928,6 +2949,26 @@
  		TORRENT_ASSERT_VAL(m_received_in_piece == p.length, m_received_in_piece);
  		m_received_in_piece = 0;
  #endif
@@ -121,7 +122,7 @@
  		// if the block we got is already finished, then ignore it
  		if (picker.is_downloaded(block_finished))
  		{
-@@ -3656,6 +3696,17 @@
+@@ -3656,6 +3697,17 @@
  			return false;
  		}
  
@@ -139,7 +140,7 @@
  		if ((flags & busy) && !(flags & time_critical))
  		{
  			// this block is busy (i.e. it has been requested
-@@ -3705,6 +3756,8 @@
+@@ -3705,6 +3757,8 @@
  		}
  
  		pending_block pb(block);
@@ -148,7 +149,7 @@
  		pb.busy = (flags & busy) ? true : false;
  		if (flags & time_critical)
  		{
-@@ -4851,13 +4904,25 @@
+@@ -4851,13 +4905,25 @@
  			TORRENT_ASSERT(bs > 0);
  
  			std::int64_t const desired_queue_size = std::int64_t(queue_time) * download_rate / bs;
@@ -177,7 +178,7 @@
  
  #ifndef TORRENT_DISABLE_LOGGING
  		if (previous_queue_size != m_desired_queue_size)
-@@ -6366,6 +6431,14 @@
+@@ -6366,6 +6432,14 @@
  
  		TORRENT_ASSERT(!m_connected);
  		m_connected = true;
@@ -202,7 +203,7 @@
  #include "libtorrent/aux_/bandwidth_limit.hpp"
  #include "libtorrent/aux_/bandwidth_queue_entry.hpp"
  #include "libtorrent/storage_defs.hpp"
-@@ -1365,6 +1366,15 @@
+@@ -1365,6 +1366,19 @@
  		ssl::context* ssl_ctx() const { return m_ssl_ctx.get(); }
  #endif
  
@@ -212,13 +213,17 @@
 +		void flow_refresh_recovery(time_point now);
 +		bool flow_recovery_ready(piece_index_t piece) const;
 +		bool flow_pick_busy(piece_index_t piece, std::vector<piece_block>& out) const;
-+		int flow_frontier_count() const { return int(m_flow_frontiers.size()); }
++		int flow_frontier_count() const {
++			auto const now=clock_type::now();
++			return m_flow_frontiers_at!=time_point{} && now>=m_flow_frontiers_at
++				&& now-m_flow_frontiers_at<=seconds(3) ? int(m_flow_frontiers.size()) : 0;
++		}
 +		bool flow_scan_truncated() const { return m_flow_scan_truncated; }
 +
  		int num_time_critical_pieces() const
  		{
  #ifndef TORRENT_DISABLE_STREAMING
-@@ -1377,6 +1387,11 @@
+@@ -1377,6 +1391,11 @@
  #ifndef TORRENT_DISABLE_STREAMING
  		// Give newly free bounded request credit to deadlines before refill.
  		void flow_request_time_critical_pieces();

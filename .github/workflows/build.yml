@@ -740,6 +740,54 @@ jobs:
             _out/high-bitrate/**/server-output.log
           if-no-files-found: error
 
+  parallel-streaming:
+    if: inputs.validation_scope != 'essential'
+    name: Parallel streaming (${{ matrix.target }}, ${{ matrix.case }})
+    needs: cross
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, target: linux-amd64, suffix: '', case: healthy, backend: ram}
+          - {os: ubuntu-latest, target: linux-amd64, suffix: '', case: stragglers, backend: ram}
+          - {os: ubuntu-latest, target: linux-amd64, suffix: '', case: small-queue, backend: ram}
+          - {os: ubuntu-latest, target: linux-amd64, suffix: '', case: mixed-peers, backend: disk}
+          - {os: ubuntu-latest, target: linux-amd64, suffix: '', case: outages, backend: disk}
+          - {os: windows-latest, target: windows-amd64, suffix: '.exe', case: stragglers, backend: disk}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: TorrServer-LT-${{ matrix.target }}
+          path: _out
+      - name: Compare each scheduler change independently
+        shell: bash
+        env:
+          EXECUTABLE: _out/TorrServer-LT-${{ matrix.target }}${{ matrix.suffix }}
+          CASE: ${{ matrix.case }}
+          BACKEND: ${{ matrix.backend }}
+        run: |
+          set -euo pipefail
+          chmod +x "$EXECUTABLE"
+          options=()
+          if [[ "$BACKEND" == disk ]]; then options+=(--disk); fi
+          python build/parallel_streaming_check.py --executable "$EXECUTABLE" --output _out/parallel-streaming --case "$CASE" --rotations 3 "${options[@]}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          retention-days: 14
+          name: parallel-streaming-${{ matrix.target }}-${{ matrix.case }}
+          path: |
+            _out/parallel-streaming/**/report.json
+            _out/parallel-streaming/report.json
+            _out/parallel-streaming/**/server-output.log
+          if-no-files-found: error
+
   windows-service:
     needs: cross
     runs-on: windows-latest
