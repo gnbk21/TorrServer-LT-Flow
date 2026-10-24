@@ -47,6 +47,14 @@ def run(executable, output):
             status=upload(server,swarm);hash_text=status['hash'];index=status['file_stats'][0]['id']
             request={'hash':hash_text,'file_index':index,'action':'start'}
             server.json('/flow/preparation',request)
+            try:
+                server.json('/storage/settings',{'settings':'bbolt'})
+            except urllib.error.HTTPError as error:
+                body=json.load(error)
+                if error.code!=409 or body.get('code')!='STORAGE_BUSY': raise AssertionError(body)
+            else:
+                raise AssertionError('Storage migration bypassed active episode preparation')
+            report['storage_busy_rejected']=True
             server.json('/flow/preparation',{**request,'action':'pause'})
             wait_job(server,'paused')
             server.json('/flow/preparation',{**request,'action':'cancel'})

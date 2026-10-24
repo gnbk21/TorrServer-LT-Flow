@@ -24,6 +24,9 @@ func FlowHasActiveWork() bool {
 	if helperEngine() == nil || helperEngine().Session() == nil {
 		return true
 	}
+	if p := helperEngine().preparation; p != nil && p.hasActiveWork() {
+		return true
+	}
 	for _, tor := range helperEngine().ListTorrents() {
 		if tor == nil {
 			continue

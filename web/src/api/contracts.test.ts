@@ -1,7 +1,7 @@
+// @vitest-environment node
 import { storageSchema } from "./integrations";
 import { searchEnvelopeSchema } from "./search";
 import { summariesSchema } from "./sessionHistory";
-// @vitest-environment node
 import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import {

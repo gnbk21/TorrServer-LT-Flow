@@ -431,7 +431,7 @@ func settingsCallback(c tele.Context, action string) error {
 		}
 		val := action[12:]
 		prefs := map[string]interface{}{"settings": val}
-		if err := settings.SetStoragePreferences(prefs); err != nil {
+		if err := torr.ApplyStoragePreferences(prefs, ""); err != nil {
 			return c.Respond(&tele.CallbackResponse{Text: fmt.Sprintf(tr(uid, "settings_error"), err.Error())})
 		}
 		page := "4"
@@ -449,7 +449,7 @@ func settingsCallback(c tele.Context, action string) error {
 		}
 		val := action[12:]
 		prefs := map[string]interface{}{"viewed": val}
-		if err := settings.SetStoragePreferences(prefs); err != nil {
+		if err := torr.ApplyStoragePreferences(prefs, ""); err != nil {
 			return c.Respond(&tele.CallbackResponse{Text: fmt.Sprintf(tr(uid, "settings_error"), err.Error())})
 		}
 		page := "4"

@@ -141,6 +141,18 @@ func newPreparationManager(bt *BTServer) *preparationManager {
 }
 
 func preparationID(hash Hash, index int) string { return hash.HexString() + ":" + strconv.Itoa(index) }
+
+func (p *preparationManager) hasActiveWork() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, job := range p.jobs {
+		if job.State == "downloading" || job.State == "cleaning" {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *preparationManager) records() []*preparationRecord {
 	out := make([]*preparationRecord, 0, len(p.jobs))
 	for _, j := range p.jobs {
