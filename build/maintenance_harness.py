@@ -36,7 +36,7 @@ def run(executable, output):
         if server.json("/flow/sessions")!={"enabled":False,"truncated":False,"items":[]}:
             raise AssertionError("Session history ignored consent")
         expect_status(server,"/viewed",200,{"action":"set","hash":"a"*40,"file_index":1})
-        revision=server.json("/settings",{"action":"state"})["revision"]
+        revision=server.json("/storage/settings")["revision"]
         server.json("/storage/settings",{"settings":"bbolt","viewed":"json","revision":revision})
         expect_status(server,"/storage/settings",409,{"settings":"json","revision":revision})
         if len(server.json("/viewed",{"action":"list","hash":"a"*40}))!=1:

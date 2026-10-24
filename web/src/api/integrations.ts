@@ -15,6 +15,7 @@ export interface WafSettings {
 export const storageSchema = z.object({
   settings: z.enum(["json", "bbolt"]),
   viewed: z.enum(["json", "bbolt"]),
+  revision: z.string().optional(),
 });
 export interface StorageSettings {
   settings: "json" | "bbolt";

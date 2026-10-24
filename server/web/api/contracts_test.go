@@ -42,7 +42,7 @@ func TestExportFrontendContracts(t *testing.T) {
 		{"flow", FlowStatusResponse{Hash: hash, StorageIO: lt.StorageIO{QueuedBytes: 16384, PeakQueueBytes: 32768, QueuedJobs: 2, CompletedJobs: 7, WaitP95Us: 128, CallbackP95Us: 256}, Sessions: []torr.FlowSessionStatus{{Group: "evidence", FileIndex: 1, State: "PLAYING", ReadableContiguousBytes: 32768, VerifiedContiguousBytes: 16384, Delivery: flow.DeliveryEvidence{DeficitBytes: 4096, DeficitSamples: 4}}}}},
 		{"runtime", RuntimeStatus{Build: version.Identity(), BT: &torr.ClientStatusSnapshot{}, Memory: diagnostics.Memory()}},
 		{"flow", FlowStatusResponse{Hash: hash, Integrity: &flow.IntegritySnapshot{Failures: 2, RecentFailures: 1, WindowSeconds: 60, LastFailureAtMs: 1792600000000}, Trackers: []torr.FlowTrackerDiagnostic{{ID: "fixture", Host: "fixture.example", Protocol: "https", Status: "ERROR", ErrorCategory: "HTTP", ErrorCode: 503, Operation: 16, FailureCount: 2, LastAt: time.Date(2026, 10, 22, 0, 0, 0, 0, time.UTC)}}, Sessions: []torr.FlowSessionStatus{{FileIndex: 1, State: "PLAYING", BufferSampledAtMs: 1792600000000, BufferOffsetBytes: 16384, ReadableContiguousBytes: 32768, VerifiedContiguousBytes: 16384}}}},
-		{"storage", sets.GetStoragePreferences()},
+		{"storage", torr.StoragePreferencesSnapshot()},
 		{"sessions", flow.SessionSummaries{Enabled: true, Items: []flow.SessionSummary{}}},
 		{"search", detailedSearchResponse{Items: []*models.TorrentDetails{{Title: "generated", Hash: hash}}, Sources: []searchstatus.Status{{Source: "torznab", Index: 0, State: "ok"}}}},
 		{"network", torr.FlowNetworkStatus{State: "NO_ADDRESS", Connectivity: "INTERNET_WAIT"}},

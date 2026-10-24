@@ -1534,3 +1534,71 @@ test("recent diagnostic history is fetched only on request and states incomplete
     page.getByRole("button", { name: "Test connection" }),
   ).toBeVisible();
 });
+
+test("storage drafts retain their matching revision after configuration polling", async ({
+  page,
+}) => {
+  await mockServer(page);
+  let revision = "storage-draft-base";
+  let submitted: unknown;
+  await page.route("**/flow/active", (route) =>
+    route.fulfill({
+      json: { items: [], sampled_at: new Date().toISOString() },
+    }),
+  );
+  await page.route("**/settings", (route) => {
+    if (route.request().postDataJSON().action !== "state")
+      return route.fallback();
+    return route.fulfill({
+      json: {
+        revision,
+        saved: settings,
+        effective: settings,
+        recovery: { source: "settings", schema_version: 1 },
+        data_path: "fixture-state",
+        executable: "fixture-server",
+      },
+    });
+  });
+  await page.route("**/storage/settings", (route) => {
+    if (route.request().method() === "GET")
+      return route.fulfill({
+        json: {
+          settings: "json",
+          viewed: "bbolt",
+          viewedCount: 12,
+          revision: "storage-draft-base",
+        },
+      });
+    submitted = route.request().postDataJSON();
+    return route.fulfill({
+      status: 409,
+      json: { code: "SETTINGS_CONFLICT", error: "stale revision" },
+    });
+  });
+  await page.goto("/#/settings?tab=advanced");
+  await page
+    .getByRole("combobox", { name: "Settings storage", exact: true })
+    .selectOption("bbolt");
+  revision = "external-change";
+  await expect(page.getByText("external-change", { exact: true })).toHaveCount(
+    1,
+    { timeout: 10000 },
+  );
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect
+    .poll(() => submitted)
+    .toEqual({
+      settings: "bbolt",
+      viewed: "bbolt",
+      revision: "storage-draft-base",
+    });
+  await expect(
+    page
+      .getByText(/Settings changed on the server while this draft was open/)
+      .last(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("combobox", { name: "Settings storage", exact: true }),
+  ).toHaveValue("bbolt");
+});

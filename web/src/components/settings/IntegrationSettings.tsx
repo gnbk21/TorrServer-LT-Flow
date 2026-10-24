@@ -73,6 +73,7 @@ export default function IntegrationSettings({
   const [wafDraft, setWaf] = useState<WafSettings>();
   const [gstDraft, setGst] = useState<GstSettings["config"]>();
   const [storageDraft, setStorage] = useState<StorageSettings>();
+  const [storageRevision, setStorageRevision] = useState<string>();
   const [error, setError] = useState<unknown>();
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -83,11 +84,13 @@ export default function IntegrationSettings({
     if (gst.data) setGst(gst.data.config);
   }, [gst.data]);
   useEffect(() => {
-    if (storage.data)
+    if (storage.data) {
       setStorage({
         settings: storage.data.settings,
         viewed: storage.data.viewed,
       });
+      setStorageRevision(storage.data.revision);
+    }
   }, [storage.data]);
   const dirty =
     (!!wafDraft && JSON.stringify(wafDraft) !== JSON.stringify(waf.data)) ||
@@ -397,7 +400,7 @@ export default function IntegrationSettings({
                   run(async () => {
                     await integrationsApi.setStorage(
                       storageDraft,
-                      configuration.data?.revision,
+                      storageRevision ?? configuration.data?.revision,
                     );
                     await configuration.refetch();
                     await storage.refetch();
@@ -407,14 +410,19 @@ export default function IntegrationSettings({
                 {t("Save")}
               </Button>
               <Button
-                onClick={() =>
+                disabled={busy}
+                onClick={() => {
                   setStorage(
                     storage.data && {
                       settings: storage.data.settings,
                       viewed: storage.data.viewed,
                     },
-                  )
-                }
+                  );
+                  setStorageRevision(storage.data?.revision);
+                  setError(undefined);
+                  setNotice("");
+                  void storage.refetch();
+                }}
               >
                 {t("settings.discard")}
               </Button>

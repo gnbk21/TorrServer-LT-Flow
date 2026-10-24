@@ -25,7 +25,7 @@ import (
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Router /storage/settings [get]
 func GetStorageSettings(c *gin.Context) {
-	prefs := sets.GetStoragePreferences()
+	prefs := torr.StoragePreferencesSnapshot()
 	c.JSON(http.StatusOK, prefs)
 }
 

@@ -17,6 +17,14 @@ import (
 var ErrSettingsConflict = errors.New("settings changed; reload before applying your draft")
 var ErrStorageBusy = errors.New("stop playback and preparation before changing storage")
 
+func StoragePreferencesSnapshot() map[string]interface{} {
+	configControl.Lock()
+	defer configControl.Unlock()
+	prefs := settings.GetStoragePreferences()
+	prefs["revision"] = configurationRevisionLocked()
+	return prefs
+}
+
 func ApplyStoragePreferences(prefs map[string]interface{}, revision string) error {
 	configControl.operation.Lock()
 	defer configControl.operation.Unlock()
