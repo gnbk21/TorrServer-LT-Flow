@@ -28,7 +28,10 @@ rolled back; recovery does not scan those directories or rewind diagnostics.
 
 `POST /storage/settings` accepts JSON or form data, including a charset.
 `settings` and `viewed` accept only `json` or `bbolt`. Optional `revision` fences
-modern clients. Legacy `viewedCount` is ignored; malformed types, unknown keys,
+modern clients. The GET snapshot includes its matching revision; a modern draft
+retains it through polling, and Discard reloads saved preferences. Web and
+Telegram storage controls share the serialized maintenance path.
+Legacy `viewedCount` is ignored; malformed types, unknown keys,
 duplicate form values, trailing JSON and payloads without editable values fail.
 The body limit is 4 KiB.
 
@@ -125,10 +128,11 @@ real ISP testing or a performance guarantee. No two-hour test is added.
 ## Verification
 
 See [RELIABILITY_USABILITY_CHECKLIST.md](RELIABILITY_USABILITY_CHECKLIST.md) for
-current evidence and remaining checks. Final reconciliation must cover native
-contracts, storage rollback fault injection, Windows updater recovery, browser
-regressions, controlled network cases and security boundaries before this
-milestone is declared complete.
+completed requirement reconciliation, exact source/CI receipts and field limits.
+Native contracts, storage rollback fault injection, Windows updater recovery,
+browser regressions, controlled network cases and the security boundary review
+passed. The candidate is available in
+[PR #9](https://github.com/gnbk21/TorrServer-LT-Flow/pull/9).
 
 Optional history/troubleshooting and inactive playback cards are loaded on demand
 so the dashboard retains its existing 200 KiB compressed initial-JavaScript gate.
