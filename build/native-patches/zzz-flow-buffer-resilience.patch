@@ -127,11 +127,17 @@ index 35d376c..78b3374 100644
 +	TEST_CHECK(flow_recovery_check(false,true,1,-1,2000,false)==result::uncertain_request);
 +}
 diff --git a/src/torrent.cpp b/src/torrent.cpp
-index ca967ac..444b6e2 100644
+index ca967ac..5d75173 100644
 --- a/src/torrent.cpp
 +++ b/src/torrent.cpp
-@@ -11391,9 +11391,12 @@ namespace {
+@@ -11389,11 +11389,16 @@ namespace {
+ 		time_point const now = aux::time_now();
+ 
  		// loop until every block has been requested from this piece (i->piece)
++		bool const adaptive=torrent.settings().get_bool(settings_pack::flow_adaptive_peer_requests);
++		// Service samples use the precise clock. The cached 100-ms clock above
++		// can precede the latest payload and falsely mark fresh evidence invalid.
++		auto const now_ms=total_milliseconds(clock_type::now().time_since_epoch());
  		do
  		{
 -			// if this peer's download time exceeds 2 seconds, we're done.
@@ -140,13 +146,11 @@ index ca967ac..444b6e2 100644
 +			// Stock uses one shared two-second cutoff. With measured per-peer
 +			// allowances, an already full fast peer must not veto a qualified
 +			// higher-latency peer later in this responsiveness-ordered list.
-+			bool const adaptive=torrent.settings().get_bool(settings_pack::flow_adaptive_peer_requests);
-+			auto const now_ms=total_milliseconds(now.time_since_epoch());
 +			if (!adaptive && !peers.empty() && peers[0]->download_queue_time() > milliseconds(2000))
  			{
  #if TORRENT_DEBUG_STREAMING > 1
  				std::printf("queue time: %d ms, done\n"
-@@ -11404,7 +11407,10 @@ namespace {
+@@ -11404,7 +11409,10 @@ namespace {
  
  			// pick the peer with the lowest download_queue_time that has i->piece
  			auto p = std::find_if(peers.begin(), peers.end()
@@ -158,7 +162,7 @@ index ca967ac..444b6e2 100644
  
  			// obviously we'll have to skip it if we don't have a peer that has
  			// this piece
-@@ -11582,11 +11588,11 @@ namespace {
+@@ -11582,11 +11590,11 @@ namespace {
  			&& now-m_flow_scanned_at<milliseconds(100)) return;
  		m_flow_scanned_at=now; m_flow_late_blocks.clear(); m_flow_qualified.fill(false);
  		m_flow_scan_truncated=false;
@@ -172,7 +176,7 @@ index ca967ac..444b6e2 100644
  		int inspected=0;
  		auto const now_ms=total_milliseconds(now.time_since_epoch());
  		for(auto* peer:m_connections) {
-@@ -11596,25 +11602,29 @@ namespace {
+@@ -11596,25 +11604,29 @@ namespace {
  				auto const found=std::find(m_flow_frontiers.begin(),m_flow_frontiers.end(),int(request.block.piece_index));
  				if(found==m_flow_frontiers.end()) continue;
  				auto const index=std::size_t(found-m_flow_frontiers.begin());
@@ -215,7 +219,7 @@ index ca967ac..444b6e2 100644
  	}
  
  	bool torrent::flow_recovery_ready(piece_index_t const piece) const
-@@ -11810,9 +11820,13 @@ namespace {
+@@ -11810,9 +11822,13 @@ namespace {
  					{ return lhs->download_queue_time(16*1024) < rhs->download_queue_time(16*1024); });
  			}
  
