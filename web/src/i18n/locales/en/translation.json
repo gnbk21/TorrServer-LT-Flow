@@ -929,6 +929,7 @@
     "startup": "Startup"
   },
   "settings": {
+    "managementOriginsHelp": "Browser management always requires the server origin or an exact origin listed here. Add a trusted web-based Lampa origin explicitly. Native clients without browser headers keep their authentication rules. This does not replace HTTP authentication.",
     "tabs": {
       "general": "General",
       "flow": "Flow",

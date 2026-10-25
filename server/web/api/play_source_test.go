@@ -3,6 +3,8 @@ package api
 import (
 	"net/http"
 	"net/http/httptest"
+	"server/settings"
+	"server/web/auth"
 	"sync/atomic"
 	"testing"
 
@@ -31,5 +33,22 @@ func TestCredentialFreePlayRejectsRemoteAndLocalSourcesBeforeParsing(t *testing.
 	}
 	if fetched.Load() != 0 {
 		t.Fatal("credential-free playback fetched a remote source")
+	}
+}
+
+func TestMissingAccountsDoNotDisablePlaybackSourceGate(t *testing.T) {
+	previousPath, previousAuth := settings.Path, settings.HttpAuth
+	settings.Path, settings.HttpAuth = t.TempDir(), true
+	t.Cleanup(func() { settings.Path, settings.HttpAuth = previousPath, previousAuth })
+	var fetched atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fetched.Add(1); w.WriteHeader(404) }))
+	defer upstream.Close()
+	router := gin.New()
+	auth.SetupAuth(router)
+	router.GET("/stream", stream)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/stream?play&link="+upstream.URL, nil))
+	if response.Code != http.StatusBadRequest || fetched.Load() != 0 {
+		t.Fatal("missing account file opened unauthenticated source fetch", response.Code)
 	}
 }

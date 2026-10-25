@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"server/cachefs"
 	"server/diagnostics"
 	"server/flow"
 	"server/lt"
@@ -551,7 +552,7 @@ func (p *preparationManager) cleanup(j *preparationRecord) bool {
 		if shared {
 			continue
 		}
-		if err := os.Remove(filepath.Join(p.root, j.Spec.StorageHash().HexString(), strconv.Itoa(i))); err != nil && !os.IsNotExist(err) {
+		if err := cachefs.Remove(p.root, filepath.Join(j.Spec.StorageHash().HexString(), strconv.Itoa(i))); err != nil && !os.IsNotExist(err) {
 			j.ErrorCode = "DISK_REMOVE"
 			return false
 		}

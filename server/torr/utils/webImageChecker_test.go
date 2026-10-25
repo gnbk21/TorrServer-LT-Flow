@@ -21,6 +21,18 @@ type failedImageReader struct{ err error }
 
 func (r failedImageReader) Read([]byte) (int, error) { return 0, r.err }
 
+func approveImageFixture(t *testing.T, endpoint string) {
+	t.Helper()
+	previous := settings.BTsets()
+	next := settings.CloneSettings(previous)
+	if next == nil {
+		next = &settings.BTSets{Flow: settings.DefaultFlowSettings()}
+	}
+	next.TMDBSettings.ImageURL = endpoint
+	settings.StoreBTsets(next)
+	t.Cleanup(func() { settings.StoreBTsets(previous) })
+}
+
 func TestImageReadTimeoutBeforeContextDeadline(t *testing.T) {
 	ctx := context.Background()
 	clientTimeout := fmt.Errorf("response body: %w", &net.OpError{Op: "read", Net: "tcp", Err: os.ErrDeadlineExceeded})
@@ -52,6 +64,7 @@ func TestPosterValidationDoesNotBypassUnavailableInterface(t *testing.T) {
 	var called atomic.Bool
 	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called.Store(true) }))
 	defer srv.Close()
+	approveImageFixture(t, srv.URL)
 	if ok, verified := CheckImgUrl(srv.URL); !ok || verified {
 		t.Fatal("unavailable interface should retain uncertain artwork")
 	}
@@ -82,6 +95,7 @@ func TestCheckImgUrl(t *testing.T) {
 		w.Write(jpegBuf.Bytes())
 	}))
 	defer okSrv.Close()
+	approveImageFixture(t, okSrv.URL)
 	if ok, verified := CheckImgUrl(okSrv.URL + "/poster.jpg"); !ok || !verified {
 		t.Error("jpeg: want ok and verified")
 	}
@@ -91,6 +105,7 @@ func TestCheckImgUrl(t *testing.T) {
 		w.Write([]byte("<html>not an image</html>"))
 	}))
 	defer htmlSrv.Close()
+	approveImageFixture(t, htmlSrv.URL)
 	if ok, _ := CheckImgUrl(htmlSrv.URL + "/index.html"); ok {
 		t.Error("html: want reject")
 	}
@@ -99,6 +114,7 @@ func TestCheckImgUrl(t *testing.T) {
 		<-r.Context().Done()
 	}))
 	defer hangSrv.Close()
+	approveImageFixture(t, hangSrv.URL)
 	if ok, verified := CheckImgUrl(hangSrv.URL + "/poster.jpg"); !ok || verified {
 		t.Error("timeout: want ok, not verified")
 	}
@@ -112,6 +128,7 @@ func TestCheckImgUrl(t *testing.T) {
 		<-r.Context().Done()
 	}))
 	defer slowSrv.Close()
+	approveImageFixture(t, slowSrv.URL)
 	if ok, verified := CheckImgUrl(slowSrv.URL + "/poster.jpg"); !ok || verified {
 		t.Error("decode after deadline: want ok, not verified")
 	}
@@ -127,6 +144,7 @@ func TestPosterReplacementAndTemporaryFailures(t *testing.T) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	defer srv.Close()
+	approveImageFixture(t, srv.URL)
 	if got := SelectPoster(srv.URL, srv.URL); got != srv.URL || calls.Load() != 0 {
 		t.Fatal("unchanged poster checked")
 	}

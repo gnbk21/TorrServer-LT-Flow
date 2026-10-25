@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"server/cachefs"
 	"strconv"
 	"sync"
 )
@@ -17,6 +18,7 @@ import (
 // file returns io.EOF.
 type DiskPiece struct {
 	piece       *Piece
+	root        string
 	dir         string
 	name        string
 	initialized bool
@@ -27,10 +29,10 @@ type DiskPiece struct {
 func newDiskPiece(p *Piece, savePath string) *DiskPiece {
 	dir := filepath.Join(savePath, hashHex(p.cache.InfoHash))
 	name := filepath.Join(dir, strconv.Itoa(p.Id))
-	dp := &DiskPiece{piece: p, dir: dir, name: name}
+	dp := &DiskPiece{piece: p, root: savePath, dir: dir, name: name}
 	// Detect existing file from a previous run so the scan-resume path
 	// reports a sane initial size.
-	if fi, err := os.Stat(name); err == nil && p.Id/8 < len(p.cache.resume) &&
+	if fi, err := cachefs.Stat(savePath, filepath.Join(hashHex(p.cache.InfoHash), strconv.Itoa(p.Id))); err == nil && p.Id/8 < len(p.cache.resume) &&
 		p.cache.resume[p.Id/8]&(1<<uint(p.Id%8)) != 0 && fi.Size() == p.expectedSize() {
 		p.size = fi.Size()
 		p.complete = true
@@ -45,7 +47,7 @@ func (dp *DiskPiece) WriteAt(b []byte, off int64) (int, error) {
 	}
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
-	f, done, err := dp.piece.cache.diskFiles.acquire(dp.name, true)
+	f, done, err := dp.piece.cache.diskFiles.acquire(dp.root, dp.relative(), true)
 	if err != nil {
 		return 0, err
 	}
@@ -65,7 +67,7 @@ func (dp *DiskPiece) ReadAt(b []byte, off int64) (int, error) {
 	}
 	dp.mu.RLock()
 	defer dp.mu.RUnlock()
-	f, done, err := dp.piece.cache.diskFiles.acquire(dp.name, false)
+	f, done, err := dp.piece.cache.diskFiles.acquire(dp.root, dp.relative(), false)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return 0, io.EOF
@@ -85,7 +87,7 @@ func (dp *DiskPiece) Release() {
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
 	dp.piece.cache.diskFiles.closePath(dp.name)
-	_ = os.Remove(dp.name)
+	_ = cachefs.Remove(dp.root, dp.relative())
 	dp.initialized = false
 }
 
@@ -100,10 +102,14 @@ func (dp *DiskPiece) Sync() error {
 	defer dp.mu.Unlock()
 	// Windows FlushFileBuffers requires write access, including resumed pieces
 	// whose pooled handle was first opened by a read. Never create missing data.
-	f, done, err := dp.piece.cache.diskFiles.acquireMode(dp.name, true, false)
+	f, done, err := dp.piece.cache.diskFiles.acquireMode(dp.root, dp.relative(), true, false)
 	if err != nil {
 		return err
 	}
 	defer done()
 	return f.Sync()
+}
+
+func (dp *DiskPiece) relative() string {
+	return filepath.Join(hashHex(dp.piece.cache.InfoHash), strconv.Itoa(dp.piece.Id))
 }

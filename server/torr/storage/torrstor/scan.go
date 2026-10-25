@@ -1,7 +1,7 @@
 package torrstor
 
 import (
-	"path/filepath"
+	"server/cachefs"
 	"server/flow"
 )
 
@@ -11,13 +11,22 @@ func ScanHavePieces(infoHash flow.InfoHash, numPieces int, pieceLength, totalSiz
 	if !useDisk() || numPieces != len(hashes) {
 		return nil
 	}
-	dir := filepath.Join(savePath(), hashHex(infoHash))
-	return flow.VerifyPieceFiles(dir, pieceLength, totalSize, hashes)
+	root, err := cachefs.Open(savePath(), false)
+	if err != nil {
+		return nil
+	}
+	defer root.Close()
+	return flow.VerifyPieceFilesIn(root, hashHex(infoHash), pieceLength, totalSize, hashes)
 }
 
 func ScanMetadataPieces(hash flow.InfoHash, pieceLength, totalSize int64, hashes [][20]byte, files []flow.V2File) []byte {
 	if !useDisk() {
 		return nil
 	}
-	return flow.VerifyMetadataPieces(filepath.Join(savePath(), hash.HexString()), pieceLength, totalSize, hashes, files)
+	root, err := cachefs.Open(savePath(), false)
+	if err != nil {
+		return nil
+	}
+	defer root.Close()
+	return flow.VerifyMetadataPiecesIn(root, hash.HexString(), pieceLength, totalSize, hashes, files)
 }

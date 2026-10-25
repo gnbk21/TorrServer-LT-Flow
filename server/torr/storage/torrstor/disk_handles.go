@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"os"
 	"path/filepath"
+	"server/cachefs"
 	"sync"
 )
 
@@ -31,20 +32,21 @@ func newDiskHandles(limit int) *diskHandles {
 	return p
 }
 
-func (p *diskHandles) acquire(name string, write bool) (*os.File, func(), error) {
-	return p.acquireMode(name, write, write)
+func (p *diskHandles) acquire(root, name string, write bool) (*os.File, func(), error) {
+	return p.acquireMode(root, name, write, write)
 }
 
-func (p *diskHandles) acquireMode(name string, write, create bool) (*os.File, func(), error) {
+func (p *diskHandles) acquireMode(root, name string, write, create bool) (*os.File, func(), error) {
+	key := filepath.Join(root, name)
 	p.mu.Lock()
 	for {
-		if h := p.files[name]; h != nil {
+		if h := p.files[key]; h != nil {
 			if write && !h.writable {
 				if h.refs > 0 {
 					p.cond.Wait()
 					continue
 				}
-				p.removeLocked(name, h)
+				p.removeLocked(key, h)
 			} else {
 				h.refs++
 				p.lru.MoveToBack(h.element)
@@ -71,20 +73,16 @@ func (p *diskHandles) acquireMode(name string, write, create bool) (*os.File, fu
 		if write {
 			flags = os.O_RDWR
 			if create {
-				if err := os.MkdirAll(filepath.Dir(name), 0o777); err != nil {
-					p.mu.Unlock()
-					return nil, nil, err
-				}
 				flags |= os.O_CREATE
 			}
 		}
-		f, err := os.OpenFile(name, flags, 0o666)
+		f, err := cachefs.OpenFile(root, name, flags)
 		if err != nil {
 			p.mu.Unlock()
 			return nil, nil, err
 		}
-		h := &diskHandle{file: f, writable: write, refs: 1, element: p.lru.PushBack(name)}
-		p.files[name] = h
+		h := &diskHandle{file: f, writable: write, refs: 1, element: p.lru.PushBack(key)}
+		p.files[key] = h
 		p.mu.Unlock()
 		return f, func() { p.release(h) }, nil
 	}

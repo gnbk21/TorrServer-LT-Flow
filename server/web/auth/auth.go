@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -20,9 +21,8 @@ func SetupAuth(engine *gin.Engine) {
 		return
 	}
 	accs := getAccounts()
-	if accs == nil {
-		return
-	}
+	// Missing or malformed account storage must not turn authenticated playback
+	// into the legacy unauthenticated path. An empty account set denies access.
 	engine.Use(BasicAuth(accs))
 }
 
@@ -35,6 +35,7 @@ func getAccounts() gin.Accounts {
 	err = json.Unmarshal(buf, &accs)
 	if err != nil {
 		log.TLogln("Error parse accs.db", err)
+		return nil
 	}
 	return accs
 }
@@ -50,7 +51,7 @@ func (a authPairs) searchCredential(authValue string) (string, bool) {
 		return "", false
 	}
 	for _, pair := range a {
-		if pair.value == authValue {
+		if subtle.ConstantTimeCompare([]byte(pair.value), []byte(authValue)) == 1 {
 			return pair.user, true
 		}
 	}

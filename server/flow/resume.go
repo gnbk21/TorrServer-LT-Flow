@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"server/cachefs"
 	"strconv"
 )
 
@@ -12,23 +13,33 @@ import (
 // every advertised piece, including the short final piece, must match metadata.
 // Memory stays bounded to one copy buffer rather than the torrent's contents.
 func VerifyPieceFiles(dir string, pieceLength, totalSize int64, hashes [][20]byte) []byte {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil
+	}
+	defer root.Close()
+	return VerifyPieceFilesIn(root, ".", pieceLength, totalSize, hashes)
+}
+
+// VerifyPieceFilesIn keeps the hash directory beneath the already opened cache root.
+func VerifyPieceFilesIn(root *os.Root, dir string, pieceLength, totalSize int64, hashes [][20]byte) []byte {
 	if pieceLength <= 0 || totalSize <= 0 || len(hashes) == 0 ||
 		(totalSize-1)/pieceLength+1 != int64(len(hashes)) {
 		return nil
 	}
-	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
+	if st, err := root.Stat(dir); err != nil || !st.IsDir() {
 		return nil
 	}
 	bitmap := make([]byte, (len(hashes)+7)/8)
 	buffer := make([]byte, 64<<10)
 	for i, expectedHash := range hashes {
 		path := filepath.Join(dir, strconv.Itoa(i))
-		st, err := os.Lstat(path)
+		st, err := root.Lstat(path)
 		expectedSize := min(pieceLength, totalSize-int64(i)*pieceLength)
 		if err != nil || !st.Mode().IsRegular() || st.Size() != expectedSize {
 			continue
 		}
-		file, err := os.Open(path)
+		file, err := cachefs.OpenIn(root, path, os.O_RDONLY)
 		if err != nil {
 			continue
 		}

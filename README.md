@@ -285,6 +285,16 @@ Public-swarm and phone performance comparisons remain acceptance work.
 
 ## Build and project status
 
+### Security boundary changes in development
+
+Browser management now requires the dashboard origin or an exact origin in
+**Management origins**. Native clients retain their authentication rules. For
+web-based Lampa, approve its trusted origin explicitly. Outbound integration
+requests validate destinations and redirects; configure local indexers with a
+private IP or localhost. Cache operations are confined below the selected root.
+See [security hardening, compatibility and limits](SECURITY_HARDENING.md). These
+development changes do not update an already installed 1.1.6 executable.
+
 ### Modern web interface
 
 The modern interface was merged through [PR #2](https://github.com/gnbk21/TorrServer-LT-Flow/pull/2)

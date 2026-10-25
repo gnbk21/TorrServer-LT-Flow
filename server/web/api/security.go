@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"server/flow"
 	"server/netpolicy"
 	sets "server/settings"
@@ -31,7 +32,13 @@ func ManagementPolicy() gin.HandlerFunc {
 			return
 		}
 		origin := c.GetHeader("Origin")
-		if origin != "" && (f.SecurityProfile == "restricted" || f.ManagementOrigins != "") {
+		if (origin != "" || c.GetHeader("Sec-Fetch-Site") != "") && !browserManagementHost(c.Request.Host, f.ManagementOrigins) {
+			c.AbortWithStatusJSON(403, gin.H{"error": "browser management hostname requires an explicit allowed origin"})
+			return
+		}
+		// Browser management access always needs an explicit origin grant.
+		// Native players without browser headers retain their authentication path.
+		if origin != "" {
 			scheme := "http"
 			if c.Request.TLS != nil {
 				scheme = "https"
@@ -46,6 +53,10 @@ func ManagementPolicy() gin.HandlerFunc {
 				c.AbortWithStatusJSON(403, gin.H{"error": "management origin is not allowed"})
 				return
 			}
+		} else if site := c.GetHeader("Sec-Fetch-Site"); site == "cross-site" || site == "same-site" {
+			// Navigations such as an image/link to GET /shutdown can omit Origin.
+			c.AbortWithStatusJSON(403, gin.H{"error": "cross-origin management request requires an allowed Origin"})
+			return
 		}
 		if c.Request.Method != http.MethodOptions {
 			key, _, err := net.SplitHostPort(c.Request.RemoteAddr)
@@ -60,6 +71,31 @@ func ManagementPolicy() gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+// Prevent a browser's attacker-controlled DNS name from rebinding to the LAN
+// server while keeping IP URLs, the machine's local name and approved proxies.
+func browserManagementHost(host, origins string) bool {
+	u, err := url.Parse("http://" + host)
+	if err != nil || u.User != nil || u.Host != host {
+		return false
+	}
+	name := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
+	if net.ParseIP(name) != nil || name == "localhost" {
+		return true
+	}
+	local, _ := os.Hostname()
+	local = strings.ToLower(strings.TrimSuffix(local, ".local"))
+	if local != "" && (name == local || name == local+".local") {
+		return true
+	}
+	for _, raw := range strings.Split(origins, ",") {
+		approved, err := url.Parse(strings.TrimSpace(raw))
+		if err == nil && strings.EqualFold(approved.Host, host) {
+			return true
+		}
+	}
+	return false
 }
 
 func PlaybackPolicy() gin.HandlerFunc {
@@ -154,5 +190,5 @@ func capabilityPlayback(c *gin.Context) {
 func ExposureSummary() gin.H {
 	f := sets.CurrentFlow()
 	policy := netpolicy.Snapshot()
-	return gin.H{"http_auth": sets.HttpAuth, "legacy_playback": !f.RequirePlaybackToken, "security_profile": f.SecurityProfile, "management_rate_limit": f.ManagementRateLimit, "explicit_origin_policy": f.ManagementOrigins != "" || f.SecurityProfile == "restricted", "listen_addresses": sets.IPs, "http_port": sets.Port, "https": sets.Ssl, "torrent_interface": policy, "windows_guard": netpolicy.GuardSnapshot(), "vpn_leak_protection_verified": false}
+	return gin.H{"http_auth": sets.HttpAuth, "legacy_playback": !f.RequirePlaybackToken, "security_profile": f.SecurityProfile, "management_rate_limit": f.ManagementRateLimit, "explicit_origin_policy": true, "listen_addresses": sets.IPs, "http_port": sets.Port, "https": sets.Ssl, "torrent_interface": policy, "windows_guard": netpolicy.GuardSnapshot(), "vpn_leak_protection_verified": false}
 }

@@ -22,8 +22,6 @@ import (
 
 const httpTimeout = 30 * time.Second
 
-var httpClient = &http.Client{Timeout: httpTimeout, Transport: netpolicy.HTTPTransport()}
-
 type TorznabAttribute struct {
 	Name  string `xml:"name,attr"`
 	Value string `xml:"value,attr"`
@@ -244,7 +242,12 @@ func searchOneDetailed(ctx context.Context, host, key, query, label, cat string,
 	}
 
 	req.Header.Set("User-Agent", "TorrServer-Flow-Torznab/"+version.Version)
-	resp, err := httpClient.Do(req)
+	client, err := netpolicy.FetchClient(req.URL.String(), true, httpTimeout)
+	if err != nil {
+		return nil, err
+	}
+	defer client.CloseIdleConnections()
+	resp, err := client.Do(req)
 	if err != nil {
 		log.TLogln("Error connecting to Torznab:", err)
 		return nil, err
@@ -370,7 +373,12 @@ func FetchCaps(ctx context.Context, host, key string) (*Caps, error) {
 	}
 
 	req.Header.Set("User-Agent", "TorrServer-Flow-Torznab/"+version.Version)
-	resp, err := httpClient.Do(req)
+	client, err := netpolicy.FetchClient(req.URL.String(), true, httpTimeout)
+	if err != nil {
+		return nil, err
+	}
+	defer client.CloseIdleConnections()
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}

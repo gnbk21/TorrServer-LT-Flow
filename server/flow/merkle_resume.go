@@ -9,6 +9,7 @@ import (
 	"math/bits"
 	"os"
 	"path/filepath"
+	"server/cachefs"
 	"strconv"
 )
 
@@ -87,8 +88,17 @@ func merkleBytes(r io.Reader, size, leaves int64) ([32]byte, error) {
 // short files, symlinks, changed bytes or incompatible geometry advertise no
 // corresponding data. Padding is virtual and never stored as a second cache.
 func VerifyMetadataPieces(dir string, pieceLength, totalSize int64, v1 [][20]byte, files []V2File) []byte {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil
+	}
+	defer root.Close()
+	return VerifyMetadataPiecesIn(root, ".", pieceLength, totalSize, v1, files)
+}
+
+func VerifyMetadataPiecesIn(disk *os.Root, dir string, pieceLength, totalSize int64, v1 [][20]byte, files []V2File) []byte {
 	if len(files) == 0 {
-		return VerifyPieceFiles(dir, pieceLength, totalSize, v1)
+		return VerifyPieceFilesIn(disk, dir, pieceLength, totalSize, v1)
 	}
 	if pieceLength < 16<<10 || pieceLength > 1<<30 || pieceLength&(pieceLength-1) != 0 || totalSize <= 0 {
 		return nil
@@ -145,11 +155,11 @@ func VerifyMetadataPieces(dir string, pieceLength, totalSize int64, v1 [][20]byt
 				copy(expected[:], layer[i*32:(i+1)*32])
 			}
 			path := filepath.Join(dir, strconv.FormatInt(piece, 10))
-			st, err := os.Lstat(path)
+			st, err := disk.Lstat(path)
 			if err != nil || !st.Mode().IsRegular() || st.Size() != size {
 				continue
 			}
-			file, err := os.Open(path)
+			file, err := cachefs.OpenIn(disk, path, os.O_RDONLY)
 			if err != nil {
 				continue
 			}

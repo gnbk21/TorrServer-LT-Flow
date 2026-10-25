@@ -205,21 +205,23 @@ func fetchTorrentHTTP(ctx context.Context, u string) (torrentFetchResult, error)
 		magnetURL string
 		hopCount  int
 	)
-	client := &http.Client{
-		Transport: netpolicy.HTTPTransport(),
-		Timeout:   httpFetchTimeout,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			hopCount++
-			if hopCount > 10 {
-				return errors.New("torr.parseHTTP: too many redirects")
-			}
-			if strings.HasPrefix(strings.ToLower(req.URL.Scheme), "magnet") ||
-				strings.HasPrefix(strings.ToLower(req.URL.String()), "magnet:") {
-				magnetURL = req.URL.String()
-				return errRedirectedToMagnet
-			}
-			return nil
-		},
+	client, err := netpolicy.FetchClient(u, true, httpFetchTimeout)
+	if err != nil {
+		return torrentFetchResult{}, err
+	}
+	defer client.CloseIdleConnections()
+	checkDestination := client.CheckRedirect
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		hopCount++
+		if hopCount > 10 {
+			return errors.New("torr.parseHTTP: too many redirects")
+		}
+		if strings.HasPrefix(strings.ToLower(req.URL.Scheme), "magnet") ||
+			strings.HasPrefix(strings.ToLower(req.URL.String()), "magnet:") {
+			magnetURL = req.URL.String()
+			return errRedirectedToMagnet
+		}
+		return checkDestination(req, via)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)

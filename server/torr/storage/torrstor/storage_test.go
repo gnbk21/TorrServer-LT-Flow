@@ -22,7 +22,7 @@ func TestCloseKeepsOwnershipUntilDiskHandlesDrain(t *testing.T) {
 			p := &Piece{cache: c, Id: 0}
 			p.disk = newDiskPiece(p, t.TempDir())
 			c.pieces[0] = p
-			file, done, err := c.diskFiles.acquire(p.disk.name, true)
+			file, done, err := c.diskFiles.acquire(p.disk.root, p.disk.relative(), true)
 			if err != nil {
 				t.Fatal(err)
 			}
