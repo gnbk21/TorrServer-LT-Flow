@@ -5,9 +5,11 @@ import { humanizeBytes } from "../../lib/format";
 export function BufferingEvidence({
   session,
   fresh,
+  blockerFresh = false,
 }: {
   session?: FlowSession;
   fresh: boolean;
+  blockerFresh?: boolean;
 }) {
   const { t } = useTranslation();
   if (
@@ -39,7 +41,7 @@ export function BufferingEvidence({
           ) : (
             <p>{t("flow.buffering.unknown")}</p>
           )}
-          {blocker?.known && blocker.reason !== "READY" && (
+          {blockerFresh && blocker?.known && blocker.reason !== "READY" && (
             <>
               <p>
                 {t("flow.buffering.blocker", {

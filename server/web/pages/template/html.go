@@ -10,44 +10,44 @@ var DEPENDENCIESjson []byte
 //go:embed pages/THIRD_PARTY_NOTICES.txt
 var THIRDPARTYNOTICEStxt []byte
 
-//go:embed pages/assets/Add-vztGTipc.js
-var AssetsAddvztGTipcjs []byte
+//go:embed pages/assets/Add-C9dVX0nV.js
+var AssetsAddC9dVX0nVjs []byte
 
-//go:embed pages/assets/AddTorrentModal-ZNNtv8y0.js
-var AssetsAddTorrentModalZNNtv8y0js []byte
+//go:embed pages/assets/AddTorrentModal-W1KAFS7S.js
+var AssetsAddTorrentModalW1KAFS7Sjs []byte
 
 //go:embed pages/assets/Button-joP_Tmns.js
 var AssetsButtonjoPTmnsjs []byte
 
-//go:embed pages/assets/CacheMap-BesrZHcc.js
-var AssetsCacheMapBesrZHccjs []byte
+//go:embed pages/assets/CacheMap-vXYqDTHE.js
+var AssetsCacheMapvXYqDTHEjs []byte
 
-//go:embed pages/assets/Certificates-DHicGCNs.js
-var AssetsCertificatesDHicGCNsjs []byte
+//go:embed pages/assets/Certificates-BnjUuNZn.js
+var AssetsCertificatesBnjUuNZnjs []byte
 
-//go:embed pages/assets/Dashboard-BxOHCI8s.js
-var AssetsDashboardBxOHCI8sjs []byte
+//go:embed pages/assets/Dashboard-B40SK3Gv.js
+var AssetsDashboardB40SK3Gvjs []byte
 
-//go:embed pages/assets/FlowDiagnosticsDrawer-Bm36D1MX.js
-var AssetsFlowDiagnosticsDrawerBm36D1MXjs []byte
+//go:embed pages/assets/FlowDiagnosticsDrawer-CA4GW0DP.js
+var AssetsFlowDiagnosticsDrawerCA4GW0DPjs []byte
 
-//go:embed pages/assets/FlowHealthPanel-DD-X6k_e.js
-var AssetsFlowHealthPanelDDX6kejs []byte
+//go:embed pages/assets/FlowHealthPanel-BF4WROZ1.js
+var AssetsFlowHealthPanelBF4WROZ1js []byte
 
-//go:embed pages/assets/GstRuntimeStatus-BOH8iVKI.js
-var AssetsGstRuntimeStatusBOH8iVKIjs []byte
+//go:embed pages/assets/GstRuntimeStatus-DaKIbyCc.js
+var AssetsGstRuntimeStatusDaKIbyCcjs []byte
 
-//go:embed pages/assets/IntegrationSettings-BgT8ir5E.js
-var AssetsIntegrationSettingsBgT8ir5Ejs []byte
+//go:embed pages/assets/IntegrationSettings-DC6QCooa.js
+var AssetsIntegrationSettingsDC6QCooajs []byte
 
-//go:embed pages/assets/LANTest-CWToi27i.js
-var AssetsLANTestCWToi27ijs []byte
+//go:embed pages/assets/LANTest-CwC_iLFX.js
+var AssetsLANTestCwCiLFXjs []byte
 
-//go:embed pages/assets/MaintenancePanel-D_3UxHE3.js
-var AssetsMaintenancePanelD3UxHE3js []byte
+//go:embed pages/assets/MaintenancePanel-C5R4bFw0.js
+var AssetsMaintenancePanelC5R4bFw0js []byte
 
-//go:embed pages/assets/PhonePairingModal-CfqO1VJG.js
-var AssetsPhonePairingModalCfqO1VJGjs []byte
+//go:embed pages/assets/PhonePairingModal-5vueOK6B.js
+var AssetsPhonePairingModal5vueOK6Bjs []byte
 
 //go:embed pages/assets/PlaybackLinks-Dl9KGk0G.js
 var AssetsPlaybackLinksDl9KGk0Gjs []byte
@@ -55,23 +55,23 @@ var AssetsPlaybackLinksDl9KGk0Gjs []byte
 //go:embed pages/assets/PosterSearch-Bw2e558U.js
 var AssetsPosterSearchBw2e558Ujs []byte
 
-//go:embed pages/assets/RecentSessions-DAgrvPhn.js
-var AssetsRecentSessionsDAgrvPhnjs []byte
+//go:embed pages/assets/RecentSessions-DczIlg4R.js
+var AssetsRecentSessionsDczIlg4Rjs []byte
 
-//go:embed pages/assets/SessionCard-D5tTnIzA.js
-var AssetsSessionCardD5tTnIzAjs []byte
+//go:embed pages/assets/SessionCard-BpXduOkp.js
+var AssetsSessionCardBpXduOkpjs []byte
 
-//go:embed pages/assets/Settings-D1TkOlLD.js
-var AssetsSettingsD1TkOlLDjs []byte
+//go:embed pages/assets/Settings-BIX7evyT.js
+var AssetsSettingsBIX7evyTjs []byte
 
-//go:embed pages/assets/TorrentFilesDialog-Fm2GJdWi.js
-var AssetsTorrentFilesDialogFm2GJdWijs []byte
+//go:embed pages/assets/TorrentFilesDialog-BAML3crW.js
+var AssetsTorrentFilesDialogBAML3crWjs []byte
 
-//go:embed pages/assets/Torrents-DDpfWyX6.js
-var AssetsTorrentsDDpfWyX6js []byte
+//go:embed pages/assets/Torrents-D7g4PKUh.js
+var AssetsTorrentsD7g4PKUhjs []byte
 
-//go:embed pages/assets/VideoPlayer-vZItE4Gr.js
-var AssetsVideoPlayervZItE4Grjs []byte
+//go:embed pages/assets/VideoPlayer-CAL2S5FP.js
+var AssetsVideoPlayerCAL2S5FPjs []byte
 
 //go:embed pages/assets/certificates-2oq2uGZ8.js
 var Assetscertificates2oq2uGZ8js []byte
@@ -88,8 +88,8 @@ var AssetshlsD9b4QHpDjs []byte
 //go:embed pages/assets/index-BAsd_Ch1.css
 var AssetsindexBAsdCh1css []byte
 
-//go:embed pages/assets/index-C6jqA2T7.js
-var AssetsindexC6jqA2T7js []byte
+//go:embed pages/assets/index-DAzv4K9G.js
+var AssetsindexDAzv4K9Gjs []byte
 
 //go:embed pages/assets/integrations-BBuqqoIw.js
 var AssetsintegrationsBBuqqoIwjs []byte

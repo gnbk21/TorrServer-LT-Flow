@@ -31,7 +31,7 @@ const session = {
 
 describe("buffering evidence", () => {
   it("explains a deficit independently of media name or bitrate", () => {
-    render(<BufferingEvidence session={session} fresh />);
+    render(<BufferingEvidence session={session} fresh blockerFresh />);
     expect(
       screen.getByText("flow.buffering.states.SUPPLY_DEFICIT"),
     ).toBeInTheDocument();
@@ -46,6 +46,15 @@ describe("buffering evidence", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByText("flow.buffering.states.SUPPLY_DEFICIT"),
+    ).not.toBeInTheDocument();
+  });
+  it("does not refresh native evidence merely because the buffer was resampled", () => {
+    render(<BufferingEvidence session={session} fresh blockerFresh={false} />);
+    expect(
+      screen.getByText("flow.buffering.states.SUPPLY_DEFICIT"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("flow.buffering.blocker"),
     ).not.toBeInTheDocument();
   });
   it("keeps older servers and idle streams compatible", () => {
@@ -64,6 +73,7 @@ describe("buffering evidence", () => {
           blocker: { ...session.blocker!, reason: "VERIFYING" },
         }}
         fresh
+        blockerFresh
       />,
     );
     expect(screen.getByText("flow.buffering.verifying")).toBeInTheDocument();

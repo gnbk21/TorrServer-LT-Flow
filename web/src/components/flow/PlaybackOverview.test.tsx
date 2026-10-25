@@ -40,3 +40,38 @@ test("stale evidence does not offer actions as if it were current", () => {
     "flow.upgrade.causes.stale",
   );
 });
+
+test("blocking-piece freshness follows the native sample independently of buffer freshness", () => {
+  const data = {
+    ...status,
+    sparse: { known: true, sampled_at_ms: now - 5000 },
+    sessions: [
+      {
+        active_readers: 1,
+        buffer_sampled_at_ms: now,
+        buffer_ahead_bytes: 0,
+        blocker: {
+          known: true,
+          piece: 0,
+          piece_length: 16777216,
+          blocks: 1024,
+          finished: 1022,
+          requested: 2,
+          unrequested: 0,
+          writing: 0,
+          oldest_request_age_ms: 4500,
+          reason: "WAIT_BLOCKS",
+        },
+      },
+    ],
+  } as FlowStatusResponse;
+  const { rerender } = render(<PlaybackOverview status={data} now={now} />);
+  expect(screen.queryByText("flow.buffering.blocker")).not.toBeInTheDocument();
+  rerender(
+    <PlaybackOverview
+      status={{ ...data, sparse: { ...data.sparse!, sampled_at_ms: now } }}
+      now={now}
+    />,
+  );
+  expect(screen.getByText("flow.buffering.blocker")).toBeInTheDocument();
+});
