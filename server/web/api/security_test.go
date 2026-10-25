@@ -41,6 +41,32 @@ func TestCompatibleManagementStillRejectsUnapprovedBrowserOrigins(t *testing.T) 
 	}
 }
 
+func TestBrowserManagementRejectsRebindingButAllowsApprovedProxy(t *testing.T) {
+	old := sets.BTsets()
+	t.Cleanup(func() { sets.StoreBTsets(old) })
+	f := sets.DefaultFlowSettings()
+	sets.StoreBTsets(&sets.BTSets{Flow: f})
+	r := gin.New()
+	r.Use(ManagementPolicy())
+	r.GET("/settings", func(c *gin.Context) { c.Status(204) })
+	request := func() int {
+		req := httptest.NewRequest("GET", "http://proxy.example/settings", nil)
+		req.Header.Set("Origin", "http://proxy.example")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		return w.Code
+	}
+	if got := request(); got != 403 {
+		t.Fatal("arbitrary DNS host accepted", got)
+	}
+	next := *f
+	next.ManagementOrigins = "http://proxy.example"
+	sets.StoreBTsets(&sets.BTSets{Flow: &next})
+	if got := request(); got != 204 {
+		t.Fatal("approved reverse proxy refused", got)
+	}
+}
+
 func TestManagementOriginRateAndPlaybackCompatibility(t *testing.T) {
 	old := sets.BTsets()
 	t.Cleanup(func() { sets.StoreBTsets(old) })

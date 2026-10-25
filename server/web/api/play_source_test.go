@@ -3,6 +3,8 @@ package api
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"server/settings"
 	"server/web/auth"
 	"sync/atomic"
@@ -43,12 +45,21 @@ func TestMissingAccountsDoNotDisablePlaybackSourceGate(t *testing.T) {
 	var fetched atomic.Int32
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fetched.Add(1); w.WriteHeader(404) }))
 	defer upstream.Close()
-	router := gin.New()
-	auth.SetupAuth(router)
-	router.GET("/stream", stream)
-	response := httptest.NewRecorder()
-	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/stream?play&link="+upstream.URL, nil))
-	if response.Code != http.StatusBadRequest || fetched.Load() != 0 {
-		t.Fatal("missing account file opened unauthenticated source fetch", response.Code)
+	for _, contents := range []string{"", `{"owner":"fixture","invalid":123}`} {
+		if contents != "" {
+			if err := os.WriteFile(filepath.Join(settings.Path, "accs.db"), []byte(contents), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		router := gin.New()
+		auth.SetupAuth(router)
+		router.GET("/stream", stream)
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, "/stream?play&link="+upstream.URL, nil)
+		request.SetBasicAuth("owner", "fixture")
+		router.ServeHTTP(response, request)
+		if response.Code != http.StatusBadRequest || fetched.Load() != 0 {
+			t.Fatal("invalid account storage opened unauthenticated source fetch", response.Code)
+		}
 	}
 }

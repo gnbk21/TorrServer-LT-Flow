@@ -1,9 +1,11 @@
 package netpolicy
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -45,6 +47,32 @@ func TestFetchDestinationsAndRedirectGrants(t *testing.T) {
 		t.Fatal("explicit local indexer failed", err)
 	}
 	response.Body.Close()
+	localHostURL := strings.Replace(target.URL, "127.0.0.1", "localhost", 1)
+	publicLocal, err := FetchClient(localHostURL, false, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer publicLocal.CloseIdleConnections()
+	if r, err := publicLocal.Get(localHostURL); !errors.Is(err, ErrDestination) {
+		if r != nil {
+			r.Body.Close()
+		}
+		t.Fatal("public DNS destination reached loopback", err)
+	}
+	localClient, err := FetchClient(localHostURL, true, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer localClient.CloseIdleConnections()
+	localResponse, err := localClient.Get(localHostURL)
+	if err != nil {
+		t.Fatal("configured localhost failed", err)
+	}
+	localResponse.Body.Close()
+	changedScheme, _ := url.Parse(strings.Replace(localHostURL, "http:", "https:", 1))
+	if _, err := localClient.Transport.RoundTrip(&http.Request{Method: "GET", URL: changedScheme, Header: http.Header{}}); !errors.Is(err, ErrDestination) {
+		t.Fatal("localhost grant escaped its scheme", err)
+	}
 	public, err := FetchClient("https://example.com", false, time.Second)
 	if err != nil {
 		t.Fatal(err)
