@@ -296,6 +296,36 @@
       "owner_installation_replaced": false,
       "field_acceptance_passed": false,
       "verification_record": "RELEASE_1_1_6_VERIFICATION.md"
+    },
+    {
+      "date": "2026-10-25",
+      "scope": "1.1.7 security boundaries; fully validated implementation before release metadata",
+      "source_commit": "8ebe6caa7c089a8901336d2e40aa9ee7ce67ecf4",
+      "tested_merge": "614a1dbdcd36f9a92a33c004e8450159acb3c910",
+      "merged_commit": "48ee5e73f285d8562bdfcf23a8a3ddce7406c1d5",
+      "full_build_run": 40183731558,
+      "native_security_run": 40183731547,
+      "macos_run": 40183731551,
+      "branch_run": 40183731541,
+      "result": "passed",
+      "required_full_build_roles": 40,
+      "high_bitrate_comparison_jobs": 10,
+      "parallel_streaming_jobs": 6,
+      "isolated_windows_api_checks": 15,
+      "accepted_security_alerts": [
+        92,
+        93,
+        94,
+        95,
+        96,
+        97
+      ],
+      "accepted_alerts_are_not_fixes": true,
+      "security_disposition_approval": "Owner approved the six documented dispositions on 2026-10-25",
+      "verification_record": "RELEASE_1_1_7_VERIFICATION.md",
+      "owner_installation_modified": false,
+      "field_acceptance_passed": false,
+      "tagged_gate_still_required": true
     }
   ],
   "remaining": [],
@@ -305,8 +335,8 @@
     "policy": "Publish stable releases as Latest after automated gates pass, while explicitly disclosing unfinished field and resource validation authorized by the owner.",
     "field_checks_are_not_passed": true,
     "tagged_gate_required": "ts_release.yml rebuilds and verifies the exact tagged source before publication.",
-    "requested_release": "MatriX.145.Flow-v1.1.6",
-    "latest_owner_request": "Now release 1.1.6",
+    "requested_release": "MatriX.145.Flow-v1.1.7",
+    "latest_owner_request": "Merge and release",
     "further_two_hour_tests": "Skipped at owner request; earlier completed runs are identified separately, not exact-final acceptance."
   },
   "remaining_field_validation": [
@@ -318,15 +348,15 @@
     "Independent optional player decoder rebuild/redistribution audit; APK excluded from stable assets",
     "Shared OS DNS leak protection and complete native profiling attribution"
   ],
-  "release_target": "MatriX.145.Flow-v1.1.6",
+  "release_target": "MatriX.145.Flow-v1.1.7",
   "published_tag": "MatriX.145.Flow-v1.1.6",
   "published_source_commit": "cd8f1cceef7f11f9e87200be3426abc54fb33d9c",
   "patch_validation": {
-    "tag": "MatriX.145.Flow-v1.1.6",
+    "tag": "MatriX.145.Flow-v1.1.7",
     "mode": "api_compatibility",
-    "candidate_commit": "2f261b7737060263291938d68e6e063762d16881",
-    "candidate_run": 40132962678,
-    "baseline_commit": "2f261b7737060263291938d68e6e063762d16881",
-    "baseline_run": 40132962712
+    "candidate_commit": "8ebe6caa7c089a8901336d2e40aa9ee7ce67ecf4",
+    "candidate_run": 40183731547,
+    "baseline_commit": "8ebe6caa7c089a8901336d2e40aa9ee7ce67ecf4",
+    "baseline_run": 40183731558
   }
 }
