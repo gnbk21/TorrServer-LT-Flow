@@ -1,5 +1,5 @@
 diff --git a/include/libtorrent/aux_/flow_stream_policy.hpp b/include/libtorrent/aux_/flow_stream_policy.hpp
-index 4fe154e..526589c 100644
+index 4fe154e..053e0fa 100644
 --- a/include/libtorrent/aux_/flow_stream_policy.hpp
 +++ b/include/libtorrent/aux_/flow_stream_policy.hpp
 @@ -1,7 +1,7 @@
@@ -11,7 +11,7 @@ index 4fe154e..526589c 100644
  #include <algorithm>
  #include <array>
  #include <atomic>
-@@ -69,8 +69,26 @@ struct flow_service_model {
+@@ -69,20 +69,47 @@ struct flow_service_model {
  	bool fresh(std::int64_t now) const {
  		return fresh_samples>=8 && last_ms>=0 && now>=last_ms && now-last_ms<=10000;
  	}
@@ -37,16 +37,25 @@ index 4fe154e..526589c 100644
 -		return std::clamp<std::int64_t>(mean_ms+std::max<std::int64_t>(100,4*deviation_ms),250,3000);
 +		return std::clamp<std::int64_t>(mean_ms+std::max<std::int64_t>(100,4*deviation_ms),250,15000);
  	}
- 	int credit(int current, int rate, int block, int remote, int local, std::int64_t now) {
+-	int credit(int current, int rate, int block, int remote, int local, std::int64_t now) {
++	int credit(int current, int rate, int block, int remote, int local, std::int64_t now, int queued=0) {
  		int const cap=std::max(1,std::min(remote,local));
-@@ -78,11 +96,13 @@ struct flow_service_model {
+ 		current=std::clamp(current,1,cap);
  		if (!fresh(now) || rate<=0 || block<=0) return current;
  		if (adjusted_ms>=0 && now>=adjusted_ms && now-adjusted_ms<500) return current;
  		adjusted_ms=now;
 -		auto const horizon=std::clamp<std::int64_t>(mean_ms+2*deviation_ms+100,250,2000);
+-		auto const wanted=std::clamp<std::int64_t>(
 +		auto const horizon=horizon_ms();
- 		auto const wanted=std::clamp<std::int64_t>(
++		auto wanted=std::clamp<std::int64_t>(
  			std::int64_t(rate)*horizon/1000/block+2,1,cap);
++		// A stable service delay beyond the stock urgent horizon can leave
++		// observed throughput constrained by our own window. Probe only on a
++		// full window, using the existing paced 25% step and both capacity caps.
++		// Rising service jitter, empty queues and unqualified evidence do not
++		// authorize probes; ordinary bandwidth-derived shrink remains available.
++		if (mean_ms>=2000 && 4*deviation_ms<=mean_ms && queued>=current)
++			wanted=std::max(wanted,std::int64_t(std::min(cap,current+std::max(2,current/4))));
  		int const deadband=std::max(2,current/8);
 -		if (wanted-current<=deadband && current-wanted<=deadband) return current;
 +		// Small upward probes must survive: observed rate is limited by our own
@@ -55,7 +64,7 @@ index 4fe154e..526589c 100644
  		int const step=std::max(2,current/4);
  		int const next=int(std::clamp<std::int64_t>(wanted,std::max(1,current-step),std::min(cap,current+step)));
  		if (next!=current) ++budget_changes;
-@@ -92,6 +112,23 @@ private:
+@@ -92,6 +119,23 @@ private:
  	int fresh_samples=0;
  };
  
@@ -79,7 +88,7 @@ index 4fe154e..526589c 100644
  // Both concurrent occupancy and issued-per-second credit are bounded. Shared
  // ownership follows pending_block copies through sends, cancels and teardown.
  struct flow_hedge_budget {
-@@ -135,6 +172,8 @@ struct flow_stream_observations {
+@@ -135,6 +179,8 @@ struct flow_stream_observations {
  	std::int64_t created_ms,first_dial_ms=-1,first_connect_ms=-1,first_handshake_ms=-1,first_payload_ms=-1;
  	std::int64_t connect_duration_ms=-1,handshake_duration_ms=-1;
  	std::array<flow_histogram,6> service{};
@@ -89,10 +98,10 @@ index 4fe154e..526589c 100644
  	void milestone(std::int64_t& field,std::int64_t now) {
  		if(field<0 && now>=created_ms) field=now-created_ms;
 diff --git a/simulation/test_peer_connection.cpp b/simulation/test_peer_connection.cpp
-index 35d376c..b8e0702 100644
+index 35d376c..19550cb 100644
 --- a/simulation/test_peer_connection.cpp
 +++ b/simulation/test_peer_connection.cpp
-@@ -670,3 +670,66 @@ TORRENT_TEST(flow_stream_policy_clock_hysteresis_and_lifecycle)
+@@ -670,3 +670,86 @@ TORRENT_TEST(flow_stream_policy_clock_hysteresis_and_lifecycle)
  	TEST_EQUAL(session->active.load(),0);
  	TEST_EQUAL(session->bytes.load(),0);
  }
@@ -150,7 +159,7 @@ index 35d376c..b8e0702 100644
 +    for (int i=0;i<16;++i) model.observe(2500,3000+i*10);
 +    TEST_CHECK(model.fresh(3200));
 +    int credit=model.credit(2,12000,16384,512,512,3200);
-+    TEST_EQUAL(credit,4);
++    TEST_EQUAL(credit,3);
 +    TEST_EQUAL(model.credit(16,95000,16384,512,512,3800),17);
 +    TEST_CHECK(model.urgent_work_allowed(4000,2,credit,true,3200));
 +    TEST_CHECK(!model.urgent_work_allowed(4000,credit,credit,true,3200));
@@ -159,6 +168,40 @@ index 35d376c..b8e0702 100644
 +    TEST_CHECK(!model.urgent_work_allowed(4000,2,credit,true,0));
 +    TEST_EQUAL(model.credit(2,12000,16384,1,512,3800),1);
 +}
++
++TORRENT_TEST(flow_high_latency_probes_are_full_paced_and_capped)
++{
++    libtorrent::aux::flow_service_model model;
++    for (int i=0;i<16;++i) model.observe(2500,3000+i*10);
++    TEST_EQUAL(model.credit(2,12000,16384,512,512,3200,2),4);
++    TEST_EQUAL(model.credit(4,12000,16384,512,512,3300,4),4);
++    TEST_EQUAL(model.credit(16,95000,16384,512,512,3800,16),20);
++    TEST_EQUAL(model.credit(16,95000,16384,512,18,4400,16),18);
++    TEST_EQUAL(model.credit(16,95000,16384,1,512,5000,16),1);
++    // An empty pipeline cannot probe beyond its bandwidth-derived target.
++    TEST_EQUAL(model.credit(16,95000,16384,512,512,5600,0),17);
++    TEST_EQUAL(model.credit(16,95000,16384,512,512,20000,16),16);
++    for (int i=0;i<16;++i) model.observe(i%2?500:5000,21000+i*10);
++    TEST_CHECK(4*model.deviation_ms>model.mean_ms);
++    int const before=16;
++    int const target=int(95000*model.horizon_ms()/1000/16384+2);
++    int const next=model.credit(before,95000,16384,512,512,22000,16);
++    TEST_CHECK(next<=std::max(before,target));
++}
+diff --git a/src/peer_connection.cpp b/src/peer_connection.cpp
+index 1af2de6..adffa9a 100644
+--- a/src/peer_connection.cpp
++++ b/src/peer_connection.cpp
+@@ -4917,7 +4917,8 @@ namespace {
+ 			if(t && !m_slow_start) m_desired_queue_size=std::uint16_t(flow_service.credit(
+ 				m_desired_queue_size,download_rate,t->block_size(),int(m_max_out_request_queue),
+ 				m_settings.get_int(settings_pack::max_out_request_queue),
+-				total_milliseconds(clock_type::now().time_since_epoch())));
++				total_milliseconds(clock_type::now().time_since_epoch()),
++				int(m_download_queue.size()+m_request_queue.size())));
+ 			if(t) t->flow_stream.budget_changes+=flow_service.budget_changes-before;
+ 		}
+ 		if (m_desired_queue_size > m_max_out_request_queue)
 diff --git a/src/torrent.cpp b/src/torrent.cpp
 index ca967ac..8cf40f2 100644
 --- a/src/torrent.cpp

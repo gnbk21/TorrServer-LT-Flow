@@ -37,6 +37,13 @@ def capture_go_profile(server, kind, seconds):
     return {'kind':kind, 'bytes':len(data), 'sha256':hashlib.sha256(data).hexdigest()}
 
 
+def tracker_evidence(status):
+    keys = ('protocol', 'status', 'error_category', 'error_code', 'operation',
+            'failure_count', 'peers', 'last_at')
+    return [{key: row[key] for key in keys if key in row}
+            for row in (status.get('trackers') or [])[:64]]
+
+
 def failure_evidence(server, info_hash):
     """Keep bounded, identity-free engine evidence before the owned process stops."""
     result = {}
@@ -51,8 +58,10 @@ def failure_evidence(server, info_hash):
             result[name] = ({key: data[key] for key in keys if key in data}
                             if keys is not None else data.get('startup'))
             if name == 'startup':
-                result['trackers'] = data.get('trackers')
-                result['stream_control'] = (data.get('sparse') or {}).get('stream')
+                if data.get('trackers'):
+                    result['trackers'] = tracker_evidence(data)
+                if (data.get('sparse') or {}).get('stream') is not None:
+                    result['stream_control'] = data['sparse']['stream']
         except Exception as error:
             result[name+'_unavailable'] = type(error).__name__
     return result
@@ -247,7 +256,15 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                   storage_backend='disk' if disk else 'ram', capacity_aware=capacity_aware,
                   urgent_horizon=urgent_horizon, burst_hints=burst_hints, startup_reserve_mb=startup_mb, transport_buffer_kib=transport_kib,
                   frontier_recovery=frontier_recovery, adaptive_peer_requests=adaptive_peer_requests)
-    server = OwnedServer(executable, root, profile=capture_go, extra_settings={
+    # Keep the controlled peer listener on loopback too. Preflight TCP and UDP
+    # on the same OS-selected port rather than depending on wildcard adapter
+    # enumeration or an engine-selected Windows ephemeral port.
+    with socket.socket() as tcp, socket.socket(type=socket.SOCK_DGRAM) as udp:
+        tcp.bind(('127.0.0.1', 0))
+        peer_port = tcp.getsockname()[1]
+        udp.bind(('127.0.0.1', peer_port))
+    server = OwnedServer(executable, root, profile=capture_go,
+        extra_arguments=['--torrentaddr', f'127.0.0.1:{peer_port}'], extra_settings={
         'CacheSize': cache_mb*MIB, 'PreloadCache': 10,
         'UseDisk': disk, 'TorrentsSavePath': str((root/'cache').resolve()) if disk else '',
         'Flow': {'SwarmProfile': profile, 'BootstrapHeadMB': 4,
@@ -262,6 +279,14 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
     stage = 'server_ready'
     try:
         report['ready_ms'] = server.ready()
+        deadline = time.monotonic()+10
+        while True:
+            network = server.json('/flow/network')
+            if network.get('peer_tcp_port') == peer_port and network.get('peer_udp_port') == peer_port:
+                break
+            if time.monotonic() >= deadline:
+                raise TimeoutError('Owned loopback peer listeners did not become ready')
+            time.sleep(.1)
         with server.request('/echo') as response:
             report['version'] = response.read().decode()
         with LocalSwarm([fixture], peers=plans, piece_length=piece_mb*MIB, high_throughput=True) as swarm:
@@ -284,7 +309,7 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                         report['preload_samples'].append({
                             'elapsed_s': time.monotonic()-started,
                             'stream_control': (status.get('sparse') or {}).get('stream'),
-                            'trackers': status.get('trackers')})
+                            'trackers': tracker_evidence(status)})
                         time.sleep(1)
                     pending_preload.result()
                 deadline = started+90

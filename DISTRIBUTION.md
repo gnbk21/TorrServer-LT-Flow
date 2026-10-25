@@ -161,3 +161,18 @@ Containers use `Dockerfile.runtime` with those verified native outputs under
 The release workflow verifies the actual version/linkage for all three
 architectures before publishing. Do not build an unpatched second engine for
 containers. See `.github/workflows/build-docker.yml` for the complete procedure.
+
+## Staging a release before publication
+
+When `publication_policy.stage_before_publish` in `RELEASE_ACCEPTANCE.json`
+matches the exact release tag, the usual tagged gates and attestations run and
+the resulting GitHub release is saved as a draft. Container publication waits.
+This permits private installation checks before public download availability;
+it does not bypass any release gate. Personal settings never enter CI assets.
+
+After verifying the private installation, publish that existing draft and mark
+it Latest if it is stable. Resume `build-docker.yml` manually with the published
+tag, its exact source commit, channel and successful tagged release run ID.
+The workflow verifies the published release and original successful source run
+before using its binaries. Older drafts and development artifacts cannot
+satisfy these checks.

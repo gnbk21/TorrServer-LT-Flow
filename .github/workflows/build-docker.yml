@@ -1,5 +1,24 @@
 name: Publish verified runtime container
 on:
+  workflow_dispatch:
+    inputs:
+      release_channel:
+        description: Published release channel
+        type: choice
+        options: [stable, preview]
+        required: true
+      artifact_run_id:
+        description: Successful tagged release run that produced these binaries
+        type: string
+        required: true
+      source_ref:
+        description: Exact published 40-character source commit
+        type: string
+        required: true
+      version:
+        description: Published Flow release tag
+        type: string
+        required: true
   workflow_call:
     inputs:
       release_channel:
@@ -29,6 +48,25 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.source_ref || github.sha }}
+          fetch-depth: 0
+
+      - name: Validate published source before resuming staged container publication
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FLOW_VERSION: ${{ inputs.version }}
+          FLOW_SOURCE: ${{ inputs.source_ref }}
+          FLOW_RUN: ${{ inputs.artifact_run_id }}
+          FLOW_CHANNEL: ${{ inputs.release_channel }}
+        run: |
+          set -euo pipefail
+          python3 -c 'import os,re; assert re.fullmatch(r"[a-f0-9]{40}",os.environ["FLOW_SOURCE"]); assert re.fullmatch(r"[1-9][0-9]*",os.environ["FLOW_RUN"])'
+          test "$(python3 build/release.py --classify --tag "$FLOW_VERSION")" = "$FLOW_CHANNEL"
+          test "$(git rev-parse HEAD)" = "$FLOW_SOURCE"
+          test "$(git rev-parse "$FLOW_VERSION^{commit}")" = "$FLOW_SOURCE"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$FLOW_RUN" > verified-source-run.json
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$FLOW_VERSION" > published-release.json
+          python3 -c 'import json,os; r=json.load(open("verified-source-run.json")); p=json.load(open("published-release.json")); assert r["status"]=="completed" and r["conclusion"]=="success" and r["head_sha"]==os.environ["FLOW_SOURCE"] and r["path"]==".github/workflows/ts_release.yml"; assert p["tag_name"]==os.environ["FLOW_VERSION"] and not p["draft"] and p["prerelease"]==(os.environ["FLOW_CHANNEL"]=="preview")'
 
       - name: Download linux binaries
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
