@@ -88,6 +88,11 @@ def check(args):
             controls = [s for s in controls if s and s.get("known")]
             if not controls:
                 row["passed"], row["policy_error"] = False, "Native stream observations unavailable"
+            if args.case == "high-latency" and options.get("adaptive_peer_requests"):
+                policies = [s.get("request_policy", {}) for s in controls]
+                if not any(p.get("enabled") and p.get("qualified_peers", 0) > 0
+                           and p.get("horizon_max_ms", 0) > 2000 for p in policies):
+                    row["passed"], row["policy_error"] = False, "Measured high-latency policy was not exercised"
             for evidence in controls:
                 if (evidence["active_hedges"] > 16 or evidence["peak_hedges"] > 16
                         or evidence["active_hedge_bytes"] > 256 * 1024):

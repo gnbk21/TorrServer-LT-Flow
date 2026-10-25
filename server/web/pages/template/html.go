@@ -10,68 +10,68 @@ var DEPENDENCIESjson []byte
 //go:embed pages/THIRD_PARTY_NOTICES.txt
 var THIRDPARTYNOTICEStxt []byte
 
-//go:embed pages/assets/Add-Dhb1SLf6.js
-var AssetsAddDhb1SLf6js []byte
+//go:embed pages/assets/Add-vztGTipc.js
+var AssetsAddvztGTipcjs []byte
 
-//go:embed pages/assets/AddTorrentModal-ChiL4qOO.js
-var AssetsAddTorrentModalChiL4qOOjs []byte
+//go:embed pages/assets/AddTorrentModal-ZNNtv8y0.js
+var AssetsAddTorrentModalZNNtv8y0js []byte
 
 //go:embed pages/assets/Button-joP_Tmns.js
 var AssetsButtonjoPTmnsjs []byte
 
-//go:embed pages/assets/CacheMap-B7sxH1kt.js
-var AssetsCacheMapB7sxH1ktjs []byte
+//go:embed pages/assets/CacheMap-BesrZHcc.js
+var AssetsCacheMapBesrZHccjs []byte
 
-//go:embed pages/assets/Certificates-CHypNJ7G.js
-var AssetsCertificatesCHypNJ7Gjs []byte
+//go:embed pages/assets/Certificates-DHicGCNs.js
+var AssetsCertificatesDHicGCNsjs []byte
 
-//go:embed pages/assets/Dashboard-Cps1YEP1.js
-var AssetsDashboardCps1YEP1js []byte
+//go:embed pages/assets/Dashboard-BxOHCI8s.js
+var AssetsDashboardBxOHCI8sjs []byte
 
-//go:embed pages/assets/FlowDiagnosticsDrawer-BcL0k2Hh.js
-var AssetsFlowDiagnosticsDrawerBcL0k2Hhjs []byte
+//go:embed pages/assets/FlowDiagnosticsDrawer-Bm36D1MX.js
+var AssetsFlowDiagnosticsDrawerBm36D1MXjs []byte
 
-//go:embed pages/assets/FlowHealthPanel-KYt9Bi01.js
-var AssetsFlowHealthPanelKYt9Bi01js []byte
+//go:embed pages/assets/FlowHealthPanel-DD-X6k_e.js
+var AssetsFlowHealthPanelDDX6kejs []byte
 
-//go:embed pages/assets/GstRuntimeStatus-B5sfS5y2.js
-var AssetsGstRuntimeStatusB5sfS5y2js []byte
+//go:embed pages/assets/GstRuntimeStatus-BOH8iVKI.js
+var AssetsGstRuntimeStatusBOH8iVKIjs []byte
 
-//go:embed pages/assets/IntegrationSettings-CvtBlJJZ.js
-var AssetsIntegrationSettingsCvtBlJJZjs []byte
+//go:embed pages/assets/IntegrationSettings-BgT8ir5E.js
+var AssetsIntegrationSettingsBgT8ir5Ejs []byte
 
-//go:embed pages/assets/LANTest-aDV2Y-Cx.js
-var AssetsLANTestaDV2YCxjs []byte
+//go:embed pages/assets/LANTest-CWToi27i.js
+var AssetsLANTestCWToi27ijs []byte
 
-//go:embed pages/assets/MaintenancePanel-DiKkr-HV.js
-var AssetsMaintenancePanelDiKkrHVjs []byte
+//go:embed pages/assets/MaintenancePanel-D_3UxHE3.js
+var AssetsMaintenancePanelD3UxHE3js []byte
 
-//go:embed pages/assets/PhonePairingModal-DSHF7v2n.js
-var AssetsPhonePairingModalDSHF7v2njs []byte
+//go:embed pages/assets/PhonePairingModal-CfqO1VJG.js
+var AssetsPhonePairingModalCfqO1VJGjs []byte
 
-//go:embed pages/assets/PlaybackLinks-DnFkpWrP.js
-var AssetsPlaybackLinksDnFkpWrPjs []byte
+//go:embed pages/assets/PlaybackLinks-Dl9KGk0G.js
+var AssetsPlaybackLinksDl9KGk0Gjs []byte
 
 //go:embed pages/assets/PosterSearch-Bw2e558U.js
 var AssetsPosterSearchBw2e558Ujs []byte
 
-//go:embed pages/assets/RecentSessions-BxLIMz23.js
-var AssetsRecentSessionsBxLIMz23js []byte
+//go:embed pages/assets/RecentSessions-DAgrvPhn.js
+var AssetsRecentSessionsDAgrvPhnjs []byte
 
-//go:embed pages/assets/SessionCard-BTWaecM4.js
-var AssetsSessionCardBTWaecM4js []byte
+//go:embed pages/assets/SessionCard-D5tTnIzA.js
+var AssetsSessionCardD5tTnIzAjs []byte
 
-//go:embed pages/assets/Settings-CVimEXBy.js
-var AssetsSettingsCVimEXByjs []byte
+//go:embed pages/assets/Settings-D1TkOlLD.js
+var AssetsSettingsD1TkOlLDjs []byte
 
-//go:embed pages/assets/TorrentFilesDialog-DcmEiIy5.js
-var AssetsTorrentFilesDialogDcmEiIy5js []byte
+//go:embed pages/assets/TorrentFilesDialog-Fm2GJdWi.js
+var AssetsTorrentFilesDialogFm2GJdWijs []byte
 
-//go:embed pages/assets/Torrents-WsWYnSif.js
-var AssetsTorrentsWsWYnSifjs []byte
+//go:embed pages/assets/Torrents-DDpfWyX6.js
+var AssetsTorrentsDDpfWyX6js []byte
 
-//go:embed pages/assets/VideoPlayer-D1ZvV3nA.js
-var AssetsVideoPlayerD1ZvV3nAjs []byte
+//go:embed pages/assets/VideoPlayer-vZItE4Gr.js
+var AssetsVideoPlayervZItE4Grjs []byte
 
 //go:embed pages/assets/certificates-2oq2uGZ8.js
 var Assetscertificates2oq2uGZ8js []byte
@@ -88,20 +88,20 @@ var AssetshlsD9b4QHpDjs []byte
 //go:embed pages/assets/index-BAsd_Ch1.css
 var AssetsindexBAsdCh1css []byte
 
-//go:embed pages/assets/index-SfVuXrkO.js
-var AssetsindexSfVuXrkOjs []byte
+//go:embed pages/assets/index-C6jqA2T7.js
+var AssetsindexC6jqA2T7js []byte
 
 //go:embed pages/assets/integrations-BBuqqoIw.js
 var AssetsintegrationsBBuqqoIwjs []byte
 
-//go:embed pages/assets/mediaBase-DvP-2I7r.js
-var AssetsmediaBaseDvP2I7rjs []byte
+//go:embed pages/assets/mediaBase-BzfCqn5D.js
+var AssetsmediaBaseBzfCqn5Djs []byte
 
 //go:embed pages/assets/preload-helper-uBIymjUX.js
 var AssetspreloadhelperuBIymjUXjs []byte
 
-//go:embed pages/assets/queries-DynzPUc_.js
-var AssetsqueriesDynzPUcjs []byte
+//go:embed pages/assets/queries-CBDsD_BP.js
+var AssetsqueriesCBDsDBPjs []byte
 
 //go:embed pages/assets/redact-ie8nnS8E.js
 var Assetsredactie8nnS8Ejs []byte
@@ -112,23 +112,23 @@ var AssetsrolldownruntimeCbXtAM7Hjs []byte
 //go:embed pages/assets/schemas-DvG7Ne2U.js
 var AssetsschemasDvG7Ne2Ujs []byte
 
-//go:embed pages/assets/translation-B1NCMMxZ.js
-var AssetstranslationB1NCMMxZjs []byte
+//go:embed pages/assets/translation-Bh6Nsy7O.js
+var AssetstranslationBh6Nsy7Ojs []byte
 
-//go:embed pages/assets/translation-BL5Fb9qn.js
-var AssetstranslationBL5Fb9qnjs []byte
+//go:embed pages/assets/translation-C38qwsbF.js
+var AssetstranslationC38qwsbFjs []byte
 
-//go:embed pages/assets/translation-BrDTT3Tp.js
-var AssetstranslationBrDTT3Tpjs []byte
+//go:embed pages/assets/translation-Cphocfm0.js
+var AssetstranslationCphocfm0js []byte
 
-//go:embed pages/assets/translation-C2SK4rn7.js
-var AssetstranslationC2SK4rn7js []byte
+//go:embed pages/assets/translation-CqyA1E6z.js
+var AssetstranslationCqyA1E6zjs []byte
 
-//go:embed pages/assets/translation-CXFWv-Rs.js
-var AssetstranslationCXFWvRsjs []byte
+//go:embed pages/assets/translation-CsbFXoya.js
+var AssetstranslationCsbFXoyajs []byte
 
-//go:embed pages/assets/translation-Dsq7q4DK.js
-var AssetstranslationDsq7q4DKjs []byte
+//go:embed pages/assets/translation-CtDFDMq0.js
+var AssetstranslationCtDFDMq0js []byte
 
 //go:embed pages/assets/useQuery-BWn8aWAB.js
 var AssetsuseQueryBWn8aWABjs []byte

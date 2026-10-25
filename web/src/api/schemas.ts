@@ -297,6 +297,7 @@ export const flowSchema = z
                   p.capacity_limited_peers <= p.sampled_peers &&
                   p.desired_requests <= p.capacity_requests &&
                   p.horizon_min_ms <= p.horizon_max_ms &&
+                  (p.qualified_peers === 0 || p.horizon_min_ms >= 250) &&
                   (p.qualified_peers > 0 || p.horizon_max_ms === 0),
               )
               .optional(),

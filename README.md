@@ -150,7 +150,9 @@ startup floor. A reserve reaching its limit is reported explicitly.
 
 With **Adaptive peer requests** enabled, fresh per-peer service measurements
 select a request horizon of 250–6000 ms, with paced changes and local/remote
-request-capacity limits. **Frontier recovery** evaluates late blocks separately,
+request-capacity limits. Urgent scheduling retains its normal two-second allowance
+and can extend it to six seconds for a qualified slower peer; stale measurements
+restore the normal allowance. **Frontier recovery** evaluates late blocks separately,
 so one request with uncertain timing does not exclude the entire piece. Existing
 duplicate-request budgets and cancellation safeguards remain in force. The
 diagnostics show aggregate request budgets and recovery exclusion reasons without

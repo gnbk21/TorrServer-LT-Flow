@@ -1,9 +1,41 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { StartupEvidence } from "./StartupEvidence";
 import type { FlowStartup } from "../../types/flow";
 
+afterEach(cleanup);
+
 describe("startup preparation evidence", () => {
+  it("explains a capped reserve without treating unknown evidence as measured", () => {
+    const reserve = {
+      known: true,
+      reason: "SUPPLY_DEFICIT",
+      base_bytes: 32 * 1048576,
+      target_bytes: 64 * 1048576,
+      maximum_bytes: 64 * 1048576,
+      limited: true,
+      demand_rate: 12.5e6,
+      delivery_rate: 10e6,
+      deficit_rate: 2.5e6,
+      forecast_seconds: 45,
+    };
+    const { rerender } = render(
+      <StartupEvidence startup={{ reserve } as FlowStartup} />,
+    );
+    expect(screen.getByText("flow.buffering.reserve")).toBeInTheDocument();
+    expect(screen.getByText("flow.buffering.limited")).toBeInTheDocument();
+    rerender(
+      <StartupEvidence
+        startup={{ reserve: { ...reserve, known: false } } as FlowStartup}
+      />,
+    );
+    expect(
+      screen.queryByText("flow.buffering.reserve"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("flow.buffering.states.SUPPLY_DEFICIT"),
+    ).not.toBeInTheDocument();
+  });
   it("separates an unknown operation from a measured zero", () => {
     render(
       <StartupEvidence
