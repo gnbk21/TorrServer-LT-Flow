@@ -56,7 +56,10 @@ func (c *Cache) PreloadHeadBudget() int64 {
 	if limit := c.resourceBudget.Load(); limit > 0 {
 		budget = min(budget, limit)
 	}
-	return max(0, budget-int64(TailPiecesFor(c.PieceLength)+1)*c.PieceLength)
+	// Round the budget down before subtracting whole pieces. Otherwise a
+	// fractional-piece cache limit plus an unaligned file could need one extra
+	// resident piece beyond the configured budget.
+	return max(0, (budget/c.PieceLength-int64(TailPiecesFor(c.PieceLength)+1))*c.PieceLength)
 }
 
 func (c *Cache) SetScarceEvidence(snapshot lt.SparseSnapshot) {

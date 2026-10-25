@@ -16,6 +16,10 @@ func TestPreloadGrowthSharesCacheAndResourceBudgets(t *testing.T) {
 	if got := c.PreloadHeadBudget(); got != 96<<20 {
 		t.Fatal("head did not leave room for tail and file boundary", got)
 	}
+	settings.StoreBTsets(&settings.BTSets{CacheSize: 100 << 20, Flow: settings.DefaultFlowSettings()})
+	if got := c.PreloadHeadBudget(); got != 64<<20 {
+		t.Fatal("fractional-piece cache budget was rounded up", got)
+	}
 	c.resourceBudget.Store(64 << 20)
 	if got := c.PreloadHeadBudget(); got != 32<<20 {
 		t.Fatal("resource budget ignored", got)

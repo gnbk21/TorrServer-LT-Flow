@@ -60,6 +60,17 @@ type FlowStartupStatus struct {
 	TimeToFirstByteMs        int64  `json:"time_to_first_byte_ms"`
 }
 
+// A preload's gate grows monotonically. Retain the decision that actually
+// enlarged it when later delivery improves, becomes stale or the gate finishes.
+func (t *Torrent) recordStartupReserve(plan flow.ReservePlan, filling bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	previous := t.flowStartup.Reserve
+	if previous == nil || !previous.Known || (filling && plan.Known && plan.TargetBytes >= previous.TargetBytes) {
+		t.flowStartup.Reserve = &plan
+	}
+}
+
 func (t *Torrent) FlowStartup() FlowStartupStatus {
 	if t == nil {
 		return FlowStartupStatus{}

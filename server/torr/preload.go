@@ -690,11 +690,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 					plan := flow.PlanStartupReserve(min(target, maximum), maximum, estimate.BytesPerSecond,
 						flowSettings.TargetBufferSeconds, startupSupply.Snapshot(now))
 					target = plan.TargetBytes
-					t.mu.Lock()
-					if done < gateCount || t.flowStartup.Reserve == nil || !t.flowStartup.Reserve.Known {
-						t.flowStartup.Reserve = &plan
-					}
-					t.mu.Unlock()
+					t.recordStartupReserve(plan, done < gateCount)
 				}
 				newLast := clamp(int((f.Offset + min(target, f.Length) - 1) / plen))
 				if newLast > maxHeadLast {
