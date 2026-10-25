@@ -258,6 +258,22 @@
       "full_performance_matrix_repeated": false,
       "physical_field_checks_passed": false,
       "exact_final_endurance_passed": false
+    },
+    {
+      "date": "2026-10-25",
+      "scope": "1.1.6 reliability and compatible streaming controls; fully tested implementation before release metadata",
+      "source_commit": "2f261b7737060263291938d68e6e063762d16881",
+      "full_build_run": 40132962712,
+      "native_security_run": 40132962678,
+      "macos_run": 40132962595,
+      "branch_run": 40132962685,
+      "result": "passed",
+      "new_comparison_trials": 72,
+      "existing_high_bitrate_jobs": 10,
+      "new_experiments_default_enabled": false,
+      "verification_record": "RELEASE_1_1_6_VERIFICATION.md",
+      "field_acceptance_passed": false,
+      "tagged_gate_still_required": true
     }
   ],
   "remaining": [],
@@ -267,8 +283,8 @@
     "policy": "Publish stable releases as Latest after automated gates pass, while explicitly disclosing unfinished field and resource validation authorized by the owner.",
     "field_checks_are_not_passed": true,
     "tagged_gate_required": "ts_release.yml rebuilds and verifies the exact tagged source before publication.",
-    "requested_release": "MatriX.145.Flow-v1.1.5",
-    "latest_owner_request": "So how long until release?",
+    "requested_release": "MatriX.145.Flow-v1.1.6",
+    "latest_owner_request": "Now release 1.1.6",
     "further_two_hour_tests": "Skipped at owner request; earlier completed runs are identified separately, not exact-final acceptance."
   },
   "remaining_field_validation": [
@@ -280,15 +296,15 @@
     "Independent optional player decoder rebuild/redistribution audit; APK excluded from stable assets",
     "Shared OS DNS leak protection and complete native profiling attribution"
   ],
-  "release_target": "MatriX.145.Flow-v1.1.5",
+  "release_target": "MatriX.145.Flow-v1.1.6",
   "published_tag": "MatriX.145.Flow-v1.1.5",
   "published_source_commit": "04cbb1ae08bfb87f25249876201066880c08a2d5",
   "patch_validation": {
-    "tag": "MatriX.145.Flow-v1.1.5",
+    "tag": "MatriX.145.Flow-v1.1.6",
     "mode": "api_compatibility",
-    "candidate_commit": "a2542441569236bb73f85b5f832b74aed058148d",
-    "candidate_run": 39977825793,
-    "baseline_commit": "d482e8c06d0e7cce7575f5300f30cfc70290153b",
-    "baseline_run": 39761266311
+    "candidate_commit": "2f261b7737060263291938d68e6e063762d16881",
+    "candidate_run": 40132962678,
+    "baseline_commit": "2f261b7737060263291938d68e6e063762d16881",
+    "baseline_run": 40132962712
   }
 }
