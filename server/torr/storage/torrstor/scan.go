@@ -23,7 +23,13 @@ func ScanMetadataPieces(hash flow.InfoHash, pieceLength, totalSize int64, hashes
 	if !useDisk() {
 		return nil
 	}
-	root, err := cachefs.Open(savePath(), false)
+	return ScanMetadataPiecesAt(savePath(), hash, pieceLength, totalSize, hashes, files)
+}
+
+// Preparation roots can differ from ordinary disk-cache settings. Keep their
+// torrent directory inside the selected root during integrity verification too.
+func ScanMetadataPiecesAt(path string, hash flow.InfoHash, pieceLength, totalSize int64, hashes [][20]byte, files []flow.V2File) []byte {
+	root, err := cachefs.Open(path, false)
 	if err != nil {
 		return nil
 	}

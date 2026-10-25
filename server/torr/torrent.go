@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"sync"
@@ -200,7 +199,7 @@ func NewTorrent(spec *TorrentSpec, bt *BTServer) (*Torrent, error) {
 				copy(hashes[i][:], raw[i*20:(i+1)*20])
 			}
 			if plan, ok := torrstor.Global().PreparationPlan(storageHash); ok {
-				havePieces = flow.VerifyMetadataPieces(filepath.Join(plan.Root, storageHash.HexString()), metadata.PieceLength, metadata.TotalSize, hashes, metadata.V2Files)
+				havePieces = torrstor.ScanMetadataPiecesAt(plan.Root, storageHash, metadata.PieceLength, metadata.TotalSize, hashes, metadata.V2Files)
 			} else {
 				havePieces = torrstor.ScanMetadataPieces(storageHash, metadata.PieceLength, metadata.TotalSize, hashes, metadata.V2Files)
 			}

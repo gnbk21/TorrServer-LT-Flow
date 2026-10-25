@@ -37,6 +37,15 @@ func OpenIn(r *os.Root, name string, flags int) (*os.File, error) {
 			return nil, err
 		}
 	}
+	// Reject known FIFOs/devices before opening, since even an attempted read
+	// can block. The descriptor check below still handles replacement races.
+	if st, err := r.Stat(name); err == nil {
+		if !st.Mode().IsRegular() {
+			return nil, errors.New("cache piece must be a regular file")
+		}
+	} else if !os.IsNotExist(err) || flags&os.O_CREATE == 0 {
+		return nil, err
+	}
 	// Inspect the actual descriptor before any caller can truncate a hard link.
 	f, err := r.OpenFile(name, flags&^os.O_TRUNC, 0600)
 	if err != nil {
