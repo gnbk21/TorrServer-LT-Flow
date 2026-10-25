@@ -10,6 +10,7 @@ import (
 	"server/netpolicy"
 	sets "server/settings"
 	"server/torr"
+	linkutils "server/web/api/utils"
 	"strconv"
 	"strings"
 	"time"
@@ -19,7 +20,21 @@ var managementLimiter flow.ManagementLimiter
 var playbackSigner, playbackSignerError = flow.NewCapabilitySigner()
 
 func managementPath(path string) bool {
-	return path != "/echo" && !strings.HasPrefix(path, "/stream") && !strings.HasPrefix(path, "/play/") && !strings.HasPrefix(path, "/flow/play/") && !strings.HasPrefix(path, "/playlist") && !strings.HasPrefix(path, "/assets/") && path != "/" && path != "/favicon.ico"
+	return path != "/echo" && !strings.HasPrefix(path, "/stream") && !strings.HasPrefix(path, "/play/") && !strings.HasPrefix(path, "/flow/play/") && path != "/playlist" && !strings.HasPrefix(path, "/playlist/") && !strings.HasPrefix(path, "/assets/") && path != "/" && path != "/favicon.ico"
+}
+
+func playbackImportsSource(c *gin.Context) bool {
+	path := c.Request.URL.Path
+	if strings.HasPrefix(path, "/stream") || path == "/playlist" || strings.HasPrefix(path, "/playlist/") {
+		if _, save := c.GetQuery("save"); save {
+			return true
+		}
+		return linkutils.TestLink(linkutils.DecodeQueryLink(c.Query("link")), false) != nil
+	}
+	if strings.HasPrefix(path, "/play/") {
+		return linkutils.TestLink(linkutils.DecodeQueryLink(c.Param("hash")), false) != nil
+	}
+	return false
 }
 
 // Install before CORS: even an OPTIONS request must pass an enabled origin
@@ -27,7 +42,7 @@ func managementPath(path string) bool {
 func ManagementPolicy() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		f := sets.CurrentFlow()
-		if !managementPath(c.Request.URL.Path) {
+		if !managementPath(c.Request.URL.Path) && !playbackImportsSource(c) {
 			c.Next()
 			return
 		}

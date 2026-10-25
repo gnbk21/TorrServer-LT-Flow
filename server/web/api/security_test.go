@@ -29,6 +29,10 @@ func TestCompatibleManagementStillRejectsUnapprovedBrowserOrigins(t *testing.T) 
 		{"/shutdown", "", "cross-site", 403},
 		{"/shutdown", "", "same-site", 403},
 		{"/stream", "https://player.example", "cross-site", 204},
+		{"/stream?link=http%3A%2F%2F127.0.0.1%2Finternal", "https://evil.example", "cross-site", 403},
+		{"/stream?link=file%3A%2F%2F%2Fprivate.torrent", "https://evil.example", "cross-site", 403},
+		{"/stream?link=magnet%3A%3Fxt%3Durn%3Abtih%3Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "https://player.example", "cross-site", 204},
+		{"/stream?save&link=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "https://evil.example", "cross-site", 403},
 	} {
 		request := httptest.NewRequest("GET", "http://127.0.0.1:8090"+tc.path, nil)
 		request.Header.Set("Origin", tc.origin)

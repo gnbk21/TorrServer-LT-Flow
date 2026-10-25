@@ -11,7 +11,9 @@ That review describes the unmodified 1.1.6 source, not the protections added her
   be a literal IP, localhost, the computer's local name, or an explicitly approved
   origin host; this blocks an arbitrary DNS name rebinding to a LAN listener.
 - Native clients without browser headers retain their HTTP authentication path.
-  Playback/capability endpoints retain their existing access policy. When HTTP
+  Ordinary identity-based playback/capability endpoints retain their access
+  policy; importing a URL/local source or saving through a playback endpoint
+  requires management-origin permission too. When HTTP
   authentication is enabled, a missing/unreadable/malformed accounts file now
   installs an empty, denying credential set instead of bypassing the playback
   source gate. Credential comparisons use constant-time comparison.
