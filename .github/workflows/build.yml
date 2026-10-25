@@ -813,6 +813,8 @@ jobs:
       - name: Verify scoped updater state with PowerShell 5.1 and 7
         run: |
           ./build/test-update-state.ps1
+          ./build/test-executable-swap.ps1
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File build/test-executable-swap.ps1
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File build/test-update-state.ps1
       - name: Build read-only SCM policy probe
         working-directory: server

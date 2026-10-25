@@ -50,6 +50,9 @@ def failure_evidence(server, info_hash):
             data = server.json(path, timeout=2)
             result[name] = ({key: data[key] for key in keys if key in data}
                             if keys is not None else data.get('startup'))
+            if name == 'startup':
+                result['trackers'] = data.get('trackers')
+                result['stream_control'] = (data.get('sparse') or {}).get('stream')
         except Exception as error:
             result[name+'_unavailable'] = type(error).__name__
     return result
@@ -271,7 +274,19 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                 stage = 'preload'
                 started = time.monotonic()
                 path = '/stream/generated?'+urlencode({'link': info_hash, 'index': index, 'preload': '', 'stat': ''})
-                server.json(path, timeout=90)
+                # Capture native policy and tracker evidence during bootstrap,
+                # including attempts which never reach the playback phase.
+                report['preload_samples'] = []
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    pending_preload = pool.submit(server.json, path, timeout=90)
+                    while not pending_preload.done():
+                        status = server.json('/flow/status/'+info_hash, timeout=5)
+                        report['preload_samples'].append({
+                            'elapsed_s': time.monotonic()-started,
+                            'stream_control': (status.get('sparse') or {}).get('stream'),
+                            'trackers': status.get('trackers')})
+                        time.sleep(1)
+                    pending_preload.result()
                 deadline = started+90
                 while True:
                     status = server.json('/torrents', {'action': 'get', 'hash': info_hash})

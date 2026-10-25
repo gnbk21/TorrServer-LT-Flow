@@ -105,8 +105,8 @@ try {
     }
     Set-Acl -LiteralPath $backup -AclObject $acl
     Save-FlowStateSnapshot ([string]$record.state_directory) $backup
-    Move-Item -LiteralPath $exe -Destination $previous
-    try { Move-Item -LiteralPath $temporary -Destination $exe } catch { Move-Item -LiteralPath $previous -Destination $exe; throw }
+    Move-FlowExecutable -LiteralPath $exe -Destination $previous
+    try { Move-FlowExecutable -LiteralPath $temporary -Destination $exe } catch { Move-FlowExecutable -LiteralPath $previous -Destination $exe; throw }
     $swapped = $true
     Start-InstalledFlow
     Wait-FlowHealth $manifest.Version
@@ -125,8 +125,8 @@ try {
             foreach ($process in $new) { if (-not $process.WaitForExit(30000)) { throw 'Rollback blocked: updated server is still running. Previous executable retained.' } }
         }
         $failed = Join-Path $install ('failed-' + [guid]::NewGuid().ToString('N') + '.exe')
-        Move-Item -LiteralPath $exe -Destination $failed
-        Move-Item -LiteralPath $previous -Destination $exe
+        Move-FlowExecutable -LiteralPath $exe -Destination $failed
+        Move-FlowExecutable -LiteralPath $previous -Destination $exe
         # Undo migrations of files captured after the old server closed cleanly.
         Restore-FlowStateSnapshot ([string]$record.state_directory) $backup
         Start-InstalledFlow

@@ -1,5 +1,5 @@
 diff --git a/include/libtorrent/aux_/flow_stream_policy.hpp b/include/libtorrent/aux_/flow_stream_policy.hpp
-index 4fe154e..e711bf4 100644
+index 4fe154e..526589c 100644
 --- a/include/libtorrent/aux_/flow_stream_policy.hpp
 +++ b/include/libtorrent/aux_/flow_stream_policy.hpp
 @@ -1,7 +1,7 @@
@@ -11,7 +11,7 @@ index 4fe154e..e711bf4 100644
  #include <algorithm>
  #include <array>
  #include <atomic>
-@@ -69,8 +69,18 @@ struct flow_service_model {
+@@ -69,8 +69,26 @@ struct flow_service_model {
  	bool fresh(std::int64_t now) const {
  		return fresh_samples>=8 && last_ms>=0 && now>=last_ms && now-last_ms<=10000;
  	}
@@ -25,13 +25,21 @@ index 4fe154e..e711bf4 100644
 +	std::int64_t urgent_horizon_ms(bool enabled, std::int64_t now) const {
 +		return enabled && fresh(now) ? std::max<std::int64_t>(2000,horizon_ms()) : 2000;
 +	}
++	bool urgent_work_allowed(std::int64_t queue_ms, int queued, int desired,
++		bool enabled, std::int64_t now) const {
++		// An underfilled pipeline underestimates the peer's bandwidth. Permit
++		// its bounded, measured credit to grow before applying the drain-time
++		// cutoff; otherwise a high-latency peer can remain stuck at two blocks.
++		return queue_ms <= urgent_horizon_ms(enabled,now)
++			|| (enabled && fresh(now) && queued < desired);
++	}
  	std::int64_t late_after_ms() const {
 -		return std::clamp<std::int64_t>(mean_ms+std::max<std::int64_t>(100,4*deviation_ms),250,3000);
 +		return std::clamp<std::int64_t>(mean_ms+std::max<std::int64_t>(100,4*deviation_ms),250,15000);
  	}
  	int credit(int current, int rate, int block, int remote, int local, std::int64_t now) {
  		int const cap=std::max(1,std::min(remote,local));
-@@ -78,7 +88,7 @@ struct flow_service_model {
+@@ -78,11 +96,13 @@ struct flow_service_model {
  		if (!fresh(now) || rate<=0 || block<=0) return current;
  		if (adjusted_ms>=0 && now>=adjusted_ms && now-adjusted_ms<500) return current;
  		adjusted_ms=now;
@@ -40,7 +48,14 @@ index 4fe154e..e711bf4 100644
  		auto const wanted=std::clamp<std::int64_t>(
  			std::int64_t(rate)*horizon/1000/block+2,1,cap);
  		int const deadband=std::max(2,current/8);
-@@ -92,6 +102,23 @@ private:
+-		if (wanted-current<=deadband && current-wanted<=deadband) return current;
++		// Small upward probes must survive: observed rate is limited by our own
++		// current window. Keep shrink hysteresis and the paced growth bound.
++		if (wanted<=current && current-wanted<=deadband) return current;
+ 		int const step=std::max(2,current/4);
+ 		int const next=int(std::clamp<std::int64_t>(wanted,std::max(1,current-step),std::min(cap,current+step)));
+ 		if (next!=current) ++budget_changes;
+@@ -92,6 +112,23 @@ private:
  	int fresh_samples=0;
  };
  
@@ -64,7 +79,7 @@ index 4fe154e..e711bf4 100644
  // Both concurrent occupancy and issued-per-second credit are bounded. Shared
  // ownership follows pending_block copies through sends, cancels and teardown.
  struct flow_hedge_budget {
-@@ -135,6 +162,8 @@ struct flow_stream_observations {
+@@ -135,6 +172,8 @@ struct flow_stream_observations {
  	std::int64_t created_ms,first_dial_ms=-1,first_connect_ms=-1,first_handshake_ms=-1,first_payload_ms=-1;
  	std::int64_t connect_duration_ms=-1,handshake_duration_ms=-1;
  	std::array<flow_histogram,6> service{};
@@ -74,10 +89,10 @@ index 4fe154e..e711bf4 100644
  	void milestone(std::int64_t& field,std::int64_t now) {
  		if(field<0 && now>=created_ms) field=now-created_ms;
 diff --git a/simulation/test_peer_connection.cpp b/simulation/test_peer_connection.cpp
-index 35d376c..78b3374 100644
+index 35d376c..b8e0702 100644
 --- a/simulation/test_peer_connection.cpp
 +++ b/simulation/test_peer_connection.cpp
-@@ -670,3 +670,48 @@ TORRENT_TEST(flow_stream_policy_clock_hysteresis_and_lifecycle)
+@@ -670,3 +670,66 @@ TORRENT_TEST(flow_stream_policy_clock_hysteresis_and_lifecycle)
  	TEST_EQUAL(session->active.load(),0);
  	TEST_EQUAL(session->bytes.load(),0);
  }
@@ -126,17 +141,34 @@ index 35d376c..78b3374 100644
 +	TEST_CHECK(flow_recovery_check(false,true,1,5000,2000,true)==result::receiving);
 +	TEST_CHECK(flow_recovery_check(false,true,1,-1,2000,false)==result::uncertain_request);
 +}
++
++// A measured high-latency peer must escape the stock two-block startup
++// equilibrium without bypassing remote/local capacity or stale-model fallback.
++TORRENT_TEST(flow_high_latency_pipeline_bootstrap)
++{
++    libtorrent::aux::flow_service_model model;
++    for (int i=0;i<16;++i) model.observe(2500,3000+i*10);
++    TEST_CHECK(model.fresh(3200));
++    int credit=model.credit(2,12000,16384,512,512,3200);
++    TEST_EQUAL(credit,4);
++    TEST_EQUAL(model.credit(16,95000,16384,512,512,3800),17);
++    TEST_CHECK(model.urgent_work_allowed(4000,2,credit,true,3200));
++    TEST_CHECK(!model.urgent_work_allowed(4000,credit,credit,true,3200));
++    TEST_CHECK(!model.urgent_work_allowed(4000,2,credit,false,3200));
++    TEST_CHECK(!model.urgent_work_allowed(4000,2,credit,true,20000));
++    TEST_CHECK(!model.urgent_work_allowed(4000,2,credit,true,0));
++    TEST_EQUAL(model.credit(2,12000,16384,1,512,3800),1);
++}
 diff --git a/src/torrent.cpp b/src/torrent.cpp
-index ca967ac..5d75173 100644
+index ca967ac..8cf40f2 100644
 --- a/src/torrent.cpp
 +++ b/src/torrent.cpp
-@@ -11389,11 +11389,16 @@ namespace {
+@@ -11389,11 +11389,15 @@ namespace {
  		time_point const now = aux::time_now();
  
  		// loop until every block has been requested from this piece (i->piece)
 +		bool const adaptive=torrent.settings().get_bool(settings_pack::flow_adaptive_peer_requests);
-+		// Service samples use the precise clock. The cached 100-ms clock above
-+		// can precede the latest payload and falsely mark fresh evidence invalid.
++		// Match the precise clock used by service observations.
 +		auto const now_ms=total_milliseconds(clock_type::now().time_since_epoch());
  		do
  		{
@@ -150,19 +182,22 @@ index ca967ac..5d75173 100644
  			{
  #if TORRENT_DEBUG_STREAMING > 1
  				std::printf("queue time: %d ms, done\n"
-@@ -11404,7 +11409,10 @@ namespace {
+@@ -11404,7 +11408,13 @@ namespace {
  
  			// pick the peer with the lowest download_queue_time that has i->piece
  			auto p = std::find_if(peers.begin(), peers.end()
 -				, std::bind(&peer_connection::has_piece, _1, i->piece));
 +				, [&] (peer_connection const* peer) {
 +					return peer->has_piece(i->piece) && (!adaptive
-+						|| peer->download_queue_time() <= milliseconds(peer->flow_service.urgent_horizon_ms(true,now_ms)));
++						|| peer->flow_service.urgent_work_allowed(
++						total_milliseconds(peer->download_queue_time()),
++						int(peer->download_queue().size()+peer->request_queue().size()),
++						peer->desired_queue_size(),true,now_ms));
 +				});
  
  			// obviously we'll have to skip it if we don't have a peer that has
  			// this piece
-@@ -11582,11 +11590,11 @@ namespace {
+@@ -11582,11 +11592,11 @@ namespace {
  			&& now-m_flow_scanned_at<milliseconds(100)) return;
  		m_flow_scanned_at=now; m_flow_late_blocks.clear(); m_flow_qualified.fill(false);
  		m_flow_scan_truncated=false;
@@ -176,7 +211,7 @@ index ca967ac..5d75173 100644
  		int inspected=0;
  		auto const now_ms=total_milliseconds(now.time_since_epoch());
  		for(auto* peer:m_connections) {
-@@ -11596,25 +11604,29 @@ namespace {
+@@ -11596,25 +11606,29 @@ namespace {
  				auto const found=std::find(m_flow_frontiers.begin(),m_flow_frontiers.end(),int(request.block.piece_index));
  				if(found==m_flow_frontiers.end()) continue;
  				auto const index=std::size_t(found-m_flow_frontiers.begin());
@@ -219,7 +254,7 @@ index ca967ac..5d75173 100644
  	}
  
  	bool torrent::flow_recovery_ready(piece_index_t const piece) const
-@@ -11810,9 +11822,13 @@ namespace {
+@@ -11810,9 +11824,16 @@ namespace {
  					{ return lhs->download_queue_time(16*1024) < rhs->download_queue_time(16*1024); });
  			}
  
@@ -231,7 +266,10 @@ index ca967ac..5d75173 100644
 +			bool const adaptive=settings().get_bool(settings_pack::flow_adaptive_peer_requests);
 +			auto const now_ms=total_milliseconds(now.time_since_epoch());
 +			if (adaptive ? std::none_of(peers.begin(),peers.end(),[&] (peer_connection const* peer) {
-+					return peer->download_queue_time() <= milliseconds(peer->flow_service.urgent_horizon_ms(true,now_ms));
++					return peer->flow_service.urgent_work_allowed(
++						total_milliseconds(peer->download_queue_time()),
++						int(peer->download_queue().size()+peer->request_queue().size()),
++						peer->desired_queue_size(),true,now_ms);
 +				}) : (!peers.empty() && peers[0]->download_queue_time() > milliseconds(2000)))
  				break;
  		}
