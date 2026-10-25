@@ -155,10 +155,16 @@ def run(executable, output):
         apply(server, configuration)
         expect_status(server, '/settings', 403, {'action': 'get'}, {'Origin': 'https://foreign.example'})
         expect_status(server, '/settings', 200, {'action': 'get'}, {'Origin': 'https://controller.example'})
-        limited = OwnedServer(executable, output/'rate-policy', auth=True,
-                              extra_settings={'Flow': {'ManagementRateLimit': 2}})
+        limited = OwnedServer(executable, output/'rate-policy', auth=True)
         try:
-            limited.ready() # first management request consumes one token
+            limited.ready()
+            # Readiness polling may consume several management requests before
+            # the engine is ready. Enable the limit afterwards so the asserted
+            # burst is deterministic without weakening production enforcement.
+            rate_config = state(limited)['saved']
+            rate_config['Flow']['ManagementRateLimit'] = 2
+            apply(limited, rate_config)
+            expect_status(limited, '/settings', 200, {'action': 'get'})
             expect_status(limited, '/settings', 200, {'action': 'get'})
             expect_status(limited, '/settings', 429, {'action': 'get'})
         finally:

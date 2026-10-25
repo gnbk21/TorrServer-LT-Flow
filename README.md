@@ -153,9 +153,11 @@ the preload target.
 
 With **Adaptive peer requests** enabled, fresh per-peer service measurements
 select a request horizon of 250–6000 ms, with paced changes and local/remote
-request-capacity limits. Urgent scheduling retains its normal two-second allowance
-and can extend it to six seconds for a qualified slower peer; stale measurements
-restore the normal allowance. **Frontier recovery** evaluates late blocks separately,
+request-capacity limits. Urgent scheduling uses a two-to-six-second measured
+allowance. Stable long-delay peers can take bounded growth probes, and an
+underfilled queue can use its calculated request credit even when its estimated
+drain time is higher. Stale measurements restore the normal allowance.
+**Frontier recovery** evaluates late blocks separately,
 so one request with uncertain timing does not exclude the entire piece. Existing
 duplicate-request budgets and cancellation safeguards remain in force. The
 diagnostics show aggregate request budgets and recovery exclusion reasons without
