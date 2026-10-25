@@ -77,11 +77,19 @@ func reserveMargin(supply DeliveryEvidence, demand float64, horizon int) float64
 // PlanStartupReserve retains the normal fast-start floor for healthy/unknown
 // supply. A measured deficit projects only the next bounded interval, never the
 // entire remaining movie. Existing user, file, cache and wait limits still win.
-func PlanStartupReserve(base, maximum int64, demand float64, horizon int, supply DeliveryEvidence) ReservePlan {
+func PlanStartupReserve(base, maximum, pieceLength int64, demand float64, horizon int, supply DeliveryEvidence) ReservePlan {
 	base = max(0, base)
 	maximum = max(base, maximum)
 	p := ReservePlan{Reason: "UNKNOWN", BaseBytes: base, TargetBytes: base, MaximumBytes: maximum}
-	if !finitePositive(demand) || !qualifiedSupply(supply) {
+	if pieceLength <= 0 || !finitePositive(demand) || !qualifiedSupply(supply) {
+		return p
+	}
+	// Verified bytes arrive in whole-piece bursts. Observe at least two expected
+	// piece intervals before interpreting silence as a supply deficit. Otherwise
+	// an ordinary large piece can inflate a healthy stream's startup gate after
+	// only three empty one-second samples. Very slow/coarse evidence stays unknown.
+	minimumSamples := max(3, int(math.Min(60, math.Ceil(2*float64(pieceLength)/demand))))
+	if supply.Samples < minimumSamples {
 		return p
 	}
 	p.Known = true

@@ -687,7 +687,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 					startupSupply.ObserveDemand(now, mode, estimate.BytesPerSecond)
 					startupSupply.AddVerified(newHeadBytes, now)
 					maximum := maxHeadBytes
-					plan := flow.PlanStartupReserve(min(target, maximum), maximum, estimate.BytesPerSecond,
+					plan := flow.PlanStartupReserve(min(target, maximum), maximum, plen, estimate.BytesPerSecond,
 						flowSettings.TargetBufferSeconds, startupSupply.Snapshot(now))
 					target = plan.TargetBytes
 					t.recordStartupReserve(plan, done < gateCount)

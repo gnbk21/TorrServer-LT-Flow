@@ -35,7 +35,7 @@ func TestExportFrontendContracts(t *testing.T) {
 	stream.RecoveryScan = &flow.RecoveryScan{AgeMs: 100, Eligible: 1, UncertainRequest: 1}
 	supply := flow.DeliveryEvidence{Mode: "DEMAND", Confidence: "high", Samples: 20,
 		AgeMs: 100, LongRate: 2e6, DeficitBytes: 1e6, DeficitSamples: 20}
-	reserve := flow.PlanStartupReserve(32<<20, 128<<20, 3e6, 45, supply)
+	reserve := flow.PlanStartupReserve(32<<20, 128<<20, 16<<20, 3e6, 45, supply)
 	cases := []struct {
 		Kind    string `json:"kind"`
 		Payload any    `json:"payload"`

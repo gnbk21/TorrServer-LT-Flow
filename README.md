@@ -147,6 +147,9 @@ They describe the server's read position, not the player's internal buffer.
 Measured deficits increase Adaptive's reserve within the existing startup,
 read-ahead, cache and wait limits; healthy or unknown supply keeps the normal
 startup floor. A reserve reaching its limit is reported explicitly.
+Startup supply qualification accounts for expected piece completion intervals,
+so ordinary verification gaps between large pieces do not immediately inflate
+the preload target.
 
 With **Adaptive peer requests** enabled, fresh per-peer service measurements
 select a request horizon of 250–6000 ms, with paced changes and local/remote
