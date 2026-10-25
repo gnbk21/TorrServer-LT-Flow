@@ -911,6 +911,26 @@
         "PRELOAD": "de la preîncărcare",
         "OPERATION": "durata operației"
       }
+    },
+    "buffering": {
+      "title": "Diagnosticarea memoriei tampon",
+      "unknown": "Nu există încă suficiente măsurători fiabile ale livrării.",
+      "rates": "Date verificate {{delivery}} Mbps · necesar video {{demand}} Mbps · deficit {{deficit}} Mbps",
+      "blocker": "Piesă {{piece}} ({{size}}): {{finished}}/{{blocks}} blocuri primite, {{requested}} solicitate, {{unrequested}} nesolicitate, {{writing}} în scriere.",
+      "blockerAge": "Cea mai veche cerere: {{age}} ms · surse: {{suppliers}}",
+      "verifying": "Blocurile primite sunt încă scrise sau verificate. Piesa nu este încă validată.",
+      "hint": "Aceste observații privesc poziția de citire a serverului, nu tamponul intern al playerului. Un cache mai mare nu corectează singur un deficit persistent de viteză.",
+      "reserve": "Rezervă de pornire: {{base}} → {{target}} MiB · limită {{maximum}} MiB",
+      "limited": "Rezerva a atins limita configurată sau disponibilă a cache-ului. O rezervă mai mare nu garantează redarea fără întreruperi.",
+      "requests": "Cozi ale surselor: {{queued_requests}} în așteptare, țintă {{desired_requests}}, capacitate {{capacity_requests}} · {{qualified_peers}}/{{sampled_peers}} surse măsurate · {{capacity_limited_peers}} la capacitate.",
+      "horizons": "Orizonturi măsurate ale cererilor: {{horizon_min_ms}}–{{horizon_max_ms}} ms",
+      "recovery": "Ultima analiză de recuperare: {{eligible}} eligibile; excluse: {{uncertain_request}} timp incert, {{stale_service}} măsurători vechi, {{already_duplicated}} proprietari multipli/absenți, {{not_late}} fără întârziere, {{receiving}} în primire.",
+      "states": {
+        "SUPPLY_DEFICIT": "Viteza măsurată este sub necesarul video. Un tampon finit poate doar amâna epuizarea.",
+        "SUFFICIENT_SUPPLY": "Viteza medie recentă acoperă necesarul video.",
+        "RECENT_GAPS": "Au existat întreruperi recente, deși viteza medie este suficientă.",
+        "UNKNOWN": "Nu există încă suficiente măsurători fiabile ale livrării."
+      }
     }
   },
   "search": {

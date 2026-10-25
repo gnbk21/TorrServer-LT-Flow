@@ -5,11 +5,25 @@ export function StartupEvidence({ startup }: { startup: FlowStartup }) {
   const { t } = useTranslation();
   const progress = startup.progress;
   const recovery = startup.metadata_recovery;
-  if (!progress && !recovery && !startup.phases?.length) return null;
+  if (!progress && !recovery && !startup.phases?.length && !startup.reserve)
+    return null;
   const mib = (bytes: number) => (bytes / 1048576).toFixed(1);
   return (
     <section className="panel space-y-2">
       <h3 className="font-semibold">{t("flow.startupEvidenceTitle")}</h3>
+      {startup.reserve?.known && (
+        <div className="space-y-1 text-sm">
+          <p>
+            {t("flow.buffering.reserve", {
+              base: mib(startup.reserve.base_bytes),
+              target: mib(startup.reserve.target_bytes),
+              maximum: mib(startup.reserve.maximum_bytes),
+            })}
+          </p>
+          <p>{t(`flow.buffering.states.${startup.reserve.reason}`)}</p>
+          {startup.reserve.limited && <p>{t("flow.buffering.limited")}</p>}
+        </div>
+      )}
       {!!startup.phases?.length && (
         <details className="text-sm space-y-2">
           <summary>{t("flow.stream.timings")}</summary>

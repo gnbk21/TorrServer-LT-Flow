@@ -22,6 +22,8 @@ CASES = {
     "small-queue": ("healthy", 32, 250, 1),
     "mixed-peers": ("mixed-peers", 64, 150, 4),
     "outages": ("outages", 64, 100, 4),
+    "high-latency": ("healthy", 512, 2500, 4),
+    "large-pieces": ("stragglers", 128, 150, 16),
 }
 
 
@@ -57,7 +59,8 @@ def check(args):
     # Exercise the new policies at high bitrate as well as under constrained
     # small-queue/latency fixtures. The latter deliberately use lower demand
     # so insufficient fixture supply cannot masquerade as a policy regression.
-    rate = 12*MIB if args.case == "healthy" else MIB if latency else 4*MIB
+    rate = (2*MIB if args.case in ("high-latency", "large-pieces")
+            else 12*MIB if args.case == "healthy" else MIB if latency else 4*MIB)
     with LocalSwarm([fixture], peers=[PeerPlan(rate=2*rate)],
                     piece_length=piece*MIB, high_throughput=True) as swarm:
         supply = calibrate(swarm)

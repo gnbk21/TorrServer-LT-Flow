@@ -510,11 +510,10 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	var probeStartedAt time.Time
 	probeResultChecked := false
 	maxHeadLast := headLast
+	maxHeadBytes := headBytes
 	if flowEnabled {
-		maxHeadBytes := int64(flowSettings.StartupBufferMaxMB) << 20
-		if maxHeadBytes > f.Length {
-			maxHeadBytes = f.Length
-		}
+		maxHeadBytes = min(f.Length, int64(flowSettings.StartupBufferMaxMB)<<20,
+			max(headBytes, cache.PreloadHeadBudget()))
 		maxHeadLast = clamp(int((f.Offset + maxHeadBytes - 1) / plen))
 	}
 	tick := time.NewTicker(200 * time.Millisecond)
@@ -671,7 +670,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 		// Stage B starts with a bounded provisional floor. A probe may raise
 		// the target while the same fill is running; already resident head pieces
 		// remain counted. No probe result is required to complete the gate.
-		if flowEnabled && probed && headLast < maxHeadLast {
+		if flowEnabled && probed {
 			t.mu.Lock()
 			bitrate, duration, probeFile := t.BitRate, t.DurationSeconds, t.ProbeFileID
 			t.mu.Unlock()
@@ -687,7 +686,15 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 					}
 					startupSupply.ObserveDemand(now, mode, estimate.BytesPerSecond)
 					startupSupply.AddVerified(newHeadBytes, now)
-					target = flow.DeficitStartupTarget(target, int64(flowSettings.StartupBufferMaxMB)<<20, startupSupply.Snapshot(now))
+					maximum := maxHeadBytes
+					plan := flow.PlanStartupReserve(min(target, maximum), maximum, estimate.BytesPerSecond,
+						flowSettings.TargetBufferSeconds, startupSupply.Snapshot(now))
+					target = plan.TargetBytes
+					t.mu.Lock()
+					if done < gateCount || t.flowStartup.Reserve == nil || !t.flowStartup.Reserve.Known {
+						t.flowStartup.Reserve = &plan
+					}
+					t.mu.Unlock()
 				}
 				newLast := clamp(int((f.Offset + min(target, f.Length) - 1) / plen))
 				if newLast > maxHeadLast {

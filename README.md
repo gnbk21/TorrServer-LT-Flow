@@ -139,6 +139,24 @@ All of this works without a paid provider or account. See the [sparse streaming
 guide](docs/development/SPARSE_STREAMING.md) for settings, storage, privacy, endpoints and verification
 limits, and the [implementation ledger](docs/history/SPARSE_IMPLEMENTATION.md) for evidence.
 
+### Buffering diagnostics and bounded recovery
+
+Detailed diagnostics distinguish verified delivery from media demand and show
+the current blocking piece, requested/missing blocks, and verification waits.
+They describe the server's read position, not the player's internal buffer.
+Measured deficits increase Adaptive's reserve within the existing startup,
+read-ahead, cache and wait limits; healthy or unknown supply keeps the normal
+startup floor. A reserve reaching its limit is reported explicitly.
+
+With **Adaptive peer requests** enabled, fresh per-peer service measurements
+select a request horizon of 250–6000 ms, with paced changes and local/remote
+request-capacity limits. **Frontier recovery** evaluates late blocks separately,
+so one request with uncertain timing does not exclude the entire piece. Existing
+duplicate-request budgets and cancellation safeguards remain in force. The
+diagnostics show aggregate request budgets and recovery exclusion reasons without
+peer identities. These controls remain opt-in; no profile is automatically
+selected, and a sustained supply deficit can still exhaust any finite buffer.
+
 ## Swarm profiles
 
 Select a profile in **Settings → Flow → Swarm profile**. `connection_speed` is outgoing connection attempts per second; `torrent_connect_boost` is the number of peers tried when a torrent is added. These are tuning choices, not measured speed rankings.

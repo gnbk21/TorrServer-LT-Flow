@@ -49,6 +49,36 @@ export const settingsSchema = z
   .passthrough();
 export const flowSessionSchema = z
   .object({
+    supply: z
+      .object({
+        known: z.boolean(),
+        state: z.string(),
+        demand_rate: z.number().nonnegative(),
+        delivery_rate: z.number().nonnegative(),
+        deficit_rate: z.number().nonnegative(),
+        runway_seconds: z.number().nonnegative().optional(),
+      })
+      .optional(),
+    blocker: z
+      .object({
+        known: z.boolean(),
+        piece: z.number().int().nonnegative(),
+        piece_length: z.number().int().nonnegative(),
+        blocks: z.number().int().min(0).max(8192),
+        unrequested: z.number().int().min(0).max(8192),
+        requested: z.number().int().min(0).max(8192),
+        writing: z.number().int().min(0).max(8192),
+        finished: z.number().int().min(0).max(8192),
+        oldest_request_age_ms: z.number().int().min(-1),
+        suppliers: z.number().int().min(0).max(512).optional(),
+        reason: z.string(),
+      })
+      .refine(
+        (p) =>
+          !p.known ||
+          p.blocks === p.unrequested + p.requested + p.writing + p.finished,
+      )
+      .optional(),
     buffer_sample_age_ms: z.number().nonnegative().optional(),
     buffer_sampled_at_ms: z.number().int().nonnegative().optional(),
     buffer_offset_bytes: z.number().int().nonnegative().optional(),
@@ -236,6 +266,61 @@ export const flowSchema = z
       .object({
         stream: z
           .object({
+            request_policy: z
+              .object({
+                enabled: z.boolean(),
+                sampled_peers: z.number().int().min(0).max(512),
+                qualified_peers: z.number().int().min(0).max(512),
+                capacity_limited_peers: z.number().int().min(0).max(512),
+                desired_requests: z
+                  .number()
+                  .int()
+                  .min(0)
+                  .max(512 * 65535),
+                queued_requests: z
+                  .number()
+                  .int()
+                  .min(0)
+                  .max(512 * 65535 * 2),
+                capacity_requests: z
+                  .number()
+                  .int()
+                  .min(0)
+                  .max(512 * 65535),
+                horizon_min_ms: z.number().int().min(0).max(6000),
+                horizon_max_ms: z.number().int().min(0).max(6000),
+                truncated: z.boolean(),
+              })
+              .refine(
+                (p) =>
+                  p.qualified_peers <= p.sampled_peers &&
+                  p.capacity_limited_peers <= p.sampled_peers &&
+                  p.desired_requests <= p.capacity_requests &&
+                  p.horizon_min_ms <= p.horizon_max_ms &&
+                  (p.qualified_peers > 0 || p.horizon_max_ms === 0),
+              )
+              .optional(),
+            recovery_scan: z
+              .object({
+                age_ms: z.number().int().min(-1),
+                eligible: z.number().int().min(0).max(8192),
+                uncertain_request: z.number().int().min(0).max(8192),
+                stale_service: z.number().int().min(0).max(8192),
+                already_duplicated: z.number().int().min(0).max(8192),
+                not_late: z.number().int().min(0).max(8192),
+                receiving: z.number().int().min(0).max(8192),
+              })
+              .refine(
+                (p) =>
+                  p.eligible +
+                    p.uncertain_request +
+                    p.stale_service +
+                    p.already_duplicated +
+                    p.not_late +
+                    p.receiving <=
+                  8192,
+              )
+              .optional(),
             known: z.boolean(),
             first_dial_ms: z.number().int().min(-1),
             first_connect_ms: z.number().int().min(-1),
@@ -350,6 +435,26 @@ export const flowSchema = z
     sessions: z.array(flowSessionSchema).nullable().optional(),
     startup: z
       .object({
+        reserve: z
+          .object({
+            known: z.boolean(),
+            reason: z.string(),
+            base_bytes: z.number().int().nonnegative(),
+            target_bytes: z.number().int().nonnegative(),
+            maximum_bytes: z.number().int().nonnegative(),
+            limited: z.boolean(),
+            demand_rate: z.number().nonnegative(),
+            delivery_rate: z.number().nonnegative(),
+            deficit_rate: z.number().nonnegative(),
+            forecast_seconds: z.number().int().min(0).max(60),
+            additional_fill_seconds: z.number().nonnegative().optional(),
+          })
+          .refine(
+            (p) =>
+              p.base_bytes <= p.target_bytes &&
+              p.target_bytes <= p.maximum_bytes,
+          )
+          .optional(),
         state: z.string(),
         file_index: z.number(),
         phases: z

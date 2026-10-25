@@ -1,0 +1,176 @@
+diff --git a/include/libtorrent/aux_/flow_stream_policy.hpp b/include/libtorrent/aux_/flow_stream_policy.hpp
+index 4fe154e..43800c3 100644
+--- a/include/libtorrent/aux_/flow_stream_policy.hpp
++++ b/include/libtorrent/aux_/flow_stream_policy.hpp
+@@ -1,7 +1,7 @@
+ // Flow's bounded service model and duplicate-credit ownership.
+ // All policy clocks are monotonic milliseconds supplied by the network executor.
+ #pragma once
+-#define TORRENT_FLOW_STREAM_CONTROL 1
++#define TORRENT_FLOW_STREAM_CONTROL 2
+ #include <algorithm>
+ #include <array>
+ #include <atomic>
+@@ -69,8 +69,13 @@ struct flow_service_model {
+ 	bool fresh(std::int64_t now) const {
+ 		return fresh_samples>=8 && last_ms>=0 && now>=last_ms && now-last_ms<=10000;
+ 	}
++	// Service time includes remote queueing, not just transport RTT. Grow only
++	// from fresh observations; keep a finite horizon and the peer's reqq cap.
++	std::int64_t horizon_ms() const {
++		return std::clamp<std::int64_t>(mean_ms+2*deviation_ms+100,250,6000);
++	}
+ 	std::int64_t late_after_ms() const {
+-		return std::clamp<std::int64_t>(mean_ms+std::max<std::int64_t>(100,4*deviation_ms),250,3000);
++		return std::clamp<std::int64_t>(mean_ms+std::max<std::int64_t>(100,4*deviation_ms),250,15000);
+ 	}
+ 	int credit(int current, int rate, int block, int remote, int local, std::int64_t now) {
+ 		int const cap=std::max(1,std::min(remote,local));
+@@ -78,7 +83,7 @@ struct flow_service_model {
+ 		if (!fresh(now) || rate<=0 || block<=0) return current;
+ 		if (adjusted_ms>=0 && now>=adjusted_ms && now-adjusted_ms<500) return current;
+ 		adjusted_ms=now;
+-		auto const horizon=std::clamp<std::int64_t>(mean_ms+2*deviation_ms+100,250,2000);
++		auto const horizon=horizon_ms();
+ 		auto const wanted=std::clamp<std::int64_t>(
+ 			std::int64_t(rate)*horizon/1000/block+2,1,cap);
+ 		int const deadband=std::max(2,current/8);
+@@ -92,6 +97,23 @@ private:
+ 	int fresh_samples=0;
+ };
+ 
++// A request with uncertain timing is excluded on its own. It must not veto
++// independent, measured requests for other blocks in the same large piece.
++enum class flow_recovery_result : int {
++	eligible, uncertain_request, stale_service, already_duplicated, not_late,
++	receiving, count
++};
++inline flow_recovery_result flow_recovery_check(bool uncertain, bool fresh,
++	int owners, std::int64_t age, std::int64_t threshold, bool receiving)
++{
++	if (uncertain || age < 0) return flow_recovery_result::uncertain_request;
++	if (!fresh) return flow_recovery_result::stale_service;
++	if (owners != 1) return flow_recovery_result::already_duplicated;
++	if (age < threshold) return flow_recovery_result::not_late;
++	if (receiving) return flow_recovery_result::receiving;
++	return flow_recovery_result::eligible;
++}
++
+ // Both concurrent occupancy and issued-per-second credit are bounded. Shared
+ // ownership follows pending_block copies through sends, cancels and teardown.
+ struct flow_hedge_budget {
+@@ -135,6 +157,8 @@ struct flow_stream_observations {
+ 	std::int64_t created_ms,first_dial_ms=-1,first_connect_ms=-1,first_handshake_ms=-1,first_payload_ms=-1;
+ 	std::int64_t connect_duration_ms=-1,handshake_duration_ms=-1;
+ 	std::array<flow_histogram,6> service{};
++	std::array<std::uint32_t, int(flow_recovery_result::count)> recovery_scan{};
++	std::int64_t recovery_scan_ms=-1;
+ 	std::uint64_t useful_bytes=0,redundant_bytes=0,obsolete_bytes=0,recovery_requests=0,recovery_suppressed=0,budget_changes=0;
+ 	void milestone(std::int64_t& field,std::int64_t now) {
+ 		if(field<0 && now>=created_ms) field=now-created_ms;
+diff --git a/simulation/test_peer_connection.cpp b/simulation/test_peer_connection.cpp
+index 35d376c..5972252 100644
+--- a/simulation/test_peer_connection.cpp
++++ b/simulation/test_peer_connection.cpp
+@@ -670,3 +670,40 @@ TORRENT_TEST(flow_stream_policy_clock_hysteresis_and_lifecycle)
+ 	TEST_EQUAL(session->active.load(),0);
+ 	TEST_EQUAL(session->bytes.load(),0);
+ }
++
++
++TORRENT_TEST(flow_stream_high_latency_and_request_capacity)
++{
++	using namespace lt::aux;
++	flow_service_model slow, fast;
++	for(int i=0;i<32;++i) {
++		slow.observe(4000,1000+i*100);
++		fast.observe(50,1000+i*100);
++	}
++	TEST_CHECK(slow.horizon_ms()>2000 && slow.horizon_ms()<=6000);
++	TEST_CHECK(slow.late_after_ms()>=4000);
++	TEST_EQUAL(fast.horizon_ms(),250);
++	int credit=128;
++	for(int i=0;i<4;++i) credit=slow.credit(credit,1024*1024,16384,512,1500,4200+i*500);
++	TEST_CHECK(credit>128 && credit<=512);
++	TEST_EQUAL(slow.credit(credit,1024*1024,16384,1,1500,6200),1);
++	TEST_EQUAL(slow.credit(credit,1024*1024,16384,512,32,6200),32);
++	TEST_EQUAL(slow.credit(credit,1024*1024,16384,512,1500,20000),credit);
++	for(int i=0;i<32;++i) slow.observe(299999,30000+i*100);
++	TEST_EQUAL(slow.horizon_ms(),6000);
++	TEST_EQUAL(slow.late_after_ms(),15000);
++}
++
++TORRENT_TEST(flow_stream_recovery_is_independent_per_block)
++{
++	using namespace lt::aux;
++	using result=flow_recovery_result;
++	TEST_CHECK(flow_recovery_check(true,true,1,5000,2000,false)==result::uncertain_request);
++	// Another request in the same frontier remains eligible.
++	TEST_CHECK(flow_recovery_check(false,true,1,5000,2000,false)==result::eligible);
++	TEST_CHECK(flow_recovery_check(false,false,1,5000,2000,false)==result::stale_service);
++	TEST_CHECK(flow_recovery_check(false,true,2,5000,2000,false)==result::already_duplicated);
++	TEST_CHECK(flow_recovery_check(false,true,1,1000,2000,false)==result::not_late);
++	TEST_CHECK(flow_recovery_check(false,true,1,5000,2000,true)==result::receiving);
++	TEST_CHECK(flow_recovery_check(false,true,1,-1,2000,false)==result::uncertain_request);
++}
+diff --git a/src/torrent.cpp b/src/torrent.cpp
+index ca967ac..6ec2e13 100644
+--- a/src/torrent.cpp
++++ b/src/torrent.cpp
+@@ -11582,11 +11582,11 @@ namespace {
+ 			&& now-m_flow_scanned_at<milliseconds(100)) return;
+ 		m_flow_scanned_at=now; m_flow_late_blocks.clear(); m_flow_qualified.fill(false);
+ 		m_flow_scan_truncated=false;
++		flow_stream.recovery_scan.fill(0);
++		flow_stream.recovery_scan_ms=total_milliseconds(now.time_since_epoch());
+ 		if(!settings().get_bool(settings_pack::flow_frontier_recovery)
+ 			|| m_flow_frontiers_at==time_point{} || now<m_flow_frontiers_at
+ 			|| now-m_flow_frontiers_at>seconds(3) || !has_picker()) return;
+-		std::array<bool,8> seen{};
+-		m_flow_qualified.fill(true);
+ 		int inspected=0;
+ 		auto const now_ms=total_milliseconds(now.time_since_epoch());
+ 		for(auto* peer:m_connections) {
+@@ -11596,25 +11596,29 @@ namespace {
+ 				auto const found=std::find(m_flow_frontiers.begin(),m_flow_frontiers.end(),int(request.block.piece_index));
+ 				if(found==m_flow_frontiers.end()) continue;
+ 				auto const index=std::size_t(found-m_flow_frontiers.begin());
+-				seen[index]=true;
+-				if(request.not_wanted || request.timed_out || request.flow_requested_at==time_point{}
+-					|| peer->flow_cancelled.contains(int(request.block.piece_index),request.block.block_index)
+-					|| !peer->flow_service.fresh(now_ms)) { m_flow_qualified[index]=false; continue; }
+-				if(m_picker->num_peers(request.block)!=1) continue;
+-				auto const age=total_milliseconds(now-request.flow_requested_at);
++				bool const uncertain=request.not_wanted || request.timed_out
++					|| request.flow_requested_at==time_point{}
++					|| peer->flow_cancelled.contains(int(request.block.piece_index),request.block.block_index);
++				auto const age=request.flow_requested_at==time_point{} ? -1
++					: total_milliseconds(now-request.flow_requested_at);
+ 				auto const threshold=peer->flow_service.late_after_ms();
+-				if(age<threshold) continue;
+ 				bool const receiving=progress.piece_index==request.block.piece_index
+-					&& progress.block_index==request.block.block_index && progress.bytes_downloaded>0;
+-				if(receiving && (progress.bytes_downloaded>=progress.full_block_bytes*3/4
+-					|| (peer->flow_last_payload!=time_point{} && now>=peer->flow_last_payload
+-						&& now-peer->flow_last_payload<milliseconds(threshold/2)))) continue;
+-				if(m_flow_late_blocks.size()<64) m_flow_late_blocks.push_back(request.block);
++					&& progress.block_index==request.block.block_index && progress.bytes_downloaded>0
++					&& (progress.bytes_downloaded>=progress.full_block_bytes*3/4
++						|| (peer->flow_last_payload!=time_point{} && now>=peer->flow_last_payload
++							&& now-peer->flow_last_payload<milliseconds(threshold/2)));
++				auto const result=flow_recovery_check(uncertain,peer->flow_service.fresh(now_ms),
++					m_picker->num_peers(request.block),age,threshold,receiving);
++				++flow_stream.recovery_scan[int(result)];
++				if(result!=flow_recovery_result::uncertain_request
++					&& result!=flow_recovery_result::stale_service) m_flow_qualified[index]=true;
++				if(result==flow_recovery_result::eligible && m_flow_late_blocks.size()<64)
++					m_flow_late_blocks.push_back(request.block);
+ 			}
+ 			if(m_flow_scan_truncated) break;
+ 		}
+ 		for(std::size_t i=0;i<m_flow_frontiers.size();++i)
+-			m_flow_qualified[i]=seen[i] && m_flow_qualified[i] && !m_flow_scan_truncated;
++			m_flow_qualified[i]=m_flow_qualified[i] && !m_flow_scan_truncated;
+ 	}
+ 
+ 	bool torrent::flow_recovery_ready(piece_index_t const piece) const

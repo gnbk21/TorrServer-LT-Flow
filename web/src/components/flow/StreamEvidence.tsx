@@ -42,6 +42,25 @@ export function StreamEvidence({
               </div>
             ))}
           </dl>
+          {evidence.request_policy?.enabled && (
+            <div className="text-sm space-y-1">
+              <p>{t("flow.buffering.requests", evidence.request_policy)}</p>
+              {evidence.request_policy.qualified_peers > 0 && (
+                <p>{t("flow.buffering.horizons", evidence.request_policy)}</p>
+              )}
+              {evidence.request_policy.truncated && (
+                <p>{t("flow.startupSupplyTruncated")}</p>
+              )}
+            </div>
+          )}
+          {evidence.recovery_scan &&
+            evidence.frontiers > 0 &&
+            evidence.recovery_scan.age_ms >= 0 &&
+            evidence.recovery_scan.age_ms < 3000 && (
+              <p className="text-sm">
+                {t("flow.buffering.recovery", evidence.recovery_scan)}
+              </p>
+            )}
           {evidence.service.length > 0 && (
             <ul className="text-sm space-y-1">
               {evidence.service.map((row) => (

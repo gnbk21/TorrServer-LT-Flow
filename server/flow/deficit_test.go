@@ -18,7 +18,7 @@ func TestCumulativeDeficitWithContinuousSupply(t *testing.T) {
 	if e.DeficitBytes != 37_500_000 || e.DeficitSamples != 10 || e.OutageSeconds != 0 {
 		t.Fatal(e)
 	}
-	if got := DeficitTarget(e, 11_250_000, 45, 180); got != 50 {
+	if got := DeficitTarget(e, 11_250_000, 45, 180); got != 65 {
 		t.Fatal(got)
 	}
 	if got := DeficitStartupTarget(32*MiB, 128*MiB, e); got != 32*MiB+48_750_000 {

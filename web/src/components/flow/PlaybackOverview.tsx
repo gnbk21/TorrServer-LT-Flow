@@ -6,6 +6,7 @@ import { humanizeBytes } from "../../lib/format";
 import { flowApi } from "../../api/flow";
 import { Button } from "../common/Button";
 import { RequestError } from "../common/RequestState";
+import { BufferingEvidence } from "./BufferingEvidence";
 
 export function PlaybackOverview({
   status,
@@ -80,6 +81,7 @@ export function PlaybackOverview({
           </dd>
         </div>
       </dl>
+      <BufferingEvidence session={session} fresh={view.bufferFresh} />
       {status.integrity && (
         <p>
           {t("flow.upgrade.integrity", {
