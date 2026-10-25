@@ -1,8 +1,9 @@
 # Reliability and usability milestone
 
-Development candidate, based on Flow 1.1.5. This work does not replace an
-installed server or authorize a new public release. Engine, media bytes,
-streaming defaults and public metadata-cache consent remain unchanged.
+Included in Flow 1.1.6 through merged PR #9. The original development milestone
+was based on Flow 1.1.5; [release verification](RELEASE_1_1_6_VERIFICATION.md)
+records the tagged publication. Engine, media bytes, streaming defaults and
+public metadata-cache consent remain unchanged.
 
 ## Updates and state
 
@@ -131,8 +132,8 @@ See [RELIABILITY_USABILITY_CHECKLIST.md](RELIABILITY_USABILITY_CHECKLIST.md) for
 completed requirement reconciliation, exact source/CI receipts and field limits.
 Native contracts, storage rollback fault injection, Windows updater recovery,
 browser regressions, controlled network cases and the security boundary review
-passed. The candidate is available in
-[PR #9](https://github.com/gnbk21/TorrServer-LT-Flow/pull/9).
+passed. [PR #9](https://github.com/gnbk21/TorrServer-LT-Flow/pull/9) is merged;
+its implementation is included in Flow 1.1.6.
 
 Optional history/troubleshooting and inactive playback cards are loaded on demand
 so the dashboard retains its existing 200 KiB compressed initial-JavaScript gate.

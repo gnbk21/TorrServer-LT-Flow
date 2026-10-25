@@ -1,12 +1,12 @@
 # Current project status
 
-Updated 24 October 2026. This is the current status; dated audit sections
+Updated 25 October 2026. This is the current status; dated audit sections
 describe the revisions tested at those dates and do not override this table.
 
 | Area | Current state | Remaining gate |
 | --- | --- | --- |
-| Public distribution | Stable **Flow 1.1.5** is public and **Latest** for Windows/Linux/Android, source `04cbb1ae`. All 23 applicable roles, recovery provenance, actual API/UI and PS 5.1/7 install/update passed. [Verification](RELEASE_1_1_5_VERIFICATION.md) | macOS remains on 1.1.4: GitHub ARM runner capacity; broader field/security limits remain |
-| Reliability/usability candidate | [PR #9](https://github.com/gnbk21/TorrServer-LT-Flow/pull/9): scoped update recovery/provenance, transactional storage, partial search, monotonic diagnostics, session history, log rotation and reusable platform recovery. All eight native targets, unit/race/contracts, 107 browser checks, netem, Windows update/service and ten high-bitrate comparison jobs passed. [Reconciliation](RELIABILITY_USABILITY_CHECKLIST.md), [security boundaries](RELIABILITY_USABILITY_SECURITY_REVIEW.md) | Review/merge and release publication are separate. Published 1.1.5 and the owner installation remain unchanged; field limits and existing security findings remain disclosed |
+| Public distribution | Stable **Flow 1.1.6** is public and **Latest** for all eight platforms, source `cd8f1cce`. All 25 required roles, downloaded Windows identity/provenance/UI/config checks and three container architectures passed. [Verification](RELEASE_1_1_6_VERIFICATION.md) | Broader phone/public-swarm, physical recovery and endurance limits; existing security findings remain disclosed |
+| Reliability and compatible streaming controls | [PR #9](https://github.com/gnbk21/TorrServer-LT-Flow/pull/9) is merged and included in 1.1.6: scoped update recovery, transactional storage, partial search, session diagnostics/log rotation, bounded frontier recovery and adaptive peer request credit. Full accepted source comparisons passed; new controls stay off. [Reconciliation](PARALLEL_STREAMING_CHECKLIST.md) | Mixed performance tradeoffs prevent default promotion; broader field acceptance remains separate. Owner installation/configuration are preserved |
 | October upgrade | PR #6 is merged into stable 1.1.4. PR #7 repairs slow CI dependency downloads and parallelizes validation. [Checklist](OCTOBER_UPGRADE_CHECKLIST.md), [pipeline](CI_PIPELINE.md) | Legacy/defaults and opt-in experiments remain unchanged; field checks remain disclosed |
 | Published upgrade | PR #5 merged; corrected poster timeout and mobile settings action-panel defects; exact tagged and downloaded checks passed. Earlier five-repeat profile/transport comparisons remain recorded. Legacy/1024 KiB/PGO-off defaults retained | Eight-hour run interrupted after 965 cycles; physical checks, optional decoder rebuild, shared OS DNS protection and complete profiling attribution remain unverified |
 | Preview 2 integration | [PR #3](https://github.com/gnbk21/TorrServer-LT-Flow/pull/3) is merged into `develop` and included in Flow 1.0. Streaming source `52d0ad20` is retained; `.7` upgrades Go to 1.26.9 and x/net to v0.60.0. The `.6` tag failed fresh vulnerability scanning and published no release; the full corrected `.7` pipeline passed | Broader device/endurance acceptance remains separate |
@@ -30,13 +30,19 @@ describe the revisions tested at those dates and do not override this table.
 
 ## Current stable release
 
-Flow 1.1.5 (`MatriX.145.Flow-v1.1.5`, immutable binary source `04cbb1ae`) is
-public and Latest for Windows, Linux and Android. Mac users should retain 1.1.4:
-GitHub cancelled both Mac attempts before assigning runners. Owner-approved
-subset recovery preserves all applicable gates and the original source tag.
-[Notes](RELEASE_1_1_5_NOTES.md), [verification](RELEASE_1_1_5_VERIFICATION.md),
-[runner diagnosis](MACOS_RUNNER_INCIDENT.md) and
-[free RuTracker/Lampa indexing guide](LAMPA_RUTRACKER.md).
+Flow 1.1.6 (`MatriX.145.Flow-v1.1.6`, immutable binary source `cd8f1cce`) is
+public and Latest for Windows, Linux, Android and both macOS architectures.
+All required tagged gates, package identity/provenance and public container
+checks passed. [Notes](RELEASE_1_1_6_NOTES.md),
+[verification](RELEASE_1_1_6_VERIFICATION.md). Legacy remains the default and
+new streaming experiments remain off; existing owner preferences are preserved.
+
+## Previous stable release: 1.1.5
+
+Flow 1.1.5 remains available for Windows, Linux and Android. Its owner-approved
+Mac omission and runner incident are historical; both Mac architectures are
+included in 1.1.6. [Notes](RELEASE_1_1_5_NOTES.md),
+[verification](RELEASE_1_1_5_VERIFICATION.md), [incident](MACOS_RUNNER_INCIDENT.md).
 
 ## Previous stable release: 1.1.4
 

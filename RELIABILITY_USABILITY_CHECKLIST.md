@@ -1,5 +1,9 @@
 # Reliability and usability milestone
 
+Published in Flow 1.1.6 through merged PR #9. The dated candidate receipts below
+retain their original scope; [release verification](RELEASE_1_1_6_VERIFICATION.md)
+records the subsequent tagged publication.
+
 Approved 24 October 2026. Preserve the native engine, original media bytes,
 current defaults, existing state location, public-cache consent and seven locales.
 Deliver a reviewed candidate/PR; publication is separate. No two-hour tests.

@@ -1,6 +1,6 @@
 # Compatible parallel streaming controls
 
-These development changes refine libtorrent 2.1.2's existing parallel block
+Included in Flow 1.1.6, these controls refine libtorrent 2.1.2's existing parallel block
 scheduler. They keep ordinary torrent peers, original container bytes, Range
 playback, verification and the existing cache. They do not add QUIC or HTTP/3.
 The motivation and original measurements are in

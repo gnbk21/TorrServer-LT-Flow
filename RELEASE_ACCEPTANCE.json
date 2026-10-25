@@ -274,6 +274,28 @@
       "verification_record": "RELEASE_1_1_6_VERIFICATION.md",
       "field_acceptance_passed": false,
       "tagged_gate_still_required": true
+    },
+    {
+      "date": "2026-10-25",
+      "scope": "Exact 1.1.6 publication and selected public downloads",
+      "source_commit": "cd8f1cceef7f11f9e87200be3426abc54fb33d9c",
+      "ci_run": 40174251573,
+      "result": "passed",
+      "validation_scope": "essential",
+      "required_roles_passed": 25,
+      "platform_count": 8,
+      "release_assets": 35,
+      "remote_asset_digests_verified": 34,
+      "downloaded_checksums_verified": 4,
+      "windows_executable_sha256": "07d87be7d804b42a7f9c634d6deea99b1d7f9b513805635ceca55b987de6f8a1",
+      "windows_package_sha256": "12b0eb239fe9555637564b328d07dafa653983599c71e8b70a5b874b91ee5ffa",
+      "container_index_digest": "sha256:1ec7c84362db16e05f88240669f194e512678afad1a098fa6bebe01ad0cf6f0f",
+      "all_platform_bytes_downloaded_locally": false,
+      "full_comparisons_reused_from": 40132962712,
+      "exact_source_security_run": 40174248931,
+      "owner_installation_replaced": false,
+      "field_acceptance_passed": false,
+      "verification_record": "RELEASE_1_1_6_VERIFICATION.md"
     }
   ],
   "remaining": [],
@@ -297,8 +319,8 @@
     "Shared OS DNS leak protection and complete native profiling attribution"
   ],
   "release_target": "MatriX.145.Flow-v1.1.6",
-  "published_tag": "MatriX.145.Flow-v1.1.5",
-  "published_source_commit": "04cbb1ae08bfb87f25249876201066880c08a2d5",
+  "published_tag": "MatriX.145.Flow-v1.1.6",
+  "published_source_commit": "cd8f1cceef7f11f9e87200be3426abc54fb33d9c",
   "patch_validation": {
     "tag": "MatriX.145.Flow-v1.1.6",
     "mode": "api_compatibility",

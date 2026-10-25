@@ -86,7 +86,7 @@ Flow settings are in the web interface's **Flow** tab and under `BitTorr.Flow` i
 
 ## Adaptive reliability
 
-Development builds also provide opt-in **frontier recovery** and **adaptive peer
+Flow 1.1.6 also provides opt-in **frontier recovery** and **adaptive peer
 request credit**, plus connection/startup and block-service diagnostics. These
 refine the existing parallel torrent scheduler; Legacy remains the default and
 both experiments remain off. See [behavior, limits and short comparison tests](PARALLEL_STREAMING_IMPLEMENTATION.md).
@@ -330,8 +330,8 @@ generates its own channel-aware release manifest, checksums, original dependency
 notices and GitHub build attestations. The managed scripts verify SHA-256 and
 the exact executable version; `-RequireAttestation` also requires GitHub CLI
 provenance verification. Executables remain unsigned by Authenticode. See
-[distribution and recovery](DISTRIBUTION.md), [current release notes](RELEASE_1_1_5_NOTES.md)
-and [release verification](RELEASE_1_1_5_VERIFICATION.md).
+[distribution and recovery](DISTRIBUTION.md), [current release notes](RELEASE_1_1_6_NOTES.md)
+and [release verification](RELEASE_1_1_6_VERIFICATION.md).
 Stable releases are tagged from `master`; ongoing integration uses `develop`.
 The broader field checks remain tracked separately in [project status](STATUS.md).
 
