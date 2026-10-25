@@ -28,6 +28,33 @@ func withDiskCache(t *testing.T, cacheSize int64) string {
 	return dir
 }
 
+func TestPreparationResumeAndWritesRejectEscapingHashDirectory(t *testing.T) {
+	root := withDiskCache(t, 0)
+	outside := t.TempDir()
+	payload := bytes.Repeat([]byte{0x64}, int(pieceLen))
+	if err := os.WriteFile(filepath.Join(outside, "0"), payload, 0600); err != nil {
+		t.Fatal(err)
+	}
+	h := mkHash(0xA9)
+	if err := os.Symlink(outside, filepath.Join(root, hashHex(h))); err != nil {
+		t.Skip("symlink unavailable", err)
+	}
+	hashes := [][20]byte{sha1.Sum(payload)}
+	if bitmap := ScanMetadataPiecesAt(root, h, pieceLen, pieceLen, hashes, nil); len(bitmap) > 0 && bitmap[0] != 0 {
+		t.Fatal("preparation resume trusted bytes outside the cache root")
+	}
+	s := NewStorage()
+	s.callbackOpen(81, h, 1, pieceLen)
+	s.callbackSize(81, pieceLen)
+	t.Cleanup(func() { s.callbackClose(81) })
+	if _, err := s.callbackWrite(81, 0, 0, bytes.Repeat([]byte{0x65}, int(pieceLen))); err == nil {
+		t.Fatal("write followed the escaping hash directory")
+	}
+	if got, err := os.ReadFile(filepath.Join(outside, "0")); err != nil || !bytes.Equal(got, payload) {
+		t.Fatal("outside data changed", err)
+	}
+}
+
 func TestDiskPiece_RoundTrip(t *testing.T) {
 	dir := withDiskCache(t, 0)
 	s := NewStorage()

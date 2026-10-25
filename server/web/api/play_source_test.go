@@ -3,6 +3,10 @@ package api
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	sets "server/settings"
+	"server/web/auth"
 	"sync/atomic"
 	"testing"
 
@@ -31,5 +35,31 @@ func TestCredentialFreePlayRejectsRemoteAndLocalSourcesBeforeParsing(t *testing.
 	}
 	if fetched.Load() != 0 {
 		t.Fatal("credential-free playback fetched a remote source")
+	}
+}
+
+func TestMissingAccountsDoNotDisablePlaybackSourceGate(t *testing.T) {
+	previousPath, previousAuth := sets.Path, sets.HttpAuth
+	sets.Path, sets.HttpAuth = t.TempDir(), true
+	t.Cleanup(func() { sets.Path, sets.HttpAuth = previousPath, previousAuth })
+	var fetched atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fetched.Add(1); w.WriteHeader(404) }))
+	defer upstream.Close()
+	for _, contents := range []string{"", `{"owner":"fixture","invalid":123}`} {
+		if contents != "" {
+			if err := os.WriteFile(filepath.Join(sets.Path, "accs.db"), []byte(contents), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		router := gin.New()
+		auth.SetupAuth(router)
+		router.GET("/stream", stream)
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, "/stream?play&link="+upstream.URL, nil)
+		request.SetBasicAuth("owner", "fixture")
+		router.ServeHTTP(response, request)
+		if response.Code != http.StatusBadRequest || fetched.Load() != 0 {
+			t.Fatal("invalid account storage opened unauthenticated source fetch", response.Code)
+		}
 	}
 }

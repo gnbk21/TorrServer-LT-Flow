@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"net/url"
 	"server/netpolicy"
+	"server/settings"
+	"strings"
 	"time"
 
 	_ "golang.org/x/image/webp"
@@ -35,13 +37,27 @@ func CheckImgUrl(link string) (ok, verified bool) {
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 
-	client := &http.Client{
-		Timeout:   5 * time.Second,
-		Transport: netpolicy.HTTPTransport(),
+	// Only an explicitly configured image origin can grant artwork LAN access.
+	configured := false
+	if sets := settings.BTsets(); sets != nil {
+		for _, base := range []string{sets.TMDBSettings.ImageURL, sets.TMDBSettings.ImageURLRu} {
+			allowed, parseErr := url.Parse(base)
+			if parseErr == nil && strings.EqualFold(allowed.Scheme, u.Scheme) && strings.EqualFold(allowed.Host, u.Host) {
+				configured = true
+			}
+		}
 	}
+	client, err := netpolicy.FetchClient(link, configured, 5*time.Second)
+	if err != nil {
+		return false, false
+	}
+	defer client.CloseIdleConnections()
 
 	resp, err := client.Do(req)
 	if err != nil {
+		if errors.Is(err, netpolicy.ErrDestination) {
+			return false, false
+		}
 		return true, false
 	}
 	defer resp.Body.Close()

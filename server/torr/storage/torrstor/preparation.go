@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"server/cachefs"
 	"server/flow"
 	"server/lt"
 )
@@ -60,7 +61,7 @@ func (c *Cache) configurePreparation(plan PreparationStorage) error {
 	if c.diskRoot != "" && c.diskRoot != plan.Root {
 		return errors.New("preparation storage path changed")
 	}
-	if err := os.MkdirAll(filepath.Join(plan.Root, hashHex(c.InfoHash)), 0700); err != nil {
+	if err := cachefs.MkdirAll(plan.Root, hashHex(c.InfoHash)); err != nil {
 		return err
 	}
 	var migrationBuffer []byte
@@ -84,8 +85,8 @@ func (c *Cache) configurePreparation(plan PreparationStorage) error {
 			dp := newDiskPiece(p, plan.Root)
 			// Relative paths, case aliases and user-selected directory symlinks
 			// may identify the same file. Never copy then unlink that backend.
-			oldInfo, oldErr := os.Stat(p.disk.name)
-			newInfo, newErr := os.Stat(dp.name)
+			oldInfo, oldErr := cachefs.Stat(p.disk.root, p.disk.relative())
+			newInfo, newErr := cachefs.Stat(dp.root, dp.relative())
 			if oldErr == nil && newErr == nil && os.SameFile(oldInfo, newInfo) {
 				p.disk.Close()
 				p.disk = dp

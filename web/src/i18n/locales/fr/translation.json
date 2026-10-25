@@ -945,6 +945,7 @@
   "Loading": "Chargement…",
   "Language": "Langue",
   "settings": {
+    "managementOriginsHelp": "L’administration depuis un navigateur exige l’origine du serveur ou une origine explicitement autorisée ici. Ajoutez l’origine de votre client Web Lampa de confiance. Les clients natifs conservent leurs règles d’authentification. Cela ne remplace pas l’authentification HTTP.",
     "validationOrder": "Le maximum doit être supérieur ou égal au minimum.",
     "pathRequired": "Un dossier de cache disque est nécessaire.",
     "pathNoQuotes": "Saisissez le chemin du dossier sans guillemets autour.",

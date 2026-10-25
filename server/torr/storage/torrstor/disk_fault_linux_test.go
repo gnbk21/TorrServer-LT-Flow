@@ -3,6 +3,7 @@ package torrstor
 import (
 	"bytes"
 	"errors"
+	"os"
 	"syscall"
 	"testing"
 )
@@ -14,9 +15,18 @@ func TestFullDiskPropagatesENOSPCWithoutAdvertisingBlocks(t *testing.T) {
 	s.callbackSize(1, 2*pieceLen)
 	t.Cleanup(func() { s.callbackClose(1) })
 	p := newPiece(s.lookup(1), 0)
-	// Linux's real full-device exercises WriteAt's ENOSPC result. Skip initial
-	// regular-file truncation so the test reaches the write syscall itself.
-	p.disk.name, p.disk.initialized = "/dev/full", true
+	// A real full-device descriptor exercises WriteAt's ENOSPC result. Inject
+	// that descriptor into the pool: production path validation correctly rejects
+	// device files and escaping symlinks, so changing the pathname cannot bypass it.
+	file, err := os.OpenFile("/dev/full", os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool := p.cache.diskFiles
+	pool.mu.Lock()
+	pool.files[p.disk.name] = &diskHandle{file: file, writable: true, element: pool.lru.PushBack(p.disk.name)}
+	pool.mu.Unlock()
+	p.disk.initialized = true
 	n, err := p.WriteAt(bytes.Repeat([]byte{0x73}, pieceBlockSize), 0)
 	if n != 0 || !errors.Is(err, syscall.ENOSPC) {
 		t.Fatalf("full disk: n=%d error=%v", n, err)

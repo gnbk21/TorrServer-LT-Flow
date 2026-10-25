@@ -2,7 +2,7 @@ package server
 
 import (
 	"os"
-	"path/filepath"
+	"server/cachefs"
 	"server/flow"
 	"strconv"
 
@@ -82,7 +82,18 @@ func cleanCache() {
 		return
 	}
 
-	dirs, err := os.ReadDir(settings.BTsets().TorrentsSavePath)
+	config := settings.BTsets()
+	root, err := cachefs.Open(config.TorrentsSavePath, false)
+	if err != nil {
+		return
+	}
+	defer root.Close()
+	directory, err := root.Open(".")
+	if err != nil {
+		return
+	}
+	dirs, err := directory.ReadDir(-1)
+	directory.Close()
 	if err != nil {
 		return
 	}
@@ -97,7 +108,7 @@ func cleanCache() {
 			continue
 		}
 
-		if !settings.BTsets().RemoveCacheOnDrop {
+		if !config.RemoveCacheOnDrop {
 			keep[d.Name()] = true
 			for _, t := range torrs {
 				if d.IsDir() && t.TorrentSpec != nil && d.Name() == t.TorrentSpec.InfoHash {
@@ -108,28 +119,20 @@ func cleanCache() {
 			for hash, del := range keep {
 				if del && hash == d.Name() {
 					log.TLogln("Remove unused cache:", d.Name())
-					removeAllFiles(filepath.Join(settings.BTsets().TorrentsSavePath, d.Name()))
+					if err := cachefs.RemoveFlat(root, d.Name()); err != nil {
+						log.TLogln("Cache cleanup retained unsafe or busy entry:", d.Name(), err)
+					}
 				}
 			}
 		} else {
 			if d.IsDir() {
 				log.TLogln("Remove unused cache:", d.Name())
-				removeAllFiles(filepath.Join(settings.BTsets().TorrentsSavePath, d.Name()))
+				if err := cachefs.RemoveFlat(root, d.Name()); err != nil {
+					log.TLogln("Cache cleanup retained unsafe or busy entry:", d.Name(), err)
+				}
 			}
 		}
 	}
-}
-
-func removeAllFiles(path string) {
-	files, err := os.ReadDir(path)
-	if err != nil {
-		return
-	}
-	for _, f := range files {
-		name := filepath.Join(path, f.Name())
-		os.Remove(name)
-	}
-	os.Remove(path)
 }
 
 func WaitServer() string {

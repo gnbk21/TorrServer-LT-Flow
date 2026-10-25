@@ -11,8 +11,7 @@ import (
 func TestDiskHandlesReuseBoundAndUpgrade(t *testing.T) {
 	p := newDiskHandles(2)
 	root := t.TempDir()
-	a := filepath.Join(root, "a")
-	f, done, err := p.acquire(a, true)
+	f, done, err := p.acquire(root, "a", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,13 +19,13 @@ func TestDiskHandlesReuseBoundAndUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 	done()
-	f2, done, err := p.acquire(a, false)
+	f2, done, err := p.acquire(root, "a", false)
 	if err != nil || f2 != f {
 		t.Fatal("handle not reused", err)
 	}
 	done()
 	for _, name := range []string{"b", "c"} {
-		_, done, err := p.acquire(filepath.Join(root, name), true)
+		_, done, err := p.acquire(root, name, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -38,12 +37,12 @@ func TestDiskHandlesReuseBoundAndUpgrade(t *testing.T) {
 	if _, err := f.Stat(); err == nil {
 		t.Fatal("LRU handle not closed")
 	}
-	_, done, err = p.acquire(a, false)
+	_, done, err = p.acquire(root, "a", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	done()
-	f, done, err = p.acquire(a, true)
+	f, done, err = p.acquire(root, "a", true)
 	if err != nil {
 		t.Fatal("read-only handle upgrade", err)
 	}
@@ -62,16 +61,17 @@ func TestDiskHandlesReuseBoundAndUpgrade(t *testing.T) {
 
 func TestDiskHandlesSyncResumedReadOnlyFileWithoutCreatingMissingData(t *testing.T) {
 	p := newDiskHandles(1)
-	name := filepath.Join(t.TempDir(), "resumed")
+	root := t.TempDir()
+	name := filepath.Join(root, "resumed")
 	if err := os.WriteFile(name, []byte("verified"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	f, done, err := p.acquire(name, false)
+	f, done, err := p.acquire(root, "resumed", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	done()
-	writable, done, err := p.acquireMode(name, true, false)
+	writable, done, err := p.acquireMode(root, "resumed", true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestDiskHandlesSyncResumedReadOnlyFileWithoutCreatingMissingData(t *testing
 	}
 	p.closePath(name)
 	missing := name + "-missing"
-	if _, _, err := p.acquireMode(missing, true, false); !os.IsNotExist(err) {
+	if _, _, err := p.acquireMode(root, "resumed-missing", true, false); !os.IsNotExist(err) {
 		t.Fatal("sync opened missing data", err)
 	}
 	if _, err := os.Stat(missing); !os.IsNotExist(err) {
@@ -97,13 +97,13 @@ func TestDiskHandlesWaitAndCloseBeforeDelete(t *testing.T) {
 	p := newDiskHandles(1)
 	root := t.TempDir()
 	a, b := filepath.Join(root, "a"), filepath.Join(root, "b")
-	_, release, err := p.acquire(a, true)
+	_, release, err := p.acquire(root, "a", true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	acquired := make(chan error, 1)
 	go func() {
-		_, done, err := p.acquire(b, true)
+		_, done, err := p.acquire(root, "b", true)
 		if err == nil {
 			done()
 		}
@@ -133,7 +133,7 @@ func TestDiskHandlesWaitAndCloseBeforeDelete(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for n := 0; n < 100; n++ {
-				_, done, err := p.acquire(a, false)
+				_, done, err := p.acquire(root, "a", false)
 				if err != nil {
 					t.Error(err)
 					return

@@ -93,7 +93,6 @@ const groups: Record<string, string[]> = {
     "SslPort",
     "Flow.ManagementOrigins",
     "Flow.ManagementRateLimit",
-    "Flow.SecurityProfile",
     "Flow.RequirePlaybackToken",
     "Flow.PlaybackTokenTTL",
     "Flow.MSXAllowLAN",
@@ -310,6 +309,9 @@ export default function Settings() {
     [
       t(`SettingsDialog.${key}Hint`, { defaultValue: "" }),
       key === "Flow.MSXAllowLAN" ? t("flowHelp.MSXAllowLAN") : "",
+      key === "Flow.ManagementOrigins"
+        ? t("settings.managementOriginsHelp")
+        : "",
       key.startsWith("Flow.")
         ? t(`settings.fieldHints.${key.slice(5)}`, { defaultValue: "" })
         : "",
@@ -690,15 +692,6 @@ export default function Settings() {
                       {t(`settings.profileHints.${String(values[key])}`)}
                     </span>
                   </>
-                ) : key === "Flow.SecurityProfile" ? (
-                  <select id={field(key)} {...register(key)}>
-                    <option value="compatible">
-                      {t("settings.compatible")}
-                    </option>
-                    <option value="restricted">
-                      {t("settings.restricted")}
-                    </option>
-                  </select>
                 ) : key === "Flow.BootstrapTailMode" ? (
                   <select id={field(key)} {...register(key)}>
                     <option value="upstream-auto">

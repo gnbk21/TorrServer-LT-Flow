@@ -20,8 +20,6 @@ import (
 
 const httpTimeout = 30 * time.Second
 
-var httpClient = &http.Client{Timeout: httpTimeout, Transport: netpolicy.HTTPTransport()}
-
 // flexInt tolerates a JSON value that is either a number or a numeric string.
 // JacRed serializes torrents straight from its flat-file DB, where a numeric
 // field (size, sid, pir, relased, quality) can land as either form.
@@ -129,7 +127,12 @@ func SearchDetailed(ctx context.Context, query string) ([]*models.TorrentDetails
 		return nil, err
 	}
 
-	resp, err := httpClient.Do(req)
+	client, err := netpolicy.FetchClient(req.URL.String(), true, httpTimeout)
+	if err != nil {
+		return nil, err
+	}
+	defer client.CloseIdleConnections()
+	resp, err := client.Do(req)
 	if err != nil {
 		log.TLogln("Error connecting to JacRed:", err)
 		return nil, err
@@ -216,7 +219,12 @@ func Test(ctx context.Context, host, key string) error {
 		return err
 	}
 
-	resp, err := httpClient.Do(req)
+	client, err := netpolicy.FetchClient(req.URL.String(), true, httpTimeout)
+	if err != nil {
+		return err
+	}
+	defer client.CloseIdleConnections()
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}

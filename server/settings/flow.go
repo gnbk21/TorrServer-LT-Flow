@@ -50,7 +50,7 @@ type FlowSettings struct {
 	PreparationConcurrency   int
 	ManagementOrigins        string // comma-separated browser origins, local dashboard always allowed
 	ManagementRateLimit      int    // requests/minute/client; zero disables compatibility limit
-	SecurityProfile          string // compatible or restricted
+	SecurityProfile          string // legacy setting retained for API compatibility; origin checks always apply
 	RequirePlaybackToken     bool
 	PlaybackTokenTTL         int
 	TorrentInterface         string // adapter name; empty retains OS routing

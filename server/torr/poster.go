@@ -174,8 +174,13 @@ func searchTMDBPoster(cfg sets.TMDBConfig, query string, year int, lang string) 
 	params.Set("language", lang)
 	params.Set("include_image_language", lang+",null,en")
 
-	client := &http.Client{Timeout: 10 * time.Second, Transport: netpolicy.HTTPTransport()}
-	resp, err := client.Get(base + "?" + params.Encode())
+	endpoint := base + "?" + params.Encode()
+	client, err := netpolicy.FetchClient(endpoint, true, 10*time.Second)
+	if err != nil {
+		return "", err
+	}
+	defer client.CloseIdleConnections()
+	resp, err := client.Get(endpoint)
 	if err != nil {
 		return "", err
 	}

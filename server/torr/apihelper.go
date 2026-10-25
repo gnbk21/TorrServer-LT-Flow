@@ -7,11 +7,11 @@ import (
 	"io"
 	"net"
 	"os"
-	"path/filepath"
 	"sort"
 	"sync/atomic"
 	"time"
 
+	"server/cachefs"
 	"server/flow"
 	"server/log"
 	"server/lt"
@@ -298,7 +298,7 @@ func RemTorrent(hashHex string) error {
 			engine.mu.Unlock()
 			return errors.New("torrent was re-added; cache files retained")
 		}
-		err := os.RemoveAll(filepath.Join(config.TorrentsSavePath, storageHash.HexString()))
+		err := cachefs.RemoveAll(config.TorrentsSavePath, storageHash.HexString())
 		engine.mu.Unlock()
 		if err != nil {
 			return err
