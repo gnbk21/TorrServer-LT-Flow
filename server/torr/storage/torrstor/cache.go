@@ -1220,6 +1220,30 @@ func (c *Cache) applyStreamPriorities() {
 	}
 	c.waitFocusMu.Unlock()
 
+	// Native recovery may only hedge current, immediate reader misses. The
+	// ordinary window continues independently, and native expiry handles a
+	// reader that closes without another priority refresh.
+	if f := settings.CurrentFlow(); f.Enabled && f.FrontierRecovery {
+		frontiers := make([]int, 0, min(8, len(blocked)))
+		for piece := range blocked {
+			if len(frontiers) < 8 {
+				frontiers = append(frontiers, piece)
+				continue
+			}
+			largest := 0
+			for i, current := range frontiers {
+				if current > frontiers[largest] {
+					largest = i
+				}
+			}
+			if piece < frontiers[largest] {
+				frontiers[largest] = piece
+			}
+		}
+		sort.Ints(frontiers)
+		_ = h.SetStreamFrontiers(frontiers)
+	}
+
 	plen := c.PieceLength
 	prios := make([]int, c.NumPieces)
 	desired := make(map[int]int) // piece -> deadlineMs

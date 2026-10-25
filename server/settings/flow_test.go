@@ -12,12 +12,13 @@ func TestStreamingExperimentsDefaultOffAndRoundTrip(t *testing.T) {
 			t.Fatal(err)
 		}
 		f.Normalize()
-		if f.CapacityAwareRequests || f.AdaptiveUrgentHorizon || f.ContainerBurstHints {
+		if f.CapacityAwareRequests || f.AdaptiveUrgentHorizon || f.ContainerBurstHints || f.FrontierRecovery || f.AdaptivePeerRequests {
 			t.Fatal("migration enabled an experiment")
 		}
 	}
 	original := DefaultFlowSettings()
 	original.CapacityAwareRequests, original.AdaptiveUrgentHorizon, original.ContainerBurstHints = true, true, true
+	original.FrontierRecovery, original.AdaptivePeerRequests = true, true
 	data, err := json.Marshal(original)
 	if err != nil {
 		t.Fatal(err)
@@ -27,7 +28,7 @@ func TestStreamingExperimentsDefaultOffAndRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	restored.Normalize()
-	if !restored.CapacityAwareRequests || !restored.AdaptiveUrgentHorizon || !restored.ContainerBurstHints {
+	if !restored.CapacityAwareRequests || !restored.AdaptiveUrgentHorizon || !restored.ContainerBurstHints || !restored.FrontierRecovery || !restored.AdaptivePeerRequests {
 		t.Fatal("explicit experiments lost")
 	}
 }

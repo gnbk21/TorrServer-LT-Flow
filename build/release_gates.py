@@ -29,6 +29,7 @@ def validate_jobs(jobs, scope, platform_scope='all'):
     errors = [name for name in required if latest.get(name, {}).get('conclusion') != 'success']
     if scope == 'full':
         for prefix, count in (('cross / high-bitrate-comparison (', 10),
+                              ('cross / Parallel streaming (', 6),
                               ('cross / native-profiling / capture (', 2)):
             rows = [row for name, row in latest.items() if name.startswith(prefix)]
             if len(rows) != count or any(row.get('conclusion') != 'success' for row in rows):

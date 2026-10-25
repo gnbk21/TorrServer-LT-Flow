@@ -17,6 +17,9 @@ func (v *XPathDBRouter) PutChecked(path, name string, value []byte) error {
 	return putChecked(v.getDBForXPath(path), path, name, value)
 }
 func (v *DBReadCache) PutChecked(path, name string, value []byte) error {
+	if StorageRecoveryPending() {
+		return errors.New("storage recovery is pending; restart after resolving the disk error")
+	}
 	if ReadOnly {
 		return errors.New("database is read-only")
 	}

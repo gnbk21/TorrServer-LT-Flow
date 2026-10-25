@@ -13,11 +13,25 @@ export function RequestError({
   const { t, i18n } = useTranslation();
   const key =
     error instanceof ApiError
-      ? error.isStarting
-        ? "status.starting"
-        : error.isUnauthorized
-          ? "status.authRequired"
-          : "status.requestFailed"
+      ? error.data &&
+        typeof error.data === "object" &&
+        "code" in error.data &&
+        error.data.code === "STORAGE_BUSY"
+        ? "reliability.storageIdle"
+        : error.data &&
+            typeof error.data === "object" &&
+            "code" in error.data &&
+            error.data.code === "SETTINGS_CONFLICT"
+          ? "settings.draftConflict"
+          : error.retryAfterMs > 0
+            ? "reliability.cooldown"
+            : error.status === 403
+              ? "reliability.forbidden"
+              : error.isStarting
+                ? "status.starting"
+                : error.isUnauthorized
+                  ? "status.authRequired"
+                  : "status.requestFailed"
       : error instanceof Error && i18n.exists(error.message)
         ? error.message
         : error instanceof DOMException && error.name === "TimeoutError"

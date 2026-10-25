@@ -7,6 +7,31 @@ import (
 	"server/settings"
 )
 
+func TestNewStreamPoliciesRequireBoundedNativeCapacityWithoutChangingDefaults(t *testing.T) {
+	for _, f := range []*settings.FlowSettings{
+		{Enabled: true, SwarmProfile: "legacy", FrontierRecovery: true},
+		{Enabled: true, SwarmProfile: "balanced", AdaptivePeerRequests: true},
+	} {
+		cfg := lt.SessionConfig{}
+		applyFlowSwarmProfile(cfg, f, false)
+		if cfg["flow_capacity_aware_requests"] != true {
+			t.Fatal("policy bypassed capacity guard")
+		}
+	}
+	f := settings.DefaultFlowSettings()
+	if f.FrontierRecovery || f.AdaptivePeerRequests || f.SwarmProfile != "legacy" {
+		t.Fatal("experiment promoted")
+	}
+	f.Enabled = false
+	f.FrontierRecovery = true
+	f.AdaptivePeerRequests = true
+	cfg := lt.SessionConfig{}
+	applyFlowSwarmProfile(cfg, f, false)
+	if _, ok := cfg["flow_capacity_aware_requests"]; ok {
+		t.Fatal("disabled Flow enabled scheduler")
+	}
+}
+
 func TestCapacityExperimentExplicitAndIndependentOfProfile(t *testing.T) {
 	for _, profile := range []string{"legacy", "adaptive", "balanced", "conservative", "aggressive", "custom"} {
 		f := settings.DefaultFlowSettings()

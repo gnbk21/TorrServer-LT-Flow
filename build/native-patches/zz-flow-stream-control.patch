@@ -1,0 +1,693 @@
+--- a/include/libtorrent/settings_pack.hpp
++++ b/include/libtorrent/settings_pack.hpp
+@@ -1086,6 +1086,8 @@
+ 
+ 			// Flow opt-in experiment: enforce local and remote reqq for urgent work.
+ 			flow_capacity_aware_requests,
++			flow_frontier_recovery,
++			flow_adaptive_peer_requests,
+ 
+ 			max_bool_setting_internal
+ 		};
+--- a/src/settings_pack.cpp
++++ b/src/settings_pack.cpp
+@@ -222,6 +222,8 @@
+ 		SET(allow_multiple_connections_per_pid, false, nullptr),
+ 		SET(apply_filter_to_dht, true, nullptr),
+ 		SET(flow_capacity_aware_requests, false, nullptr),
++		SET(flow_frontier_recovery, false, nullptr),
++		SET(flow_adaptive_peer_requests, false, nullptr),
+ 	}});
+ 
+ 	CONSTEXPR_SETTINGS
+--- a/include/libtorrent/aux_/peer_connection.hpp
++++ b/include/libtorrent/aux_/peer_connection.hpp
+@@ -48,6 +48,7 @@
+ #include "libtorrent/aux_/piece_picker.hpp" // for picker_options_t
+ #include "libtorrent/units.hpp"
+ #include "libtorrent/aux_/socket_type.hpp"
++#include "libtorrent/aux_/flow_stream_policy.hpp"
+ 
+ #include <ctime>
+ #include <algorithm>
+@@ -113,6 +114,7 @@
+ 
+ 		// Actual send-buffer handoff, not a snapshot timestamp or queue estimate.
+ 		time_point flow_requested_at{};
++		std::shared_ptr<flow_hedge_credit> flow_credit;
+ 
+ 		static constexpr std::uint32_t not_in_buffer = 0x1fffffff;
+ 
+@@ -517,6 +519,12 @@
+ 		bool ignore_unchoke_slots() const;
+ 
+ 		bool failed() const override { return m_failed; }
++
++		flow_service_model flow_service;
++		flow_cancel_filter flow_cancelled;
++		time_point flow_last_payload{};
++		time_point flow_transport_ready{};
++		void flow_handshake_complete();
+ 
+ 		int desired_queue_size() const
+ 		{
+--- a/src/peer_connection.cpp
++++ b/src/peer_connection.cpp
+@@ -447,6 +447,8 @@
+ 		m_socket.async_connect(m_remote
+ 			, [conn](error_code const& e) { conn->wrap(&peer_connection::on_connection_complete, e); });
+ 		m_connect = aux::time_now();
++		if (t) t->flow_stream.milestone(t->flow_stream.first_dial_ms,
++			total_milliseconds(m_connect.time_since_epoch()));
+ 
+ 		sent_syn(aux::is_v6(m_remote));
+ 
+@@ -2661,6 +2663,20 @@
+ 		}
+ 	}
+ 
++	void peer_connection::flow_handshake_complete()
++	{
++		if(!is_outgoing()) return;
++		if(auto t=m_torrent.lock()) {
++			auto& obs=t->flow_stream;
++			if(obs.first_handshake_ms<0) {
++				auto const now=clock_type::now();
++				obs.milestone(obs.first_handshake_ms,total_milliseconds(now.time_since_epoch()));
++				if(flow_transport_ready!=time_point{})
++					obs.handshake_duration_ms=std::max<std::int64_t>(0,total_milliseconds(now-flow_transport_ready));
++			}
++		}
++	}
++
+ 	void peer_connection::incoming_piece_fragment(int const bytes)
+ 	{
+ 		TORRENT_ASSERT(is_single_thread());
+@@ -2674,6 +2690,11 @@
+ 		m_received_in_piece += bytes;
+ #endif
+ 
++		if(bytes>0) {
++			flow_last_payload=clock_type::now();
++			t->flow_stream.milestone(t->flow_stream.first_payload_ms,
++				total_milliseconds(flow_last_payload.time_since_epoch()));
++		}
+ 		// progress of this torrent increased
+ 		t->state_updated();
+ 
+@@ -2910,6 +2931,7 @@
+ 			TORRENT_ASSERT_VAL(m_received_in_piece == p.length, m_received_in_piece);
+ 			m_received_in_piece = 0;
+ #endif
++			t->flow_stream.redundant_bytes+=p.length;
+ 			t->add_redundant_bytes(p.length, aux::waste_reason::piece_unknown);
+ 
+ 			// the bytes of the piece we just completed have been deducted from
+@@ -2928,6 +2950,26 @@
+ 		TORRENT_ASSERT_VAL(m_received_in_piece == p.length, m_received_in_piece);
+ 		m_received_in_piece = 0;
+ #endif
++		// Classify at block acceptance; useful means first-copy received bytes,
++		// not a piece hash or a claim of decoded playback.
++		if(b->not_wanted) t->flow_stream.obsolete_bytes+=p.length;
++		if(b->not_wanted || picker.is_downloaded(block_finished))
++			t->flow_stream.redundant_bytes+=p.length;
++		else t->flow_stream.useful_bytes+=p.length;
++		if(!b->not_wanted && !b->timed_out && !b->busy
++			&& !flow_cancelled.contains(int(block_finished.piece_index),block_finished.block_index)
++			&& !picker.is_downloaded(block_finished) && b->flow_requested_at!=time_point{}) {
++			auto const observed=clock_type::now();
++			auto const delay=total_milliseconds(observed-b->flow_requested_at);
++			flow_service.observe(delay,total_milliseconds(observed.time_since_epoch()));
++			auto const kind=socket_type_idx(m_socket);
++			int const transport=is_utp(m_socket)?1:
++				(kind==socket_type_t::tcp || kind==socket_type_t::tcp_ssl
++				|| kind==socket_type_t::socks5 || kind==socket_type_t::socks5_ssl
++				|| kind==socket_type_t::http || kind==socket_type_t::http_ssl)?0:2;
++			int const family=m_remote.address().is_v6()?1:0;
++			t->flow_stream.service[transport*2+family].add(delay);
++		}
+ 		// if the block we got is already finished, then ignore it
+ 		if (picker.is_downloaded(block_finished))
+ 		{
+@@ -3656,6 +3698,17 @@
+ 			return false;
+ 		}
+ 
++		std::shared_ptr<flow_hedge_credit> flow_credit;
++		if(t->picker().num_peers(block)>0 && m_settings.get_bool(settings_pack::flow_frontier_recovery)) {
++			int const length=std::min(t->block_size(),
++				t->torrent_file().piece_size(block.piece_index)-block.block_index*t->block_size());
++			if(t->picker().num_peers(block)>=2) {
++				++t->flow_stream.recovery_suppressed; return false;
++			}
++			flow_credit=flow_hedge_credit::acquire(t->flow_hedges,m_ses.flow_hedges,length,
++				total_milliseconds(clock_type::now().time_since_epoch()));
++			if(!flow_credit) { ++t->flow_stream.recovery_suppressed; return false; }
++		}
+ 		if ((flags & busy) && !(flags & time_critical))
+ 		{
+ 			// this block is busy (i.e. it has been requested
+@@ -3705,6 +3758,8 @@
+ 		}
+ 
+ 		pending_block pb(block);
++		pb.flow_credit=std::move(flow_credit);
++		if(pb.flow_credit) ++t->flow_stream.recovery_requests;
+ 		pb.busy = (flags & busy) ? true : false;
+ 		if (flags & time_critical)
+ 		{
+@@ -4851,13 +4906,27 @@
+ 			TORRENT_ASSERT(bs > 0);
+ 
+ 			std::int64_t const desired_queue_size = std::int64_t(queue_time) * download_rate / bs;
+-			m_desired_queue_size = aux::clamp_assign<std::uint16_t>(desired_queue_size);
+-		}
+-
++			if(!m_settings.get_bool(settings_pack::flow_adaptive_peer_requests)
++				|| !flow_service.fresh(total_milliseconds(clock_type::now().time_since_epoch())))
++				m_desired_queue_size = aux::clamp_assign<std::uint16_t>(desired_queue_size);
++		}
++
++		if(m_settings.get_bool(settings_pack::flow_adaptive_peer_requests)) {
++			auto t=m_torrent.lock();
++			auto const before=flow_service.budget_changes;
++			if(t && !m_slow_start) m_desired_queue_size=std::uint16_t(flow_service.credit(
++				m_desired_queue_size,download_rate,t->block_size(),int(m_max_out_request_queue),
++				m_settings.get_int(settings_pack::max_out_request_queue),
++				total_milliseconds(clock_type::now().time_since_epoch())));
++			if(t) t->flow_stream.budget_changes+=flow_service.budget_changes-before;
++		}
+ 		if (m_desired_queue_size > m_max_out_request_queue)
+ 			m_desired_queue_size = m_max_out_request_queue;
+ 		if (m_desired_queue_size < min_request_queue)
+ 			m_desired_queue_size = min_request_queue;
++		if(m_settings.get_bool(settings_pack::flow_adaptive_peer_requests))
++			m_desired_queue_size=std::uint16_t(std::max(1,std::min(int(m_desired_queue_size),
++				std::min(int(m_max_out_request_queue),m_settings.get_int(settings_pack::max_out_request_queue)))));
+ 
+ #ifndef TORRENT_DISABLE_LOGGING
+ 		if (previous_queue_size != m_desired_queue_size)
+@@ -6366,6 +6435,14 @@
+ 
+ 		TORRENT_ASSERT(!m_connected);
+ 		m_connected = true;
++		flow_transport_ready = clock_type::now();
++		if (t) {
++			auto& obs=t->flow_stream;
++			if(obs.first_connect_ms<0) {
++				obs.milestone(obs.first_connect_ms,total_milliseconds(flow_transport_ready.time_since_epoch()));
++				obs.connect_duration_ms=std::max<std::int64_t>(0,total_milliseconds(flow_transport_ready-m_connect));
++			}
++		}
+ 		m_counters.inc_stats_counter(counters::num_peers_connected);
+ 
+ 		if (m_disconnecting) return;
+--- a/include/libtorrent/aux_/torrent.hpp
++++ b/include/libtorrent/aux_/torrent.hpp
+@@ -51,6 +51,7 @@
+ #include "libtorrent/aux_/piece_picker.hpp"
+ #include "libtorrent/aux_/hash_picker.hpp"
+ #include "libtorrent/config.hpp"
++#include "libtorrent/aux_/flow_stream_policy.hpp"
+ #include "libtorrent/aux_/bandwidth_limit.hpp"
+ #include "libtorrent/aux_/bandwidth_queue_entry.hpp"
+ #include "libtorrent/storage_defs.hpp"
+@@ -1365,6 +1366,29 @@
+ 		ssl::context* ssl_ctx() const { return m_ssl_ctx.get(); }
+ #endif
+ 
++		flow_stream_observations flow_stream{total_milliseconds(clock_type::now().time_since_epoch())};
++		std::shared_ptr<flow_hedge_budget> flow_hedges = std::make_shared<flow_hedge_budget>(16, 256*1024);
++		void flow_set_frontiers(std::vector<int> pieces);
++		void flow_refresh_recovery(time_point now);
++		bool flow_recovery_ready(piece_index_t piece) const;
++		bool flow_pick_busy(piece_index_t piece, std::vector<piece_block>& out) const;
++		int flow_frontier_count() const {
++			#ifndef TORRENT_DISABLE_STREAMING
++			auto const now=clock_type::now();
++			return m_flow_frontiers_at!=time_point{} && now>=m_flow_frontiers_at
++				&& now-m_flow_frontiers_at<=seconds(3) ? int(m_flow_frontiers.size()) : 0;
++			#else
++			return 0;
++			#endif
++		}
++		bool flow_scan_truncated() const {
++			#ifndef TORRENT_DISABLE_STREAMING
++			return m_flow_scan_truncated;
++			#else
++			return false;
++			#endif
++		}
++
+ 		int num_time_critical_pieces() const
+ 		{
+ #ifndef TORRENT_DISABLE_STREAMING
+@@ -1377,6 +1401,11 @@
+ #ifndef TORRENT_DISABLE_STREAMING
+ 		// Give newly free bounded request credit to deadlines before refill.
+ 		void flow_request_time_critical_pieces();
++		std::vector<int> m_flow_frontiers;
++		std::array<bool,8> m_flow_qualified{};
++		std::vector<piece_block> m_flow_late_blocks;
++		time_point m_flow_frontiers_at{}, m_flow_scanned_at{};
++		bool m_flow_scan_truncated=false;
+ #endif
+ 
+ 		int get_suggest_pieces(std::vector<piece_index_t>& p
+--- a/src/torrent.cpp
++++ b/src/torrent.cpp
+@@ -11373,7 +11373,7 @@
+ 			interesting_blocks.emplace_back(piece, block.index);
+ 	}
+ 
+-	void pick_time_critical_block(std::vector<peer_connection*>& peers
++	void pick_time_critical_block(torrent& torrent, std::vector<peer_connection*>& peers
+ 		, std::vector<peer_connection*>& ignore_peers
+ 		, std::set<peer_connection*>& peers_with_requests
+ 		, piece_picker::downloading_piece const& pi
+@@ -11443,7 +11443,7 @@
+ 				// there aren't any free blocks to pick, and the piece isn't
+ 				// old enough to pick busy blocks yet. break to continue to
+ 				// the next piece.
+-				if (timed_out == 0)
++				if (timed_out == 0 && !torrent.flow_recovery_ready(i->piece))
+ 				{
+ #if TORRENT_DEBUG_STREAMING > 1
+ 					std::printf("not timed out, moving on to next piece\n");
+@@ -11455,8 +11455,9 @@
+ 				std::printf("pick busy blocks\n");
+ #endif
+ 
+-				pick_busy_blocks(picker, i->piece, blocks_in_piece, timed_out
+-					, interesting_blocks, pi);
++				if(!torrent.flow_pick_busy(i->piece,interesting_blocks))
++					pick_busy_blocks(picker, i->piece, blocks_in_piece, timed_out
++						, interesting_blocks, pi);
+ 			}
+ 
+ 			// we can't pick anything from this piece, we're done with it.
+@@ -11563,6 +11564,80 @@
+ 
+ 	} // anonymous namespace
+ 
++
++	void torrent::flow_set_frontiers(std::vector<int> pieces)
++	{
++		TORRENT_ASSERT(is_single_thread());
++		if(pieces.size()>8) return;
++		m_flow_frontiers=std::move(pieces);
++		m_flow_frontiers_at=clock_type::now();
++		m_flow_scanned_at={};
++		m_flow_late_blocks.clear();
++		m_flow_qualified.fill(false);
++	}
++
++	void torrent::flow_refresh_recovery(time_point const now)
++	{
++		if(m_flow_scanned_at!=time_point{} && now>=m_flow_scanned_at
++			&& now-m_flow_scanned_at<milliseconds(100)) return;
++		m_flow_scanned_at=now; m_flow_late_blocks.clear(); m_flow_qualified.fill(false);
++		m_flow_scan_truncated=false;
++		if(!settings().get_bool(settings_pack::flow_frontier_recovery)
++			|| m_flow_frontiers_at==time_point{} || now<m_flow_frontiers_at
++			|| now-m_flow_frontiers_at>seconds(3) || !has_picker()) return;
++		std::array<bool,8> seen{};
++		m_flow_qualified.fill(true);
++		int inspected=0;
++		auto const now_ms=total_milliseconds(now.time_since_epoch());
++		for(auto* peer:m_connections) {
++			auto const progress=peer->downloading_piece_progress();
++			for(auto const& request:peer->download_queue()) {
++				if(++inspected>8192) { m_flow_scan_truncated=true; break; }
++				auto const found=std::find(m_flow_frontiers.begin(),m_flow_frontiers.end(),int(request.block.piece_index));
++				if(found==m_flow_frontiers.end()) continue;
++				auto const index=std::size_t(found-m_flow_frontiers.begin());
++				seen[index]=true;
++				if(request.not_wanted || request.timed_out || request.flow_requested_at==time_point{}
++					|| peer->flow_cancelled.contains(int(request.block.piece_index),request.block.block_index)
++					|| !peer->flow_service.fresh(now_ms)) { m_flow_qualified[index]=false; continue; }
++				if(m_picker->num_peers(request.block)!=1) continue;
++				auto const age=total_milliseconds(now-request.flow_requested_at);
++				auto const threshold=peer->flow_service.late_after_ms();
++				if(age<threshold) continue;
++				bool const receiving=progress.piece_index==request.block.piece_index
++					&& progress.block_index==request.block.block_index && progress.bytes_downloaded>0;
++				if(receiving && (progress.bytes_downloaded>=progress.full_block_bytes*3/4
++					|| (peer->flow_last_payload!=time_point{} && now>=peer->flow_last_payload
++						&& now-peer->flow_last_payload<milliseconds(threshold/2)))) continue;
++				if(m_flow_late_blocks.size()<64) m_flow_late_blocks.push_back(request.block);
++			}
++			if(m_flow_scan_truncated) break;
++		}
++		for(std::size_t i=0;i<m_flow_frontiers.size();++i)
++			m_flow_qualified[i]=seen[i] && m_flow_qualified[i] && !m_flow_scan_truncated;
++	}
++
++	bool torrent::flow_recovery_ready(piece_index_t const piece) const
++	{
++		auto const found=std::find(m_flow_frontiers.begin(),m_flow_frontiers.end(),int(piece));
++		if(found==m_flow_frontiers.end() || !m_flow_qualified[std::size_t(found-m_flow_frontiers.begin())]) return false;
++		return std::any_of(m_flow_late_blocks.begin(),m_flow_late_blocks.end(),
++			[piece](piece_block const& block){return block.piece_index==piece;});
++	}
++
++	bool torrent::flow_pick_busy(piece_index_t const piece,std::vector<piece_block>& out) const
++	{
++		auto const found=std::find(m_flow_frontiers.begin(),m_flow_frontiers.end(),int(piece));
++		if(found==m_flow_frontiers.end() || !m_flow_qualified[std::size_t(found-m_flow_frontiers.begin())]) return false;
++		for(auto const& block:m_flow_late_blocks) {
++			if(block.piece_index==piece && m_picker->num_peers(block)==1
++				&& m_picker->is_requested(block) && !m_picker->is_downloaded(block)) {
++				out.push_back(block); break;
++			}
++		}
++		return true;
++	}
++
+ 	void torrent::flow_request_time_critical_pieces()
+ 	{
+ 		TORRENT_ASSERT(is_single_thread());
+@@ -11619,6 +11694,8 @@
+ 
+ 		time_point const now = clock_type::now();
+ 
++		flow_refresh_recovery(now);
++
+ 		// now, iterate over all time critical pieces, in order of importance, and
+ 		// request them from the peers, in order of responsiveness. i.e. request
+ 		// the most time critical pieces from the fastest peers.
+@@ -11687,7 +11764,7 @@
+ 				// every block in this piece is already requested
+ 				// there's no need to consider this piece, unless it
+ 				// appears to be stalled.
+-				if (pi.requested == 0 || timed_out == 0)
++				if (pi.requested == 0 || (timed_out == 0 && !flow_recovery_ready(i.piece)))
+ 				{
+ #if TORRENT_DEBUG_STREAMING > 1
+ 					std::printf("skipping %d (full) [req: %d timed_out: %d ]\n"
+@@ -11715,7 +11792,7 @@
+ 			// and sorted. when we issue a request to a peer, its download queue
+ 			// time will increase and it may need to be bumped in the peers list,
+ 			// since it's ordered by download queue time
+-			pick_time_critical_block(peers, ignore_peers
++			pick_time_critical_block(*this, peers, ignore_peers
+ 				, peers_with_requests
+ 				, pi, &i, m_picker.get()
+ 				, blocks_in_piece, timed_out);
+--- a/include/libtorrent/aux_/session_interface.hpp
++++ b/include/libtorrent/aux_/session_interface.hpp
+@@ -30,6 +30,7 @@
+ #include "libtorrent/info_hash.hpp"
+ #include "libtorrent/aux_/socket_type.hpp"
+ #include "libtorrent/aux_/ssl.hpp"
++#include "libtorrent/aux_/flow_stream_policy.hpp"
+ 
+ #include <functional>
+ #include <memory>
+@@ -160,6 +161,8 @@
+ 		virtual void update_torrent_info_hash(std::shared_ptr<torrent> const& t
+ 			, info_hash_t const& old_ih) = 0;
+ 		virtual void set_queue_position(torrent* t, queue_position_t p) = 0;
++		std::shared_ptr<flow_hedge_budget> flow_hedges = std::make_shared<flow_hedge_budget>(64, 1024*1024);
++
+ 		virtual int num_torrents() const = 0;
+ 
+ 		virtual void close_connection(peer_connection* p) noexcept = 0;
+--- a/src/bt_peer_connection.cpp
++++ b/src/bt_peer_connection.cpp
+@@ -2302,8 +2302,11 @@
+ 
+ 		if (!m_supports_fast)
+ 		{
+-			if (m_settings.get_bool(settings_pack::flow_capacity_aware_requests))
++			if (m_settings.get_bool(settings_pack::flow_capacity_aware_requests)) {
+ 				m_flow_cancelled_request = true;
++				if(auto torrent=associated_torrent().lock())
++					flow_cancelled.add(int(r.piece),r.start/torrent->block_size());
++			}
+ 			incoming_reject_request(r);
+ 		}
+ 
+@@ -3676,6 +3679,7 @@
+ #endif
+ 			}
+ 
++			flow_handshake_complete();
+ 			m_state = state_t::read_packet_size;
+ 			m_recv_buffer.reset(5);
+ 
+--- a/src/request_blocks.cpp
++++ b/src/request_blocks.cpp
+@@ -70,7 +70,8 @@
+ 		// available urgent piece; non-experimental behavior is unchanged.
+ 		int const desired_queue_size = time_critical_mode
+ 			&& t.settings().get_bool(settings_pack::flow_capacity_aware_requests)
+-			? 1 : c.desired_queue_size();
++			? (t.settings().get_bool(settings_pack::flow_adaptive_peer_requests)
++				? std::clamp(c.desired_queue_size()/4,2,32) : 1) : c.desired_queue_size();
+ 
+ 		int num_requests = desired_queue_size
+ 			- int(c.download_queue().size())
+--- a/simulation/test_peer_connection.cpp
++++ b/simulation/test_peer_connection.cpp
+@@ -23,6 +23,7 @@
+ #include "libtorrent/aux_/peer_connection.hpp"
+ #include "libtorrent/aux_/torrent.hpp"
+ #include "libtorrent/torrent_flags.hpp"
++#include "libtorrent/aux_/flow_stream_policy.hpp"
+ #include "libtorrent/create_torrent.hpp"
+ #include "libtorrent/load_torrent.hpp"
+ #include "libtorrent/torrent_info.hpp"
+@@ -587,3 +588,85 @@
+ 	sim.run();
+ 	TEST_CHECK(checked);
+ }
++
++
++TORRENT_TEST(flow_stream_service_and_budget)
++{
++	using namespace lt::aux;
++	flow_service_model model;
++	TEST_CHECK(!model.fresh(0));
++	for(int i=0;i<16;++i) model.observe(100,1000+i*100);
++	TEST_CHECK(model.fresh(2500));
++	TEST_EQUAL(model.histogram.percentile(95),100);
++	TEST_CHECK(!model.fresh(15001));
++	int const first=model.credit(128,1024*1024,16384,64,1500,2600);
++	TEST_CHECK(first>=1 && first<=64);
++	TEST_EQUAL(model.credit(first,1024*1024,16384,64,1500,2700),first);
++	TEST_EQUAL(model.credit(128,1024*1024,16384,1,1500,2700),1);
++	TEST_EQUAL(model.credit(64,1024*1024,16384,64,32,2700),32);
++	model.observe(500,16000);
++	TEST_CHECK(!model.fresh(16000));
++
++	auto torrent=std::make_shared<flow_hedge_budget>(2,32768);
++	auto session=std::make_shared<flow_hedge_budget>(2,32768);
++	auto a=flow_hedge_credit::acquire(torrent,session,16384,1000);
++	auto b=flow_hedge_credit::acquire(torrent,session,16384,1000);
++	TEST_CHECK(bool(a) && bool(b));
++	TEST_CHECK(!flow_hedge_credit::acquire(torrent,session,16384,1000));
++	auto copy=a;
++	a.reset();
++	TEST_EQUAL(torrent->active.load(),2);
++	copy.reset();
++	TEST_EQUAL(torrent->active.load(),1);
++	TEST_CHECK(!flow_hedge_credit::acquire(torrent,session,16384,1100));
++	a=flow_hedge_credit::acquire(torrent,session,16384,2000);
++	TEST_CHECK(bool(a));
++	b.reset(); a.reset();
++	TEST_EQUAL(torrent->active.load(),0);
++	TEST_EQUAL(session->bytes.load(),0);
++	auto other=std::make_shared<flow_hedge_budget>(2,32768);
++	a=flow_hedge_credit::acquire(other,session,16384,2000);
++	TEST_CHECK(bool(a));
++	TEST_CHECK(!flow_hedge_credit::acquire(other,session,16384,2000));
++	TEST_EQUAL(other->active.load(),1);
++}
++
++TORRENT_TEST(flow_stream_policy_clock_hysteresis_and_lifecycle)
++{
++	using namespace lt::aux;
++	flow_service_model model;
++	for(int i=0;i<16;++i) model.observe(100,1000+i*100);
++	int previous=100;
++	auto const first=model.credit(previous,1024*1024,16384,512,1500,2600);
++	TEST_CHECK(first>=75 && first<previous);
++	TEST_EQUAL(model.credit(first,1024*1024,16384,512,1500,2700),first);
++	auto const second=model.credit(first,1024*1024,16384,512,1500,3200);
++	TEST_CHECK(second>=first-first/4 && second<=first);
++	TEST_EQUAL(model.credit(second,0,16384,512,1500,3800),second);
++	TEST_EQUAL(model.credit(second,1024*1024,16384,512,1500,15001),second);
++	model.observe(100,900);
++	TEST_CHECK(!model.fresh(900));
++	model.observe(400000,1000);
++	TEST_CHECK(!model.fresh(1000));
++
++	flow_cancel_filter cancelled;
++	TEST_CHECK(!cancelled.contains(0,0));
++	cancelled.add(0,0); cancelled.add(1000000,1023);
++	TEST_CHECK(cancelled.contains(0,0));
++	TEST_CHECK(cancelled.contains(1000000,1023));
++
++	auto a=std::make_shared<flow_hedge_budget>(16,256*1024);
++	auto b=std::make_shared<flow_hedge_budget>(16,256*1024);
++	auto session=std::make_shared<flow_hedge_budget>(2,32768);
++	auto one=flow_hedge_credit::acquire(a,session,16384,0);
++	auto two=flow_hedge_credit::acquire(b,session,16384,0);
++	TEST_CHECK(bool(one) && bool(two));
++	TEST_CHECK(!flow_hedge_credit::acquire(a,session,16384,1000));
++	TEST_EQUAL(a->active.load(),1);
++	TEST_EQUAL(a->bytes.load(),16384);
++	one.reset();
++	TEST_CHECK(!flow_hedge_credit::acquire(a,session,32769,1000));
++	two.reset();
++	TEST_EQUAL(session->active.load(),0);
++	TEST_EQUAL(session->bytes.load(),0);
++}
+--- /dev/null
++++ b/include/libtorrent/aux_/flow_stream_policy.hpp
+@@ -0,0 +1,143 @@
++// Flow's bounded service model and duplicate-credit ownership.
++// All policy clocks are monotonic milliseconds supplied by the network executor.
++#pragma once
++#define TORRENT_FLOW_STREAM_CONTROL 1
++#include <algorithm>
++#include <array>
++#include <atomic>
++#include <cstdint>
++#include <memory>
++
++namespace libtorrent::aux {
++struct flow_histogram {
++	std::array<std::uint64_t, 8> buckets{};
++	std::uint64_t samples = 0;
++	void add(std::int64_t ms) {
++		if (ms < 0 || ms > 300000) return;
++		constexpr std::array<int, 8> bounds{{25,100,250,500,1000,2000,5000,300000}};
++		for (std::size_t i=0; i<bounds.size(); ++i)
++			if (ms <= bounds[i]) { ++buckets[i]; ++samples; break; }
++	}
++	int percentile(int percent) const {
++		if (!samples) return 0;
++		constexpr std::array<int,8> bounds{{25,100,250,500,1000,2000,5000,300000}};
++		auto const target = samples/100*percent + (samples%100*percent+99)/100;
++		std::uint64_t total=0;
++		for (std::size_t i=0;i<bounds.size();++i)
++			if ((total+=buckets[i]) >= target) return bounds[i];
++		return bounds.back();
++	}
++};
++
++// Conservative bounded filter for non-FAST cancelled block identities. False
++// positives only discard observations; old replies cannot masquerade as a new
++// request's service sample. State dies with the connection.
++struct flow_cancel_filter {
++	std::array<std::uint64_t,64> bits{};
++	static std::uint64_t key(int piece,int block) {
++		auto x=std::uint64_t(std::uint32_t(piece))*0x9e3779b97f4a7c15ULL+std::uint32_t(block);
++		x^=x>>30; x*=0xbf58476d1ce4e5b9ULL; x^=x>>27; return x;
++	}
++	void add(int piece,int block) {
++		auto const x=key(piece,block);
++		for(int i=0;i<3;++i) { auto const b=(x>>(i*12))&4095; bits[b/64]|=std::uint64_t(1)<<(b%64); }
++	}
++	bool contains(int piece,int block) const {
++		auto const x=key(piece,block);
++		for(int i=0;i<3;++i) { auto const b=(x>>(i*12))&4095; if(!(bits[b/64]&(std::uint64_t(1)<<(b%64)))) return false; }
++		return true;
++	}
++};
++
++struct flow_service_model {
++	flow_histogram histogram;
++	std::int64_t mean_ms=0, deviation_ms=0, last_ms=-1, adjusted_ms=-1;
++	std::uint64_t budget_changes=0;
++	void observe(std::int64_t delay, std::int64_t now) {
++		if (delay<0 || delay>300000) return;
++		histogram.add(delay);
++		if (last_ms<0 || now<last_ms || now-last_ms>10000) {
++			mean_ms=delay; deviation_ms=delay/2;
++			fresh_samples=0;
++		} else {
++			auto const difference=mean_ms>delay ? mean_ms-delay : delay-mean_ms;
++			deviation_ms=(3*deviation_ms+difference)/4;
++			mean_ms=(7*mean_ms+delay)/8;
++		}
++		++fresh_samples; last_ms=now;
++	}
++	bool fresh(std::int64_t now) const {
++		return fresh_samples>=8 && last_ms>=0 && now>=last_ms && now-last_ms<=10000;
++	}
++	std::int64_t late_after_ms() const {
++		return std::clamp<std::int64_t>(mean_ms+std::max<std::int64_t>(100,4*deviation_ms),250,3000);
++	}
++	int credit(int current, int rate, int block, int remote, int local, std::int64_t now) {
++		int const cap=std::max(1,std::min(remote,local));
++		current=std::clamp(current,1,cap);
++		if (!fresh(now) || rate<=0 || block<=0) return current;
++		if (adjusted_ms>=0 && now>=adjusted_ms && now-adjusted_ms<500) return current;
++		adjusted_ms=now;
++		auto const horizon=std::clamp<std::int64_t>(mean_ms+2*deviation_ms+100,250,2000);
++		auto const wanted=std::clamp<std::int64_t>(
++			std::int64_t(rate)*horizon/1000/block+2,1,cap);
++		int const deadband=std::max(2,current/8);
++		if (wanted-current<=deadband && current-wanted<=deadband) return current;
++		int const step=std::max(2,current/4);
++		int const next=int(std::clamp<std::int64_t>(wanted,std::max(1,current-step),std::min(cap,current+step)));
++		if (next!=current) ++budget_changes;
++		return next;
++	}
++private:
++	int fresh_samples=0;
++};
++
++// Both concurrent occupancy and issued-per-second credit are bounded. Shared
++// ownership follows pending_block copies through sends, cancels and teardown.
++struct flow_hedge_budget {
++	flow_hedge_budget(int requests_, int bytes_) : limit_requests(requests_), limit_bytes(bytes_) {}
++	int const limit_requests,limit_bytes;
++	std::atomic<int> active{0}, bytes{0}, peak{0};
++	std::int64_t window_ms=-1;
++	int issued=0, issued_bytes=0;
++	bool acquire(int size,std::int64_t now) {
++		if(size<=0 || size>limit_bytes) return false;
++		if(window_ms<0 || now<window_ms || now-window_ms>=1000) {
++			window_ms=now; issued=0; issued_bytes=0;
++		}
++		if(active.load()>=limit_requests || bytes.load()>limit_bytes-size
++			|| issued>=limit_requests || issued_bytes>limit_bytes-size) return false;
++		int const used=active.fetch_add(1)+1;
++		bytes+=size; ++issued; issued_bytes+=size;
++		int old=peak.load(); while(old<used && !peak.compare_exchange_weak(old,used)) {}
++		return true;
++	}
++	void release(int size) { --active; bytes-=size; }
++};
++struct flow_hedge_credit {
++	std::shared_ptr<flow_hedge_budget> torrent,session;
++	int bytes;
++	flow_hedge_credit(std::shared_ptr<flow_hedge_budget> t,std::shared_ptr<flow_hedge_budget> s,int b)
++		: torrent(std::move(t)),session(std::move(s)),bytes(b) {}
++	~flow_hedge_credit() { torrent->release(bytes); session->release(bytes); }
++	static std::shared_ptr<flow_hedge_credit> acquire(
++		std::shared_ptr<flow_hedge_budget> const& torrent,
++		std::shared_ptr<flow_hedge_budget> const& session,int bytes,std::int64_t now) {
++		if(!torrent->acquire(bytes,now)) return {};
++		if(!session->acquire(bytes,now)) { torrent->release(bytes); return {}; }
++		try { return std::make_shared<flow_hedge_credit>(torrent,session,bytes); }
++		catch(...) { torrent->release(bytes); session->release(bytes); throw; }
++	}
++};
++
++struct flow_stream_observations {
++	explicit flow_stream_observations(std::int64_t start) : created_ms(start) {}
++	std::int64_t created_ms,first_dial_ms=-1,first_connect_ms=-1,first_handshake_ms=-1,first_payload_ms=-1;
++	std::int64_t connect_duration_ms=-1,handshake_duration_ms=-1;
++	std::array<flow_histogram,6> service{};
++	std::uint64_t useful_bytes=0,redundant_bytes=0,obsolete_bytes=0,recovery_requests=0,recovery_suppressed=0,budget_changes=0;
++	void milestone(std::int64_t& field,std::int64_t now) {
++		if(field<0 && now>=created_ms) field=now-created_ms;
++	}
++};
++}

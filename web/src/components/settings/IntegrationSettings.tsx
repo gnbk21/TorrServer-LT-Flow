@@ -10,6 +10,8 @@ import {
 } from "../../api/integrations";
 import {
   useSettings,
+  useConfiguration,
+  useActive,
   useRuntime,
   useVisibilityGate,
 } from "../../hooks/queries";
@@ -25,6 +27,12 @@ export default function IntegrationSettings({
   const { t } = useTranslation();
   const settings = useSettings();
   const runtime = useRuntime();
+  const configuration = useConfiguration();
+  const active = useActive();
+  const storageBusy =
+    !!configuration.data?.pending ||
+    !!configuration.data?.applying ||
+    (active.data?.items.length ?? 0) > 0;
   const wafEnabled = useVisibilityGate(["waf"], tab === "security");
   const gstEnabled = useVisibilityGate(["gst"], tab === "integrations");
   const storageEnabled = useVisibilityGate(["storage"], tab === "advanced");
@@ -65,6 +73,7 @@ export default function IntegrationSettings({
   const [wafDraft, setWaf] = useState<WafSettings>();
   const [gstDraft, setGst] = useState<GstSettings["config"]>();
   const [storageDraft, setStorage] = useState<StorageSettings>();
+  const [storageRevision, setStorageRevision] = useState<string>();
   const [error, setError] = useState<unknown>();
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -75,23 +84,35 @@ export default function IntegrationSettings({
     if (gst.data) setGst(gst.data.config);
   }, [gst.data]);
   useEffect(() => {
-    if (storage.data) setStorage(storage.data);
+    if (storage.data) {
+      setStorage({
+        settings: storage.data.settings,
+        viewed: storage.data.viewed,
+      });
+      setStorageRevision(storage.data.revision);
+    }
   }, [storage.data]);
   const dirty =
     (!!wafDraft && JSON.stringify(wafDraft) !== JSON.stringify(waf.data)) ||
     (!!gstDraft &&
       JSON.stringify(gstDraft) !== JSON.stringify(gst.data?.config)) ||
     (!!storageDraft &&
-      JSON.stringify(storageDraft) !== JSON.stringify(storage.data));
+      JSON.stringify(storageDraft) !==
+        JSON.stringify(
+          storage.data && {
+            settings: storage.data.settings,
+            viewed: storage.data.viewed,
+          },
+        ));
   useEffect(() => {
     onDirty(dirty);
   }, [dirty, onDirty]);
-  const run = async (action: () => Promise<unknown>) => {
+  const run = async (action: () => Promise<unknown>, test = false) => {
     setBusy(true);
     setError(undefined);
     try {
       await action();
-      setNotice(t("settings.saved"));
+      setNotice(t(test ? "reliability.integrationOK" : "settings.saved"));
     } catch (e) {
       setError(e);
     } finally {
@@ -218,8 +239,10 @@ export default function IntegrationSettings({
                       row.Key,
                     );
                     if (!result.success)
-                      throw new Error("settings.integrationFailed");
-                  })
+                      throw new Error(
+                        `reliability.searchStates.${result.state || "unavailable"}`,
+                      );
+                  }, true)
                 }
               >
                 {t("Torznab.Test")} {row.Name || `Torznab ${index + 1}`}
@@ -235,8 +258,10 @@ export default function IntegrationSettings({
                       settings.data!.JacRedKey,
                     );
                     if (!result.success)
-                      throw new Error("settings.integrationFailed");
-                  })
+                      throw new Error(
+                        `reliability.searchStates.${result.state || "unavailable"}`,
+                      );
+                  }, true)
                 }
               >
                 {t("Torznab.Test")} JacRed
@@ -340,7 +365,7 @@ export default function IntegrationSettings({
       {tab === "advanced" && (
         <>
           <h2>{t("settings.storage")}</h2>
-          <p>{t("settings.storageRestart")}</p>
+          <p>{t("reliability.storageIdle")}</p>
           {storage.isPending && <Loading />}
           {storage.error && (
             <RequestError
@@ -370,17 +395,35 @@ export default function IntegrationSettings({
                 ))}
               </div>
               <Button
-                disabled={busy}
+                disabled={busy || storageBusy || !configuration.data}
                 onClick={() =>
                   run(async () => {
-                    await integrationsApi.setStorage(storageDraft);
+                    await integrationsApi.setStorage(
+                      storageDraft,
+                      storageRevision ?? configuration.data?.revision,
+                    );
+                    await configuration.refetch();
                     await storage.refetch();
                   })
                 }
               >
                 {t("Save")}
               </Button>
-              <Button onClick={() => setStorage(storage.data)}>
+              <Button
+                disabled={busy}
+                onClick={() => {
+                  setStorage(
+                    storage.data && {
+                      settings: storage.data.settings,
+                      viewed: storage.data.viewed,
+                    },
+                  );
+                  setStorageRevision(storage.data?.revision);
+                  setError(undefined);
+                  setNotice("");
+                  void storage.refetch();
+                }}
+              >
                 {t("settings.discard")}
               </Button>
             </>

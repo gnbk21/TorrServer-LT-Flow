@@ -1,4 +1,7 @@
 // @vitest-environment node
+import { storageSchema } from "./integrations";
+import { searchEnvelopeSchema } from "./search";
+import { summariesSchema } from "./sessionHistory";
 import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import {
@@ -108,6 +111,9 @@ test.skipIf(!input)(
     }[];
     const validators = {
       flow: flowSchema,
+      search: searchEnvelopeSchema,
+      sessions: summariesSchema,
+      storage: storageSchema,
       settings: settingsSchema,
       torrent: torrentSchema,
       runtime: runtimeSchema,
@@ -119,6 +125,9 @@ test.skipIf(!input)(
     };
     const requiredFields = {
       flow: "hash",
+      search: "items",
+      sessions: "enabled",
+      storage: "settings",
       settings: "CacheSize",
       torrent: "hash",
       runtime: "dlna_enabled",

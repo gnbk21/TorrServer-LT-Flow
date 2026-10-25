@@ -182,6 +182,8 @@ func SetBTSets(sets *BTSets) {
 }
 
 func SetBTSetsChecked(sets *BTSets) error {
+	dbMigrationLock.RLock()
+	defer dbMigrationLock.RUnlock()
 	if ReadOnly {
 		return errors.New("database is read-only")
 	}

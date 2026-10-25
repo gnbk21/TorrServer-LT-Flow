@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"sort"
@@ -16,8 +17,10 @@ const PeerHintsTTL = 10 * time.Minute
 const PeerHintsBytes = 8192
 
 type PeerHint struct {
-	IP   string `json:"ip"`
-	Port int    `json:"port"`
+	IP           string `json:"ip"`
+	Port         int    `json:"port"`
+	UsefulRate   int64  `json:"useful_rate,omitempty"`
+	ServiceP95Ms int64  `json:"service_p95_ms,omitempty"`
 }
 type PeerHints struct {
 	Version int        `json:"version"`
@@ -42,7 +45,8 @@ func ValidPeerHints(h PeerHints, network string, now time.Time) bool {
 	}
 	for _, p := range h.Peers {
 		ip := net.ParseIP(p.IP)
-		if ip == nil || ip.IsUnspecified() || ip.IsMulticast() || ip.IsLinkLocalUnicast() || p.Port < 1 || p.Port > 65535 {
+		if ip == nil || ip.IsUnspecified() || ip.IsMulticast() || ip.IsLinkLocalUnicast() || p.Port < 1 || p.Port > 65535 ||
+			p.UsefulRate < 0 || p.UsefulRate > 1<<40 || p.ServiceP95Ms < 0 || p.ServiceP95Ms > 300000 {
 			return false
 		}
 	}
@@ -62,7 +66,47 @@ func ReadPeerHints(name, network string, now time.Time) []PeerHint {
 	if json.Unmarshal(data, &hints) != nil || !ValidPeerHints(hints, network, now) {
 		return nil
 	}
-	return hints.Peers
+	return RankPeerHints(hints.Peers)
+}
+
+// RankPeerHints preserves legacy entries without scores and canonicalizes
+// duplicates. Scores only describe recent observations on the saved network.
+func RankPeerHints(peers []PeerHint) []PeerHint {
+	out := make([]PeerHint, 0, min(32, len(peers)))
+	seen := make(map[string]int, 32)
+	for _, peer := range peers {
+		ip := net.ParseIP(peer.IP)
+		if ip == nil || peer.Port < 1 || peer.Port > 65535 {
+			continue
+		}
+		peer.IP = ip.String()
+		key := net.JoinHostPort(peer.IP, fmt.Sprint(peer.Port))
+		if i, ok := seen[key]; ok {
+			if peer.UsefulRate > out[i].UsefulRate {
+				out[i] = peer
+			}
+			continue
+		}
+		if len(out) == 32 {
+			break
+		}
+		seen[key] = len(out)
+		out = append(out, peer)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].UsefulRate != out[j].UsefulRate {
+			return out[i].UsefulRate > out[j].UsefulRate
+		}
+		a, b := out[i].ServiceP95Ms, out[j].ServiceP95Ms
+		if a == 0 {
+			a = 300001
+		}
+		if b == 0 {
+			b = 300001
+		}
+		return a < b
+	})
+	return out
 }
 
 func WritePeerHints(name string, h PeerHints) error {

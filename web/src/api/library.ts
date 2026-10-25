@@ -1,6 +1,7 @@
 import { api, ApiError } from "./client";
 import { torrentsApi } from "./torrents";
 import { flowApi } from "./flow";
+import { observeFlow } from "../lib/observation";
 import { librarySchema, activeSchema } from "./schemas";
 import type {
   ActiveSnapshot,
@@ -62,10 +63,22 @@ export const libraryApi = {
     }
   },
   active: async (signal?: AbortSignal): Promise<ActiveSnapshot> => {
+    const started = performance.now();
     try {
-      return activeSchema.parse(
+      const snapshot = activeSchema.parse(
         await api.get<unknown>("/flow/active", signal),
       ) as ActiveSnapshot;
+      return {
+        ...snapshot,
+        items: snapshot.items.map((item) => ({
+          ...item,
+          status: observeFlow(
+            item.status,
+            snapshot.sampled_at,
+            performance.now() - started,
+          ),
+        })),
+      };
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 404) throw error;
       const rows = (await torrentsApi.list(signal)).filter(

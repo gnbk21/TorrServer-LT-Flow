@@ -32,6 +32,7 @@ type FlowRangeTrace struct {
 var diagnosticSequence atomic.Uint64
 
 type FlowStartupStatus struct {
+	Phases             []flow.StartupPhase  `json:"phases,omitempty"`
 	MetadataRecovery   *MetadataRecovery    `json:"metadata_recovery,omitempty"`
 	WaitBudgetMs       int64                `json:"wait_budget_ms"`
 	WaitExtended       bool                 `json:"wait_extended"`
@@ -62,6 +63,7 @@ func (t *Torrent) FlowStartup() FlowStartupStatus {
 	if t == nil {
 		return FlowStartupStatus{}
 	}
+	stream := t.SparseStatus().Stream
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	s := t.flowStartup
@@ -79,6 +81,18 @@ func (t *Torrent) FlowStartup() FlowStartupStatus {
 	if !t.flowStartupStarted.IsZero() && s.WaitReason != "READER_WINDOW" && s.WaitReason != "READY" && s.WaitReason != "PLAYING" && s.WaitReason != "FAILED" && s.WaitReason != "TIMEOUT" && s.WaitReason != "CANCELLED" {
 		s.ElapsedMs = time.Since(t.flowStartupStarted).Milliseconds()
 	}
+	// Legacy timing fields use zero for not-yet-observed. The phase contract
+	// keeps these unknown instead of presenting an unfinished operation as 0 ms.
+	measured := func(value int64) int64 {
+		if value <= 0 {
+			return -1
+		}
+		return value
+	}
+	s.Phases = flow.StartupPhases(stream, s.MetadataReadyMs,
+		measured(s.BootstrapCompleteMs), measured(s.ProbeStartMs),
+		measured(s.ProbeCompleteMs), measured(s.StartupPrebufferMs),
+		measured(s.TimeToFirstByteMs), s.ProbeCached)
 	return s
 }
 
@@ -132,6 +146,7 @@ func (t *Torrent) startupStage(stage string) {
 }
 
 type FlowSessionStatus struct {
+	BufferSampleAgeMs       *int64                `json:"buffer_sample_age_ms,omitempty"`
 	BufferSampledAtMs       int64                 `json:"buffer_sampled_at_ms"`
 	BufferOffsetBytes       int64                 `json:"buffer_offset_bytes"`
 	BurstHintSource         string                `json:"burst_hint_source"`
@@ -557,5 +572,13 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 			}
 		}
 	}
+	sampledNow := time.Now().UnixMilli()
+	for i := range out {
+		out[i].BufferSampleAgeMs = nil
+		if age := sampledNow - out[i].BufferSampledAtMs; out[i].BufferSampledAtMs > 0 && age >= 0 {
+			out[i].BufferSampleAgeMs = &age
+		}
+	}
+
 	return out
 }

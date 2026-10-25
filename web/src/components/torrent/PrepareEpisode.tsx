@@ -1,3 +1,4 @@
+import { pollingDelay } from "../../api/client";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -19,7 +20,7 @@ export function PrepareEpisode({
   const query = useQuery({
     queryKey: ["preparation"],
     queryFn: ({ signal }) => preparationApi.status(signal),
-    refetchInterval: () => (document.hidden ? false : 2000),
+    refetchInterval: () => (document.hidden ? false : pollingDelay(2000)),
   });
   const job = query.data?.jobs.find(
     (j) => j.hash === hash && j.file_index === index,

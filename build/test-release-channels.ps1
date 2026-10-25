@@ -16,6 +16,7 @@ $fixtureReleases = @(
 function Invoke-RestMethod {
     param([string]$Uri, $Headers, $TimeoutSec)
     if ($Uri -like 'https://api.github.com/*') {
+        if ($Uri -like '*/latest') { return ($fixtureReleases | Where-Object { $_.tag_name -eq 'MatriX.145.Flow-v0.1.0' }) }
         # Match Invoke-RestMethod's JSON-array output rather than PowerShell
         # function return enumeration, which hid the live API regression.
         Write-Output -NoEnumerate $fixtureReleases
@@ -35,3 +36,5 @@ $rejected = $false
 try { [void](Get-FlowRelease preview) } catch { $rejected = $_.Exception.Message -like 'No published Flow*' }
 if (-not $rejected) { throw 'Development-only releases were accepted as previews.' }
 Write-Output 'Release channel selection passed.'
+if ((Compare-FlowVersions 'MatriX.145.Flow-v1.10.0' 'MatriX.145.Flow-v1.9.9') -le 0) { throw 'Version comparison is lexical.' }
+if ((Compare-FlowVersions 'MatriX.145.Flow-v1.1.0' 'MatriX.145.Flow-v1.1.0-rc.4') -le 0) { throw 'Stable did not sort above its candidate.' }

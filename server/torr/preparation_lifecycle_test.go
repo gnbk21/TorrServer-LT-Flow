@@ -7,6 +7,17 @@ import (
 	"testing"
 )
 
+func TestPreparationKeepsMaintenanceBusyUntilPausedOrFinished(t *testing.T) {
+	for _, state := range []string{"downloading", "cleaning", "paused", "ready", "cancelled", "error"} {
+		p := &preparationManager{jobs: map[string]*preparationRecord{
+			"fixture": {PreparationJob: PreparationJob{State: state}},
+		}}
+		if got, want := p.hasActiveWork(), state == "downloading" || state == "cleaning"; got != want {
+			t.Fatalf("state=%s busy=%v want=%v", state, got, want)
+		}
+	}
+}
+
 func TestPreparationCleanupCannotBeReversed(t *testing.T) {
 	previous, readOnly := helperEngine(), settings.ReadOnly
 	settings.ReadOnly = false

@@ -5,11 +5,31 @@ export function StartupEvidence({ startup }: { startup: FlowStartup }) {
   const { t } = useTranslation();
   const progress = startup.progress;
   const recovery = startup.metadata_recovery;
-  if (!progress && !recovery) return null;
+  if (!progress && !recovery && !startup.phases?.length) return null;
   const mib = (bytes: number) => (bytes / 1048576).toFixed(1);
   return (
     <section className="panel space-y-2">
       <h3 className="font-semibold">{t("flow.startupEvidenceTitle")}</h3>
+      {!!startup.phases?.length && (
+        <details className="text-sm space-y-2">
+          <summary>{t("flow.stream.timings")}</summary>
+          <p className="text-slate-400">{t("flow.stream.timingHint")}</p>
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {startup.phases.map((row) => (
+              <div key={row.phase}>
+                <dt>{t("flow.stream.phases." + row.phase)}</dt>
+                <dd>
+                  {row.duration_ms === undefined
+                    ? t("flow.stream.unknown")
+                    : t("flow.stream.milliseconds", { value: row.duration_ms })}
+                  {" · "}
+                  {t("flow.stream.bases." + row.basis)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      )}
       {recovery && (
         <div className="space-y-1 text-sm">
           <p>{t(`flow.metadataRecovery.${recovery.state}`)}</p>

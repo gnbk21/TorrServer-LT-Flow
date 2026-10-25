@@ -50,8 +50,9 @@ $global:flowUpdateTeststartArguments=@()
 # the production scripts unchanged. This is not a live GitHub release test.
 function Invoke-RestMethod {
     [CmdletBinding()]param([string]$Uri,[hashtable]$Headers,[int]$TimeoutSec,[string]$Method,[string]$ContentType,$Body)
-    if ($Uri -eq 'https://api.github.com/repos/gnbk21/TorrServer-LT-Flow/releases?per_page=100') {
-        Write-Output -NoEnumerate @([pscustomobject]@{draft=$false;prerelease=($global:flowUpdateTestfixtureManifest.channel -eq 'preview');tag_name=$global:flowUpdateTestfixtureManifest.Version;assets=@([pscustomobject]@{name='release.json';browser_download_url="https://github.com/gnbk21/TorrServer-LT-Flow/releases/download/$($global:flowUpdateTestfixtureManifest.Version)/release.json"})})
+    if ($Uri -in @('https://api.github.com/repos/gnbk21/TorrServer-LT-Flow/releases?per_page=100','https://api.github.com/repos/gnbk21/TorrServer-LT-Flow/releases/latest')) {
+        $fixtureRelease=[pscustomobject]@{draft=$false;prerelease=($global:flowUpdateTestfixtureManifest.channel -eq 'preview');tag_name=$global:flowUpdateTestfixtureManifest.Version;assets=@([pscustomobject]@{name='release.json';browser_download_url="https://github.com/gnbk21/TorrServer-LT-Flow/releases/download/$($global:flowUpdateTestfixtureManifest.Version)/release.json"})}
+        if ($Uri.EndsWith('/latest')) { return $fixtureRelease }; Write-Output -NoEnumerate @($fixtureRelease)
         return
     }
     if ($Uri -eq "https://github.com/gnbk21/TorrServer-LT-Flow/releases/download/$($global:flowUpdateTestfixtureManifest.Version)/release.json") { return $global:flowUpdateTestfixtureManifest }
@@ -71,7 +72,7 @@ function Start-Process {
         # Simulate a candidate migration after the pre-update snapshot. The
         # rollback must restore data as well as the previous executable.
         [IO.File]::WriteAllBytes((Join-Path $state 'config.db'),[Text.Encoding]::ASCII.GetBytes('candidate-migration-fixture'))
-        [IO.File]::WriteAllText((Join-Path $state 'candidate-only.json'),'{"migration":"fixture"}')
+        [IO.File]::WriteAllText((Join-Path $state 'flow-settings-pending.json'),'{"migration":"fixture"}')
         # Inject a CLI parsing failure into the actual staged executable.
         $PSBoundParameters.ArgumentList += ' --port invalid'
     }
@@ -83,7 +84,7 @@ function Move-Item {
     if ($AsService -and $global:flowUpdateTestfailNextStart -and $Destination -eq $exe -and [IO.Path]::GetFileName($LiteralPath).StartsWith('download-')) {
         $global:flowUpdateTestfailNextStart=$false
         [IO.File]::WriteAllBytes((Join-Path $state 'config.db'),[Text.Encoding]::ASCII.GetBytes('candidate-migration-fixture'))
-        [IO.File]::WriteAllText((Join-Path $state 'candidate-only.json'),'{"migration":"fixture"}')
+        [IO.File]::WriteAllText((Join-Path $state 'flow-settings-pending.json'),'{"migration":"fixture"}')
     }
 }
 function Health([string]$Version) {
@@ -135,7 +136,7 @@ try {
     CheckState
     $global:flowUpdateTestfixtureManifest=$oldManifest; $global:flowUpdateTestfixtureBinary=$baselinePath; $global:flowUpdateTestfailNextStart=$true
     $rolledBack=$false
-    try { & (Join-Path $root 'distribution/Update-Flow.ps1') -InstallDirectory $install -Channel $global:flowUpdateTestfixtureManifest.channel -Credential $credential } catch { $rolledBack=$true; $rollbackError=$_.Exception.Message }
+    try { & (Join-Path $root 'distribution/Update-Flow.ps1') -InstallDirectory $install -Channel $global:flowUpdateTestfixtureManifest.channel -Credential $credential -AllowDowngrade } catch { $rolledBack=$true; $rollbackError=$_.Exception.Message }
     if (-not $rolledBack) { throw 'Injected startup failure did not trigger rollback.' }
     if ($global:flowUpdateTestfailNextStart) { throw 'Candidate migration failure was not exercised.' }
     Health $newManifest.Version
@@ -144,8 +145,8 @@ try {
         $service=Get-CimInstance Win32_Service -Filter "Name='TorrServer-Flow'"
         if ($service.StartName -ne 'NT SERVICE\TorrServer-Flow' -or $service.PathName -notmatch '--httpauth' -or $service.PathName -notmatch '--ip 127\.0\.0\.1') { throw 'Rollback changed the service account or listener/authentication flags.' }
     }
-    if (Test-Path -LiteralPath (Join-Path $state 'candidate-only.json')) { throw 'Failed candidate migration file remained in active state.' }
-    $retainedMigration = @(Get-ChildItem -LiteralPath (Join-Path $state 'upgrade-backups') -Recurse -File -Filter 'candidate-only.json')
+    if (Test-Path -LiteralPath (Join-Path $state 'flow-settings-pending.json')) { throw 'Failed candidate migration file remained in active state.' }
+    $retainedMigration = @(Get-ChildItem -LiteralPath (Join-Path $state 'upgrade-backups') -Recurse -File -Filter 'flow-settings-pending.json')
     if ($retainedMigration.Count -ne 1 -or $retainedMigration[0].Directory.Name -ne 'failed-state') { throw 'Failed migration data was not preserved privately.' }
     foreach ($arguments in $global:flowUpdateTeststartArguments) {
         if ($arguments -notmatch '--httpauth' -or $arguments -notmatch '--ip 127\.0\.0\.1') { throw 'Restart changed authentication or listener flags.' }

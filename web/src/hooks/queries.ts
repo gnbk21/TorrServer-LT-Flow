@@ -5,7 +5,7 @@ import {
   useQueryClient,
   QueryClient,
 } from "@tanstack/react-query";
-import { api, ApiError } from "../api/client";
+import { api, ApiError, pollingDelay } from "../api/client";
 import { torrentsApi } from "../api/torrents";
 import { flowApi } from "../api/flow";
 import { runtimeApi } from "../api/runtime";
@@ -14,12 +14,17 @@ import { libraryApi } from "../api/library";
 import type { ActiveSnapshot, LibraryFilter } from "../types/library";
 export const queryClient = new QueryClient({
   defaultOptions: {
+    mutations: { retry: false },
     queries: {
       retry: (count, error) =>
         !(
           error instanceof ApiError &&
-          [400, 401, 403, 404].includes(error.status)
+          [400, 401, 403, 404, 429].includes(error.status)
         ) && count < 1,
+      retryDelay: (attempt, error) =>
+        error instanceof ApiError && error.retryAfterMs > 0
+          ? error.retryAfterMs
+          : Math.min(1000 * 2 ** attempt, 30000),
       staleTime: 1500,
       refetchOnWindowFocus: true,
       refetchIntervalInBackground: false,
@@ -68,13 +73,13 @@ export function useLibrary() {
       !visible
         ? false
         : (query.state.data?.length ?? 0) > 200
-          ? 5000
+          ? pollingDelay(5000)
           : query.state.data?.some(
                 (t) =>
                   (t.active_readers ?? 0) > 0 || t.stat === 1 || t.stat === 2,
               )
-            ? 1000
-            : 5000,
+            ? pollingDelay(1000)
+            : pollingDelay(5000),
   });
 }
 export function useLibraryPage(filter: LibraryFilter) {
@@ -83,7 +88,7 @@ export function useLibraryPage(filter: LibraryFilter) {
     queryKey: ["library", filter],
     queryFn: ({ signal }) => libraryApi.page(filter, signal),
     enabled: visible,
-    refetchInterval: visible ? 5000 : false,
+    refetchInterval: visible ? pollingDelay(5000) : false,
   });
 }
 export function useActive<T = ActiveSnapshot>(
@@ -100,7 +105,9 @@ export function useActive<T = ActiveSnapshot>(
     refetchOnWindowFocus: poll,
     refetchOnReconnect: poll,
     refetchInterval: (query) =>
-      !visible || !poll ? false : query.state.data?.items.length ? 1000 : 5000,
+      !visible || !poll
+        ? false
+        : pollingDelay(query.state.data?.items.length ? 1000 : 5000),
   });
 }
 export function useActiveTorrent(hash: string) {
@@ -119,7 +126,7 @@ export function useRuntime() {
     queryKey: ["runtime"],
     queryFn: ({ signal }) => runtimeApi.getStatus(signal),
     enabled: visible,
-    refetchInterval: visible ? 5000 : false,
+    refetchInterval: visible ? pollingDelay(5000) : false,
   });
 }
 export function useNetwork() {
@@ -128,7 +135,7 @@ export function useNetwork() {
     queryKey: ["network"],
     queryFn: ({ signal }) => flowApi.getNetwork(signal),
     enabled: visible,
-    refetchInterval: visible ? 5000 : false,
+    refetchInterval: visible ? pollingDelay(5000) : false,
   });
 }
 export function useSettings() {
@@ -146,7 +153,7 @@ export function useConfiguration() {
     queryKey: ["configuration"],
     queryFn: ({ signal }) => settingsApi.state(signal),
     enabled: visible,
-    refetchInterval: visible ? 5000 : false,
+    refetchInterval: visible ? pollingDelay(5000) : false,
   });
 }
 export function useFlow(hash?: string) {
@@ -155,7 +162,7 @@ export function useFlow(hash?: string) {
     queryKey: ["flow", hash],
     queryFn: ({ signal }) => flowApi.getStatus(hash!, signal),
     enabled: visible,
-    refetchInterval: visible ? 1000 : false,
+    refetchInterval: visible ? pollingDelay(1000) : false,
   });
 }
 export function useFlows(hashes: string[]) {
@@ -172,7 +179,7 @@ export function useFlows(hashes: string[]) {
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         flowApi.getStatus(hash, signal),
       enabled: visible,
-      refetchInterval: visible ? 1000 : false,
+      refetchInterval: visible ? pollingDelay(1000) : false,
     })),
   });
 }
@@ -194,7 +201,7 @@ export function useFlowDiagnostics(hash: string | undefined, enabled: boolean) {
     queryKey: ["flow-diagnostics", hash],
     queryFn: ({ signal }) => flowApi.getStatus(hash!, signal, true),
     enabled: enabled && visible && !!hash,
-    refetchInterval: enabled && visible ? 3000 : false,
+    refetchInterval: enabled && visible ? pollingDelay(3000) : false,
   });
 }
 export function useVersion() {
@@ -234,7 +241,7 @@ export function useCache(hash: string, enabled: boolean) {
         signal,
       ),
     enabled: visible,
-    refetchInterval: visible ? 3000 : false,
+    refetchInterval: visible ? pollingDelay(3000) : false,
   });
 }
 export async function refreshLibrary() {

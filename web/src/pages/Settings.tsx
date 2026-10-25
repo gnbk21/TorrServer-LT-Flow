@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router-dom";
 import { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import type { BTSettings } from "../types/settings";
 import { useForm, type RegisterOptions } from "react-hook-form";
@@ -118,7 +119,11 @@ export default function Settings() {
     active_work: boolean;
   }>();
   const { setDirty } = useDirty();
-  const [tab, setTab] = useState("general");
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState(() => {
+    const tab = searchParams.get("tab");
+    return tab && Object.hasOwn(groups, tab) ? tab : "general";
+  });
   const [visited, setVisited] = useState<Set<string>>(() => new Set());
   useEffect(() => {
     setVisited((previous) =>
@@ -318,6 +323,8 @@ export default function Settings() {
           "Flow.ScarcePieceHints": t("settings.scarceHintsHelp"),
           "Flow.RateAwareDeadlines": t("settings.rateDeadlinesHelp"),
           "Flow.CapacityAwareRequests": t("settings.highBitrateExperimentHelp"),
+          "Flow.FrontierRecovery": t("settings.streamRecoveryHelp"),
+          "Flow.AdaptivePeerRequests": t("settings.streamRequestsHelp"),
           "Flow.AdaptiveUrgentHorizon": t("settings.highBitrateExperimentHelp"),
           "Flow.ContainerBurstHints": t("settings.highBitrateExperimentHelp"),
           "Flow.StreamTransportBufferKiB": t("settings.transportHelp"),
@@ -771,7 +778,9 @@ export default function Settings() {
           {t(dirty ? "settings.unsaved" : "settings.savedState")}
         </p>
       </div>
-      {(visited.has("integrations") || visited.has("advanced") || visited.has("security")) && (
+      {(visited.has("integrations") ||
+        visited.has("advanced") ||
+        visited.has("security")) && (
         <Suspense fallback={<Loading />}>
           <IntegrationSettings tab={tab} onDirty={setIntegrationDirty} />
         </Suspense>

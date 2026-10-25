@@ -2,8 +2,14 @@ export class ApiError extends Error {
   status: number;
   statusText: string;
   data: unknown;
+  retryAfterMs: number;
 
-  constructor(status: number, statusText: string, data: unknown) {
+  constructor(
+    status: number,
+    statusText: string,
+    data: unknown,
+    retryAfterMs = 0,
+  ) {
     super(
       typeof data === "string"
         ? data
@@ -18,6 +24,7 @@ export class ApiError extends Error {
     this.status = status;
     this.statusText = statusText;
     this.data = data;
+    this.retryAfterMs = retryAfterMs;
   }
 
   get isStarting() {
@@ -27,6 +34,26 @@ export class ApiError extends Error {
   get isUnauthorized() {
     return this.status === 401 || this.status === 403;
   }
+}
+let cooldownUntil = 0;
+export function pollingDelay(base: number): number {
+  return Math.max(base, cooldownUntil - performance.now());
+}
+export function resetManagementCooldown() {
+  cooldownUntil = 0;
+}
+export function retryAfterMilliseconds(
+  value: string | null,
+  serverDate: string | null,
+): number {
+  if (!value) return 0;
+  const seconds = Number(value);
+  const milliseconds = Number.isFinite(seconds)
+    ? seconds * 1000
+    : Date.parse(value) - Date.parse(serverDate ?? "");
+  return Number.isFinite(milliseconds)
+    ? Math.min(300000, Math.max(0, milliseconds))
+    : 0;
 }
 
 // Session token for Flow stream grouping
@@ -48,6 +75,8 @@ export async function apiClient<T>(
   const url = new URL(endpoint, window.location.origin);
   if (url.origin !== window.location.origin)
     throw new Error("Cross-origin API request rejected");
+  const remaining = cooldownUntil - performance.now();
+  if (remaining > 0) throw new ApiError(429, "Retry later", null, remaining);
   const headers = new Headers(options.headers || {});
   if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -69,6 +98,14 @@ export async function apiClient<T>(
       credentials: "same-origin",
       signal: controller.signal,
     });
+    const retryAfterMs = [429, 503].includes(response.status)
+      ? retryAfterMilliseconds(
+          response.headers.get("Retry-After"),
+          response.headers.get("Date"),
+        )
+      : 0;
+    if (retryAfterMs > 0)
+      cooldownUntil = Math.max(cooldownUntil, performance.now() + retryAfterMs);
     const text = await response.text();
     let data: unknown = text;
     if (
@@ -78,11 +115,21 @@ export async function apiClient<T>(
       try {
         data = JSON.parse(text);
       } catch {
-        throw new ApiError(response.status, "Invalid JSON response", null);
+        throw new ApiError(
+          response.status,
+          "Invalid JSON response",
+          null,
+          retryAfterMs,
+        );
       }
     }
     if (!response.ok)
-      throw new ApiError(response.status, response.statusText, data);
+      throw new ApiError(
+        response.status,
+        response.statusText,
+        data,
+        retryAfterMs,
+      );
     return data as T;
   } finally {
     window.clearTimeout(timeout);

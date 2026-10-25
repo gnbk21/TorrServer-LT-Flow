@@ -121,7 +121,7 @@ def selected_platforms(scope):
     raise ValueError('Unknown platform scope')
 
 
-def package(artifact_dir, output, tag, commit, native_root, platform_scope='all', packaging_commit=None):
+def package(artifact_dir, output, tag, commit, native_root, platform_scope='all', packaging_commit=None, availability_reason=None, recovery_provenance=False):
     channel = classify(tag)
     platforms = selected_platforms(platform_scope)
     if packaging_commit is not None and not re.fullmatch(r'[a-f0-9]{40}', packaging_commit):
@@ -157,10 +157,13 @@ def package(artifact_dir, output, tag, commit, native_root, platform_scope='all'
     provenance["windows_interface_guard"] = helper_metadata
     availability = {"included": list(platforms), "pending": [p for p in PLATFORMS if p not in platforms]}
     if availability['pending']:
-        availability['reason'] = 'GitHub hosted macOS ARM runner capacity; no macOS build steps executed. Assets are not included or claimed verified.'
+        availability['reason'] = availability_reason or 'GitHub hosted macOS ARM runner capacity; no macOS build steps executed. Assets are not included or claimed verified.'
     provenance['platform_availability'] = availability
     if packaging_commit is not None:
         provenance['packaging_workflow_commit'] = packaging_commit
+    if recovery_provenance:
+        if not packaging_commit: raise ValueError('Recovery provenance requires packaging identity')
+        provenance['provenance'] = dict(workflow='release-recovery.yml',source_commit=packaging_commit,source_ref='refs/heads/master')
     provenance["native_cache_extension"] = {"version": 2, "declarations_sha256": digest(root / "build/patch_libtorrent_header.py"), "implementation_sha256": digest(root / "server/lt/lt_shim.cpp")}
     runtime_notices = {platform: find_binary(artifact_dir, f"RUNTIME_NOTICES-{platform}.txt") for platform in ("windows-amd64", "android-arm64", "android-armv7")}
     provenance["toolchain_runtime_notices"] = {platform: {"sha256": digest(path), "size": path.stat().st_size} for platform, path in runtime_notices.items()}
@@ -212,6 +215,8 @@ def package(artifact_dir, output, tag, commit, native_root, platform_scope='all'
     manifest['platform_availability'] = availability
     if packaging_commit is not None:
         manifest['packaging_workflow_commit'] = packaging_commit
+    if recovery_provenance:
+        manifest['provenance'] = provenance['provenance']
     (output / "release.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     (output / "SHA256SUMS").write_text("".join(f"{digest(p)}  {p.name}\n" for p in sorted(output.iterdir()) if p.is_file()), encoding="utf-8")
     print(json.dumps({"channel": channel, "binaries": len(binaries), "packages": len(packages)}))
@@ -227,10 +232,12 @@ if __name__ == "__main__":
     parser.add_argument("--native-sources", type=Path)
     parser.add_argument('--platform-scope', choices=('all', 'non-macos'), default='all')
     parser.add_argument('--packaging-commit')
+    parser.add_argument('--availability-reason')
+    parser.add_argument('--recovery-provenance',action='store_true')
     args = parser.parse_args()
     if args.classify:
         print(classify(args.tag))
     else:
         if not all((args.artifacts, args.output, args.commit, args.native_sources)):
             parser.error("packaging requires --artifacts --output --commit --native-sources")
-        package(args.artifacts, args.output, args.tag, args.commit, args.native_sources, args.platform_scope, args.packaging_commit)
+        package(args.artifacts, args.output, args.tag, args.commit, args.native_sources, args.platform_scope, args.packaging_commit, args.availability_reason, args.recovery_provenance)

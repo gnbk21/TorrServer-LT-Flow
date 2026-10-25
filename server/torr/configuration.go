@@ -15,6 +15,51 @@ import (
 )
 
 var ErrSettingsConflict = errors.New("settings changed; reload before applying your draft")
+var ErrStorageBusy = errors.New("stop playback and preparation before changing storage")
+
+func StoragePreferencesSnapshot() map[string]interface{} {
+	configControl.Lock()
+	defer configControl.Unlock()
+	prefs := settings.GetStoragePreferences()
+	prefs["revision"] = configurationRevisionLocked()
+	return prefs
+}
+
+func ApplyStoragePreferences(prefs map[string]interface{}, revision string) error {
+	configControl.operation.Lock()
+	defer configControl.operation.Unlock()
+	configControl.Lock()
+	defer configControl.Unlock()
+	if revision != "" && revision != configurationRevisionLocked() {
+		return ErrSettingsConflict
+	}
+	if configControl.pending != nil || configControl.applying {
+		return ErrSettingsConflict
+	}
+	if FlowHasActiveWork() {
+		return ErrStorageBusy
+	}
+	token, _ := flow.Maintenance.Acquire(0)
+	if token == "" {
+		return ErrStorageBusy
+	}
+	defer flow.Maintenance.Release(token)
+	if FlowHasActiveWork() {
+		return ErrStorageBusy
+	}
+	configControl.applying = true
+	configControl.effective = settings.CloneSettings(settings.BTsets())
+	defer func() { configControl.applying = false; configControl.effective = nil }()
+	err := func() error {
+		configControl.Unlock()
+		defer configControl.Lock()
+		return settings.SetStoragePreferences(prefs)
+	}()
+	if settings.StorageRecoveryPending() {
+		configControl.error = "STORAGE_RECOVERY_REQUIRED"
+	}
+	return err
+}
 
 type pendingConfiguration struct {
 	Base     string           `json:"base"`

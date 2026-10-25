@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory)][string]$InstallDirectory,
     [Parameter(Mandatory)][ValidateSet('stable', 'preview')][string]$Channel,
     [System.Management.Automation.PSCredential]$Credential,
-    [switch]$RequireAttestation
+    [switch]$RequireAttestation,
+    [switch]$AllowDowngrade
 )
 . (Join-Path $PSScriptRoot 'FlowRelease.ps1')
 $install = [IO.Path]::GetFullPath($InstallDirectory)
@@ -19,7 +20,9 @@ foreach ($address in $listenAddresses) {
 if ($httpAuth -and -not $Credential) { throw 'This installation requires -Credential for authenticated health and maintenance checks.' }
 $exe = Join-Path $install 'TorrServer-LT-windows-amd64.exe'
 $manifest = Get-FlowRelease $Channel
+if ($manifest.Version -eq $record.version -and $manifest.commit -cne $record.commit) { throw 'The installed version has a different source identity. Refusing a changed release tag.' }
 if ($manifest.Version -eq $record.version) { Write-Output 'This release is already installed.'; return }
+if (-not $AllowDowngrade -and (Compare-FlowVersions $manifest.Version $record.version) -lt 0) { throw 'Automatic downgrades are refused. Use -AllowDowngrade only for an explicit recovery.' }
 $request = @{ TimeoutSec = 5; ErrorAction = 'Stop' }
 if ($Credential) {
     # PowerShell 7 forbids -Credential on HTTP. Send Basic only to the fixed
@@ -52,7 +55,10 @@ function Wait-FlowHealth([string]$ExpectedVersion) {
         try {
             $version = Invoke-RestMethod @request -Uri "$baseUri/echo"
             $status = Invoke-RestMethod @request -Uri "$baseUri/flow/tray"
-            if ($version -eq $ExpectedVersion -and $status.server_state -in @('RUNNING','PAUSED')) { return }
+            $runtime = Invoke-RestMethod @request -Uri "$baseUri/runtime/status"
+            $expectedSource = [string]$record.commit
+            if ($ExpectedVersion -eq $manifest.Version) { $expectedSource = [string]$manifest.commit }
+            if ($version -eq $ExpectedVersion -and $status.server_state -in @('RUNNING','PAUSED') -and $runtime.build.source -ceq $expectedSource) { return }
         } catch { }
         Start-Sleep -Milliseconds 250
     } while ([DateTime]::UtcNow -lt $deadline)
@@ -87,6 +93,7 @@ try {
     $stopped = $true
     # State remains in place. Keep a recovery copy of configuration after a clean close.
     $backup = Join-Path ([string]$record.state_directory) ('upgrade-backups/' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N'))
+    [void](Resolve-FlowStateFile $backup 'settings.json')
     [void](New-Item -ItemType Directory -Path $backup -Force)
     # Protect the directory before copying account/configuration files into it.
     $owner = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
@@ -97,7 +104,7 @@ try {
         $acl.AddAccessRule($rule)
     }
     Set-Acl -LiteralPath $backup -AclObject $acl
-    Get-ChildItem -LiteralPath ([string]$record.state_directory) -File | Where-Object { $_.Extension -in @('.db','.json','.txt') } | Copy-Item -Destination $backup
+    Save-FlowStateSnapshot ([string]$record.state_directory) $backup
     Move-Item -LiteralPath $exe -Destination $previous
     try { Move-Item -LiteralPath $temporary -Destination $exe } catch { Move-Item -LiteralPath $previous -Destination $exe; throw }
     $swapped = $true
@@ -121,16 +128,7 @@ try {
         Move-Item -LiteralPath $exe -Destination $failed
         Move-Item -LiteralPath $previous -Destination $exe
         # Undo migrations of files captured after the old server closed cleanly.
-        $originalNames = @(Get-ChildItem -LiteralPath $backup -File | ForEach-Object { $_.Name })
-        $createdFiles = @(Get-ChildItem -LiteralPath ([string]$record.state_directory) -File | Where-Object { $_.Extension -in @('.db','.json','.txt') -and $_.Name -notin $originalNames })
-        if ($createdFiles.Count) {
-            # Preserve new migration files privately, but remove them from the
-            # old server's state namespace before restoring its snapshot.
-            $failedState = Join-Path $backup 'failed-state'
-            [void](New-Item -ItemType Directory -Path $failedState)
-            foreach ($file in $createdFiles) { Move-Item -LiteralPath $file.FullName -Destination (Join-Path $failedState $file.Name) }
-        }
-        Get-ChildItem -LiteralPath $backup -File | Copy-Item -Destination ([string]$record.state_directory) -Force
+        Restore-FlowStateSnapshot ([string]$record.state_directory) $backup
         Start-InstalledFlow
         Wait-FlowHealth ([string]$record.version)
         Write-Warning 'Previous executable restored and health checked. State was preserved.'

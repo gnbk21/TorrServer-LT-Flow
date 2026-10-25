@@ -7,8 +7,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"server/searchstatus"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"server/log"
@@ -113,37 +115,63 @@ func normalizeHost(host string) (*url.URL, error) {
 }
 
 func Search(ctx context.Context, query string, index int, cat string, offset, limit int) []*models.TorrentDetails {
+	rows, _ := SearchDetailed(ctx, query, index, cat, offset, limit)
+	return rows
+}
+
+func SearchDetailed(ctx context.Context, query string, index int, cat string, offset, limit int) ([]*models.TorrentDetails, []searchstatus.Status) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if !settings.BTsets().EnableTorznabSearch || len(settings.BTsets().TorznabUrls) == 0 {
-		return nil
+	ctx, cancel := context.WithTimeout(ctx, httpTimeout)
+	defer cancel()
+	set := settings.BTsets()
+	if set == nil || !set.EnableTorznabSearch {
+		return nil, nil
 	}
-
-	searchOffset := offset
-	if index < 0 {
-		searchOffset = 0
-	}
-
-	var allResults []*models.TorrentDetails
-	if index >= 0 && index < len(settings.BTsets().TorznabUrls) {
-		config := settings.BTsets().TorznabUrls[index]
-		if config.Host != "" && config.Key != "" {
-			return searchOne(ctx, config.Host, config.Key, query, indexerLabel(config), cat, searchOffset, limit)
-		}
-		return nil
-	}
-
-	for _, config := range settings.BTsets().TorznabUrls {
-		if config.Host == "" || config.Key == "" {
-			continue
-		}
-		results := searchOne(ctx, config.Host, config.Key, query, indexerLabel(config), cat, searchOffset, limit)
-		if results != nil {
-			allResults = append(allResults, results...)
+	configs := append([]settings.TorznabConfig(nil), set.TorznabUrls...)
+	indices := []int{}
+	for i := range configs {
+		if index < 0 || index == i {
+			indices = append(indices, i)
 		}
 	}
-	return allResults
+	rows := make([][]*models.TorrentDetails, len(indices))
+	statuses := make([]searchstatus.Status, len(indices))
+	var workers sync.WaitGroup
+	jobs := make(chan int, len(indices))
+	for slot := range indices {
+		jobs <- slot
+	}
+	close(jobs)
+	for worker := 0; worker < min(4, len(indices)); worker++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for slot := range jobs {
+				i := indices[slot]
+				started := time.Now()
+				searchOffset := offset
+				if index < 0 {
+					searchOffset = 0
+				}
+				c := configs[i]
+				if c.Host == "" || c.Key == "" {
+					statuses[slot] = searchstatus.Outcome("torznab", i, 0, started, searchstatus.Invalid())
+					continue
+				}
+				var err error
+				rows[slot], err = searchOneDetailed(ctx, c.Host, c.Key, query, indexerLabel(c), cat, searchOffset, limit)
+				statuses[slot] = searchstatus.Outcome("torznab", i, len(rows[slot]), started, err)
+			}
+		}()
+	}
+	workers.Wait()
+	all := []*models.TorrentDetails{}
+	for _, part := range rows {
+		all = append(all, part...)
+	}
+	return all, statuses
 }
 
 // itemTracker names the tracker a result came from. Jackett and Prowlarr tag
@@ -173,10 +201,25 @@ func indexerLabel(config settings.TorznabConfig) string {
 }
 
 func searchOne(ctx context.Context, host, key, query, label, cat string, offset, limit int) []*models.TorrentDetails {
+	rows, _ := searchOneDetailed(ctx, host, key, query, label, cat, offset, limit)
+	return rows
+}
+
+func searchOneDetailed(ctx context.Context, host, key, query, label, cat string, offset, limit int) ([]*models.TorrentDetails, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, httpTimeout)
+	defer cancel()
+	release, err := searchstatus.Acquire(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	u, err := normalizeHost(host)
 	if err != nil {
 		log.TLogln("Error parsing Torznab host:", err)
-		return nil
+		return nil, err
 	}
 
 	q := u.Query()
@@ -197,37 +240,49 @@ func searchOne(ctx context.Context, host, key, query, label, cat string, offset,
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		log.TLogln("Error creating Torznab request:", err)
-		return nil
+		return nil, err
 	}
 
 	req.Header.Set("User-Agent", "TorrServer-Flow-Torznab/"+version.Version)
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		log.TLogln("Error connecting to Torznab:", err)
-		return nil
+		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (32<<20)+1))
 	if err != nil {
 		log.TLogln("Error reading Torznab response:", err)
-		return nil
+		return nil, err
 	}
 
+	if len(body) > 32<<20 {
+		return nil, searchstatus.Invalid()
+	}
 	if resp.StatusCode != http.StatusOK {
 		log.TLogln("Torznab returned status:", resp.Status)
-		return nil
+		return nil, searchstatus.HTTP(resp.StatusCode)
 	}
 
 	if errMsg := parseTorznabError(body); errMsg != "" {
 		log.TLogln("Torznab API error:", errMsg)
-		return nil
+		var failure torznabError
+		_ = xml.Unmarshal(body, &failure)
+		if failure.Code == "100" || failure.Code == "101" {
+			return nil, searchstatus.HTTP(401)
+		}
+		return nil, searchstatus.Invalid()
 	}
 
+	var root struct{ XMLName xml.Name }
+	if xml.Unmarshal(body, &root) != nil || root.XMLName.Local != "rss" {
+		return nil, searchstatus.Invalid()
+	}
 	var torznabResp TorznabResponse
 	if err := xml.Unmarshal(body, &torznabResp); err != nil {
 		log.TLogln("Error decoding Torznab response:", err)
-		return nil
+		return nil, searchstatus.Invalid()
 	}
 
 	var results []*models.TorrentDetails
@@ -284,13 +339,20 @@ func searchOne(ctx context.Context, host, key, query, label, cat string, offset,
 		results = append(results, detail)
 	}
 
-	return results
+	return results, nil
 }
 
 func FetchCaps(ctx context.Context, host, key string) (*Caps, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx, cancel := context.WithTimeout(ctx, httpTimeout)
+	defer cancel()
+	release, err := searchstatus.Acquire(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 
 	u, err := normalizeHost(host)
 	if err != nil {
@@ -314,30 +376,37 @@ func FetchCaps(ctx context.Context, host, key string) (*Caps, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
 	if err != nil {
 		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status: %s", resp.Status)
+		return nil, searchstatus.HTTP(resp.StatusCode)
+	}
+	if len(body) > 1<<20 {
+		return nil, searchstatus.Invalid()
 	}
 
 	return ParseCapsBytes(body)
 }
 
 func ParseCapsBytes(body []byte) (*Caps, error) {
-	if errMsg := parseTorznabError(body); errMsg != "" {
-		return nil, fmt.Errorf("api error: %s", errMsg)
+	var failure torznabError
+	if xml.Unmarshal(body, &failure) == nil && failure.XMLName.Local == "error" {
+		if failure.Code == "100" || failure.Code == "101" {
+			return nil, searchstatus.HTTP(401)
+		}
+		return nil, searchstatus.Invalid()
 	}
 
 	var caps Caps
 	if err := xml.Unmarshal(body, &caps); err != nil {
-		return nil, fmt.Errorf("invalid xml response: %v", err)
+		return nil, searchstatus.Invalid()
 	}
 
 	if caps.XMLName.Local != "caps" {
-		return nil, fmt.Errorf("unexpected xml root: %s", caps.XMLName.Local)
+		return nil, searchstatus.Invalid()
 	}
 
 	return &caps, nil

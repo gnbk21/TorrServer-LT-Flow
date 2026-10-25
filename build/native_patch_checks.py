@@ -13,8 +13,13 @@ SOURCE = Path(__file__).resolve().parent.parent / "_src/libtorrent"
 class NativePatchTest(unittest.TestCase):
     def fixture(self, root):
         for patch in PATCH_DIR.glob("*.patch"):
+            added = False
             for line in patch.read_text().splitlines():
+                if line.startswith("--- "):
+                    added = line == "--- /dev/null"
                 if line.startswith("+++ b/"):
+                    if added:
+                        continue
                     name = line[6:]
                     path = root / name
                     path.parent.mkdir(parents=True, exist_ok=True)

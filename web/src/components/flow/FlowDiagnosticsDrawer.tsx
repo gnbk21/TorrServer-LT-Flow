@@ -9,6 +9,7 @@ import { IncidentTimeline } from "./IncidentTimeline";
 import { PlayerEvidence } from "./PlayerEvidence";
 import { NextEpisodeWarmup } from "./NextEpisodeWarmup";
 import { StartupEvidence } from "./StartupEvidence";
+import { StreamEvidence } from "./StreamEvidence";
 import { PlaybackOverview } from "./PlaybackOverview";
 export interface FlowDiagnosticsDrawerProps {
   isOpen: boolean;
@@ -30,6 +31,7 @@ export function FlowDiagnosticsDrawer({
     isOpen,
     sampledAt + 10_000,
     (status?.sparse?.sampled_at_ms ?? NaN) + 5000,
+    status,
   );
   const sampleAge = now - sampledAt;
   const fresh =
@@ -56,6 +58,15 @@ export function FlowDiagnosticsDrawer({
           <PlaybackOverview status={status} now={now} />
           <IncidentTimeline status={status} />
           {status.startup && <StartupEvidence startup={status.startup} />}
+          <StreamEvidence
+            evidence={status.sparse?.stream}
+            fresh={
+              fresh &&
+              !!status.sparse?.sampled_at_ms &&
+              now - status.sparse.sampled_at_ms >= 0 &&
+              now - status.sparse.sampled_at_ms < 5000
+            }
+          />
           <PlayerEvidence status={status} />
           {status.next_episode_warmup && (
             <NextEpisodeWarmup
@@ -312,7 +323,10 @@ export function FlowDiagnosticsDrawer({
                   {tr.error_category && (
                     <p>
                       {tr.error_category} / {tr.error_code ?? "—"} ·{" "}
-                      {t("flow.upgrade.operation", { value: tr.operation ?? "—" })} ·{" "}
+                      {t("flow.upgrade.operation", {
+                        value: tr.operation ?? "—",
+                      })}{" "}
+                      ·{" "}
                       {t("flow.upgrade.failureCount", {
                         count: tr.failure_count ?? 0,
                       })}

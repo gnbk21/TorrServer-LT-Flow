@@ -1,3 +1,4 @@
+import { pollingDelay } from "./api/client";
 import {
   lazy,
   Suspense,
@@ -131,7 +132,7 @@ function Shell() {
   const tray = useQuery({
     queryKey: ["tray"],
     queryFn: ({ signal }) => flowApi.getTray(signal),
-    refetchInterval: visible ? 5000 : false,
+    refetchInterval: visible ? pollingDelay(5000) : false,
   });
   const [pairing, setPairing] = useState(false);
   const [controlling, setControlling] = useState(false);

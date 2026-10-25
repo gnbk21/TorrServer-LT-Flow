@@ -85,6 +85,9 @@ func (t *Torrent) sampleSparse(handle *lt.Torrent, metadata bool, pieceLength in
 				break
 			}
 			t.historyEvent(flow.HistoryEvent{Type: "sparse", Sparse: history})
+			if snapshot.Stream != nil && snapshot.Stream.Known {
+				t.historyEvent(flow.HistoryEvent{Type: "stream_sample", Stream: snapshot.Stream})
+			}
 		}
 		t.flowMu.Unlock()
 	}

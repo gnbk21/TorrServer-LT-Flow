@@ -3,6 +3,7 @@ package torrstor
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,6 +11,61 @@ import (
 	"server/lt"
 	"server/settings"
 )
+
+func TestNativeFrontiersPreserveIndependentViewersAndRetireClosedReader(t *testing.T) {
+	old := settings.BTsets()
+	f := settings.DefaultFlowSettings()
+	f.FrontierRecovery, f.AdaptivePeerRequests = true, true
+	settings.StoreBTsets(&settings.BTSets{Flow: f, CacheSize: 64 * flow.MiB})
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	session, err := lt.NewSession(lt.SessionConfig{"enable_dht": false, "enable_lsd": false,
+		"enable_upnp": false, "enable_natpmp": false, "listen_interfaces": "127.0.0.1:0",
+		"flow_capacity_aware_requests": true, "flow_frontier_recovery": true, "flow_adaptive_peer_requests": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	const count = 32
+	info := []byte(fmt.Sprintf("d4:infod6:lengthi%de4:name4:test12:piece lengthi%de6:pieces%d:", count*pieceLen, pieceLen, count*20))
+	info = append(info, bytes.Repeat([]byte{0}, count*20)...)
+	info = append(info, 'e', 'e')
+	handle, err := session.AddTorrent(lt.AddTorrentParams{InfoBytes: info, SavePath: t.TempDir(), Paused: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer handle.Remove(false)
+	c := mkCache(t, count*pieceLen)
+	c.handle.Store(handle)
+	file := FileInfo{Index: 1, Length: count * pieceLen}
+	first := NewReader(c, nil, file, "phone-one")
+	second := NewReader(c, nil, file, "phone-two")
+	defer first.Close()
+	defer second.Close()
+	first.waitPiece.Store(2)
+	second.waitPiece.Store(20)
+	assertCount := func(want int) {
+		t.Helper()
+		c.lastApplyMs.Store(0)
+		c.applyStreamPriorities()
+		deadline := time.Now().Add(3 * time.Second)
+		for time.Now().Before(deadline) {
+			snapshot, err := handle.SampleSparse(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if snapshot.Stream != nil && snapshot.Stream.Frontiers == want {
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		t.Fatalf("native frontiers never became %d", want)
+	}
+	assertCount(2)
+	first.Close()
+	assertCount(1)
+	second.Close()
+	assertCount(0)
+}
 
 func TestDemandRatesRequireExplicitExperimentAndQualifiedFreshMedia(t *testing.T) {
 	old := settings.BTsets()

@@ -883,6 +883,40 @@
       "minimumBuffer": "采样中最小的手机缓冲：{{milliseconds}} 毫秒",
       "mirrorFailure": "最近观测到的镜像错误；并非当前可用性检查",
       "operation": "操作 {{value}}"
+    },
+    "stream": {
+      "title": "节点传输与恢复",
+      "useful_bytes": "首次接收的字节",
+      "redundant_bytes": "重复接收的字节",
+      "obsolete_bytes": "取消后接收（重复字节的一部分）",
+      "recovery_requests": "预算内的重复请求",
+      "recovery_suppressed": "被限制的重复请求",
+      "active_hedges": "等待中的重复请求",
+      "peak_hedges": "等待中重复请求的峰值",
+      "budget_changes": "节点请求预算调整次数",
+      "service": "服务 P50 ≤ {{p50}} 毫秒 · P95 ≤ {{p95}} 毫秒 · {{samples}} 个已完成请求",
+      "hint": "服务时间包括远端排队和传输，并非网络 RTT。百分位数是种子生命周期内直方图区间的上限。已接收字节不代表哈希验证完成或播放流畅。",
+      "timings": "启动阶段耗时",
+      "timingHint": "各阶段相互重叠，计时起点不同，请勿相加。连接及握手指首次观测到的成功出站连接。缺失的测量仍显示为未知。",
+      "unknown": "未测量",
+      "milliseconds": "{{value}} 毫秒",
+      "phases": {
+        "DISCOVERY": "发现至首次连接尝试",
+        "CONNECT": "套接字连接",
+        "HANDSHAKE": "BitTorrent/加密握手",
+        "METADATA": "元数据就绪",
+        "FIRST_PAYLOAD": "首次接收数据",
+        "BOOTSTRAP": "文件头及索引",
+        "PROBE": "媒体分析",
+        "RESERVE": "启动缓冲门限",
+        "FIRST_BYTE": "首个播放字节"
+      },
+      "bases": {
+        "NATIVE_TORRENT": "自引擎创建种子起",
+        "TORRENT": "自添加种子起",
+        "PRELOAD": "自预加载开始起",
+        "OPERATION": "操作耗时"
+      }
     }
   },
   "search": {
@@ -1032,7 +1066,9 @@
         "StreamTransportBufferKiB": "传输缓冲区（受控实验）",
         "NextEpisodeWarmup": "预热下一集文件头/索引",
         "MetadataFallback": "自动恢复磁力链接元数据",
-        "PublicMetadataCache": "免费的公共元数据缓存"
+        "PublicMetadataCache": "免费的公共元数据缓存",
+        "FrontierRecovery": "紧急延迟块恢复（实验）",
+        "AdaptivePeerRequests": "自适应节点请求预算（实验）"
       }
     },
     "maintenance": {
@@ -1134,7 +1170,9 @@
     "reloadSaved": "丢弃草稿并重新加载设置",
     "requestsPerMinute": "请求/分钟",
     "metadataFallbackHelp": "15 秒后尝试磁力链接中最多两个 HTTPS .torrent 地址。哈希必须匹配。",
-    "publicMetadataCacheHelp": "将卡住的 v1 磁力哈希发送给 Torrage 和 iTorrents。免费且无需账户。服务可能不可用。获取元数据前无法判断私有状态。"
+    "publicMetadataCacheHelp": "将卡住的 v1 磁力哈希发送给 Torrage 和 iTorrents。免费且无需账户。服务可能不可用。获取元数据前无法判断私有状态。",
+    "streamRecoveryHelp": "在共享重复请求限制和节点队列容量内，向其他节点请求紧急延迟块。默认关闭，效果取决于可用来源。",
+    "streamRequestsHelp": "根据测量的服务时间和节点容量调整请求数量。默认关闭，请比较启动、跳转和重复流量。"
   },
   "preparation": {
     "title": "准备剧集",
@@ -1178,5 +1216,43 @@
   },
   "flowHelp": {
     "MSXAllowLAN": "默认关闭。仅允许明确指定的私有或回环 IP 地址。解析到局域网的域名和链路本地元数据服务仍被阻止。"
+  },
+  "reliability": {
+    "searchSources": "搜索来源",
+    "integrationOK": "连接测试通过。",
+    "storageIdle": "更改存储前，请停止播放和准备任务，并处理待应用的设置。数据和首选项将一起迁移。",
+    "cooldown": "服务器要求等待。页面将在指定延迟后恢复轮询。",
+    "forbidden": "访问被拒绝。请检查账户权限和服务器访问规则。",
+    "diagnostics": "故障排查与最近会话",
+    "guide": "确定问题发生的位置",
+    "historyHelp": "可选历史记录仅包含匿名服务器传输证据，不代表手机播放情况。缓冲为采样值；停顿和等待为近期窗口的峰值，并非总数。",
+    "recentSessions": "加载最近会话",
+    "historyOff": "历史记录已关闭。请在设置中启用，以记录之后的会话。",
+    "historyEmpty": "没有已记录的会话。",
+    "historyTruncated": "历史记录不完整，可能已轮换或丢失记录。",
+    "incomplete": "证据不完整",
+    "observedEnd": "已观察到服务器会话结束",
+    "searchStates": {
+      "pending": "搜索中…",
+      "ok": "可用",
+      "empty": "无结果",
+      "timeout": "请求超时，请重试此来源",
+      "auth_required": "需要认证，请检查 API 密钥",
+      "unavailable": "不可用，请检查地址和连接",
+      "invalid_response": "响应无效，请检查 API 地址",
+      "cancelled": "已取消"
+    },
+    "guideSteps": {
+      "parser": "搜索或解析器报错：请在集成设置中测试已保存的 JacRed/Torznab。解析器在 Flow 收到种子之前运行。",
+      "preload": "Lampa 预加载一直等待：检查元数据、已连接的供应者和等待原因。.torrent 文件可以避免等待元数据，但无法增加做种者。",
+      "playback": "播放卡顿：比较连续缓冲、接收速率和读取等待。在手机上运行连接测试，单独检查服务器到手机的传输。这不是解码器测试。"
+    },
+    "summary": {
+      "observed": "最后观察时间",
+      "delivery": "已传输字节",
+      "buffer": "采样缓冲范围",
+      "stalls": "近期停顿峰值 / 等待 p95",
+      "coverage": "覆盖情况"
+    }
   }
 }

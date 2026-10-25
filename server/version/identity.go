@@ -1,8 +1,8 @@
 package version
 
 import (
+	"regexp"
 	"runtime/debug"
-	"strings"
 )
 
 type BuildIdentity struct {
@@ -12,12 +12,15 @@ type BuildIdentity struct {
 	Modified bool   `json:"modified"`
 }
 
+var stableBuildPattern = regexp.MustCompile(`^MatriX\.145\.Flow-v[0-9]+\.[0-9]+\.[0-9]+$`)
+var previewBuildPattern = regexp.MustCompile(`^MatriX\.145\.Flow-(?:v[0-9]+\.[0-9]+\.[0-9]+-(?:alpha|beta|preview|rc)\.[0-9]+|preview\.[0-9]+)$`)
+
 func Identity() BuildIdentity {
 	i := BuildIdentity{Version: Version, Channel: "development"}
-	if strings.Contains(Version, ".Flow-v") && !strings.Contains(Version, "preview") && !strings.Contains(Version, "-rc") {
+	if stableBuildPattern.MatchString(Version) {
 		i.Channel = "stable"
 	}
-	if strings.Contains(Version, "preview") || strings.Contains(Version, "-rc") {
+	if previewBuildPattern.MatchString(Version) {
 		i.Channel = "preview"
 	}
 	if info, ok := debug.ReadBuildInfo(); ok {
