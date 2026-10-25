@@ -75,9 +75,21 @@ and a green scan alone must not be reported as zero findings.
 
 ## Verification
 
-Windows local portable cache/resume/MIME/diagnostic tests and workflow lint have
-passed during implementation. Native integration, browser and fresh CodeQL
-results are required before this branch can be treated as ready to merge.
+Windows local cache/resume/MIME/diagnostic and descriptor-pool tests passed, as
+did workflow lint, UI type checking/lint, 129 UI unit tests (one existing skip),
+and CI browser checks. The native regression suite and all eight platform builds
+passed for source `bd4faf5b924bac345de2e0c48d13a8842214ec13`.
+
+The exact-run Windows candidate passed 15 isolated API checks without accessing
+personal settings. Both owned instances were stopped. Its SHA-256 is
+`295e619d26348fae6e1df4fd678fde93310c1e9d6eb5860cfba9154d8af2cdb4`.
+
+Fresh [CodeQL analysis](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/40181912977)
+reports six retained privileged-operation findings. The owner explicitly approved
+their documented dispositions on 25 October 2026; see the
+[exact findings, safeguards and risks](SECURITY_DISPOSITIONS_PR10.md).
+That approval does not waive functional checks. The broader playback/service
+workflow must still finish successfully before this branch is ready to merge.
 
 Design references: [Go os.Root](https://pkg.go.dev/os#Root) and
 [OWASP SSRF prevention](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
