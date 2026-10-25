@@ -11,8 +11,8 @@ Version: `MatriX.145.Flow-v1.1.7`. Security update for Flow 1.1.6.
 - Fail closed when HTTP authentication is enabled but the accounts file is
   missing, unreadable or malformed. Compare credentials in constant time.
 - Validate outbound integration destinations and pin approved DNS answers when
-  dialing. Recheck redirects, reject HTTPS downgrade and prohibit metadata,
-  link-local and selected reserved destinations. Environment proxies cannot
+  dialing. Recheck redirects, reject HTTPS downgrade and prohibit link-local metadata
+  and selected reserved destinations. Environment proxies cannot
   bypass these checks. Explicit local service access is scoped to its configured
   scheme, host and port; public DNS names do not gain private-network access.
 - Confine disk-cache I/O, resume verification, migration and cleanup beneath
@@ -55,11 +55,14 @@ only after exact-source and successful-run checks; they are not claimed as
 new comparisons of the tag. See the
 [verification record](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/RELEASE_1_1_7_VERIFICATION.md).
 
-The fresh implementation scan has six findings retained as explicitly approved
-administrator capabilities: configured JacRed/Torznab/TMDB services and cache-root
-selection. Their safeguards and remaining risks are documented in
-[the reviewed dispositions](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/SECURITY_DISPOSITIONS_PR10.md).
-Accepted findings and successful scans are not proof that Flow is vulnerability-free.
+The PR scan reported six results; full release-source analysis reports 21.
+The owner explicitly approved six initial and twelve additional dispositions;
+three pre-existing dispositions remain. These retain guarded administrator
+capabilities and recognize existing permission/MIME safeguards. See the
+[full-branch review](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/SECURITY_RELEASE_1_1_7_REVIEW.md)
+and [initial review](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/SECURITY_DISPOSITIONS_PR10.md).
+Trusted management access remains required. Accepted findings and successful
+scans are not proof that Flow is vulnerability-free.
 
 Legacy remains the default; libtorrent 2.1.2, original media bytes, existing
 profiles and optional streaming controls are retained. Fresh representative

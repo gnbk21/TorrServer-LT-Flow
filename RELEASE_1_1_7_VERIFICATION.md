@@ -1,8 +1,8 @@
 # Flow 1.1.7 verification
 
-Release target: `MatriX.145.Flow-v1.1.7`. Prepared 25 October 2026.
-Publication, exact-tag identity, downloaded assets and container availability
-remain pending until their receipts are recorded below.
+Published 25 October 2026. Tag: `MatriX.145.Flow-v1.1.7`.
+Immutable binary source: `87d1632e47d64adcfd98d7d916d80aebedbc4e8c`.
+The successful tagged workflow and public download receipts are recorded below.
 
 ## Accepted implementation
 
@@ -65,3 +65,58 @@ exact-final multi-hour acceptance remain unverified. No further two-hour tests
 are run. Accepted administrator privileges remain risks that require trusted
 management access; this release is not an exhaustive penetration-test claim.
 Windows executables remain unsigned by an Authenticode publisher certificate.
+
+
+## Published Latest: all eight platforms
+
+[Flow 1.1.7](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.7) is public, stable
+and Latest. [Tagged workflow 40188065181](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/40188065181)
+completed successfully, including all 25 actual required essential roles
+and the three-architecture container job. Earlier source-identical full
+comparisons and browser validation were reused; skipped optional comparisons
+were not counted as new successful tag checks. No two-hour test was run.
+
+- All 35 published assets are inventoried. The
+  34 SHA256SUMS entries agree with GitHub's
+  asset digests. 4 selected downloaded
+  files passed their actual checksums. Other platform bytes were not all
+  downloaded locally.
+- The Windows ZIP passed content digests, fixed archive timestamps, the exact
+  expected file allowlist and shipped-script comparisons against immutable Git
+  blobs. Both standard and GST executables identify the exact tag, source and
+  Go 1.26.10. Standard EXE SHA-256: `74cbf0d23a7a4d02db3a375a81df7b7ec3f5ad19351c9000d36bfa65d6ab3f35`.
+  ZIP SHA-256: `7a405c512b7f7380b64758ee473faf508262badb61492f687d3234f91f5f0251`.
+- EXE and ZIP provenance passed exact source digest, tag ref, release workflow
+  and GitHub-hosted-runner enforcement. This is separate from Authenticode.
+- The downloaded executable passed all 15 isolated security API checks using
+  disposable settings and local fixtures. Both owned test instances stopped.
+  No personal settings were accessed and no installed server was replaced.
+- Anonymous GHCR metadata reads verified AMD64, ARM64 and ARMv7, matching source
+  and version labels, and equal tag/latest index digest
+  `sha256:48f0a0e9a1f14b7200f910fc77025ce66691bb87aa014e28057cb42ceaf3ec0f`. CI performed actual version/linkage execution
+  on each architecture; local registry reads verify metadata.
+- [Exact tagged-source CodeQL 40188062360](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/40188062360)
+  passed all five jobs. Its full native scan reports **21 results**: the six
+  initial owner-approved dispositions, 12 additional dispositions approved after
+  full-branch review, and three pre-existing dispositions. The other categories
+  report zero. GitHub did not emit a separate PR aggregate results check for
+  this master push; its actual workflow jobs and full scan/alert state were
+  verified. The release source has zero open findings after these dispositions. Accepted findings are not
+  additional vulnerability fixes or a vulnerability-free claim.
+
+### Full-branch review and interrupted first attempt
+
+The PR's diff-informed analysis reported only six results. Full master analysis
+found twelve additional open findings outside that PR scope. Automatic release
+run attempt 1 was cancelled before publication; no tag or source was replaced.
+The exact additional findings, existing safeguards and risks were reviewed in
+[SECURITY_RELEASE_1_1_7_REVIEW.md](SECURITY_RELEASE_1_1_7_REVIEW.md). The owner
+explicitly approved ten retained administrator privileges and two false-positive
+dispositions. Each saved state was verified separately; the prior six-alert
+approval was not reused. The interrupted request group and dependent evidence /
+publication were rerun while earlier successful roles were retained. The final
+25-role gate verified actual latest attempts. No required check was waived.
+
+Raw local receipts: `.tools/flow117-published/` and
+`.tools/flow117-security-runtime/`. Field, physical recovery, unsigned Windows
+publisher identity and exact-final endurance limitations remain as stated above.

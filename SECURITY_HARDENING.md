@@ -93,3 +93,17 @@ workflow must still finish successfully before this branch is ready to merge.
 
 Design references: [Go os.Root](https://pkg.go.dev/os#Root) and
 [OWASP SSRF prevention](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html).
+
+
+## Publication follow-up: 25 October 2026
+
+PR #10 is merged and the fixes are published in **Flow 1.1.7**, marked Latest.
+The verification statements above retain their decision-time source and scope.
+The replacement implementation workflows and all exact-tag release gates have
+since completed successfully. The initial six approved dispositions and twelve
+additional full-branch dispositions were individually recorded and verified;
+their separate scope/approval is in [the full-branch review](SECURITY_RELEASE_1_1_7_REVIEW.md).
+No unapproved alert was dismissed. See
+[the final release receipt](RELEASE_1_1_7_VERIFICATION.md) for immutable source,
+actual CI results, downloaded-package checks and remaining field limits.
+Publication did not replace the owner's installed executable or settings.

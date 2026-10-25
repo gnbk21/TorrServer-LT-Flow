@@ -5,12 +5,12 @@ describe the revisions tested at those dates and do not override this table.
 
 | Area | Current state | Remaining gate |
 | --- | --- | --- |
-| Public distribution | Stable **Flow 1.1.6** is public and **Latest** for all eight platforms, source `cd8f1cce`. All 25 required roles, downloaded Windows identity/provenance/UI/config checks and three container architectures passed. [Verification](RELEASE_1_1_6_VERIFICATION.md) | Broader phone/public-swarm, physical recovery and endurance limits; existing security findings remain disclosed |
+| Public distribution | Stable **Flow 1.1.7** is public and **Latest** for all eight platforms, source `87d1632e`. All 25 required tagged roles, public download/provenance checks, 15 isolated security API checks and three container architectures passed. [Verification](RELEASE_1_1_7_VERIFICATION.md) | Broader phone/public-swarm, physical recovery and endurance limits remain; retained administrator privileges and documented false positives have explicit reviewed dispositions |
 | Reliability and compatible streaming controls | [PR #9](https://github.com/gnbk21/TorrServer-LT-Flow/pull/9) is merged and included in 1.1.6: scoped update recovery, transactional storage, partial search, session diagnostics/log rotation, bounded frontier recovery and adaptive peer request credit. Full accepted source comparisons passed; new controls stay off. [Reconciliation](PARALLEL_STREAMING_CHECKLIST.md) | Mixed performance tradeoffs prevent default promotion; broader field acceptance remains separate. Owner installation/configuration are preserved |
 | October upgrade | PR #6 is merged into stable 1.1.4. PR #7 repairs slow CI dependency downloads and parallelizes validation. [Checklist](OCTOBER_UPGRADE_CHECKLIST.md), [pipeline](CI_PIPELINE.md) | Legacy/defaults and opt-in experiments remain unchanged; field checks remain disclosed |
 | Published upgrade | PR #5 merged; corrected poster timeout and mobile settings action-panel defects; exact tagged and downloaded checks passed. Earlier five-repeat profile/transport comparisons remain recorded. Legacy/1024 KiB/PGO-off defaults retained | Eight-hour run interrupted after 965 cycles; physical checks, optional decoder rebuild, shared OS DNS protection and complete profiling attribution remain unverified |
 | Preview 2 integration | [PR #3](https://github.com/gnbk21/TorrServer-LT-Flow/pull/3) is merged into `develop` and included in Flow 1.0. Streaming source `52d0ad20` is retained; `.7` upgrades Go to 1.26.9 and x/net to v0.60.0. The `.6` tag failed fresh vulnerability scanning and published no release; the full corrected `.7` pipeline passed | Broader device/endurance acceptance remains separate |
-| Adaptive reliability and access | Qualified useful delivery/risk, shared soft RAM budget, background scheduling, draft/saved/effective settings with idle apply, recoverable settings, bounded service recovery, optional origins/rate/capabilities and source-interface policy; exact Windows adaptive and 2,000 rejection-response checks passed on `1e796532`, final native integration and actual SCM crash/update/rollback passed on `0b6991f6`, generated playback/profile checks on `a64a871b`; [guide](ADAPTIVE_RELIABILITY.md), [verification and limits](ADAPTIVE_VERIFICATION.md) | Real device/endurance/physical network checks and representative native OS profile. Source binding is not verified VPN leak protection |
+| Adaptive reliability and access | Qualified useful delivery/risk, shared soft RAM budget, background scheduling, draft/saved/effective settings with idle apply, recoverable settings, bounded service recovery, explicit browser-origin grants, optional rate/capability controls and source-interface policy; exact Windows adaptive and 2,000 rejection-response checks passed on `1e796532`, final native integration and actual SCM crash/update/rollback passed on `0b6991f6`, generated playback/profile checks on `a64a871b`; [guide](ADAPTIVE_RELIABILITY.md), [verification and limits](ADAPTIVE_VERIFICATION.md) | Real device/endurance/physical network checks and representative native OS profile. Source binding is not verified VPN leak protection |
 | Console presentation | Included in `.7`: source `034d4bf5` adds grouped startup information, severity/color formatting and bounded status; Windows/Linux seven-case native checks and real-executable Windows ConPTY restoration passed; [verification record](CONSOLE_AUDIT.md) | None for publication; physical acceptance remains separate |
 | Startup peer retention | Included in `.7`: source `db4f12dd` removes preload peer churn and preserves lazy/warm seeders across profiles; `4eed4944` also corrects translated profile help. Matched final Windows buffer readiness improved from 29.4 s to 0.22 s in Custom and 10.0 s to 0.22 s in Legacy; final native/macOS/portable gates passed; [investigation and next work](PERFORMANCE_AUDIT.md) | Representative episode comparisons remain separate |
 | Retained history and startup handoff | Included in `.7`: source `6d5c9129` adds opt-in bounded history, DHT-only native persistence/recovery, translated wait stages and early explicit-preload responses. Matched Windows requests now return in 229/232 ms instead of the prior 8.2 s response grace; ownership, corruption/recovery, read-only and packaged-UI checks passed; [verification record](NEXT_IMPROVEMENTS.md) | Public-swarm/phone comparison remains separate |
@@ -30,12 +30,22 @@ describe the revisions tested at those dates and do not override this table.
 
 ## Current stable release
 
-Flow 1.1.6 (`MatriX.145.Flow-v1.1.6`, immutable binary source `cd8f1cce`) is
+Flow 1.1.7 (`MatriX.145.Flow-v1.1.7`, immutable binary source `87d1632e`) is
 public and Latest for Windows, Linux, Android and both macOS architectures.
-All required tagged gates, package identity/provenance and public container
-checks passed. [Notes](RELEASE_1_1_6_NOTES.md),
-[verification](RELEASE_1_1_6_VERIFICATION.md). Legacy remains the default and
-new streaming experiments remain off; existing owner preferences are preserved.
+[PR #10](https://github.com/gnbk21/TorrServer-LT-Flow/pull/10) is merged: authentication fallback,
+browser origins/rebinding, outbound destination policy and cache confinement
+are hardened. All required tagged gates, selected public downloads, provenance
+and container checks passed. [Notes](RELEASE_1_1_7_NOTES.md),
+[verification](RELEASE_1_1_7_VERIFICATION.md). The full-branch scan and its 18 newly
+approved dispositions are documented; three pre-existing dispositions remain. Legacy and
+optional streaming-control defaults are unchanged. The owner installation and
+personal settings were not replaced.
+
+## Previous stable release: 1.1.6
+
+Flow 1.1.6 remains available for all eight platforms. It introduced the streaming
+controls and reliability changes; 1.1.7 adds security boundary fixes.
+[Notes](RELEASE_1_1_6_NOTES.md), [verification](RELEASE_1_1_6_VERIFICATION.md).
 
 ## Previous stable release: 1.1.5
 

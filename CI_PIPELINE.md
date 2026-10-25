@@ -120,3 +120,20 @@ published six platforms in 3.2 minutes after its dispatch and
 completed containers in 12.2 minutes. These figures exclude earlier
 Mac queue failures; they are not a full-suite speedup claim. Default all-platform
 gates remain unchanged. [Evidence](RELEASE_1_1_5_VERIFICATION.md).
+
+
+## Security analysis scope in 1.1.7
+
+CodeQL's pull-request action used incremental/diff-informed analysis. Its six
+results and zero-open PR receipt did not describe every flow on the whole
+branch. The exact release-source master scan reported 21 results, including
+twelve additional open findings. Publication was stopped for their separate
+documented review and owner approval, then only interrupted release jobs were
+retried. [The review](SECURITY_RELEASE_1_1_7_REVIEW.md) records the actual logs,
+findings, safeguards, retained privileges and saved decisions.
+
+Do not infer a full-branch clean bill of health from a successful PR analysis,
+successful extraction or a zero-open PR ref. Runtime/performance component
+reuse and full security-finding review are distinct evidence. The native test
+gate remains required, and retained findings require their own documented
+dispositions; no scan rule or severity was reduced for this release.

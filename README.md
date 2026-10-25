@@ -2,7 +2,7 @@
 
 TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps the libtorrent engine, existing media cache and HTTP API, and adds a modern embedded web interface.
 
-> **Flow 1.1.6:** streaming controls, diagnostics, partial search results and safer state/update handling. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.6), [notes](RELEASE_1_1_6_NOTES.md), [verification](RELEASE_1_1_6_VERIFICATION.md). Legacy remains the default; new streaming experiments remain off.
+> **Flow 1.1.7:** authentication, browser-origin, outbound-request and cache-confinement fixes. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.7), [notes](RELEASE_1_1_7_NOTES.md), [verification](RELEASE_1_1_7_VERIFICATION.md). Review the Lampa/local-indexer compatibility notes before updating. Legacy remains the default; streaming experiments remain off.
 
 The [October upgrade](OCTOBER_UPGRADE_CHECKLIST.md) is included in 1.1.4;
 [PR #6](https://github.com/gnbk21/TorrServer-LT-Flow/pull/6) and the
@@ -12,7 +12,7 @@ The [October upgrade](OCTOBER_UPGRADE_CHECKLIST.md) is included in 1.1.4;
 
 ## Run on Windows
 
-1. Open [Flow 1.1.6](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.6), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.6.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
+1. Open [Flow 1.1.7](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.7), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.7.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
 2. In PowerShell, run the standard executable from the extracted folder, using a separate data directory for Flow:
 
    ```powershell
@@ -285,7 +285,7 @@ Public-swarm and phone performance comparisons remain acceptance work.
 
 ## Build and project status
 
-### Security boundary changes in development
+### Security boundaries in Flow 1.1.7
 
 Browser management now requires the dashboard origin or an exact origin in
 **Management origins**. Native clients retain their authentication rules. For
@@ -293,7 +293,7 @@ web-based Lampa, approve its trusted origin explicitly. Outbound integration
 requests validate destinations and redirects; configure local indexers with a
 private IP or localhost. Cache operations are confined below the selected root.
 See [security hardening, compatibility and limits](SECURITY_HARDENING.md). These
-development changes do not update an already installed 1.1.6 executable.
+fixes are included in 1.1.7; publishing a release does not automatically replace an installed executable.
 
 ### Modern web interface
 

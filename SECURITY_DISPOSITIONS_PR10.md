@@ -90,3 +90,17 @@ verified after recording the dispositions; the functional gates remain required.
 
 See [implemented changes and compatibility](SECURITY_HARDENING.md) and the
 [pre-patch 30-alert inventory](SECURITY_REVIEW_2026_10_25.md).
+
+
+## Publication follow-up: 25 October 2026
+
+PR #10 is merged and the fixes are published in **Flow 1.1.7**, marked Latest.
+The verification statements above retain their decision-time source and scope.
+The replacement implementation workflows and all exact-tag release gates have
+since completed successfully. The initial six approved dispositions and twelve
+additional full-branch dispositions were individually recorded and verified;
+their separate scope/approval is in [the full-branch review](SECURITY_RELEASE_1_1_7_REVIEW.md).
+No unapproved alert was dismissed. See
+[the final release receipt](RELEASE_1_1_7_VERIFICATION.md) for immutable source,
+actual CI results, downloaded-package checks and remaining field limits.
+Publication did not replace the owner's installed executable or settings.
