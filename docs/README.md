@@ -30,6 +30,7 @@ Current user guides stay at the repository root. Historical plans and measuremen
 
 ## Security reviews and recorded decisions
 
+- [Withdrawal of unsupported distributions](security/DISTRIBUTION_RETIREMENT_2026_10_25.md)
 - [October security evidence reconciliation](security/OCTOBER_SECURITY_RECONCILIATION.md)
 - [Flow 1.1 security review](security/RELEASE_1_1_SECURITY_REVIEW.md)
 - [Reliability milestone: security boundaries](security/RELIABILITY_USABILITY_SECURITY_REVIEW.md)

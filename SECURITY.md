@@ -6,6 +6,10 @@ browser-origin, outbound-request and cache-confinement protections shipped in
 They are unsupported for new installations. See [the fixes and compatibility
 notes](SECURITY_HARDENING.md) before updating an existing installation.
 
+All earlier public releases were withdrawn to private drafts on 25 October
+2026, and their old container versions were removed. Only 1.1.7 remains publicly
+published. See the [withdrawal record](docs/security/DISTRIBUTION_RETIREMENT_2026_10_25.md).
+
 Only the current stable release receives security maintenance. Historical
 source tags and engineering records are retained for auditability. Withdrawing
 old downloads cannot remove copies already downloaded or third-party mirrors.
