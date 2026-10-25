@@ -24,7 +24,7 @@ open findings after the owner's specific approval. The recorded #92–#97
 dispositions do not represent six additional vulnerability fixes. No rule,
 severity or extraction coverage was suppressed. See
 [security hardening](SECURITY_HARDENING.md) and
-[accepted residual privileges](SECURITY_DISPOSITIONS_PR10.md).
+[accepted residual privileges](docs/security/SECURITY_DISPOSITIONS_PR10.md).
 
 The source-identical Windows implementation candidate passed 15 isolated API
 checks: origin/rebinding protection, explicit local indexer access, redirect
@@ -110,7 +110,7 @@ The PR's diff-informed analysis reported only six results. Full master analysis
 found twelve additional open findings outside that PR scope. Automatic release
 run attempt 1 was cancelled before publication; no tag or source was replaced.
 The exact additional findings, existing safeguards and risks were reviewed in
-[SECURITY_RELEASE_1_1_7_REVIEW.md](SECURITY_RELEASE_1_1_7_REVIEW.md). The owner
+[SECURITY_RELEASE_1_1_7_REVIEW.md](docs/security/SECURITY_RELEASE_1_1_7_REVIEW.md). The owner
 explicitly approved ten retained administrator privileges and two false-positive
 dispositions. Each saved state was verified separately; the prior six-alert
 approval was not reused. The interrupted request group and dependent evidence /

@@ -81,7 +81,7 @@
       "ci_run": 37991885358,
       "result": "passed",
       "url": "https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/37991885358",
-      "verification_record": "RELEASE_1_0_VERIFICATION.md",
+      "verification_record": "docs/history/RELEASE_1_0_VERIFICATION.md",
       "downloaded_assets": 32,
       "verified_checksums": 31,
       "controlled_streaming_trials_passed": 72,
@@ -105,7 +105,7 @@
         38137745884
       ],
       "result": "passed",
-      "security_review": "RELEASE_1_1_SECURITY_REVIEW.md; scan execution is not a clean-alert claim"
+      "security_review": "docs/security/RELEASE_1_1_SECURITY_REVIEW.md; scan execution is not a clean-alert claim"
     },
     {
       "scope": "Owned real Windows final-source HTTP/disk and hybrid alias removal",
@@ -120,7 +120,7 @@
       "ci_run": 38148199061,
       "result": "passed",
       "url": "https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/38148199061",
-      "verification_record": "RELEASE_1_1_VERIFICATION.md",
+      "verification_record": "docs/history/RELEASE_1_1_VERIFICATION.md",
       "downloaded_assets": 35,
       "verified_checksums": 34,
       "controlled_streaming_trials_passed": 72,
@@ -149,7 +149,7 @@
       "controlled_streaming_trials_passed": 122,
       "straggler_trials_passed": 50,
       "proven_cold_targets": 200,
-      "verification_record": "OCTOBER_UPGRADE_VERIFICATION.md",
+      "verification_record": "docs/history/OCTOBER_docs/history/UPGRADE_VERIFICATION.md",
       "performance_promotion_criterion_met": false,
       "defaults_changed": false,
       "physical_field_checks_passed": false
@@ -165,7 +165,7 @@
         39761265933
       ],
       "result": "passed",
-      "security_review": "OCTOBER_SECURITY_RECONCILIATION.md; retained older-base findings remain disclosed; no new dismissals."
+      "security_review": "docs/security/OCTOBER_SECURITY_RECONCILIATION.md; retained older-base findings remain disclosed; no new dismissals."
     },
     {
       "date": "2026-10-22",
@@ -202,7 +202,7 @@
       "validation_scope": "essential",
       "accepted_full_run": 39761266311,
       "unchanged_runtime_verified": true,
-      "verification_record": "RELEASE_1_1_4_VERIFICATION.md",
+      "verification_record": "docs/history/RELEASE_1_1_4_VERIFICATION.md",
       "downloaded_assets": 5,
       "release_assets": 35,
       "windows_executable_sha256": "a505c59d94e6fe57e70e0e122d1a304d21af4e3e7522bea49a845ee99ee21018",
@@ -228,7 +228,7 @@
       "result": "passed",
       "cold_dht_fixture_peer_result_ms": 4003.339052,
       "additional_dht_retry_policy_added": false,
-      "verification_record": "RELEASE_1_1_5_VERIFICATION.md",
+      "verification_record": "docs/history/RELEASE_1_1_5_VERIFICATION.md",
       "field_acceptance_passed": false
     },
     {
@@ -244,7 +244,7 @@
         "darwin-amd64",
         "darwin-arm64"
       ],
-      "verification_record": "RELEASE_1_1_5_VERIFICATION.md",
+      "verification_record": "docs/history/RELEASE_1_1_5_VERIFICATION.md",
       "windows_executable_sha256": "2476b1404055809da71b9cb140e1822a2922d3d80420ccf9a00126ee47de7f9b",
       "windows_package_sha256": "aac99a0be55ee9170389893c914e3e852723e661b52e7739a046cad9daf19e97",
       "release_assets": 29,
@@ -271,7 +271,7 @@
       "new_comparison_trials": 72,
       "existing_high_bitrate_jobs": 10,
       "new_experiments_default_enabled": false,
-      "verification_record": "RELEASE_1_1_6_VERIFICATION.md",
+      "verification_record": "docs/history/RELEASE_1_1_6_VERIFICATION.md",
       "field_acceptance_passed": false,
       "tagged_gate_still_required": true
     },
@@ -295,7 +295,7 @@
       "exact_source_security_run": 40174248931,
       "owner_installation_replaced": false,
       "field_acceptance_passed": false,
-      "verification_record": "RELEASE_1_1_6_VERIFICATION.md"
+      "verification_record": "docs/history/RELEASE_1_1_6_VERIFICATION.md"
     },
     {
       "date": "2026-10-25",

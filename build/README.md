@@ -142,7 +142,7 @@ a profile characterization case; those failures remain explicit in the report.
 HTTP read wait is not the player's decoded-frame or stall time.
 
 The recorded comparison and its individual failures are in
-[SPARSE_VERIFICATION.md](../SPARSE_VERIFICATION.md) and
+[SPARSE_VERIFICATION.md](../docs/history/SPARSE_VERIFICATION.md) and
 [SPARSE_COMPARISON.json](../SPARSE_COMPARISON.json). Rate-aware deadlines now
 require `Flow.RateAwareDeadlines=true`; `sparse_harness.py --rate-aware` exercises
 that policy separately. The default harness retains the graded ramp and includes

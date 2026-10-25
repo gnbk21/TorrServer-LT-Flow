@@ -4,11 +4,9 @@ TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/Torr
 
 > **Flow 1.1.7:** authentication, browser-origin, outbound-request and cache-confinement fixes. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.7), [notes](RELEASE_1_1_7_NOTES.md), [verification](RELEASE_1_1_7_VERIFICATION.md). Review the Lampa/local-indexer compatibility notes before updating. Legacy remains the default; streaming experiments remain off.
 
-The [October upgrade](OCTOBER_UPGRADE_CHECKLIST.md) is included in 1.1.4;
-[PR #6](https://github.com/gnbk21/TorrServer-LT-Flow/pull/6) and the
-[CI repair](CI_PIPELINE.md) in PR #7 are merged. See the
-[comparison results and limits](OCTOBER_UPGRADE_VERIFICATION.md) and
-[MatriX.147 review](UPSTREAM_MATRIX147_REVIEW.md).
+Use **1.1.7 or newer** for the security protections described in
+[our security policy](SECURITY.md). Historical plans, release measurements and
+upstream evaluations are organized in the [documentation index](docs/README.md).
 
 ## Run on Windows
 
@@ -51,12 +49,12 @@ seconds. Services and `--logpath` retain their existing UTC file logs without
 the console summary or heartbeat. `--version` and `--doctor` remain machine
 readable. For a clean shutdown, use **Settings → Advanced → Shut down** in the
 web interface. The console does not accept interactive commands.
-See the [console verification record](CONSOLE_AUDIT.md) for the exact native
+See the [console verification record](docs/history/CONSOLE_AUDIT.md) for the exact native
 source, executable identity and compatibility checks.
 
 For a saved session log, add `--logpath .\flow.log` to your usual launch command.
 This writes UTC file logs instead of the console panel. Console output alone is
-not retained after exit. See [startup delay findings and improvements](PERFORMANCE_AUDIT.md)
+not retained after exit. See [startup delay findings and improvements](docs/history/PERFORMANCE_AUDIT.md)
 for the peer-retention fix, controlled measurements and diagnostic guidance.
 
 ## What Flow adds
@@ -74,7 +72,7 @@ idle-only Windows updater with integrity checks and rollback. Advanced settings
 contain maintenance tools; importing settings requires preview/confirmation and
 retains local credentials. The library renders 50 cards per page while searching
 all entries. See [distribution guidance](DISTRIBUTION.md) and
-[measurements](MEASUREMENTS.md) for usage and verification limits.
+[measurements](docs/history/MEASUREMENTS.md) for usage and verification limits.
 
 Library exports retain JSON, magnet and compact-link
 formats while excluding credentials, private trackers, posters and custom client
@@ -89,7 +87,7 @@ Flow settings are in the web interface's **Flow** tab and under `BitTorr.Flow` i
 Flow 1.1.6 also provides opt-in **frontier recovery** and **adaptive peer
 request credit**, plus connection/startup and block-service diagnostics. These
 refine the existing parallel torrent scheduler; Legacy remains the default and
-both experiments remain off. See [behavior, limits and short comparison tests](PARALLEL_STREAMING_IMPLEMENTATION.md).
+both experiments remain off. See [behavior, limits and short comparison tests](docs/development/PARALLEL_STREAMING_IMPLEMENTATION.md).
 
 Flow 1.1 includes verified useful-delivery rates, confidence and
 buffer risk; shared active/warm RAM budgets; preparation scheduling; Windows
@@ -98,8 +96,8 @@ and last-known-good recovery. Settings shows unsaved, saved and effective values
 Optional origin/rate policies, expiring file links and torrent interface binding
 are available without changing compatibility defaults. Interface binding is not
 a verified VPN kill switch; OS DNS and physical disconnect tests remain separate.
-See [the reliability guide](ADAPTIVE_RELIABILITY.md) for settings, behavior,
-compatibility limits and test commands, and [the checklist](ADAPTIVE_RELIABILITY_CHECKLIST.md)
+See [the reliability guide](docs/development/ADAPTIVE_RELIABILITY.md) for settings, behavior,
+compatibility limits and test commands, and [the checklist](docs/history/ADAPTIVE_RELIABILITY_CHECKLIST.md)
 for verification and remaining device gates.
 
 ## Weak swarms and episode preparation
@@ -138,8 +136,8 @@ accessible sources. Diagnostics distinguish a useful-supply deficit from local
 request/cache delays; different encodes cannot share pieces.
 
 All of this works without a paid provider or account. See the [sparse streaming
-guide](SPARSE_STREAMING.md) for settings, storage, privacy, endpoints and verification
-limits, and the [implementation ledger](SPARSE_IMPLEMENTATION.md) for evidence.
+guide](docs/development/SPARSE_STREAMING.md) for settings, storage, privacy, endpoints and verification
+limits, and the [implementation ledger](docs/history/SPARSE_IMPLEMENTATION.md) for evidence.
 
 ## Swarm profiles
 
@@ -151,7 +149,7 @@ bootstrap data plus continuing useful progress can renew the ordinary 120-second
 startup wait in 30-second steps, capped at 300 seconds. This retains the required
 index, verification and buffer gates; other profiles keep the 120-second wait.
 Diagnostics expose sampled suppliers and request queues for missing startup
-pieces. See [startup-fix verification](STARTUP_FIX_VERIFICATION.md) for controlled
+pieces. See [startup-fix verification](docs/history/STARTUP_FIX_VERIFICATION.md) for controlled
 comparisons and limits; these improvements are included in stable 1.1.4.
 
 | Profile | What it does |
@@ -173,7 +171,7 @@ idle** defers that restart. Keep **Legacy**
 unless testing shows another profile works better for your network and torrents.
 
 The experimental **Adaptive Streaming** profile implements the reserve-aware
-candidate described in [the investigation](STREAMING_PROFILE_RESEARCH.md).
+candidate described in [the investigation](docs/history/STREAMING_PROFILE_RESEARCH.md).
 Initial comparisons rejected narrower deadline sets and global priority
 restoration as defaults, so the full streaming ramp remains. Neither full episode
 preparation nor a paid provider is required. Flow 1.1 includes this profile;
@@ -204,7 +202,7 @@ invalid or partial HTTPS configuration fails before listeners open, poster
 checks preserve existing artwork on temporary failures, and Linux can discover
 Entware CA roots. Optional browser HLS re-encodes unsupported AAC profiles.
 Flow retains its newer Go and libtorrent versions. See
-[verification and streaming comparisons](UPSTREAM_STREAMING_VERIFICATION.md).
+[verification and streaming comparisons](docs/history/UPSTREAM_STREAMING_VERIFICATION.md).
 
 ## HTTPS and external players
 
@@ -310,11 +308,6 @@ offers a selectable LAN address and QR code; playback links include Just Player,
 VLC and ordinary HTTP open/copy fallbacks. Seven interface languages are retained.
 Ordinary LAN HTTP works without installing a PWA or service worker.
 
-The historical Preview 1 Windows build is available in
-[CI run 36631696935](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/36631696935)
-as `TorrServer-LT-windows-amd64`. It passed an isolated Windows UI/API smoke check;
-real phone and long playback acceptance remain pending.
-
 Frontend development requires Node.js 22.12 or newer and Yarn 1.22:
 
 ```powershell
@@ -327,21 +320,21 @@ Vite proxies server requests to `http://127.0.0.1:8090`; set `FLOW_DEV_SERVER` t
 use another isolated server. Run `yarn typecheck`, `yarn lint`, `yarn test` and
 `yarn test:e2e` for verification. Build with `yarn build`, then run
 `go run gen_web.go` from the repository root before building the native server.
-See [web acceptance record](WEB_AUDIT.md) and
-[implementation ledger](MODERNIZATION_CHECKLIST.md) for verified behavior and
+See [web acceptance record](docs/history/WEB_AUDIT.md) and
+[implementation ledger](docs/history/MODERNIZATION_CHECKLIST.md) for verified behavior and
 remaining device/release gates. Legacy sources remain in `web-legacy/`.
 
 The [build workflow](.github/workflows/build.yml) compiles the web UI, server, libtorrent, and Windows dependencies, then uploads platform artifacts. A local Go-only build is insufficient; see [build instructions](build/README.md) for the CGo/C++ toolchain. Other platform targets remain in CI, but Windows x64 and Android playback are the primary Flow development path.
 
 This fork retains the upstream API and settings format where possible. Upstream
-install scripts, the root `release.json`, and upstream release links still refer
-to **TorrServer-LT**. Use this fork's release assets or CI artifacts. Flow
+install scripts and upstream release links still refer to **TorrServer-LT**.
+Use this fork's current release assets. Flow
 generates its own channel-aware release manifest, checksums, original dependency
 notices and GitHub build attestations. The managed scripts verify SHA-256 and
 the exact executable version; `-RequireAttestation` also requires GitHub CLI
 provenance verification. Executables remain unsigned by Authenticode. See
-[distribution and recovery](DISTRIBUTION.md), [current release notes](RELEASE_1_1_6_NOTES.md)
-and [release verification](RELEASE_1_1_6_VERIFICATION.md).
+[distribution and recovery](DISTRIBUTION.md), [current release notes](RELEASE_1_1_7_NOTES.md)
+and [release verification](RELEASE_1_1_7_VERIFICATION.md).
 Stable releases are tagged from `master`; ongoing integration uses `develop`.
 The broader field checks remain tracked separately in [project status](STATUS.md).
 

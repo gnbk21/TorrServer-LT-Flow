@@ -33,7 +33,7 @@ def validate_changes(paths):
         if path.is_absolute() or '..' in path.parts or '\\' in name:
             raise ValueError(f'Invalid repository path: {name}')
         if (name in CI_FILES or name.startswith('.github/workflows/')
-                or (len(path.parts) == 1 and path.suffix == '.md')):
+                or (path.suffix == '.md' and (len(path.parts) == 1 or path.parts[0] == 'docs'))):
             continue
         raise ValueError(f'Full validation required: runtime/build input changed: {name}')
 

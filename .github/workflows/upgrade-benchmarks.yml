@@ -52,17 +52,19 @@ jobs:
       - name: Verify the pinned published stable baseline
         env:
           GH_TOKEN: ${{ github.token }}
+          BASELINE_SHA256: 6317ea5556bb6e70b7f31a024c6bcd9da2cf592789b67ab825fe0f3dc4c44bcf
         run: |
           mkdir -p _out/stable
-          gh release download MatriX.145.Flow-v1.0.1 --repo "$GITHUB_REPOSITORY" --dir _out/stable --pattern TorrServer-LT-linux-amd64 --pattern SHA256SUMS --pattern BUILDINFO.json
+          gh release download MatriX.145.Flow-v1.1.7 --repo "$GITHUB_REPOSITORY" --dir _out/stable --pattern TorrServer-LT-linux-amd64 --pattern SHA256SUMS --pattern BUILDINFO.json
           (cd _out/stable && sha256sum --check --ignore-missing SHA256SUMS)
-          gh attestation verify _out/stable/TorrServer-LT-linux-amd64 --repo "$GITHUB_REPOSITORY"
+          python3 -c 'import hashlib,os,pathlib; p=pathlib.Path("_out/stable/TorrServer-LT-linux-amd64"); assert hashlib.file_digest(p.open("rb"),"sha256").hexdigest()==os.environ["BASELINE_SHA256"], "Stable baseline digest mismatch"'
+          gh attestation verify _out/stable/TorrServer-LT-linux-amd64 --repo "$GITHUB_REPOSITORY" --source-digest 87d1632e47d64adcfd98d7d916d80aebedbc4e8c --source-ref refs/tags/MatriX.145.Flow-v1.1.7 --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/ts_release.yml" --deny-self-hosted-runners
           python3 - <<'PY'
           import json
           from pathlib import Path
           metadata=json.loads(Path('_out/stable/BUILDINFO.json').read_text())
-          assert metadata['source_commit']=='55c16dc399b8f9b14bd5ae76b62450af027c6b81'
-          assert metadata['version']=='MatriX.145.Flow-v1.0.1'
+          assert metadata['source_commit']=='87d1632e47d64adcfd98d7d916d80aebedbc4e8c'
+          assert metadata['version']=='MatriX.145.Flow-v1.1.7'
           PY
       - name: Five rotated original-byte comparisons
         env:

@@ -133,7 +133,7 @@ Use `--doctor --path <state> --port <port> --ip <address>` (and `--httpauth` whe
 applicable) for a read-only startup check. It checks configured bind addresses,
 port availability, account-file validity and optional FFmpeg/FFprobe availability.
 An occupied port while your server is running is expected; this is not a server
-health failure. See [measurement and acceptance guidance](MEASUREMENTS.md).
+health failure. See [measurement and acceptance guidance](docs/history/MEASUREMENTS.md).
 
 Installations using HTTPS redirects, additional CLI overrides, custom wrappers,
 or Preview 1 (which lacks maintenance and `release.json`) use manual upgrades:

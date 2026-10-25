@@ -59,8 +59,8 @@ The PR scan reported six results; full release-source analysis reports 21.
 The owner explicitly approved six initial and twelve additional dispositions;
 three pre-existing dispositions remain. These retain guarded administrator
 capabilities and recognize existing permission/MIME safeguards. See the
-[full-branch review](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/SECURITY_RELEASE_1_1_7_REVIEW.md)
-and [initial review](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/SECURITY_DISPOSITIONS_PR10.md).
+[full-branch review](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/docs/security/SECURITY_RELEASE_1_1_7_REVIEW.md)
+and [initial review](https://github.com/gnbk21/TorrServer-LT-Flow/blob/master/docs/security/SECURITY_DISPOSITIONS_PR10.md).
 Trusted management access remains required. Accepted findings and successful
 scans are not proof that Flow is vulnerability-free.
 

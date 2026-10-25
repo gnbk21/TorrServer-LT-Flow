@@ -112,5 +112,5 @@ tracing disabled, checks completion/cancellation evidence and privacy, then kill
 only its own test process to check the next-run receipt. It never attaches to a
 running user's server. Results are written to each output's `report.json`.
 
-See [diagnostic verification](DIAGNOSTICS_VERIFICATION.md) for the tested build,
+See [diagnostic verification](docs/history/DIAGNOSTICS_VERIFICATION.md) for the tested build,
 results and remaining field-validation limits.

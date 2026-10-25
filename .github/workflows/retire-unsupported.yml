@@ -1,0 +1,36 @@
+name: Withdraw approved pre-1.1.7 containers
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Owner-approved scope; enter withdraw-before-1.1.7
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: retire-pre-1.1.7-containers
+  cancel-in-progress: false
+jobs:
+  retire:
+    if: inputs.confirmation == 'withdraw-before-1.1.7' && github.repository == 'gnbk21/TorrServer-LT-Flow' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Retire only the reviewed historical manifest graphs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RETIRE_CONFIRM: ${{ inputs.confirmation }}
+          RETIRE_EXECUTE: 'true'
+        run: python3 build/retire_unsupported_containers.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: unsupported-container-retirement
+          path: retirement-evidence.json
+          if-no-files-found: error
+          retention-days: 90

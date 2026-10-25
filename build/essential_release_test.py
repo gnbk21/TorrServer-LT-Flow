@@ -89,6 +89,14 @@ class EssentialReleaseTests(unittest.TestCase):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 validate_changes([name])
 
+    def test_document_archive_does_not_allow_code_or_other_component_readmes(self):
+        validate_changes(['docs/README.md', 'docs/history/RELEASE_1_1_6_NOTES.md',
+                          'docs/security/SECURITY_DISPOSITIONS_PR10.md'])
+        for name in ('docs/tool.py', 'docs/build.yml', 'docs/../server/README.md',
+                     'web/README.md', 'docs\\history\\README.md'):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                validate_changes([name])
+
     def test_path_tricks_fail_closed(self):
         for name in ('/README.md', '../README.md', '.github/workflows/../../server/a',
                      '.github\\workflows\\build.yml'):

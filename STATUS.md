@@ -6,27 +6,27 @@ describe the revisions tested at those dates and do not override this table.
 | Area | Current state | Remaining gate |
 | --- | --- | --- |
 | Public distribution | Stable **Flow 1.1.7** is public and **Latest** for all eight platforms, source `87d1632e`. All 25 required tagged roles, public download/provenance checks, 15 isolated security API checks and three container architectures passed. [Verification](RELEASE_1_1_7_VERIFICATION.md) | Broader phone/public-swarm, physical recovery and endurance limits remain; retained administrator privileges and documented false positives have explicit reviewed dispositions |
-| Reliability and compatible streaming controls | [PR #9](https://github.com/gnbk21/TorrServer-LT-Flow/pull/9) is merged and included in 1.1.6: scoped update recovery, transactional storage, partial search, session diagnostics/log rotation, bounded frontier recovery and adaptive peer request credit. Full accepted source comparisons passed; new controls stay off. [Reconciliation](PARALLEL_STREAMING_CHECKLIST.md) | Mixed performance tradeoffs prevent default promotion; broader field acceptance remains separate. Owner installation/configuration are preserved |
-| October upgrade | PR #6 is merged into stable 1.1.4. PR #7 repairs slow CI dependency downloads and parallelizes validation. [Checklist](OCTOBER_UPGRADE_CHECKLIST.md), [pipeline](CI_PIPELINE.md) | Legacy/defaults and opt-in experiments remain unchanged; field checks remain disclosed |
+| Reliability and compatible streaming controls | [PR #9](https://github.com/gnbk21/TorrServer-LT-Flow/pull/9) is merged and included in 1.1.6: scoped update recovery, transactional storage, partial search, session diagnostics/log rotation, bounded frontier recovery and adaptive peer request credit. Full accepted source comparisons passed; new controls stay off. [Reconciliation](docs/history/PARALLEL_STREAMING_CHECKLIST.md) | Mixed performance tradeoffs prevent default promotion; broader field acceptance remains separate. Owner installation/configuration are preserved |
+| October upgrade | PR #6 is merged into stable 1.1.4. PR #7 repairs slow CI dependency downloads and parallelizes validation. [Checklist](docs/history/OCTOBER_UPGRADE_CHECKLIST.md), [pipeline](CI_PIPELINE.md) | Legacy/defaults and opt-in experiments remain unchanged; field checks remain disclosed |
 | Published upgrade | PR #5 merged; corrected poster timeout and mobile settings action-panel defects; exact tagged and downloaded checks passed. Earlier five-repeat profile/transport comparisons remain recorded. Legacy/1024 KiB/PGO-off defaults retained | Eight-hour run interrupted after 965 cycles; physical checks, optional decoder rebuild, shared OS DNS protection and complete profiling attribution remain unverified |
 | Preview 2 integration | [PR #3](https://github.com/gnbk21/TorrServer-LT-Flow/pull/3) is merged into `develop` and included in Flow 1.0. Streaming source `52d0ad20` is retained; `.7` upgrades Go to 1.26.9 and x/net to v0.60.0. The `.6` tag failed fresh vulnerability scanning and published no release; the full corrected `.7` pipeline passed | Broader device/endurance acceptance remains separate |
-| Adaptive reliability and access | Qualified useful delivery/risk, shared soft RAM budget, background scheduling, draft/saved/effective settings with idle apply, recoverable settings, bounded service recovery, explicit browser-origin grants, optional rate/capability controls and source-interface policy; exact Windows adaptive and 2,000 rejection-response checks passed on `1e796532`, final native integration and actual SCM crash/update/rollback passed on `0b6991f6`, generated playback/profile checks on `a64a871b`; [guide](ADAPTIVE_RELIABILITY.md), [verification and limits](ADAPTIVE_VERIFICATION.md) | Real device/endurance/physical network checks and representative native OS profile. Source binding is not verified VPN leak protection |
-| Console presentation | Included in `.7`: source `034d4bf5` adds grouped startup information, severity/color formatting and bounded status; Windows/Linux seven-case native checks and real-executable Windows ConPTY restoration passed; [verification record](CONSOLE_AUDIT.md) | None for publication; physical acceptance remains separate |
-| Startup peer retention | Included in `.7`: source `db4f12dd` removes preload peer churn and preserves lazy/warm seeders across profiles; `4eed4944` also corrects translated profile help. Matched final Windows buffer readiness improved from 29.4 s to 0.22 s in Custom and 10.0 s to 0.22 s in Legacy; final native/macOS/portable gates passed; [investigation and next work](PERFORMANCE_AUDIT.md) | Representative episode comparisons remain separate |
-| Retained history and startup handoff | Included in `.7`: source `6d5c9129` adds opt-in bounded history, DHT-only native persistence/recovery, translated wait stages and early explicit-preload responses. Matched Windows requests now return in 229/232 ms instead of the prior 8.2 s response grace; ownership, corruption/recovery, read-only and packaged-UI checks passed; [verification record](NEXT_IMPROVEMENTS.md) | Public-swarm/phone comparison remains separate |
-| Sparse streaming | Source `3400e54a` passed native/race/fuzz/contracts, all eight targets, service rollback, 16 default and three experimental sparse cases. Repeated comparisons retain Legacy and the graded ramp by default; rate-aware timing, scarce hints and useful-peer history are opt-in. Verified preparation and native mirrors require no provider account; [guide](SPARSE_STREAMING.md), [results and individual failures](SPARSE_VERIFICATION.md) | Physical NAT/IPv6, representative public swarms, multi-hour resources and phone measurements remain separate |
+| Adaptive reliability and access | Qualified useful delivery/risk, shared soft RAM budget, background scheduling, draft/saved/effective settings with idle apply, recoverable settings, bounded service recovery, explicit browser-origin grants, optional rate/capability controls and source-interface policy; exact Windows adaptive and 2,000 rejection-response checks passed on `1e796532`, final native integration and actual SCM crash/update/rollback passed on `0b6991f6`, generated playback/profile checks on `a64a871b`; [guide](docs/development/ADAPTIVE_RELIABILITY.md), [verification and limits](docs/history/ADAPTIVE_VERIFICATION.md) | Real device/endurance/physical network checks and representative native OS profile. Source binding is not verified VPN leak protection |
+| Console presentation | Included in `.7`: source `034d4bf5` adds grouped startup information, severity/color formatting and bounded status; Windows/Linux seven-case native checks and real-executable Windows ConPTY restoration passed; [verification record](docs/history/CONSOLE_AUDIT.md) | None for publication; physical acceptance remains separate |
+| Startup peer retention | Included in `.7`: source `db4f12dd` removes preload peer churn and preserves lazy/warm seeders across profiles; `4eed4944` also corrects translated profile help. Matched final Windows buffer readiness improved from 29.4 s to 0.22 s in Custom and 10.0 s to 0.22 s in Legacy; final native/macOS/portable gates passed; [investigation and next work](docs/history/PERFORMANCE_AUDIT.md) | Representative episode comparisons remain separate |
+| Retained history and startup handoff | Included in `.7`: source `6d5c9129` adds opt-in bounded history, DHT-only native persistence/recovery, translated wait stages and early explicit-preload responses. Matched Windows requests now return in 229/232 ms instead of the prior 8.2 s response grace; ownership, corruption/recovery, read-only and packaged-UI checks passed; [verification record](docs/history/NEXT_IMPROVEMENTS.md) | Public-swarm/phone comparison remains separate |
+| Sparse streaming | Source `3400e54a` passed native/race/fuzz/contracts, all eight targets, service rollback, 16 default and three experimental sparse cases. Repeated comparisons retain Legacy and the graded ramp by default; rate-aware timing, scarce hints and useful-peer history are opt-in. Verified preparation and native mirrors require no provider account; [guide](docs/development/SPARSE_STREAMING.md), [results and individual failures](docs/history/SPARSE_VERIFICATION.md) | Physical NAT/IPv6, representative public swarms, multi-hour resources and phone measurements remain separate |
 | Modern UI | Flow 1.1 passed type/lint/build, native API contracts, unit/component and 97 browser scenarios; actual packaged desktop/mobile UI and corrected settings action-panel bounds passed | Broader real Android layout, certificate trust and player launch acceptance |
-| Disk-cache path correction | Live quoted-path write failure repaired; backend/form guards reject shell quotes with seven-language help. Native/platform/browser/service/macOS CI passed. The guard is included in `.7`; the last verified development phone session used `52d0ad20` and 2048 MiB RAM cache. [Incident and limits](ADAPTIVE_VERIFICATION.md#live-disk-cache-incident-and-path-validation-8-october-2026) | Original disk incident is fixed; broader physical/endurance acceptance remains separate |
+| Disk-cache path correction | Live quoted-path write failure repaired; backend/form guards reject shell quotes with seven-language help. Native/platform/browser/service/macOS CI passed. The guard is included in `.7`; the last verified development phone session used `52d0ad20` and 2048 MiB RAM cache. [Incident and limits](docs/history/ADAPTIVE_VERIFICATION.md#live-disk-cache-incident-and-path-validation-8-october-2026) | Original disk incident is fixed; broader physical/endurance acceptance remains separate |
 | Portable maintenance | Native authenticated backup/restore/support, active-playback rejection and startup doctor passed | Hardware acceptance remains separate |
 | Windows updater | Native failure/rollback regressions passed; final packaged scripts passed live GitHub download and required provenance under PowerShell 5.1 and 7 | None for managed distribution; physical acceptance remains separate |
 | Restricted Windows service | Native SCM install/restart/stop/uninstall, API readback of bounded recovery actions, actual crash restart and authenticated update/configuration rollback passed in final disposable CI | Physical boot/sleep/network acceptance remains separate |
 | Cache refetch | Native complete/partial ownership checks and hole-safe completion passed the final tagged Linux scenarios and extended Windows/Linux profiling stress | Representative-media/endurance acceptance remains separate |
 | Swarm profiles | Legacy, Conservative, Balanced, Aggressive streaming, bounded Custom and experimental opt-in Adaptive Streaming; backend/native settings, UI, export and seven-language explanations; Legacy remains the default | No comparative speed ranking established |
-| LT maintenance | Included in `.7`: reviewed LT 1.1.10 certificate, poster, Linux CA, AAC and macOS installer fixes adapted while retaining newer Flow toolchain/native pins; bounded engine reconnect retries; final native/platform/race/GST/service gates and five actual Windows HTTPS cases passed on `7c46fd4d`; [verification](UPSTREAM_STREAMING_VERIFICATION.md) | Physical macOS service update and GStreamer browser acceptance remain separate |
-| High bitrate streaming | Bounded asynchronous storage I/O, request-age/frontier diagnostics, cumulative delivery-deficit reserves, three disabled-by-default experiments and optional memory-aware Flow Player. Tagged `.7` integration and 72/72 trials with 120-second requested workloads passed; final Windows recovery/LAN and earlier 16 matched Windows trials passed. Results are mixed; [guide](HIGH_BITRATE_GUIDE.md), [implementation/evidence](HIGH_BITRATE_IMPLEMENTATION.md) | No promotion over Legacy. Public swarms, phone decoding, physical LAN and multi-hour resource acceptance remain separate |
+| LT maintenance | Included in `.7`: reviewed LT 1.1.10 certificate, poster, Linux CA, AAC and macOS installer fixes adapted while retaining newer Flow toolchain/native pins; bounded engine reconnect retries; final native/platform/race/GST/service gates and five actual Windows HTTPS cases passed on `7c46fd4d`; [verification](docs/history/UPSTREAM_STREAMING_VERIFICATION.md) | Physical macOS service update and GStreamer browser acceptance remain separate |
+| High bitrate streaming | Bounded asynchronous storage I/O, request-age/frontier diagnostics, cumulative delivery-deficit reserves, three disabled-by-default experiments and optional memory-aware Flow Player. Tagged `.7` integration and 72/72 trials with 120-second requested workloads passed; final Windows recovery/LAN and earlier 16 matched Windows trials passed. Results are mixed; [guide](HIGH_BITRATE_GUIDE.md), [implementation/evidence](docs/development/HIGH_BITRATE_IMPLEMENTATION.md) | No promotion over Legacy. Public swarms, phone decoding, physical LAN and multi-hour resource acceptance remain separate |
 | Resource/performance evidence | Generated-media harness, resource runner, library optimization and six interleaved PGO comparison runs passed; PGO remains off | Multi-hour representative-media runs and real-media evidence before PGO adoption |
-| Stable Flow / Modern Web 1.0 | [PR #4](https://github.com/gnbk21/TorrServer-LT-Flow/pull/4) and [PR #1](https://github.com/gnbk21/TorrServer-LT-Flow/pull/1) are merged; `MatriX.145.Flow-v1.0.1` is public and superseded by Flow 1.1. Owner-approved publication policy and exact-source evidence are recorded in [release verification](RELEASE_1_0_VERIFICATION.md) | Broader phone/public-swarm, endurance and physical Windows checks remain unfinished; they were not marked passed |
-| LT 1.2.1 / 1.2.2 integration | Safe engine publication, consumption-aware transport buffer, HTTPS/certificate/media addressing and GST cue/warmup/cancellation adaptations passed final native/race/security, actual GST media and published HTTPS checks. Flow retains newer dependencies and Legacy defaults. [Integration ledger](UPSTREAM_LT_INTEGRATION.md) | Physical GST/phone compatibility and representative public-swarm performance remain separate |
+| Stable Flow / Modern Web 1.0 | [PR #4](https://github.com/gnbk21/TorrServer-LT-Flow/pull/4) and [PR #1](https://github.com/gnbk21/TorrServer-LT-Flow/pull/1) are merged; `MatriX.145.Flow-v1.0.1` is public and superseded by Flow 1.1. Owner-approved publication policy and exact-source evidence are recorded in [release verification](docs/history/RELEASE_1_0_VERIFICATION.md) | Broader phone/public-swarm, endurance and physical Windows checks remain unfinished; they were not marked passed |
+| LT 1.2.1 / 1.2.2 integration | Safe engine publication, consumption-aware transport buffer, HTTPS/certificate/media addressing and GST cue/warmup/cancellation adaptations passed final native/race/security, actual GST media and published HTTPS checks. Flow retains newer dependencies and Legacy defaults. [Integration ledger](docs/history/UPSTREAM_LT_INTEGRATION.md) | Physical GST/phone compatibility and representative public-swarm performance remain separate |
 
 ## Current stable release
 
@@ -45,25 +45,25 @@ personal settings were not replaced.
 
 Flow 1.1.6 remains available for all eight platforms. It introduced the streaming
 controls and reliability changes; 1.1.7 adds security boundary fixes.
-[Notes](RELEASE_1_1_6_NOTES.md), [verification](RELEASE_1_1_6_VERIFICATION.md).
+[Notes](docs/history/RELEASE_1_1_6_NOTES.md), [verification](docs/history/RELEASE_1_1_6_VERIFICATION.md).
 
 ## Previous stable release: 1.1.5
 
 Flow 1.1.5 remains available for Windows, Linux and Android. Its owner-approved
 Mac omission and runner incident are historical; both Mac architectures are
-included in 1.1.6. [Notes](RELEASE_1_1_5_NOTES.md),
-[verification](RELEASE_1_1_5_VERIFICATION.md), [incident](MACOS_RUNNER_INCIDENT.md).
+included in 1.1.6. [Notes](docs/history/RELEASE_1_1_5_NOTES.md),
+[verification](docs/history/RELEASE_1_1_5_VERIFICATION.md), [incident](docs/history/MACOS_RUNNER_INCIDENT.md).
 
 ## Previous stable release: 1.1.4
 
 Flow 1.1.4, source `1b1a92e0`, remains available for all original platforms,
-including macOS. [Notes](RELEASE_1_1_4_NOTES.md) and
-[verification](RELEASE_1_1_4_VERIFICATION.md).
+including macOS. [Notes](docs/history/RELEASE_1_1_4_NOTES.md) and
+[verification](docs/history/RELEASE_1_1_4_VERIFICATION.md).
 
 ## Previous stable release: 1.1.3
 
 At its publication, Flow 1.1.3, `MatriX.145.Flow-v1.1.3`, was public and marked Latest. Its
-[verification record](RELEASE_1_1_VERIFICATION.md) covers exact tagged CI,
+[verification record](docs/history/RELEASE_1_1_VERIFICATION.md) covers exact tagged CI,
 72 original-byte high-bitrate trials, native capacity/cancellation regressions,
 downloaded packages/provenance, live PowerShell installation/update, embedded
 UI/HTTPS and three public container architectures. Earlier v1.1.0/v1.1.1/v1.1.2
@@ -74,18 +74,18 @@ The owner approved publication with unfinished field/resource checks disclosed.
 Legacy remains default, transport is 1024 KiB, PGO is off and experiments remain
 opt-in. The interrupted eight-hour run is not a pass. CodeQL retains 30 reviewed
 open findings; the stripped Windows OpenPGP advisory is not a clean symbol-level
-reachability result. See [security scope](RELEASE_1_1_SECURITY_REVIEW.md).
+reachability result. See [security scope](docs/security/RELEASE_1_1_SECURITY_REVIEW.md).
 
 ## Previous published preview
 
-Preview `.7` is verified and published. Its [verification record](PREVIEW_2_7_VERIFICATION.md) covers the exact tagged pipeline, 72 repeated native transport trials, downloaded Windows package, live install/update under both PowerShell versions, actual embedded UI and public container manifests. The source and binary vulnerability scans have different precision; the record retains the stripped-binary OpenPGP advisory and does not claim a clean Windows reachability scan.
+Preview `.7` is verified and published. Its [verification record](docs/history/PREVIEW_2_7_VERIFICATION.md) covers the exact tagged pipeline, 72 repeated native transport trials, downloaded Windows package, live install/update under both PowerShell versions, actual embedded UI and public container manifests. The source and binary vulnerability scans have different precision; the record retains the stripped-binary OpenPGP advisory and does not claim a clean Windows reachability scan.
 
 ## Earlier distribution history
 
 The initial `MatriX.145.Flow-v1.0.0` tag reached the native/platform gates but
 was blocked by a prerelease-only Windows update fixture. It published no
 release; its identity is retained. The corrected `v1.0.1` repeated every gate
-and is the first stable release. See [verification](RELEASE_1_0_VERIFICATION.md).
+and is the first stable release. See [verification](docs/history/RELEASE_1_0_VERIFICATION.md).
 
 The initial `MatriX.145.Flow-preview.2` tag failed its updater fixture gate in
 run `36762628271`; no GitHub release was published. Strict channel selection
@@ -138,10 +138,10 @@ without workload/provider evidence. Service-worker installation needs a secure
 deployment design. Authenticode requires a publisher signing identity. These
 conditions are explicit, not silently completed requirements.
 
-For test methods and limitations see [MEASUREMENTS.md](MEASUREMENTS.md); for
+For test methods and limitations see [MEASUREMENTS.md](docs/history/MEASUREMENTS.md); for
 installation and recovery see [DISTRIBUTION.md](DISTRIBUTION.md). The per-feature
-implementation ledger is [IMPROVEMENT_CHECKLIST.md](IMPROVEMENT_CHECKLIST.md).
+implementation ledger is [IMPROVEMENT_CHECKLIST.md](docs/history/IMPROVEMENT_CHECKLIST.md).
 
 For the development reliability/usability candidate, see
-[RELIABILITY_USABILITY.md](RELIABILITY_USABILITY.md). Those changes are undergoing
+[RELIABILITY_USABILITY.md](docs/development/RELIABILITY_USABILITY.md). Those changes are undergoing
 verification and are not part of the published 1.1.5 packages.

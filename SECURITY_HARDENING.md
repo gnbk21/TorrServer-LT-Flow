@@ -1,6 +1,6 @@
 # Security boundary fixes
 
-Implementation following [the 25 October review](SECURITY_REVIEW_2026_10_25.md).
+Implementation following [the 25 October review](docs/security/SECURITY_REVIEW_2026_10_25.md).
 That review describes the unmodified 1.1.6 source, not the protections added here.
 
 ## Changes
@@ -87,7 +87,7 @@ personal settings. Both owned instances were stopped. Its SHA-256 is
 Fresh [CodeQL analysis](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/40181912977)
 reports six retained privileged-operation findings. The owner explicitly approved
 their documented dispositions on 25 October 2026; see the
-[exact findings, safeguards and risks](SECURITY_DISPOSITIONS_PR10.md).
+[exact findings, safeguards and risks](docs/security/SECURITY_DISPOSITIONS_PR10.md).
 That approval does not waive functional checks. The broader playback/service
 workflow must still finish successfully before this branch is ready to merge.
 
@@ -102,7 +102,7 @@ The verification statements above retain their decision-time source and scope.
 The replacement implementation workflows and all exact-tag release gates have
 since completed successfully. The initial six approved dispositions and twelve
 additional full-branch dispositions were individually recorded and verified;
-their separate scope/approval is in [the full-branch review](SECURITY_RELEASE_1_1_7_REVIEW.md).
+their separate scope/approval is in [the full-branch review](docs/security/SECURITY_RELEASE_1_1_7_REVIEW.md).
 No unapproved alert was dismissed. See
 [the final release receipt](RELEASE_1_1_7_VERIFICATION.md) for immutable source,
 actual CI results, downloaded-package checks and remaining field limits.

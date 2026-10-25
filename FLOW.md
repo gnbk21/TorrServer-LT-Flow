@@ -80,7 +80,7 @@ copyrighted media or credentials as fixtures.
 Adaptive scheduling and the Windows service/tray are implemented. Further swarm
 tuning still needs comparative measurements. Custom DNS and external providers
 are conditional extensions, not active features. No comparative performance
-result is asserted by this document. See [the audit](AUDIT.md) for remaining
+result is asserted by this document. See [the audit](docs/history/AUDIT.md) for remaining
 implementation and validation gaps.
 
 ## Windows build and self-test
@@ -156,7 +156,7 @@ untouched. Cache limits, proxy settings, upload choices, and active-torrent
 queue protection are retained for every profile. Development builds after
 Preview 2 `.5` also retain healthy seeders while a lazy/warm torrent has zero
 piece demand. Preload raises priorities without a pause/resume disconnect.
-See [the startup investigation](PERFORMANCE_AUDIT.md) for controlled before/after
+See [the startup investigation](docs/history/PERFORMANCE_AUDIT.md) for controlled before/after
 measurements and the remaining real-player validation.
 
 The authenticated `/flow/status/<hash>` response also includes a bounded

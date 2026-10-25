@@ -16,6 +16,18 @@ def job(workflow, name):
 
 
 class WorkflowPolicyTests(unittest.TestCase):
+    def test_active_comparisons_do_not_depend_on_withdrawn_releases(self):
+        for workflow, name in [('build.yml', 'high-bitrate-comparison'),
+                               ('upgrade-benchmarks.yml', 'compare')]:
+            text = job(workflow, name)
+            self.assertIn('gh release download MatriX.145.Flow-v1.1.7 ', text)
+            self.assertIn('6317ea5556bb6e70b7f31a024c6bcd9da2cf592789b67ab825fe0f3dc4c44bcf', text)
+            self.assertIn('--source-digest 87d1632e47d64adcfd98d7d916d80aebedbc4e8c', text)
+            self.assertIn('--source-ref refs/tags/MatriX.145.Flow-v1.1.7', text)
+            self.assertIn('--deny-self-hosted-runners', text)
+            self.assertNotIn('gh release download MatriX.145.Flow-v1.0.1 ', text)
+            self.assertNotIn('gh release download MatriX.145.Flow-v1.1.3 ', text)
+
     def test_reusable_web_concurrency_is_scoped_to_caller(self):
         text=(Path(__file__).resolve().parent.parent/'.github/workflows/build-web.yml').read_text()
         group=next(line for line in text.splitlines() if line.startswith('  group:'))

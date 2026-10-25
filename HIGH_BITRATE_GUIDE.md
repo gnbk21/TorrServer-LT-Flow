@@ -191,4 +191,4 @@ without startup, seek, integrity or resource regressions, followed by a long
 original-quality Lampa/Just Player session on the actual device/network.
 
 Implementation and remaining acceptance are tracked in
-[HIGH_BITRATE_IMPLEMENTATION.md](HIGH_BITRATE_IMPLEMENTATION.md).
+[HIGH_BITRATE_IMPLEMENTATION.md](docs/development/HIGH_BITRATE_IMPLEMENTATION.md).
