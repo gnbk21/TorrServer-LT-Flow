@@ -228,6 +228,8 @@ jobs:
           source build/_deps.sh
           ensure_b2
           python3 build/apply_native_patches.py "$LT_DIR"
+          g++ -std=c++17 -O2 -I"$LT_DIR/include" build/test_flow_queue_pressure.cpp -o _out/test-flow-queue-pressure
+          _out/test-flow-queue-pressure
           cd "$LT_DIR/simulation"
           BOOST_ROOT="$BOOST_DIR" "$BOOST_DIR/b2" -q -j2 crypto=built-in webtorrent=off test_peer_connection test_transfer
 

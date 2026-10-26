@@ -10,8 +10,8 @@ import (
 	"unsafe"
 )
 
-// SetStreamFrontiers publishes only immediate reader misses. Native evidence
-// expires independently after three seconds; this never creates a new window.
+// SetStreamFrontiers publishes immediate reader misses and active bootstrap
+// blockers. Native evidence expires after three seconds; no new window is made.
 func (t *Torrent) SetStreamFrontiers(pieces []int) error {
 	if t == nil || len(pieces) > 8 {
 		return ErrInvalid

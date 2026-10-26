@@ -314,6 +314,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	var moovRange [2]int
 	moovKnown := false
 	cache.SetPreloadReserve([][2]int{{headFirst, headLast}, {tailFirst, tailLast}})
+	defer cache.SetPreloadFrontiers(lh, nil)
 	preloadOK := false
 	readerTookOver := false
 	parentCtx := ctx
@@ -610,6 +611,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 		if twoPhase && !probed {
 			activeGate = probePieces
 		}
+		cache.SetPreloadFrontiers(lh, preloadRecoveryPieces(snap, activeGate, tailFirst, tailLast))
 		deadlineMu.Lock()
 		for i, p := range preloadStragglers(snap, activeGate, tailFirst, tailLast, deadlined) {
 			_ = lh.SetPieceDeadline(p, i*10, false)

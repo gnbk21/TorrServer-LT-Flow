@@ -36,3 +36,20 @@ func TestPreloadStragglersStayBoundedAndSkipVerifiedPieces(t *testing.T) {
 		t.Fatalf("bounded tail-first stragglers: %v", got)
 	}
 }
+
+func TestPreloadRecoveryTracksOnlyMissingCurrentPhase(t *testing.T) {
+	snapshot := map[int]storageState.ItemState{128: {Completed: true}}
+	got := preloadRecoveryPieces(snapshot, []int{128, 129, 7899}, 7899, 7899)
+	if !reflect.DeepEqual(got, []int{7899, 129}) {
+		t.Fatalf("bootstrap blockers: %v", got)
+	}
+	snapshot[7899] = storageState.ItemState{Completed: true}
+	got = preloadRecoveryPieces(snapshot, []int{128, 7899}, 7899, 7899)
+	if len(got) != 0 {
+		t.Fatalf("future head became a bootstrap frontier: %v", got)
+	}
+	got = preloadRecoveryPieces(nil, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 99}, 99, 99)
+	if !reflect.DeepEqual(got, []int{99, 0, 1, 2, 3, 4, 5, 6}) {
+		t.Fatalf("recovery was not bounded and tail-first: %v", got)
+	}
+}
