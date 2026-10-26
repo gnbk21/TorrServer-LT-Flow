@@ -11,7 +11,7 @@ from controlled_peer import LocalSwarm, PeerPlan
 from playback_harness import OwnedServer, upload, range_read
 
 
-def check(executable, output, personal_settings=None):
+def check(executable, output, personal_settings=None, extra_arguments=None):
     output.mkdir(parents=True, exist_ok=False)
     content = hashlib.shake_256(b'Flow partial-block recovery fixture').digest(8*1048576)
     fixture = output/'generated.ts'
@@ -26,7 +26,8 @@ def check(executable, output, personal_settings=None):
                  'StartupBufferSeconds': 1, 'StartupBufferMinMB': 1,
                  'StartupBufferMaxMB': 8}}
     server = OwnedServer(executable, output/'state', extra_settings=(
-        personal_settings if personal_settings is not None else fixture_settings))
+        personal_settings if personal_settings is not None else fixture_settings),
+        extra_arguments=extra_arguments)
     report = {'synthetic_transport_only': True, 'passed': False}
     try:
         report['ready_ms'] = server.ready()
@@ -52,6 +53,7 @@ def check(executable, output, personal_settings=None):
                                              'when': 'now'}, timeout=15) as response:
                 response.read()
             report['fixture_only_settings_overrides'] = True
+            server.ready()
         primary = PeerPlan(rate=8*1048576, request_queue=128,
                            strict_request_queue=True, partial_block_pause_ms=6000)
         alternate = PeerPlan(pieces=set(), choke_until=100000, rate=8*1048576,
