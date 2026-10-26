@@ -386,7 +386,39 @@
       "high_bitrate_comparison_jobs": 10,
       "physical_field_acceptance_passed": false,
       "owner_installation_modified": false,
-      "tagged_gate_still_required": true,
+      "tagged_gate_still_required": false,
+      "verification_record": "RELEASE_1_1_8_VERIFICATION.md",
+      "tagged_gate_run": 40319222101
+    },
+    {
+      "date": "2026-10-26",
+      "scope": "Exact 1.1.8 staged publication, configured package and container verification",
+      "published_tag": "MatriX.145.Flow-v1.1.8",
+      "source_commit": "8907097ef3c5b177088a7cc7cd88d012f29f2094",
+      "ci_run": 40319222101,
+      "exact_source_security_run": 40319212479,
+      "container_run": 40323777601,
+      "result": "passed",
+      "validation_scope": "essential",
+      "required_roles_passed": 25,
+      "platform_count": 8,
+      "release_assets": 35,
+      "remote_asset_digests_verified": 34,
+      "downloaded_checksums_verified": 4,
+      "attestation_subjects_verified": [
+        "BUILDINFO.json",
+        "TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.8.zip"
+      ],
+      "windows_executable_sha256": "ef8b6a1b0f307d68c4a58c1cfce46f73c8af5976a8479f8bd7d9ccb2210c6930",
+      "windows_package_sha256": "ac949f08877489cdfec482a5c0c4ddb00f24ef8a7b5fba32f5194e7435edce6e",
+      "container_index_digest": "sha256:69c067a97e7af43cba0e84b61c52dfb175c5ea96d05b7211c77d40fe9dc5c128",
+      "container_metadata_architectures": 3,
+      "all_platform_bytes_downloaded_locally": false,
+      "full_comparisons_reused_from": 40294716178,
+      "configured_package_verified_before_publication": true,
+      "personal_configuration_uploaded": false,
+      "field_acceptance_passed": false,
+      "accepted_security_dispositions_are_not_fixes": true,
       "verification_record": "RELEASE_1_1_8_VERIFICATION.md"
     }
   ],
@@ -412,8 +444,8 @@
     "Shared OS DNS leak protection and complete native profiling attribution"
   ],
   "release_target": "MatriX.145.Flow-v1.1.8",
-  "published_tag": "MatriX.145.Flow-v1.1.7",
-  "published_source_commit": "87d1632e47d64adcfd98d7d916d80aebedbc4e8c",
+  "published_tag": "MatriX.145.Flow-v1.1.8",
+  "published_source_commit": "8907097ef3c5b177088a7cc7cd88d012f29f2094",
   "patch_validation": {
     "tag": "MatriX.145.Flow-v1.1.8",
     "mode": "api_compatibility",
