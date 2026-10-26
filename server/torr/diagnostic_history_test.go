@@ -113,4 +113,10 @@ func TestStartupReserveReportsTheDecisionThatEnlargedTheGate(t *testing.T) {
 	if tor.FlowStartup().Reserve.TargetBytes != chosen.TargetBytes {
 		t.Fatal("larger reserve was not recorded")
 	}
+	bounded := flow.ReservePlan{Known: true, Reason: "SUPPLY_DEFICIT", BaseBytes: 32 << 20,
+		TargetBytes: 32 << 20, RequestedBytes: 128 << 20, ExtraWaitBudgetMs: 10000, ExtraWaitLimited: true}
+	tor.recordStartupReserve(bounded, true)
+	if got := tor.FlowStartup().Reserve; got.TargetBytes != bounded.TargetBytes || !got.ExtraWaitLimited {
+		t.Fatal("diagnostics retained a reserve that no longer gates startup", got)
+	}
 }

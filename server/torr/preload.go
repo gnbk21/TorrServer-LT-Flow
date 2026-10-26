@@ -179,6 +179,10 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 			gatePieces = append(gatePieces, p)
 		}
 	}
+	ownedGatePieces := make(map[int]struct{}, len(gatePieces))
+	for _, p := range gatePieces {
+		ownedGatePieces[p] = struct{}{}
+	}
 
 	// Two-phase fill for Flow or the explicit &preload path: buffer a
 	// SMALL leading head slice + the tail FIRST, so the moment they're resident
@@ -320,7 +324,10 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	parentCtx := ctx
 	var warmPieces []int
 	defer func() {
-		pieces := append(append([]int(nil), gatePieces...), warmPieces...)
+		pieces := append([]int(nil), warmPieces...)
+		for p := range ownedGatePieces {
+			pieces = append(pieces, p)
+		}
 		reserveMu.Lock()
 		if moovKnown {
 			for p := moovRange[0]; p <= moovRange[1]; p++ {
@@ -520,6 +527,8 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 	tick := time.NewTicker(200 * time.Millisecond)
 	defer tick.Stop()
 	var startupSupply flow.DeliveryMeter
+	var reserveWait flow.StartupReserveWait
+	minimumHeadBytes := headBytes
 	startupSeen := make(map[int]bool)
 	reuseCursor := 0
 	for {
@@ -538,8 +547,6 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 				startupSupply.Observe(time.Now(), "PROBE")
 			}
 		}
-		var got int64
-		done := 0
 		// Bound lookup work per tick and keep the ordinary swarm priorities.
 		// Reuse is limited to this preload's actual missing head/index demand.
 		for checked := 0; checked < min(8, len(gatePieces)); checked++ {
@@ -549,20 +556,7 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 				break
 			}
 		}
-		for _, p := range gatePieces {
-			st, ok := snap[p]
-			if !ok {
-				continue
-			}
-			sz := st.Size
-			if st.Completed || sz > plen {
-				sz = plen
-			}
-			if st.Completed {
-				done++
-			}
-			got += sz
-		}
+		got, done := preloadGateTotals(snap, gatePieces, plen)
 
 		if flowEnabled {
 			progress := startupGateProgress(snap, headFirst, headLast, probeHeadLast, tailFirst, tailLast, plen, twoPhase && !probed)
@@ -680,6 +674,8 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 				estimate := flow.MediaEstimate(f.Length, duration, bitrate)
 				target := flow.StartupTarget(estimate, flowSettings.StartupBufferSeconds,
 					flowSettings.StartupBufferMinMB, flowSettings.StartupBufferMaxMB, flowSettings.StartupSafetyFactorPct)
+				minimumHeadBytes = min(maxHeadBytes, max(minimumHeadBytes, target))
+				target = minimumHeadBytes
 				if flowSettings.SwarmProfile == "adaptive" {
 					now := time.Now()
 					mode := "PREBUFFER"
@@ -691,6 +687,9 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 					maximum := maxHeadBytes
 					plan := flow.PlanStartupReserve(min(target, maximum), maximum, plen, estimate.BytesPerSecond,
 						flowSettings.TargetBufferSeconds, startupSupply.Snapshot(now))
+					baseLast := clamp(int((f.Offset + minimumHeadBytes - 1) / plen))
+					baseReady := startupProgress(snap, headFirst, baseLast, tailFirst, tailLast, plen).BlockedOn == "NONE"
+					plan = reserveWait.Limit(plan, f.Offset%plen, plen, baseReady, now)
 					target = plan.TargetBytes
 					t.recordStartupReserve(plan, done < gateCount)
 				}
@@ -698,17 +697,36 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 				if newLast > maxHeadLast {
 					newLast = maxHeadLast
 				}
-				if newLast > headLast {
+				if newLast != headLast {
+					var retired []int
+					if newLast < headLast {
+						reserveMu.Lock()
+						for p := newLast + 1; p <= headLast; p++ {
+							if (p < tailFirst || p > tailLast) && (!moovKnown || p < moovRange[0] || p > moovRange[1]) {
+								retired = append(retired, p)
+							}
+						}
+						reserveMu.Unlock()
+						kept := gatePieces[:0]
+						for _, p := range gatePieces {
+							if p <= newLast || (p >= tailFirst && p <= tailLast) {
+								kept = append(kept, p)
+							}
+						}
+						gatePieces = kept
+					}
 					for p := headLast + 1; p <= newLast; p++ {
 						if p < tailFirst || p > tailLast {
 							gatePieces = append(gatePieces, p)
 						}
+						ownedGatePieces[p] = struct{}{}
 						prioritiseNoDeadline([]int{p})
 					}
 					headLast = newLast
 					headLastForTail.Store(int64(newLast))
 					gateCount = len(gatePieces)
 					total = int64(gateCount) * plen
+					got, done = preloadGateTotals(snap, gatePieces, plen)
 					reserveMu.Lock()
 					ranges := [][2]int{{headFirst, headLast}, {tailFirst, tailLast}}
 					if moovKnown {
@@ -716,6 +734,10 @@ func (t *Torrent) fillPreload(ctx context.Context, index int, size int64, probe 
 					}
 					cache.SetPreloadReserve(ranges)
 					reserveMu.Unlock()
+					if len(retired) > 0 {
+						cache.ReleasePreloadDemand(retired)
+						cache.SetPreloadFrontiers(lh, preloadRecoveryPieces(snap, gatePieces, tailFirst, tailLast))
+					}
 					t.mu.Lock()
 					t.PreloadSize = total
 					t.flowStartup.StartupTargetBytes = int64(headLast-headFirst+1) * plen

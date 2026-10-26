@@ -4,6 +4,19 @@ import storageState "server/torr/storage/state"
 
 const stragglerEscalatePieces = 8
 
+func preloadGateTotals(snapshot map[int]storageState.ItemState, pieces []int, pieceLength int64) (got int64, done int) {
+	for _, piece := range pieces {
+		item := snapshot[piece]
+		if item.Completed {
+			done++
+			got += pieceLength
+		} else {
+			got += min(pieceLength, max(int64(0), item.Size))
+		}
+	}
+	return
+}
+
 // Recovery observes the current phase, including pieces already deadlined.
 // Tail-first ordering matches bootstrap; no future phase gains demand here.
 func preloadRecoveryPieces(snapshot map[int]storageState.ItemState, active []int, tailFirst, tailLast int) []int {

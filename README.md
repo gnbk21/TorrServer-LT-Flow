@@ -146,7 +146,10 @@ the current blocking piece, requested/missing blocks, and verification waits.
 They describe the server's read position, not the player's internal buffer.
 Measured deficits increase Adaptive's reserve within the existing startup,
 read-ahead, cache and wait limits; healthy or unknown supply keeps the normal
-startup floor. A reserve reaching its limit is reported explicitly.
+startup floor. Extra startup insurance admits only whole pieces whose estimated
+download cost fits ten seconds, and waits at most ten more seconds once the
+normal media target and required head/index are verified. Diagnostics report
+when that extra reserve is limited; playback read-ahead continues afterwards.
 Startup supply qualification accounts for expected piece completion intervals,
 so ordinary verification gaps between large pieces do not immediately inflate
 the preload target.

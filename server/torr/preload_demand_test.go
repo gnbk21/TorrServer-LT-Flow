@@ -53,3 +53,23 @@ func TestPreloadRecoveryTracksOnlyMissingCurrentPhase(t *testing.T) {
 		t.Fatalf("recovery was not bounded and tail-first: %v", got)
 	}
 }
+
+func TestPreloadRetargetKeepsIndexVerificationAndRecountsImmediately(t *testing.T) {
+	snapshot := map[int]storageState.ItemState{
+		0: {Completed: true}, 1: {Completed: true}, 2: {Size: 50}, 9: {Size: 100},
+	}
+	got, done := preloadGateTotals(snapshot, []int{0, 1, 2, 9}, 100)
+	if got != 350 || done != 2 {
+		t.Fatal(got, done)
+	}
+	// Removing optional head piece 2 must still wait for the received but
+	// unverified index, rather than trusting the old done/gate counters.
+	got, done = preloadGateTotals(snapshot, []int{0, 1, 9}, 100)
+	if got != 300 || done != 2 {
+		t.Fatal("received index was counted as verified", got, done)
+	}
+	snapshot[9] = storageState.ItemState{Completed: true}
+	if _, done = preloadGateTotals(snapshot, []int{0, 1, 9}, 100); done != 3 {
+		t.Fatal("verified reduced gate did not finish", done)
+	}
+}
