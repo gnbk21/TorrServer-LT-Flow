@@ -1,5 +1,5 @@
 diff --git a/include/libtorrent/aux_/flow_stream_policy.hpp b/include/libtorrent/aux_/flow_stream_policy.hpp
-index 4fe154e..611a63d 100644
+index 4fe154e..7458f6e 100644
 --- a/include/libtorrent/aux_/flow_stream_policy.hpp
 +++ b/include/libtorrent/aux_/flow_stream_policy.hpp
 @@ -1,7 +1,7 @@
@@ -11,7 +11,7 @@ index 4fe154e..611a63d 100644
  #include <algorithm>
  #include <array>
  #include <atomic>
-@@ -69,20 +69,52 @@ struct flow_service_model {
+@@ -69,20 +69,63 @@ struct flow_service_model {
  	bool fresh(std::int64_t now) const {
  		return fresh_samples>=8 && last_ms>=0 && now>=last_ms && now-last_ms<=10000;
  	}
@@ -36,6 +36,17 @@ index 4fe154e..611a63d 100644
  	std::int64_t late_after_ms() const {
 -		return std::clamp<std::int64_t>(mean_ms+std::max<std::int64_t>(100,4*deviation_ms),250,3000);
 +		return std::clamp<std::int64_t>(mean_ms+std::max<std::int64_t>(100,4*deviation_ms),250,15000);
++	}
++	int request_timeout_seconds(int stock, int maximum, bool enabled, std::int64_t now) const {
++		if (!enabled || !fresh(now)) return stock;
++		// Stock learns inter-arrival spacing, which can approach zero within a
++		// pipelined batch. A trained per-request service model prevents that
++		// from snubbing a healthy delayed peer between batches. Honor the
++		// configured ceiling and retain the stock path for stale observations.
++		// Stock timeout timestamps/checks are refreshed on coarse ticks; allow
++		// one tick of slack without extending the measured floor past 15 s.
++		int const measured=int((std::min<std::int64_t>(15000,late_after_ms()+1000)+999)/1000);
++		return std::max(stock,std::min(maximum,measured));
  	}
 -	int credit(int current, int rate, int block, int remote, int local, std::int64_t now) {
 +	int credit(int current, int rate, int block, int remote, int local, std::int64_t now, int queued=0) {
@@ -69,7 +80,7 @@ index 4fe154e..611a63d 100644
  		int const step=std::max(2,current/4);
  		int const next=int(std::clamp<std::int64_t>(wanted,std::max(1,current-step),std::min(cap,current+step)));
  		if (next!=current) ++budget_changes;
-@@ -92,6 +124,23 @@ private:
+@@ -92,6 +135,23 @@ private:
  	int fresh_samples=0;
  };
  
@@ -93,7 +104,7 @@ index 4fe154e..611a63d 100644
  // Both concurrent occupancy and issued-per-second credit are bounded. Shared
  // ownership follows pending_block copies through sends, cancels and teardown.
  struct flow_hedge_budget {
-@@ -135,6 +184,8 @@ struct flow_stream_observations {
+@@ -135,6 +195,8 @@ struct flow_stream_observations {
  	std::int64_t created_ms,first_dial_ms=-1,first_connect_ms=-1,first_handshake_ms=-1,first_payload_ms=-1;
  	std::int64_t connect_duration_ms=-1,handshake_duration_ms=-1;
  	std::array<flow_histogram,6> service{};
@@ -103,10 +114,10 @@ index 4fe154e..611a63d 100644
  	void milestone(std::int64_t& field,std::int64_t now) {
  		if(field<0 && now>=created_ms) field=now-created_ms;
 diff --git a/simulation/test_peer_connection.cpp b/simulation/test_peer_connection.cpp
-index 35d376c..470cbfa 100644
+index 35d376c..959d437 100644
 --- a/simulation/test_peer_connection.cpp
 +++ b/simulation/test_peer_connection.cpp
-@@ -670,3 +670,103 @@ TORRENT_TEST(flow_stream_policy_clock_hysteresis_and_lifecycle)
+@@ -670,3 +670,125 @@ TORRENT_TEST(flow_stream_policy_clock_hysteresis_and_lifecycle)
  	TEST_EQUAL(session->active.load(),0);
  	TEST_EQUAL(session->bytes.load(),0);
  }
@@ -210,11 +221,45 @@ index 35d376c..470cbfa 100644
 +    TEST_CHECK(model.credit(428,12000,16384,512,512,8000,0)<428);
 +    TEST_CHECK(!model.fresh(30000));
 +}
++
++TORRENT_TEST(flow_delayed_service_timeout_matches_pipeline_and_keeps_limits)
++{
++    libtorrent::aux::flow_service_model model;
++    TEST_EQUAL(model.request_timeout_seconds(2,60,true,1000),2);
++    for (int i=0;i<32;++i) model.observe(2500,1000+i*100);
++    TEST_EQUAL(model.request_timeout_seconds(2,60,true,4200),4);
++    TEST_EQUAL(model.request_timeout_seconds(2,2,true,4200),2);
++    TEST_EQUAL(model.request_timeout_seconds(8,60,true,4200),8);
++    TEST_EQUAL(model.request_timeout_seconds(2,60,false,4200),2);
++    TEST_EQUAL(model.request_timeout_seconds(2,60,true,0),2);
++    TEST_EQUAL(model.request_timeout_seconds(2,60,true,30000),2);
++    // The actual timed-out/unsnub comparison uses whole seconds. A healthy
++    // 2.5-second batch gap plus one coarse tick fits the learned timeout, whereas
++    // a stalled batch past that bound is still detected.
++    int const timeout=model.request_timeout_seconds(2,60,true,4200);
++    TEST_CHECK(2500+999 < timeout*1000);
++    TEST_CHECK(4500 > timeout*1000);
++    for (int i=0;i<32;++i) model.observe(299999,31000+i*100);
++    TEST_EQUAL(model.request_timeout_seconds(2,60,true,35000),15);
++    TEST_EQUAL(model.request_timeout_seconds(2,10,true,35000),10);
++}
 diff --git a/src/peer_connection.cpp b/src/peer_connection.cpp
-index 1af2de6..adffa9a 100644
+index 1af2de6..4aafbf3 100644
 --- a/src/peer_connection.cpp
 +++ b/src/peer_connection.cpp
-@@ -4917,7 +4917,8 @@ namespace {
+@@ -4669,7 +4669,10 @@ namespace {
+ 		// timeouts should never be less than 2 seconds. The granularity is whole
+ 		// seconds, and only checked once per second. 2 is the minimum to avoid
+ 		// being considered timed out instantly
+-		return std::max(2, ret);
++		return flow_service.request_timeout_seconds(std::max(2,ret),
++			m_settings.get_int(settings_pack::request_timeout),
++			m_settings.get_bool(settings_pack::flow_adaptive_peer_requests),
++			total_milliseconds(clock_type::now().time_since_epoch()));
+ 	}
+ 
+ 	void peer_connection::get_peer_info(peer_info& p) const
+@@ -4917,7 +4920,8 @@ namespace {
  			if(t && !m_slow_start) m_desired_queue_size=std::uint16_t(flow_service.credit(
  				m_desired_queue_size,download_rate,t->block_size(),int(m_max_out_request_queue),
  				m_settings.get_int(settings_pack::max_out_request_queue),

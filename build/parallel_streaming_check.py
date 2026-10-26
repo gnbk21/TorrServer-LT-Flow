@@ -64,15 +64,17 @@ def accepted_trial(case, row):
 
 def check(args):
     args.output.mkdir(parents=True, exist_ok=False)
+    case, reqq, latency, piece = CASES[args.case]
     fixture = args.output / "owned.bin"
     # Keeps cold seek ranges outside the resident cache, without downloading a
     # movie or introducing FFmpeg/decoder behavior into this scheduling test.
     with fixture.open("xb") as stream:
-        for number in range(192):
+        # Four disjoint cold seeks must remain possible after read-ahead and
+        # earlier seeks. Twelve 16 MiB pieces could exhaust the proof targets.
+        for number in range(max(192, 24*piece)):
             stream.write(hashlib.shake_256(number.to_bytes(4, "big")).digest(MIB))
     with args.executable.open("rb") as source:
         digest = hashlib.file_digest(source, "sha256").hexdigest()
-    case, reqq, latency, piece = CASES[args.case]
     # Exercise the new policies at high bitrate as well as under constrained
     # small-queue/latency fixtures. The latter deliberately use lower demand
     # so insufficient fixture supply cannot masquerade as a policy regression.
