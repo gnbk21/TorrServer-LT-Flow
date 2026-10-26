@@ -359,7 +359,7 @@ notices and GitHub build attestations. The managed scripts verify SHA-256 and
 the exact executable version; `-RequireAttestation` also requires GitHub CLI
 provenance verification. Executables remain unsigned by Authenticode. See
 [distribution and recovery](DISTRIBUTION.md), [current release notes](RELEASE_1_1_8_NOTES.md)
-and [the previous security release verification](RELEASE_1_1_7_VERIFICATION.md).
+and [release verification](RELEASE_1_1_8_VERIFICATION.md).
 Stable releases are tagged from `master`; ongoing integration uses `develop`.
 The broader field checks remain tracked separately in [project status](STATUS.md).
 

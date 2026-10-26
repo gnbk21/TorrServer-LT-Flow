@@ -7,7 +7,10 @@ Version: `MatriX.145.Flow-v1.1.8`.
 - Use fresh measurements of each peer's block service time when scheduling
   urgent requests. The optional adaptive request policy can grow a constrained
   pipeline while respecting both the peer's advertised capacity and Flow's
-  local request cap. Disabled or stale models retain the existing scheduling path.
+  local request cap. Stalled-peer detection uses the same fresh service evidence,
+  with bounded tick slack and the configured timeout ceiling, so healthy delayed
+  replies are not judged by near-zero spacing inside a batch. Disabled or stale
+  models retain the existing scheduling and timeout paths.
 - Evaluate delayed blocks independently. An uncertain request in a large piece
   no longer prevents recovery of another independently measured block. Existing
   duplicate-byte, concurrency and request-rate limits remain enforced.

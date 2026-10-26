@@ -1,4 +1,8 @@
 """Reusable web jobs must not cancel different callers on the same PR."""
+import ast
+import json
+import subprocess
+import textwrap
 from pathlib import Path
 import re
 import unittest
@@ -176,3 +180,32 @@ class WorkflowPolicyTests(unittest.TestCase):
         web = job('build-web.yml', 'web')
         self.assertIn("hashFiles('web/yarn.lock')", web)
         self.assertIn('playwright install --with-deps chromium', web)
+
+
+class StagedPublicationTransitionTests(unittest.TestCase):
+    def stage(self, policy, tag, response):
+        script=job('ts_release.yml','classify').split('# FLOW_STAGE_RECONCILIATION\n',1)[1].split('# END_FLOW_STAGE_RECONCILIATION',1)[0]
+        parsed=ast.parse(textwrap.dedent(script))
+        functions=[n for n in parsed.body if isinstance(n,ast.FunctionDef)]
+        namespace={'json':json}
+        exec(compile(ast.Module(body=functions,type_ignores=[]),'<publication-stage>','exec'),namespace)
+        return namespace['should_stage'](policy,tag,response)
+
+    def response(self, draft):
+        return subprocess.CompletedProcess([],0,json.dumps({'tag_name':'v1','draft':draft}),'')
+
+    def test_missing_draft_published_and_other_tags(self):
+        self.assertTrue(self.stage('v1','v1',subprocess.CompletedProcess([],1,'','gh: Not Found (HTTP 404)')))
+        self.assertTrue(self.stage('v1','v1',self.response(True)))
+        self.assertFalse(self.stage('v1','v1',self.response(False)))
+        self.assertFalse(self.stage('v2','v1',None))
+
+    def test_unknown_api_failures_stop_publication(self):
+        for code in (401,403,429,500):
+            with self.subTest(code=code),self.assertRaises(RuntimeError):
+                self.stage('v1','v1',subprocess.CompletedProcess([],1,'',f'gh: failed (HTTP {code})'))
+
+    def test_unexpected_identity_or_visibility_stops_publication(self):
+        for payload in ('{}','not json',json.dumps({'tag_name':'v2','draft':False}),json.dumps({'tag_name':'v1','draft':'false'})):
+            with self.subTest(payload=payload),self.assertRaises(ValueError):
+                self.stage('v1','v1',subprocess.CompletedProcess([],0,payload,''))

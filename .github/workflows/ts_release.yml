@@ -21,6 +21,7 @@ jobs:
       - id: tag
         env:
           FLOW_TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           channel=$(python3 build/release.py --classify --tag "$FLOW_TAG")
           if [ "$channel" = stable ]; then
@@ -28,7 +29,31 @@ jobs:
             python3 -c 'import json; a=json.load(open("RELEASE_ACCEPTANCE.json")); assert a["stable_approved"] is True and a["evidence"] and not a["remaining"], "Stable acceptance is incomplete"'
           fi
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
-          python3 -c 'import json,os; p=json.load(open("RELEASE_ACCEPTANCE.json"))["publication_policy"]; staged=p.get("stage_before_publish")==os.environ["FLOW_TAG"]; print("staged="+str(staged).lower())' >> "$GITHUB_OUTPUT"
+          python3 - <<'PY'
+          # FLOW_STAGE_RECONCILIATION
+          import json,os,subprocess
+
+          def should_stage(policy_tag, tag, response):
+              if policy_tag != tag:
+                  return False
+              if response.returncode:
+                  if "HTTP 404" in response.stderr:
+                      return True
+                  raise RuntimeError("Cannot verify existing release visibility")
+              release=json.loads(response.stdout)
+              if release.get("tag_name") != tag or type(release.get("draft")) is not bool:
+                  raise ValueError("Unexpected existing release identity or visibility")
+              # A retry of an already published tag must never turn it back into a draft.
+              return release["draft"]
+
+          p=json.load(open("RELEASE_ACCEPTANCE.json"))["publication_policy"]
+          requested=p.get("stage_before_publish")==os.environ["FLOW_TAG"]
+          response=subprocess.run(["gh","api",f"repos/{os.environ['GITHUB_REPOSITORY']}/releases/tags/{os.environ['FLOW_TAG']}"],capture_output=True,text=True) if requested else None
+          staged=should_stage(p.get("stage_before_publish"),os.environ["FLOW_TAG"],response)
+          with open(os.environ["GITHUB_OUTPUT"],"a") as output:
+              print("staged="+str(staged).lower(),file=output)
+          # END_FLOW_STAGE_RECONCILIATION
+          PY
       - id: scope
         name: Verify evidence before selecting essential patch checks
         env:

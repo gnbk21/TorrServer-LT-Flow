@@ -371,6 +371,23 @@
       "owner_installation_replaced": false,
       "field_acceptance_passed": false,
       "verification_record": "RELEASE_1_1_7_VERIFICATION.md"
+    },
+    {
+      "date": "2026-10-26",
+      "scope": "1.1.8 buffering implementation and application-limited delayed-peer transition and readiness-independent management-rate fixture",
+      "source_commit": "78d2ec2ebfef9bd6180cfaf3be13bf3fd018361c",
+      "full_build_run": 40294716178,
+      "native_security_run": 40294716243,
+      "macos_run": 40294716170,
+      "branch_run": 40294716164,
+      "result": "passed",
+      "platform_count": 8,
+      "parallel_streaming_jobs": 8,
+      "high_bitrate_comparison_jobs": 10,
+      "physical_field_acceptance_passed": false,
+      "owner_installation_modified": false,
+      "tagged_gate_still_required": true,
+      "verification_record": "RELEASE_1_1_8_VERIFICATION.md"
     }
   ],
   "remaining": [],
@@ -398,11 +415,11 @@
   "published_tag": "MatriX.145.Flow-v1.1.7",
   "published_source_commit": "87d1632e47d64adcfd98d7d916d80aebedbc4e8c",
   "patch_validation": {
-    "tag": "MatriX.145.Flow-v1.1.7",
+    "tag": "MatriX.145.Flow-v1.1.8",
     "mode": "api_compatibility",
-    "candidate_commit": "8ebe6caa7c089a8901336d2e40aa9ee7ce67ecf4",
-    "candidate_run": 40183731547,
-    "baseline_commit": "8ebe6caa7c089a8901336d2e40aa9ee7ce67ecf4",
-    "baseline_run": 40183731558
+    "candidate_commit": "78d2ec2ebfef9bd6180cfaf3be13bf3fd018361c",
+    "candidate_run": 40294716243,
+    "baseline_commit": "78d2ec2ebfef9bd6180cfaf3be13bf3fd018361c",
+    "baseline_run": 40294716178
   }
 }

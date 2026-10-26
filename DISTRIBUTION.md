@@ -176,3 +176,8 @@ tag, its exact source commit, channel and successful tagged release run ID.
 The workflow verifies the published release and original successful source run
 before using its binaries. Older drafts and development artifacts cannot
 satisfy these checks.
+
+A retry of an already published staged tag preserves its published visibility.
+The classifier checks the existing release before deciding whether to stage;
+a missing release or existing draft remains staged, while unexpected API errors
+stop the workflow. This prevents a successful retry from withdrawing downloads.
