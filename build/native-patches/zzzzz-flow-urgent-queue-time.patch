@@ -1,0 +1,54 @@
+--- a/include/libtorrent/aux_/flow_stream_policy.hpp
++++ b/include/libtorrent/aux_/flow_stream_policy.hpp
+@@ -1,7 +1,7 @@
+ // Flow's bounded service model and duplicate-credit ownership.
+ // All policy clocks are monotonic milliseconds supplied by the network executor.
+ #pragma once
+-#define TORRENT_FLOW_STREAM_CONTROL 3
++#define TORRENT_FLOW_STREAM_CONTROL 4
+ #include <algorithm>
+ #include <array>
+ #include <atomic>
+@@ -84,8 +84,14 @@
+ 		// An underfilled pipeline underestimates the peer's bandwidth. Permit
+ 		// its bounded, measured credit to grow before applying the drain-time
+ 		// cutoff; otherwise a high-latency peer can remain stuck at two blocks.
+-		return queue_ms <= urgent_horizon_ms(enabled,now)
+-			|| (enabled && fresh(now) && mean_ms<=horizon_ms() && queued < desired);
++		auto const horizon=urgent_horizon_ms(enabled,now);
++		// An underfilled slot count can outlive a rate drop. Preserve a small
++		// bootstrap allowance beyond the horizon, but never let that exception
++		// feed an arbitrarily long remote queue. Existing requests drain without
++		// cancellation; other peers remain eligible independently.
++		return queue_ms <= horizon
++			|| (enabled && fresh(now) && mean_ms<=horizon_ms()
++				&& queue_ms<=2*horizon && queued < desired);
+ 	}
+ 	std::int64_t late_after_ms() const {
+ 		return std::clamp<std::int64_t>(mean_ms+std::max<std::int64_t>(100,4*deviation_ms),250,15000);
+--- a/simulation/test_peer_connection.cpp
++++ b/simulation/test_peer_connection.cpp
+@@ -817,3 +817,23 @@
+     TEST_CHECK(delayed.urgent_work_allowed(4000,2,4,true,4200));
+     TEST_EQUAL(delayed.credit(428,12000,16384,512,512,4800,0),428);
+ }
++
++
++TORRENT_TEST(flow_urgent_bootstrap_allowance_has_a_time_bound)
++{
++    using namespace lt::aux;
++    flow_service_model delayed;
++    for(int i=0;i<32;++i) delayed.observe(2500,1000+i*100);
++    auto const horizon=delayed.urgent_horizon_ms(true,4200);
++    TEST_CHECK(delayed.urgent_work_allowed(4000,2,4,true,4200));
++    TEST_CHECK(delayed.urgent_work_allowed(2*horizon,2,4,true,4200));
++    TEST_CHECK(!delayed.urgent_work_allowed(2*horizon+1,2,4,true,4200));
++    TEST_CHECK(!delayed.urgent_work_allowed(25000,100,428,true,4200));
++    TEST_CHECK(!delayed.urgent_work_allowed(4000,4,4,true,4200));
++    TEST_CHECK(!delayed.urgent_work_allowed(4000,2,4,false,4200));
++    TEST_CHECK(!delayed.urgent_work_allowed(4000,2,4,true,30000));
++    flow_service_model fast;
++    for(int i=0;i<32;++i) fast.observe(100,1000+i*100);
++    TEST_CHECK(fast.urgent_work_allowed(500,1,8,true,4200));
++    TEST_CHECK(fast.urgent_work_allowed(0,0,8,true,4200));
++}
