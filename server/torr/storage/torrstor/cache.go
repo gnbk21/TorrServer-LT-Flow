@@ -2313,13 +2313,18 @@ func (c *Cache) SetPreloadReserve(ranges [][2]int) {
 // prebuffer phase. It does not change priorities, create a forward window or
 // relax the native evidence and duplicate-credit requirements.
 func (c *Cache) SetPreloadFrontiers(handle *lt.Torrent, pieces []int) {
-	if c != nil {
-		// Bootstrap runs before the first reader, so it must bind its handle.
-		if handle != nil {
-			c.handle.CompareAndSwap(nil, handle)
-		}
-		c.publishRecoveryFrontiers(pieces, true)
+	if c == nil {
+		return
 	}
+	f := settings.CurrentFlow()
+	if !f.Enabled || !f.FrontierRecovery {
+		return
+	}
+	// Bootstrap runs before the first reader, so it must bind its handle.
+	if handle != nil {
+		c.handle.CompareAndSwap(nil, handle)
+	}
+	c.publishRecoveryFrontiers(pieces, true)
 }
 
 func (c *Cache) publishRecoveryFrontiers(pieces []int, preload bool) {
