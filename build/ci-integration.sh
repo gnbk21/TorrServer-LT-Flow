@@ -32,6 +32,7 @@ case "${1:-}" in
     requests)
         python3 build/request_capacity_check.py --executable "$binary" --output _out/request-capacity
         python3 build/request_cancel_check.py --executable "$binary" --output _out/request-cancel
+        python3 build/partial_block_recovery_check.py --executable "$binary" --output _out/partial-block-recovery
         ;;
     sparse)
         python3 build/fixtures.py --output _out/sparse-fixtures

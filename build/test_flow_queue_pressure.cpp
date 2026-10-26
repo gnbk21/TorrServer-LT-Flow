@@ -40,5 +40,26 @@ int main()
     assert(!delayed.urgent_work_allowed(70000,2,4,false,5400));
     assert(!delayed.urgent_work_allowed(70000,2,4,true,30000));
     assert(delayed.request_timeout_seconds(2,60,true,5400)==4);
-    std::cout << "queue pressure, delayed bootstrap, idle transition and limits passed\n";
+    // Near-complete blocks lose receiving protection when payload stops;
+    // normal recent fragments and all ownership/freshness guards remain.
+    using namespace libtorrent::aux;
+    assert(flow_receiving_recent(15360,16384,100,1000));
+    assert(!flow_receiving_recent(15360,16384,2000,1000));
+    assert(flow_receiving_recent(4096,16384,499,1000));
+    assert(!flow_receiving_recent(4096,16384,500,1000));
+    assert(flow_receiving_recent(4096,16384,249,250));
+    assert(!flow_receiving_recent(4096,16384,250,250));
+    assert(!flow_receiving_recent(15360,16384,-1,1000));
+    assert(!flow_receiving_recent(0,16384,0,1000));
+    assert(!flow_receiving_recent(15360,0,0,1000));
+    assert(!flow_receiving_recent(16385,16384,0,1000));
+    assert(!flow_receiving_recent(15360,16384,0,0));
+    bool const stalled=flow_receiving_recent(15360,16384,2000,1000);
+    using result=flow_recovery_result;
+    assert(flow_recovery_check(false,true,1,4000,1000,stalled)==result::eligible);
+    assert(flow_recovery_check(false,true,2,4000,1000,stalled)==result::already_duplicated);
+    assert(flow_recovery_check(false,true,1,500,1000,stalled)==result::not_late);
+    assert(flow_recovery_check(true,true,1,4000,1000,stalled)==result::uncertain_request);
+    assert(flow_recovery_check(false,false,1,4000,1000,stalled)==result::stale_service);
+    std::cout << "queue pressure, delayed bootstrap, idle transition, partial progress and limits passed\n";
 }
