@@ -13,6 +13,7 @@ jobs:
     outputs:
       channel: ${{ steps.tag.outputs.channel }}
       validation_scope: ${{ steps.scope.outputs.validation_scope }}
+      staged: ${{ steps.tag.outputs.staged }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -27,6 +28,7 @@ jobs:
             python3 -c 'import json; a=json.load(open("RELEASE_ACCEPTANCE.json")); assert a["stable_approved"] is True and a["evidence"] and not a["remaining"], "Stable acceptance is incomplete"'
           fi
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          python3 -c 'import json,os; p=json.load(open("RELEASE_ACCEPTANCE.json"))["publication_policy"]; staged=p.get("stage_before_publish")==os.environ["FLOW_TAG"]; print("staged="+str(staged).lower())' >> "$GITHUB_OUTPUT"
       - id: scope
         name: Verify evidence before selecting essential patch checks
         env:
@@ -66,6 +68,7 @@ jobs:
         run: |
           ./build/test-release-channels.ps1
           ./build/test-update-state.ps1
+          ./build/test-executable-swap.ps1
   web:
     needs: classify
     uses: ./.github/workflows/build-web.yml
@@ -164,13 +167,15 @@ jobs:
         with:
           files: dist/*
           fail_on_unmatched_files: true
+          draft: ${{ needs.classify.outputs.staged == 'true' }}
           prerelease: ${{ needs.classify.outputs.channel == 'preview' }}
-          make_latest: ${{ needs.classify.outputs.channel == 'stable' }}
-          name: ${{ github.ref_name == 'MatriX.145.Flow-v1.1.7' && 'TorrServer-Flow 1.1.7' || github.ref_name == 'MatriX.145.Flow-v1.1.6' && 'TorrServer-Flow 1.1.6' || github.ref_name == 'MatriX.145.Flow-v1.1.5' && 'TorrServer-Flow 1.1.5' || github.ref_name == 'MatriX.145.Flow-v1.1.4' && 'TorrServer-Flow 1.1.4' || github.ref_name }}
+          make_latest: ${{ needs.classify.outputs.staged != 'true' && needs.classify.outputs.channel == 'stable' }}
+          name: ${{ github.ref_name == 'MatriX.145.Flow-v1.1.8' && 'TorrServer-Flow 1.1.8' || github.ref_name == 'MatriX.145.Flow-v1.1.7' && 'TorrServer-Flow 1.1.7' || github.ref_name == 'MatriX.145.Flow-v1.1.6' && 'TorrServer-Flow 1.1.6' || github.ref_name == 'MatriX.145.Flow-v1.1.5' && 'TorrServer-Flow 1.1.5' || github.ref_name == 'MatriX.145.Flow-v1.1.4' && 'TorrServer-Flow 1.1.4' || github.ref_name }}
           generate_release_notes: true
-          body_path: ${{ github.ref_name == 'MatriX.145.Flow-v1.1.7' && 'RELEASE_1_1_7_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.1.6' && 'docs/history/RELEASE_1_1_6_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.1.5' && 'docs/history/RELEASE_1_1_5_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.1.4' && 'docs/history/RELEASE_1_1_4_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.1.3' && 'docs/history/RELEASE_1_1_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.0.1' && 'docs/history/RELEASE_1_0_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v0.2.0-preview.7' && 'docs/history/PREVIEW_2_7_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v0.2.0-preview.5' && 'docs/history/PREVIEW_2_NOTES.md' || 'DISTRIBUTION.md' }}
+          body_path: ${{ github.ref_name == 'MatriX.145.Flow-v1.1.8' && 'RELEASE_1_1_8_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.1.7' && 'RELEASE_1_1_7_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.1.6' && 'docs/history/RELEASE_1_1_6_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.1.5' && 'docs/history/RELEASE_1_1_5_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.1.4' && 'docs/history/RELEASE_1_1_4_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.1.3' && 'docs/history/RELEASE_1_1_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v1.0.1' && 'docs/history/RELEASE_1_0_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v0.2.0-preview.7' && 'docs/history/PREVIEW_2_7_NOTES.md' || github.ref_name == 'MatriX.145.Flow-v0.2.0-preview.5' && 'docs/history/PREVIEW_2_NOTES.md' || 'DISTRIBUTION.md' }}
   docker:
     needs: [classify, release]
+    if: needs.classify.outputs.staged != 'true'
     permissions:
       contents: read
       actions: read

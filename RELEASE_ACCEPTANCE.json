@@ -380,9 +380,10 @@
     "policy": "Publish stable releases as Latest after automated gates pass, while explicitly disclosing unfinished field and resource validation authorized by the owner.",
     "field_checks_are_not_passed": true,
     "tagged_gate_required": "ts_release.yml rebuilds and verifies the exact tagged source before publication.",
-    "requested_release": "MatriX.145.Flow-v1.1.7",
-    "latest_owner_request": "Merge and release",
-    "further_two_hour_tests": "Skipped at owner request; earlier completed runs are identified separately, not exact-final acceptance."
+    "requested_release": "MatriX.145.Flow-v1.1.8",
+    "latest_owner_request": "First prepare my package then publish",
+    "further_two_hour_tests": "Skipped at owner request; earlier completed runs are identified separately, not exact-final acceptance.",
+    "stage_before_publish": "MatriX.145.Flow-v1.1.8"
   },
   "remaining_field_validation": [
     "Representative real-phone playback matrix",
@@ -393,7 +394,7 @@
     "Independent optional player decoder rebuild/redistribution audit; APK excluded from stable assets",
     "Shared OS DNS leak protection and complete native profiling attribution"
   ],
-  "release_target": "MatriX.145.Flow-v1.1.7",
+  "release_target": "MatriX.145.Flow-v1.1.8",
   "published_tag": "MatriX.145.Flow-v1.1.7",
   "published_source_commit": "87d1632e47d64adcfd98d7d916d80aebedbc4e8c",
   "patch_validation": {

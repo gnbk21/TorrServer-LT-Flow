@@ -35,7 +35,7 @@ class ReleaseGateTests(unittest.TestCase):
         rows += [dict(id=100+i, name=f'cross / high-bitrate-comparison ({i})', conclusion='success') for i in range(10)]
         rows += [dict(id=200+i, name=f'cross / native-profiling / capture ({i})', conclusion='success') for i in range(2)]
         with self.assertRaises(ValueError): validate_jobs(rows, 'full')
-        rows += [dict(id=300+i, name=f'cross / Parallel streaming ({i})', conclusion='success') for i in range(6)]
+        rows += [dict(id=300+i, name=f'cross / Parallel streaming ({i})', conclusion='success') for i in range(8)]
         validate_jobs(rows, 'full')
         rows[-1]['conclusion'] = 'skipped'
         with self.assertRaises(ValueError): validate_jobs(rows, 'full')

@@ -32,6 +32,7 @@ type FlowRangeTrace struct {
 var diagnosticSequence atomic.Uint64
 
 type FlowStartupStatus struct {
+	Reserve            *flow.ReservePlan    `json:"reserve,omitempty"`
 	Phases             []flow.StartupPhase  `json:"phases,omitempty"`
 	MetadataRecovery   *MetadataRecovery    `json:"metadata_recovery,omitempty"`
 	WaitBudgetMs       int64                `json:"wait_budget_ms"`
@@ -59,6 +60,17 @@ type FlowStartupStatus struct {
 	TimeToFirstByteMs        int64  `json:"time_to_first_byte_ms"`
 }
 
+// A preload's gate grows monotonically. Retain the decision that actually
+// enlarged it when later delivery improves, becomes stale or the gate finishes.
+func (t *Torrent) recordStartupReserve(plan flow.ReservePlan, filling bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	previous := t.flowStartup.Reserve
+	if previous == nil || !previous.Known || (filling && plan.Known && plan.TargetBytes >= previous.TargetBytes) {
+		t.flowStartup.Reserve = &plan
+	}
+}
+
 func (t *Torrent) FlowStartup() FlowStartupStatus {
 	if t == nil {
 		return FlowStartupStatus{}
@@ -67,6 +79,14 @@ func (t *Torrent) FlowStartup() FlowStartupStatus {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	s := t.flowStartup
+	if s.Reserve != nil {
+		value := *s.Reserve
+		if value.AdditionalFillSeconds != nil {
+			seconds := *value.AdditionalFillSeconds
+			value.AdditionalFillSeconds = &seconds
+		}
+		s.Reserve = &value
+	}
 	if s.MetadataRecovery != nil {
 		value := *s.MetadataRecovery
 		s.MetadataRecovery = &value
@@ -146,6 +166,8 @@ func (t *Torrent) startupStage(stage string) {
 }
 
 type FlowSessionStatus struct {
+	Supply                  flow.BufferSupply     `json:"supply"`
+	Blocker                 BufferBlocker         `json:"blocker"`
 	BufferSampleAgeMs       *int64                `json:"buffer_sample_age_ms,omitempty"`
 	BufferSampledAtMs       int64                 `json:"buffer_sampled_at_ms"`
 	BufferOffsetBytes       int64                 `json:"buffer_offset_bytes"`
@@ -551,6 +573,10 @@ func (t *Torrent) FlowStatusWithTraces(includeTraces bool) []FlowSessionStatus {
 		// Sampling remains observational; another writer can advance between reads.
 		s.BufferSampledAtMs, s.BufferOffsetBytes = time.Now().UnixMilli(), demands[i]
 		s.ReadableContiguousBytes = s.BufferAheadBytes
+		s.Supply = flow.AssessBufferSupply(s.PlaybackConsumptionRate, s.BufferAheadBytes, s.Delivery)
+		if s.ActiveReaders > 0 && s.Group != torrstor.ProbeReaderGroup {
+			s.Blocker = bufferBlocker(sparse, int(start/cache.PieceLength), cache.PieceLength, time.Now())
+		}
 		evidence := sparseSessionEvidence(sparse, int(start/cache.PieceLength), s.BufferAheadBytes, rate, s.PlaybackConsumptionRate, status.ActivePeers, status.PendingPeers)
 		if !s.SupplyQualified {
 			evidence.ConsumptionRate = 0

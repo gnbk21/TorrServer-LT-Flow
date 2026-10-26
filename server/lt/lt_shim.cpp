@@ -183,7 +183,7 @@ static json stream_observations_json(lt::aux::torrent const& tor) {
             {"address_family",i%2?"IPV6":"IPV4"},{"samples",sample.samples},
             {"p50_ms",sample.percentile(50)},{"p95_ms",sample.percentile(95)}});
     }
-    return {{"known",true},{"first_dial_ms",obs.first_dial_ms},
+    json result = {{"known",true},{"first_dial_ms",obs.first_dial_ms},
         {"first_connect_ms",obs.first_connect_ms},{"first_handshake_ms",obs.first_handshake_ms},
         {"first_payload_ms",obs.first_payload_ms},{"connect_duration_ms",obs.connect_duration_ms},
         {"handshake_duration_ms",obs.handshake_duration_ms},{"service",std::move(service)},
@@ -193,6 +193,40 @@ static json stream_observations_json(lt::aux::torrent const& tor) {
         {"peak_hedges",tor.flow_hedges->peak.load()},{"active_hedge_bytes",tor.flow_hedges->bytes.load()},
         {"budget_changes",obs.budget_changes},{"frontiers",tor.flow_frontier_count()},
         {"recovery_scan_truncated",tor.flow_scan_truncated()}};
+#if TORRENT_FLOW_STREAM_CONTROL >= 2
+    auto const now = lt::total_milliseconds(lt::clock_type::now().time_since_epoch());
+    std::int64_t desired=0, queued=0, capacity=0, low=6000, high=0;
+    int sampled=0, qualified=0, limited=0;
+    for (auto* peer : tor) {
+        if (sampled == 512) break;
+        ++sampled;
+        if (peer->is_connecting() || peer->is_disconnecting()) continue;
+        auto const cap=std::max(1,std::min(peer->max_out_request_queue(),
+            tor.settings().get_int(lt::settings_pack::max_out_request_queue)));
+        desired+=std::min(cap,peer->desired_queue_size());
+        auto const pending=peer->download_queue().size()+peer->request_queue().size();
+        queued+=pending;
+        capacity+=cap;
+        limited+=pending>=std::size_t(cap);
+        if (!peer->flow_service.fresh(now)) continue;
+        ++qualified;
+        auto const horizon=peer->flow_service.horizon_ms();
+        low=std::min(low,horizon); high=std::max(high,horizon);
+    }
+    result["request_policy"]={{"enabled",tor.settings().get_bool(lt::settings_pack::flow_adaptive_peer_requests)},
+        {"sampled_peers",sampled},{"qualified_peers",qualified},{"capacity_limited_peers",limited},
+        {"desired_requests",desired},{"queued_requests",queued},{"capacity_requests",capacity},
+        {"horizon_min_ms",qualified?low:0},{"horizon_max_ms",high},{"truncated",tor.num_peers()>sampled}};
+    auto const& scan=obs.recovery_scan;
+    result["recovery_scan"]={{"age_ms",obs.recovery_scan_ms<0 || now<obs.recovery_scan_ms ? -1 : now-obs.recovery_scan_ms},
+        {"eligible",scan[int(lt::aux::flow_recovery_result::eligible)]},
+        {"uncertain_request",scan[int(lt::aux::flow_recovery_result::uncertain_request)]},
+        {"stale_service",scan[int(lt::aux::flow_recovery_result::stale_service)]},
+        {"already_duplicated",scan[int(lt::aux::flow_recovery_result::already_duplicated)]},
+        {"not_late",scan[int(lt::aux::flow_recovery_result::not_late)]},
+        {"receiving",scan[int(lt::aux::flow_recovery_result::receiving)]}};
+#endif
+    return result;
 }
 #endif
 

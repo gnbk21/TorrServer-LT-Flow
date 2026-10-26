@@ -9,11 +9,18 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from high_bitrate_check import capture_go_profile, failure_evidence
+from high_bitrate_check import capture_go_profile, failure_evidence, tracker_evidence
 import pgo_compare
 
 
 class Profiling(unittest.TestCase):
+    def test_tracker_failure_evidence_keeps_codes_without_identities(self):
+        row = dict(protocol='http', status='ERROR', error_code=111,
+                   host='private-host', id='private-id', url='private-url',
+                   message='private-detail')
+        result = tracker_evidence({'trackers': [row]*100})
+        self.assertEqual(len(result), 64)
+        self.assertEqual(result[0], dict(protocol='http', status='ERROR', error_code=111))
     def test_failure_evidence_omits_network_identities_and_player_traces(self):
         calls = []
         def query(path, timeout):

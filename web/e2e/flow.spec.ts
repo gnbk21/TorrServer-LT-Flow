@@ -549,6 +549,159 @@ test("trace history is fetched only while diagnostics are open", async ({
   await page.waitForTimeout(3500);
   expect(diagnosticRequests).toBe(previous);
 });
+for (const width of [375, 1440]) {
+  test(`buffering evidence is readable at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await mockServer(page, { active: true });
+    await page.route("**/flow/status/*", (route) =>
+      route.fulfill({
+        json: {
+          hash,
+          sampled_at: new Date().toISOString(),
+          startup: {
+            state: "PLAYING",
+            file_index: 1,
+            reserve: {
+              known: true,
+              reason: "SUPPLY_DEFICIT",
+              base_bytes: 33554432,
+              target_bytes: 67108864,
+              maximum_bytes: 67108864,
+              limited: true,
+              demand_rate: 12500000,
+              delivery_rate: 10000000,
+              deficit_rate: 2500000,
+              forecast_seconds: 45,
+            },
+          },
+          sessions: [
+            {
+              group: "phone",
+              buffer_sampled_at_ms: Date.now(),
+              file_index: 1,
+              state: "PLAYING",
+              active_readers: 1,
+              buffer_ahead_seconds: 0,
+              buffer_ahead_bytes: 0,
+              playback_consumption_rate: 12500000,
+              download_rate: 10000000,
+              sustainability_ratio: 0.8,
+              piece_wait_p95_ms: 500,
+              seek_count: 0,
+              seek_recovery_ms: 0,
+              buffer_warning: true,
+              supply: {
+                known: true,
+                state: "SUPPLY_DEFICIT",
+                demand_rate: 12500000,
+                delivery_rate: 10000000,
+                deficit_rate: 2500000,
+              },
+              blocker: {
+                known: true,
+                piece: 0,
+                piece_length: 16777216,
+                blocks: 1024,
+                finished: 1022,
+                requested: 2,
+                unrequested: 0,
+                writing: 0,
+                oldest_request_age_ms: 4500,
+                suppliers: 6,
+                reason: "WAIT_BLOCKS",
+              },
+            },
+          ],
+          sparse: {
+            known: true,
+            sampled_at_ms: Date.now(),
+            stream: {
+              known: true,
+              first_dial_ms: 0,
+              first_connect_ms: 10,
+              first_handshake_ms: 25,
+              first_payload_ms: 100,
+              connect_duration_ms: 10,
+              handshake_duration_ms: 15,
+              useful_bytes: 1048576,
+              redundant_bytes: 16384,
+              obsolete_bytes: 0,
+              recovery_requests: 1,
+              recovery_suppressed: 0,
+              active_hedges: 0,
+              peak_hedges: 1,
+              active_hedge_bytes: 0,
+              budget_changes: 2,
+              frontiers: 1,
+              recovery_scan_truncated: false,
+              service: [],
+              request_policy: {
+                enabled: true,
+                sampled_peers: 2,
+                qualified_peers: 1,
+                capacity_limited_peers: 0,
+                desired_requests: 16,
+                queued_requests: 12,
+                capacity_requests: 64,
+                horizon_min_ms: 4100,
+                horizon_max_ms: 4100,
+                truncated: false,
+              },
+              recovery_scan: {
+                age_ms: 200,
+                eligible: 1,
+                uncertain_request: 1,
+                stale_service: 0,
+                already_duplicated: 0,
+                not_late: 0,
+                receiving: 0,
+              },
+            },
+          },
+        },
+      }),
+    );
+    await page.goto("/");
+    await page
+      .getByRole("button", { name: "Diagnostics", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByRole("heading", { name: "Buffering evidence" }),
+    ).toBeVisible();
+    await expect(dialog.getByText(/Verified delivery 80.0 Mbps/)).toBeVisible();
+    await expect(dialog.getByText(/1022\/1024 blocks finished/)).toBeVisible();
+    await expect(
+      dialog.getByText(/Startup reserve: 32.0 → 64.0 MiB/),
+    ).toBeVisible();
+    await expect(
+      dialog.getByText(/reserve reached the configured/),
+    ).toBeVisible();
+    await dialog
+      .getByText(/Measured request horizons: 4100/)
+      .scrollIntoViewIfNeeded();
+    await expect(
+      dialog.getByText(/Measured request horizons: 4100/),
+    ).toBeVisible();
+    await expect(
+      dialog.getByText(/Last recovery scan: 1 eligible/),
+    ).toBeVisible();
+    expect(
+      await dialog.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth + 1,
+      ),
+    ).toBe(true);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: `../.tools/buffering-ui-${width}.png`,
+      fullPage: true,
+    });
+  });
+}
 const torrent = {
   hash,
   title: "Example series",

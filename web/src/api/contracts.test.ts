@@ -35,6 +35,115 @@ test("legacy zero cache is readable while Apply requires a positive budget", () 
 });
 
 const input = process.env.FLOW_CONTRACT_INPUT;
+test("bounded startup reserves retain older servers and reject impossible targets", () => {
+  const reserve = {
+    known: true,
+    reason: "SUPPLY_DEFICIT",
+    base_bytes: 32 * 1048576,
+    target_bytes: 128 * 1048576,
+    maximum_bytes: 128 * 1048576,
+    limited: true,
+    demand_rate: 12.5e6,
+    delivery_rate: 10e6,
+    deficit_rate: 2.5e6,
+    forecast_seconds: 45,
+  };
+  const response = (value: unknown) => ({
+    hash: "fixture",
+    startup: { state: "ADAPTIVE_PREBUFFER", file_index: 1, reserve: value },
+  });
+  expect(flowSchema.safeParse({ hash: "fixture" }).success).toBe(true);
+  expect(flowSchema.safeParse(response(reserve)).success).toBe(true);
+  expect(
+    flowSchema.safeParse(
+      response({ ...reserve, target_bytes: reserve.maximum_bytes + 1 }),
+    ).success,
+  ).toBe(false);
+  expect(
+    flowSchema.safeParse(response({ ...reserve, demand_rate: Infinity }))
+      .success,
+  ).toBe(false);
+});
+test("native recovery and request telemetry reject oversized or inconsistent snapshots", () => {
+  const zeros = Object.fromEntries(
+    [
+      "first_dial_ms",
+      "first_connect_ms",
+      "first_handshake_ms",
+      "first_payload_ms",
+      "connect_duration_ms",
+      "handshake_duration_ms",
+      "useful_bytes",
+      "redundant_bytes",
+      "obsolete_bytes",
+      "recovery_requests",
+      "recovery_suppressed",
+      "active_hedges",
+      "peak_hedges",
+      "active_hedge_bytes",
+      "budget_changes",
+      "frontiers",
+    ].map((key) => [key, 0]),
+  );
+  const base = {
+    ...zeros,
+    known: true,
+    service: [],
+    recovery_scan_truncated: false,
+  };
+  const policy = {
+    enabled: true,
+    sampled_peers: 2,
+    qualified_peers: 1,
+    capacity_limited_peers: 0,
+    desired_requests: 16,
+    queued_requests: 12,
+    capacity_requests: 64,
+    horizon_min_ms: 4000,
+    horizon_max_ms: 4000,
+    truncated: false,
+  };
+  const scan = {
+    age_ms: 100,
+    eligible: 1,
+    uncertain_request: 1,
+    stale_service: 0,
+    already_duplicated: 0,
+    not_late: 0,
+    receiving: 0,
+  };
+  const response = (value: unknown) => ({
+    hash: "fixture",
+    sparse: { known: true, stream: value },
+  });
+  expect(flowSchema.safeParse(response(base)).success).toBe(true);
+  expect(
+    flowSchema.safeParse(
+      response({ ...base, request_policy: policy, recovery_scan: scan }),
+    ).success,
+  ).toBe(true);
+  expect(
+    flowSchema.safeParse(
+      response({
+        ...base,
+        request_policy: { ...policy, desired_requests: 65 },
+      }),
+    ).success,
+  ).toBe(false);
+  expect(
+    flowSchema.safeParse(
+      response({
+        ...base,
+        request_policy: { ...policy, horizon_max_ms: 6001 },
+      }),
+    ).success,
+  ).toBe(false);
+  expect(
+    flowSchema.safeParse(
+      response({ ...base, recovery_scan: { ...scan, not_late: 8192 } }),
+    ).success,
+  ).toBe(false);
+});
 test("storage diagnostics reject invalid counters while preserving new fields", () => {
   const storage = {
     queued_bytes: 0,

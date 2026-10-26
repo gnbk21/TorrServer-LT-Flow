@@ -12,7 +12,18 @@ SOURCE = Path(__file__).resolve().parent.parent / "_src/libtorrent"
 
 class NativePatchTest(unittest.TestCase):
     def fixture(self, root):
-        for patch in PATCH_DIR.glob("*.patch"):
+        patches = sorted(PATCH_DIR.glob("*.patch"))
+        # A later patch may refine a header introduced by an earlier patch.
+        # Such files have no upstream v2.1.2 version to restore into the fixture.
+        introduced = set()
+        for patch in patches:
+            added = False
+            for line in patch.read_text().splitlines():
+                if line.startswith("--- "):
+                    added = line == "--- /dev/null"
+                elif added and line.startswith("+++ b/"):
+                    introduced.add(line[6:])
+        for patch in patches:
             added = False
             for line in patch.read_text().splitlines():
                 if line.startswith("--- "):
@@ -21,6 +32,8 @@ class NativePatchTest(unittest.TestCase):
                     if added:
                         continue
                     name = line[6:]
+                    if name in introduced:
+                        continue
                     path = root / name
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(subprocess.check_output(

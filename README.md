@@ -2,7 +2,7 @@
 
 TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps the libtorrent engine, existing media cache and HTTP API, and adds a modern embedded web interface.
 
-> **Flow 1.1.7:** authentication, browser-origin, outbound-request and cache-confinement fixes. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.7), [notes](RELEASE_1_1_7_NOTES.md), [verification](RELEASE_1_1_7_VERIFICATION.md). Review the Lampa/local-indexer compatibility notes before updating. Legacy remains the default; streaming experiments remain off.
+> **Flow 1.1.8:** measured peer request budgets, bounded recovery of delayed blocks, supply-aware buffering and clearer dashboard evidence. Includes the 1.1.7 security fixes. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.8), [notes](RELEASE_1_1_8_NOTES.md). Legacy remains the default; streaming experiments remain opt-in.
 
 Use **1.1.7 or newer** for the security protections described in
 [our security policy](SECURITY.md). Historical plans, release measurements and
@@ -10,7 +10,7 @@ upstream evaluations are organized in the [documentation index](docs/README.md).
 
 ## Run on Windows
 
-1. Open [Flow 1.1.7](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.7), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.7.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
+1. Open [Flow 1.1.8](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.8), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.8.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
 2. In PowerShell, run the standard executable from the extracted folder, using a separate data directory for Flow:
 
    ```powershell
@@ -138,6 +138,31 @@ request/cache delays; different encodes cannot share pieces.
 All of this works without a paid provider or account. See the [sparse streaming
 guide](docs/development/SPARSE_STREAMING.md) for settings, storage, privacy, endpoints and verification
 limits, and the [implementation ledger](docs/history/SPARSE_IMPLEMENTATION.md) for evidence.
+
+### Buffering diagnostics and bounded recovery
+
+Detailed diagnostics distinguish verified delivery from media demand and show
+the current blocking piece, requested/missing blocks, and verification waits.
+They describe the server's read position, not the player's internal buffer.
+Measured deficits increase Adaptive's reserve within the existing startup,
+read-ahead, cache and wait limits; healthy or unknown supply keeps the normal
+startup floor. A reserve reaching its limit is reported explicitly.
+Startup supply qualification accounts for expected piece completion intervals,
+so ordinary verification gaps between large pieces do not immediately inflate
+the preload target.
+
+With **Adaptive peer requests** enabled, fresh per-peer service measurements
+select a request horizon of 250–6000 ms, with paced changes and local/remote
+request-capacity limits. Urgent scheduling uses a two-to-six-second measured
+allowance. Stable long-delay peers can take bounded growth probes, and an
+underfilled queue can use its calculated request credit even when its estimated
+drain time is higher. Stale measurements restore the normal allowance.
+**Frontier recovery** evaluates late blocks separately,
+so one request with uncertain timing does not exclude the entire piece. Existing
+duplicate-request budgets and cancellation safeguards remain in force. The
+diagnostics show aggregate request budgets and recovery exclusion reasons without
+peer identities. These controls remain opt-in; no profile is automatically
+selected, and a sustained supply deficit can still exhaust any finite buffer.
 
 ## Swarm profiles
 
@@ -333,8 +358,8 @@ generates its own channel-aware release manifest, checksums, original dependency
 notices and GitHub build attestations. The managed scripts verify SHA-256 and
 the exact executable version; `-RequireAttestation` also requires GitHub CLI
 provenance verification. Executables remain unsigned by Authenticode. See
-[distribution and recovery](DISTRIBUTION.md), [current release notes](RELEASE_1_1_7_NOTES.md)
-and [release verification](RELEASE_1_1_7_VERIFICATION.md).
+[distribution and recovery](DISTRIBUTION.md), [current release notes](RELEASE_1_1_8_NOTES.md)
+and [the previous security release verification](RELEASE_1_1_7_VERIFICATION.md).
 Stable releases are tagged from `master`; ongoing integration uses `develop`.
 The broader field checks remain tracked separately in [project status](STATUS.md).
 

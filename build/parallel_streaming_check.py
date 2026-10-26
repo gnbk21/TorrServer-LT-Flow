@@ -22,6 +22,8 @@ CASES = {
     "small-queue": ("healthy", 32, 250, 1),
     "mixed-peers": ("mixed-peers", 64, 150, 4),
     "outages": ("outages", 64, 100, 4),
+    "high-latency": ("healthy", 512, 2500, 4),
+    "large-pieces": ("stragglers", 128, 150, 16),
 }
 
 
@@ -43,21 +45,41 @@ def summarize(runs):
     return result
 
 
+def accepted_trial(case, row):
+    if row['passed']:
+        return True
+    # The stock two-second urgent horizon cannot fill a pipeline whose every
+    # block has 2.5 seconds of service latency. Retain those control timeouts as
+    # measured failures, while requiring both adaptive candidates to complete.
+    # No missing peers, corruption, capacity breach or candidate failure is waived.
+    peers = (row.get('swarm') or {}).get('peers') or []
+    return (case == 'high-latency' and row['policy'] in ('capacity', 'frontier')
+            and row.get('failure_stage') == 'preload'
+            and row.get('failure_type') == 'TimeoutError'
+            and row.get('policy_error') is None and bool(peers)
+            and sum(p.get('sent_bytes', 0) for p in peers) > 0
+            and all(not p.get('capacity_overflows')
+                    and p.get('peak_pending_requests', 0) <= 512 for p in peers))
+
+
 def check(args):
     args.output.mkdir(parents=True, exist_ok=False)
+    case, reqq, latency, piece = CASES[args.case]
     fixture = args.output / "owned.bin"
     # Keeps cold seek ranges outside the resident cache, without downloading a
     # movie or introducing FFmpeg/decoder behavior into this scheduling test.
     with fixture.open("xb") as stream:
-        for number in range(192):
+        # Four disjoint cold seeks must remain possible after read-ahead and
+        # earlier seeks. Twelve 16 MiB pieces could exhaust the proof targets.
+        for number in range(max(192, 24*piece)):
             stream.write(hashlib.shake_256(number.to_bytes(4, "big")).digest(MIB))
     with args.executable.open("rb") as source:
         digest = hashlib.file_digest(source, "sha256").hexdigest()
-    case, reqq, latency, piece = CASES[args.case]
     # Exercise the new policies at high bitrate as well as under constrained
     # small-queue/latency fixtures. The latter deliberately use lower demand
     # so insufficient fixture supply cannot masquerade as a policy regression.
-    rate = 12*MIB if args.case == "healthy" else MIB if latency else 4*MIB
+    rate = (2*MIB if args.case in ("high-latency", "large-pieces")
+            else 12*MIB if args.case == "healthy" else MIB if latency else 4*MIB)
     with LocalSwarm([fixture], peers=[PeerPlan(rate=2*rate)],
                     piece_length=piece*MIB, high_throughput=True) as swarm:
         supply = calibrate(swarm)
@@ -81,10 +103,16 @@ def check(args):
                       reqq=reqq, strict=True, latency_ms=latency, piece_mb=piece,
                       startup_mb=4, disk=args.disk, **options)
             row.update(policy=name, rotation=rotation)
-            controls = [s.get("stream_control") for s in row["samples"]]
+            controls = [s.get("stream_control") for s in
+                        row.get('preload_samples', []) + row["samples"]]
             controls = [s for s in controls if s and s.get("known")]
             if not controls:
                 row["passed"], row["policy_error"] = False, "Native stream observations unavailable"
+            if args.case == "high-latency" and options.get("adaptive_peer_requests"):
+                policies = [s.get("request_policy", {}) for s in controls]
+                if not any(p.get("enabled") and p.get("qualified_peers", 0) > 0
+                           and p.get("horizon_max_ms", 0) > 2000 for p in policies):
+                    row["passed"], row["policy_error"] = False, "Measured high-latency policy was not exercised"
             for evidence in controls:
                 if (evidence["active_hedges"] > 16 or evidence["peak_hedges"] > 16
                         or evidence["active_hedge_bytes"] > 256 * 1024):
@@ -94,12 +122,16 @@ def check(args):
                     if peer["peak_pending_requests"] > reqq:
                         row["passed"], row["policy_error"] = False, "Peer capacity exceeded"
             row["stream_counters"] = controls[-1] if controls else None
+            row['accepted_trial'] = accepted_trial(args.case, row)
             report["runs"].append(row)
             report["summaries"] = summarize(report["runs"])
             (args.output / "report.json").write_text(
                 json.dumps(report, indent=2) + "\n", encoding="utf-8")
             gc.collect()
-    return all(r["passed"] for r in report["runs"])
+    report['acceptance'] = ('Every adaptive candidate must complete; stock-horizon '
+                            'high-latency control timeouts remain failed observations.')
+    (args.output / 'report.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
+    return all(r['accepted_trial'] for r in report['runs'])
 
 
 if __name__ == "__main__":

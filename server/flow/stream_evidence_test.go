@@ -52,3 +52,32 @@ func TestStreamHistoryRejectsUnboundedOrIdentifyingGroups(t *testing.T) {
 		t.Fatal("stream history cannot be retained")
 	}
 }
+
+func TestStreamPolicyAggregatesRemainBoundedAndRetainable(t *testing.T) {
+	s := &StreamEvidence{Known: true, RequestPolicy: &RequestPolicy{Enabled: true,
+		SampledPeers: 512, QualifiedPeers: 512, CapacityRequests: 512 * 65535,
+		DesiredRequests: 512 * 65535, QueuedRequests: 512 * 65535, HorizonMinMs: 250, HorizonMaxMs: 6000},
+		RecoveryScan: &RecoveryScan{AgeMs: 20, Eligible: 1, UncertainRequest: 8191}}
+	if !s.Valid() {
+		t.Fatal("valid mixed recovery scan rejected")
+	}
+	data, err := json.Marshal(HistoryEvent{Type: "stream_sample", Stream: s})
+	if err != nil || len(data) >= HistoryRecordBytes {
+		t.Fatal("policy evidence exceeds private history record", len(data), err)
+	}
+	for _, mutate := range []func(*StreamEvidence){
+		func(s *StreamEvidence) { s.RequestPolicy.HorizonMaxMs = 6001 },
+		func(s *StreamEvidence) { s.RequestPolicy.QualifiedPeers = 513 },
+		func(s *StreamEvidence) { s.RequestPolicy.DesiredRequests = s.RequestPolicy.CapacityRequests + 1 },
+		func(s *StreamEvidence) { s.RecoveryScan.AgeMs = -2 },
+		func(s *StreamEvidence) { s.RecoveryScan.NotLate = 1 },
+	} {
+		copy := *s
+		policy, recovery := *s.RequestPolicy, *s.RecoveryScan
+		copy.RequestPolicy, copy.RecoveryScan = &policy, &recovery
+		mutate(&copy)
+		if copy.Valid() {
+			t.Fatal("unbounded policy evidence accepted")
+		}
+	}
+}

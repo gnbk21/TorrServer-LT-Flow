@@ -29,6 +29,7 @@ export interface StartupPieceSupply {
 }
 
 export interface FlowStartup {
+  reserve?: ReservePlan;
   phases?: Array<{
     phase: string;
     basis: "NATIVE_TORRENT" | "TORRENT" | "PRELOAD" | "OPERATION";
@@ -81,6 +82,27 @@ export interface FlowStartup {
 }
 
 export interface FlowSession extends Observed {
+  supply?: {
+    known: boolean;
+    state: string;
+    demand_rate: number;
+    delivery_rate: number;
+    deficit_rate: number;
+    runway_seconds?: number;
+  };
+  blocker?: {
+    known: boolean;
+    piece: number;
+    piece_length: number;
+    blocks: number;
+    unrequested: number;
+    requested: number;
+    writing: number;
+    finished: number;
+    oldest_request_age_ms: number;
+    suppliers?: number;
+    reason: string;
+  };
   buffer_sampled_at_ms?: number;
   buffer_sample_age_ms?: number;
   buffer_offset_bytes?: number;
@@ -314,6 +336,27 @@ export interface SparseSnapshot {
 }
 
 export interface StreamEvidence {
+  request_policy?: {
+    enabled: boolean;
+    sampled_peers: number;
+    qualified_peers: number;
+    capacity_limited_peers: number;
+    desired_requests: number;
+    queued_requests: number;
+    capacity_requests: number;
+    horizon_min_ms: number;
+    horizon_max_ms: number;
+    truncated: boolean;
+  };
+  recovery_scan?: {
+    age_ms: number;
+    eligible: number;
+    uncertain_request: number;
+    stale_service: number;
+    already_duplicated: number;
+    not_late: number;
+    receiving: number;
+  };
   known: boolean;
   first_dial_ms: number;
   first_connect_ms: number;
@@ -339,4 +382,18 @@ export interface StreamEvidence {
   budget_changes: number;
   frontiers: number;
   recovery_scan_truncated: boolean;
+}
+
+export interface ReservePlan {
+  known: boolean;
+  reason: string;
+  base_bytes: number;
+  target_bytes: number;
+  maximum_bytes: number;
+  limited: boolean;
+  demand_rate: number;
+  delivery_rate: number;
+  deficit_rate: number;
+  forecast_seconds: number;
+  additional_fill_seconds?: number;
 }

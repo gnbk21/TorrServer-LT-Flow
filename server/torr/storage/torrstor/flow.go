@@ -44,6 +44,24 @@ type FlowWindowStatus struct {
 	BurstHintSource         string                `json:"burst_hint_source"`
 }
 
+// PreloadHeadBudget shares the existing cache/resource budget. Leave room for
+// the container tail and an unaligned file's leading boundary piece. Mandatory
+// bootstrap remains the caller's floor; adaptive growth cannot create a second
+// working set larger than the configured cache.
+func (c *Cache) PreloadHeadBudget() int64 {
+	if c == nil || c.PieceLength <= 0 {
+		return 0
+	}
+	budget := globalCacheSize()
+	if limit := c.resourceBudget.Load(); limit > 0 {
+		budget = min(budget, limit)
+	}
+	// Round the budget down before subtracting whole pieces. Otherwise a
+	// fractional-piece cache limit plus an unaligned file could need one extra
+	// resident piece beyond the configured budget.
+	return max(0, (budget/c.PieceLength-int64(TailPiecesFor(c.PieceLength)+1))*c.PieceLength)
+}
+
 func (c *Cache) SetScarceEvidence(snapshot lt.SparseSnapshot) {
 	if c == nil {
 		return

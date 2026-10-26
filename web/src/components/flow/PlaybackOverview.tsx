@@ -6,6 +6,7 @@ import { humanizeBytes } from "../../lib/format";
 import { flowApi } from "../../api/flow";
 import { Button } from "../common/Button";
 import { RequestError } from "../common/RequestState";
+import { BufferingEvidence } from "./BufferingEvidence";
 
 export function PlaybackOverview({
   status,
@@ -42,6 +43,7 @@ export function PlaybackOverview({
     }
   };
   const session = view.session;
+  const nativeAge = now - (status.sparse?.sampled_at_ms ?? NaN);
   return (
     <section className="panel space-y-3">
       <h3 className="font-semibold">{t("flow.upgrade.title")}</h3>
@@ -80,6 +82,16 @@ export function PlaybackOverview({
           </dd>
         </div>
       </dl>
+      <BufferingEvidence
+        session={session}
+        fresh={view.bufferFresh}
+        blockerFresh={
+          view.bufferFresh &&
+          status.sparse?.known === true &&
+          nativeAge >= 0 &&
+          nativeAge < 5000
+        }
+      />
       {status.integrity && (
         <p>
           {t("flow.upgrade.integrity", {

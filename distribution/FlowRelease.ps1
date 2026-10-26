@@ -2,6 +2,22 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Move-FlowExecutable {
+    param([string]$LiteralPath, [string]$Destination)
+    # Windows may retain a sharing lock briefly after process exit (for example
+    # while scanning an image). Never overwrite, force termination or retry a
+    # permission/path error. A persistent lock still enters normal rollback.
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    while ($true) {
+        try { Move-Item -LiteralPath $LiteralPath -Destination $Destination -ErrorAction Stop; return }
+        catch {
+            $code = $_.Exception.HResult -band 0xffff
+            if ($code -notin @(32,33) -or [DateTime]::UtcNow -ge $deadline) { throw }
+            Start-Sleep -Milliseconds 100
+        }
+    }
+}
+
 function Get-FlowRelease {
     param([ValidateSet('stable', 'preview')][string]$Channel)
     $headers = @{ 'User-Agent' = 'TorrServer-Flow'; Accept = 'application/vnd.github+json' }

@@ -1,0 +1,386 @@
+diff --git a/include/libtorrent/aux_/flow_stream_policy.hpp b/include/libtorrent/aux_/flow_stream_policy.hpp
+index 4fe154e..7458f6e 100644
+--- a/include/libtorrent/aux_/flow_stream_policy.hpp
++++ b/include/libtorrent/aux_/flow_stream_policy.hpp
+@@ -1,7 +1,7 @@
+ // Flow's bounded service model and duplicate-credit ownership.
+ // All policy clocks are monotonic milliseconds supplied by the network executor.
+ #pragma once
+-#define TORRENT_FLOW_STREAM_CONTROL 1
++#define TORRENT_FLOW_STREAM_CONTROL 2
+ #include <algorithm>
+ #include <array>
+ #include <atomic>
+@@ -69,20 +69,63 @@ struct flow_service_model {
+ 	bool fresh(std::int64_t now) const {
+ 		return fresh_samples>=8 && last_ms>=0 && now>=last_ms && now-last_ms<=10000;
+ 	}
++	// Service time includes remote queueing, not just transport RTT. Grow only
++	// from fresh observations; keep a finite horizon and the peer's reqq cap.
++	std::int64_t horizon_ms() const {
++		return std::clamp<std::int64_t>(mean_ms+2*deviation_ms+100,250,6000);
++	}
++	// Keep stock scheduling for disabled, untrained or stale observations. A
++	// fast peer never shortens the stock urgent-work allowance for other peers.
++	std::int64_t urgent_horizon_ms(bool enabled, std::int64_t now) const {
++		return enabled && fresh(now) ? std::max<std::int64_t>(2000,horizon_ms()) : 2000;
++	}
++	bool urgent_work_allowed(std::int64_t queue_ms, int queued, int desired,
++		bool enabled, std::int64_t now) const {
++		// An underfilled pipeline underestimates the peer's bandwidth. Permit
++		// its bounded, measured credit to grow before applying the drain-time
++		// cutoff; otherwise a high-latency peer can remain stuck at two blocks.
++		return queue_ms <= urgent_horizon_ms(enabled,now)
++			|| (enabled && fresh(now) && queued < desired);
++	}
+ 	std::int64_t late_after_ms() const {
+-		return std::clamp<std::int64_t>(mean_ms+std::max<std::int64_t>(100,4*deviation_ms),250,3000);
++		return std::clamp<std::int64_t>(mean_ms+std::max<std::int64_t>(100,4*deviation_ms),250,15000);
++	}
++	int request_timeout_seconds(int stock, int maximum, bool enabled, std::int64_t now) const {
++		if (!enabled || !fresh(now)) return stock;
++		// Stock learns inter-arrival spacing, which can approach zero within a
++		// pipelined batch. A trained per-request service model prevents that
++		// from snubbing a healthy delayed peer between batches. Honor the
++		// configured ceiling and retain the stock path for stale observations.
++		// Stock timeout timestamps/checks are refreshed on coarse ticks; allow
++		// one tick of slack without extending the measured floor past 15 s.
++		int const measured=int((std::min<std::int64_t>(15000,late_after_ms()+1000)+999)/1000);
++		return std::max(stock,std::min(maximum,measured));
+ 	}
+-	int credit(int current, int rate, int block, int remote, int local, std::int64_t now) {
++	int credit(int current, int rate, int block, int remote, int local, std::int64_t now, int queued=0) {
+ 		int const cap=std::max(1,std::min(remote,local));
+ 		current=std::clamp(current,1,cap);
+ 		if (!fresh(now) || rate<=0 || block<=0) return current;
+ 		if (adjusted_ms>=0 && now>=adjusted_ms && now-adjusted_ms<500) return current;
+ 		adjusted_ms=now;
+-		auto const horizon=std::clamp<std::int64_t>(mean_ms+2*deviation_ms+100,250,2000);
+-		auto const wanted=std::clamp<std::int64_t>(
++		auto const horizon=horizon_ms();
++		auto wanted=std::clamp<std::int64_t>(
+ 			std::int64_t(rate)*horizon/1000/block+2,1,cap);
++		// A stable service delay beyond the stock urgent horizon can leave
++		// observed throughput constrained by our own window. Probe only on a
++		// full window, using the existing paced 25% step and both capacity caps.
++		// An underfilled window (e.g. between preload and an HTTP reader) does
++		// not measure path capacity. Retain measured credit while this stable
++		// delayed service is fresh; otherwise application-limited rate samples
++		// collapse a trained pipeline back to two blocks. Do not grow on idle
++		// queues. Jitter, snubbing, staleness and both capacity caps still apply.
++		if (mean_ms>=2000 && 4*deviation_ms<=mean_ms) {
++			int const probe=queued>=current ? std::max(2,current/4) : 0;
++			wanted=std::max(wanted,std::int64_t(std::min(cap,current+probe)));
++		}
+ 		int const deadband=std::max(2,current/8);
+-		if (wanted-current<=deadband && current-wanted<=deadband) return current;
++		// Small upward probes must survive: observed rate is limited by our own
++		// current window. Keep shrink hysteresis and the paced growth bound.
++		if (wanted<=current && current-wanted<=deadband) return current;
+ 		int const step=std::max(2,current/4);
+ 		int const next=int(std::clamp<std::int64_t>(wanted,std::max(1,current-step),std::min(cap,current+step)));
+ 		if (next!=current) ++budget_changes;
+@@ -92,6 +135,23 @@ private:
+ 	int fresh_samples=0;
+ };
+ 
++// A request with uncertain timing is excluded on its own. It must not veto
++// independent, measured requests for other blocks in the same large piece.
++enum class flow_recovery_result : int {
++	eligible, uncertain_request, stale_service, already_duplicated, not_late,
++	receiving, count
++};
++inline flow_recovery_result flow_recovery_check(bool uncertain, bool fresh,
++	int owners, std::int64_t age, std::int64_t threshold, bool receiving)
++{
++	if (uncertain || age < 0) return flow_recovery_result::uncertain_request;
++	if (!fresh) return flow_recovery_result::stale_service;
++	if (owners != 1) return flow_recovery_result::already_duplicated;
++	if (age < threshold) return flow_recovery_result::not_late;
++	if (receiving) return flow_recovery_result::receiving;
++	return flow_recovery_result::eligible;
++}
++
+ // Both concurrent occupancy and issued-per-second credit are bounded. Shared
+ // ownership follows pending_block copies through sends, cancels and teardown.
+ struct flow_hedge_budget {
+@@ -135,6 +195,8 @@ struct flow_stream_observations {
+ 	std::int64_t created_ms,first_dial_ms=-1,first_connect_ms=-1,first_handshake_ms=-1,first_payload_ms=-1;
+ 	std::int64_t connect_duration_ms=-1,handshake_duration_ms=-1;
+ 	std::array<flow_histogram,6> service{};
++	std::array<std::uint32_t, int(flow_recovery_result::count)> recovery_scan{};
++	std::int64_t recovery_scan_ms=-1;
+ 	std::uint64_t useful_bytes=0,redundant_bytes=0,obsolete_bytes=0,recovery_requests=0,recovery_suppressed=0,budget_changes=0;
+ 	void milestone(std::int64_t& field,std::int64_t now) {
+ 		if(field<0 && now>=created_ms) field=now-created_ms;
+diff --git a/simulation/test_peer_connection.cpp b/simulation/test_peer_connection.cpp
+index 35d376c..959d437 100644
+--- a/simulation/test_peer_connection.cpp
++++ b/simulation/test_peer_connection.cpp
+@@ -670,3 +670,125 @@ TORRENT_TEST(flow_stream_policy_clock_hysteresis_and_lifecycle)
+ 	TEST_EQUAL(session->active.load(),0);
+ 	TEST_EQUAL(session->bytes.load(),0);
+ }
++
++
++TORRENT_TEST(flow_stream_high_latency_and_request_capacity)
++{
++	using namespace lt::aux;
++	flow_service_model slow, fast;
++	for(int i=0;i<32;++i) {
++		slow.observe(4000,1000+i*100);
++		fast.observe(50,1000+i*100);
++	}
++	TEST_CHECK(slow.horizon_ms()>2000 && slow.horizon_ms()<=6000);
++	TEST_CHECK(slow.late_after_ms()>=4000);
++	TEST_EQUAL(fast.horizon_ms(),250);
++	TEST_CHECK(slow.urgent_horizon_ms(true,4200)>2000);
++	TEST_EQUAL(slow.urgent_horizon_ms(false,4200),2000);
++	TEST_EQUAL(slow.urgent_horizon_ms(true,20000),2000);
++	TEST_EQUAL(slow.urgent_horizon_ms(true,0),2000);
++	TEST_EQUAL(fast.urgent_horizon_ms(true,4200),2000);
++	flow_service_model untrained;
++	untrained.observe(4000,4200);
++	TEST_EQUAL(untrained.urgent_horizon_ms(true,4200),2000);
++	int credit=128;
++	for(int i=0;i<4;++i) credit=slow.credit(credit,1024*1024,16384,512,1500,4200+i*500);
++	TEST_CHECK(credit>128 && credit<=512);
++	TEST_EQUAL(slow.credit(credit,1024*1024,16384,1,1500,6200),1);
++	TEST_EQUAL(slow.credit(credit,1024*1024,16384,512,32,6200),32);
++	TEST_EQUAL(slow.credit(credit,1024*1024,16384,512,1500,20000),credit);
++	for(int i=0;i<32;++i) slow.observe(299999,30000+i*100);
++	TEST_EQUAL(slow.horizon_ms(),6000);
++	TEST_EQUAL(slow.late_after_ms(),15000);
++}
++
++TORRENT_TEST(flow_stream_recovery_is_independent_per_block)
++{
++	using namespace lt::aux;
++	using result=flow_recovery_result;
++	TEST_CHECK(flow_recovery_check(true,true,1,5000,2000,false)==result::uncertain_request);
++	// Another request in the same frontier remains eligible.
++	TEST_CHECK(flow_recovery_check(false,true,1,5000,2000,false)==result::eligible);
++	TEST_CHECK(flow_recovery_check(false,false,1,5000,2000,false)==result::stale_service);
++	TEST_CHECK(flow_recovery_check(false,true,2,5000,2000,false)==result::already_duplicated);
++	TEST_CHECK(flow_recovery_check(false,true,1,1000,2000,false)==result::not_late);
++	TEST_CHECK(flow_recovery_check(false,true,1,5000,2000,true)==result::receiving);
++	TEST_CHECK(flow_recovery_check(false,true,1,-1,2000,false)==result::uncertain_request);
++}
++
++// A measured high-latency peer must escape the stock two-block startup
++// equilibrium without bypassing remote/local capacity or stale-model fallback.
++TORRENT_TEST(flow_high_latency_pipeline_bootstrap)
++{
++    libtorrent::aux::flow_service_model model;
++    for (int i=0;i<16;++i) model.observe(2500,3000+i*10);
++    TEST_CHECK(model.fresh(3200));
++    int credit=model.credit(2,12000,16384,512,512,3200);
++    TEST_EQUAL(credit,3);
++    TEST_EQUAL(model.credit(16,95000,16384,512,512,3800),17);
++    TEST_CHECK(model.urgent_work_allowed(4000,2,credit,true,3200));
++    TEST_CHECK(!model.urgent_work_allowed(4000,credit,credit,true,3200));
++    TEST_CHECK(!model.urgent_work_allowed(4000,2,credit,false,3200));
++    TEST_CHECK(!model.urgent_work_allowed(4000,2,credit,true,20000));
++    TEST_CHECK(!model.urgent_work_allowed(4000,2,credit,true,0));
++    TEST_EQUAL(model.credit(2,12000,16384,1,512,3800),1);
++}
++
++TORRENT_TEST(flow_high_latency_probes_are_full_paced_and_capped)
++{
++    libtorrent::aux::flow_service_model model;
++    for (int i=0;i<16;++i) model.observe(2500,3000+i*10);
++    TEST_EQUAL(model.credit(2,12000,16384,512,512,3200,2),4);
++    TEST_EQUAL(model.credit(4,12000,16384,512,512,3300,4),4);
++    TEST_EQUAL(model.credit(16,95000,16384,512,512,3800,16),20);
++    TEST_EQUAL(model.credit(16,95000,16384,512,18,4400,16),18);
++    TEST_EQUAL(model.credit(16,95000,16384,1,512,5000,16),1);
++    // An empty pipeline cannot probe beyond its bandwidth-derived target.
++    TEST_EQUAL(model.credit(16,95000,16384,512,512,5600,0),17);
++    TEST_EQUAL(model.credit(16,95000,16384,512,512,20000,16),16);
++    for (int i=0;i<16;++i) model.observe(i%2?500:5000,21000+i*10);
++    TEST_CHECK(4*model.deviation_ms>model.mean_ms);
++    int const before=16;
++    int const target=int(95000*model.horizon_ms()/1000/16384+2);
++    int const next=model.credit(before,95000,16384,512,512,22000,16);
++    TEST_CHECK(next<=std::max(before,target));
++}
++
++TORRENT_TEST(flow_high_latency_application_limited_transition_retains_credit)
++{
++    libtorrent::aux::flow_service_model model;
++    for (int i=0;i<32;++i) model.observe(2500,1000+i*100);
++    // Preload can leave a trained window underfilled until a reader opens.
++    // A low application-limited rate must not erase its useful window.
++    TEST_EQUAL(model.credit(428,12000,16384,512,512,4200,284),428);
++    TEST_EQUAL(model.credit(428,12000,16384,512,512,4800,0),428);
++    TEST_EQUAL(model.credit(428,12000,16384,512,512,5400,428),512);
++    TEST_EQUAL(model.credit(428,12000,16384,32,512,6000,0),32);
++    // A changed/jittery service path may reduce the window normally.
++    for (int i=0;i<16;++i) model.observe(i%2?500:5000,6100+i*100);
++    TEST_CHECK(4*model.deviation_ms>model.mean_ms);
++    TEST_CHECK(model.credit(428,12000,16384,512,512,8000,0)<428);
++    TEST_CHECK(!model.fresh(30000));
++}
++
++TORRENT_TEST(flow_delayed_service_timeout_matches_pipeline_and_keeps_limits)
++{
++    libtorrent::aux::flow_service_model model;
++    TEST_EQUAL(model.request_timeout_seconds(2,60,true,1000),2);
++    for (int i=0;i<32;++i) model.observe(2500,1000+i*100);
++    TEST_EQUAL(model.request_timeout_seconds(2,60,true,4200),4);
++    TEST_EQUAL(model.request_timeout_seconds(2,2,true,4200),2);
++    TEST_EQUAL(model.request_timeout_seconds(8,60,true,4200),8);
++    TEST_EQUAL(model.request_timeout_seconds(2,60,false,4200),2);
++    TEST_EQUAL(model.request_timeout_seconds(2,60,true,0),2);
++    TEST_EQUAL(model.request_timeout_seconds(2,60,true,30000),2);
++    // The actual timed-out/unsnub comparison uses whole seconds. A healthy
++    // 2.5-second batch gap plus one coarse tick fits the learned timeout, whereas
++    // a stalled batch past that bound is still detected.
++    int const timeout=model.request_timeout_seconds(2,60,true,4200);
++    TEST_CHECK(2500+999 < timeout*1000);
++    TEST_CHECK(4500 > timeout*1000);
++    for (int i=0;i<32;++i) model.observe(299999,31000+i*100);
++    TEST_EQUAL(model.request_timeout_seconds(2,60,true,35000),15);
++    TEST_EQUAL(model.request_timeout_seconds(2,10,true,35000),10);
++}
+diff --git a/src/peer_connection.cpp b/src/peer_connection.cpp
+index 1af2de6..4aafbf3 100644
+--- a/src/peer_connection.cpp
++++ b/src/peer_connection.cpp
+@@ -4669,7 +4669,10 @@ namespace {
+ 		// timeouts should never be less than 2 seconds. The granularity is whole
+ 		// seconds, and only checked once per second. 2 is the minimum to avoid
+ 		// being considered timed out instantly
+-		return std::max(2, ret);
++		return flow_service.request_timeout_seconds(std::max(2,ret),
++			m_settings.get_int(settings_pack::request_timeout),
++			m_settings.get_bool(settings_pack::flow_adaptive_peer_requests),
++			total_milliseconds(clock_type::now().time_since_epoch()));
+ 	}
+ 
+ 	void peer_connection::get_peer_info(peer_info& p) const
+@@ -4917,7 +4920,8 @@ namespace {
+ 			if(t && !m_slow_start) m_desired_queue_size=std::uint16_t(flow_service.credit(
+ 				m_desired_queue_size,download_rate,t->block_size(),int(m_max_out_request_queue),
+ 				m_settings.get_int(settings_pack::max_out_request_queue),
+-				total_milliseconds(clock_type::now().time_since_epoch())));
++				total_milliseconds(clock_type::now().time_since_epoch()),
++				int(m_download_queue.size()+m_request_queue.size())));
+ 			if(t) t->flow_stream.budget_changes+=flow_service.budget_changes-before;
+ 		}
+ 		if (m_desired_queue_size > m_max_out_request_queue)
+diff --git a/src/torrent.cpp b/src/torrent.cpp
+index ca967ac..8cf40f2 100644
+--- a/src/torrent.cpp
++++ b/src/torrent.cpp
+@@ -11389,11 +11389,15 @@ namespace {
+ 		time_point const now = aux::time_now();
+ 
+ 		// loop until every block has been requested from this piece (i->piece)
++		bool const adaptive=torrent.settings().get_bool(settings_pack::flow_adaptive_peer_requests);
++		// Match the precise clock used by service observations.
++		auto const now_ms=total_milliseconds(clock_type::now().time_since_epoch());
+ 		do
+ 		{
+-			// if this peer's download time exceeds 2 seconds, we're done.
+-			// We don't want to build unreasonably long request queues
+-			if (!peers.empty() && peers[0]->download_queue_time() > milliseconds(2000))
++			// Stock uses one shared two-second cutoff. With measured per-peer
++			// allowances, an already full fast peer must not veto a qualified
++			// higher-latency peer later in this responsiveness-ordered list.
++			if (!adaptive && !peers.empty() && peers[0]->download_queue_time() > milliseconds(2000))
+ 			{
+ #if TORRENT_DEBUG_STREAMING > 1
+ 				std::printf("queue time: %d ms, done\n"
+@@ -11404,7 +11408,13 @@ namespace {
+ 
+ 			// pick the peer with the lowest download_queue_time that has i->piece
+ 			auto p = std::find_if(peers.begin(), peers.end()
+-				, std::bind(&peer_connection::has_piece, _1, i->piece));
++				, [&] (peer_connection const* peer) {
++					return peer->has_piece(i->piece) && (!adaptive
++						|| peer->flow_service.urgent_work_allowed(
++						total_milliseconds(peer->download_queue_time()),
++						int(peer->download_queue().size()+peer->request_queue().size()),
++						peer->desired_queue_size(),true,now_ms));
++				});
+ 
+ 			// obviously we'll have to skip it if we don't have a peer that has
+ 			// this piece
+@@ -11582,11 +11592,11 @@ namespace {
+ 			&& now-m_flow_scanned_at<milliseconds(100)) return;
+ 		m_flow_scanned_at=now; m_flow_late_blocks.clear(); m_flow_qualified.fill(false);
+ 		m_flow_scan_truncated=false;
++		flow_stream.recovery_scan.fill(0);
++		flow_stream.recovery_scan_ms=total_milliseconds(now.time_since_epoch());
+ 		if(!settings().get_bool(settings_pack::flow_frontier_recovery)
+ 			|| m_flow_frontiers_at==time_point{} || now<m_flow_frontiers_at
+ 			|| now-m_flow_frontiers_at>seconds(3) || !has_picker()) return;
+-		std::array<bool,8> seen{};
+-		m_flow_qualified.fill(true);
+ 		int inspected=0;
+ 		auto const now_ms=total_milliseconds(now.time_since_epoch());
+ 		for(auto* peer:m_connections) {
+@@ -11596,25 +11606,29 @@ namespace {
+ 				auto const found=std::find(m_flow_frontiers.begin(),m_flow_frontiers.end(),int(request.block.piece_index));
+ 				if(found==m_flow_frontiers.end()) continue;
+ 				auto const index=std::size_t(found-m_flow_frontiers.begin());
+-				seen[index]=true;
+-				if(request.not_wanted || request.timed_out || request.flow_requested_at==time_point{}
+-					|| peer->flow_cancelled.contains(int(request.block.piece_index),request.block.block_index)
+-					|| !peer->flow_service.fresh(now_ms)) { m_flow_qualified[index]=false; continue; }
+-				if(m_picker->num_peers(request.block)!=1) continue;
+-				auto const age=total_milliseconds(now-request.flow_requested_at);
++				bool const uncertain=request.not_wanted || request.timed_out
++					|| request.flow_requested_at==time_point{}
++					|| peer->flow_cancelled.contains(int(request.block.piece_index),request.block.block_index);
++				auto const age=request.flow_requested_at==time_point{} ? -1
++					: total_milliseconds(now-request.flow_requested_at);
+ 				auto const threshold=peer->flow_service.late_after_ms();
+-				if(age<threshold) continue;
+ 				bool const receiving=progress.piece_index==request.block.piece_index
+-					&& progress.block_index==request.block.block_index && progress.bytes_downloaded>0;
+-				if(receiving && (progress.bytes_downloaded>=progress.full_block_bytes*3/4
+-					|| (peer->flow_last_payload!=time_point{} && now>=peer->flow_last_payload
+-						&& now-peer->flow_last_payload<milliseconds(threshold/2)))) continue;
+-				if(m_flow_late_blocks.size()<64) m_flow_late_blocks.push_back(request.block);
++					&& progress.block_index==request.block.block_index && progress.bytes_downloaded>0
++					&& (progress.bytes_downloaded>=progress.full_block_bytes*3/4
++						|| (peer->flow_last_payload!=time_point{} && now>=peer->flow_last_payload
++							&& now-peer->flow_last_payload<milliseconds(threshold/2)));
++				auto const result=flow_recovery_check(uncertain,peer->flow_service.fresh(now_ms),
++					m_picker->num_peers(request.block),age,threshold,receiving);
++				++flow_stream.recovery_scan[int(result)];
++				if(result!=flow_recovery_result::uncertain_request
++					&& result!=flow_recovery_result::stale_service) m_flow_qualified[index]=true;
++				if(result==flow_recovery_result::eligible && m_flow_late_blocks.size()<64)
++					m_flow_late_blocks.push_back(request.block);
+ 			}
+ 			if(m_flow_scan_truncated) break;
+ 		}
+ 		for(std::size_t i=0;i<m_flow_frontiers.size();++i)
+-			m_flow_qualified[i]=seen[i] && m_flow_qualified[i] && !m_flow_scan_truncated;
++			m_flow_qualified[i]=m_flow_qualified[i] && !m_flow_scan_truncated;
+ 	}
+ 
+ 	bool torrent::flow_recovery_ready(piece_index_t const piece) const
+@@ -11810,9 +11824,16 @@ namespace {
+ 					{ return lhs->download_queue_time(16*1024) < rhs->download_queue_time(16*1024); });
+ 			}
+ 
+-			// if this peer's download time exceeds 2 seconds, we're done.
+-			// We don't want to build unreasonably long request queues
+-			if (!peers.empty() && peers[0]->download_queue_time() > milliseconds(2000))
++			// Per-peer horizons differ: stop only when every candidate is full.
++			// Keep the stock stopping rule exactly when the experiment is off.
++			bool const adaptive=settings().get_bool(settings_pack::flow_adaptive_peer_requests);
++			auto const now_ms=total_milliseconds(now.time_since_epoch());
++			if (adaptive ? std::none_of(peers.begin(),peers.end(),[&] (peer_connection const* peer) {
++					return peer->flow_service.urgent_work_allowed(
++						total_milliseconds(peer->download_queue_time()),
++						int(peer->download_queue().size()+peer->request_queue().size()),
++						peer->desired_queue_size(),true,now_ms);
++				}) : (!peers.empty() && peers[0]->download_queue_time() > milliseconds(2000)))
+ 				break;
+ 		}
+ 

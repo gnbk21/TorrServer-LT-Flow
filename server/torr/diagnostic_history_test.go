@@ -78,11 +78,39 @@ func TestPeriodicPlaybackHistoryAndResponsePrivacy(t *testing.T) {
 
 func TestStartupSnapshotDoesNotExposeMutablePointers(t *testing.T) {
 	piece := 0
-	tor := &Torrent{flowStartup: FlowStartupStatus{Progress: &flow.StartupHistory{BlockedOn: "HEAD", HeadBlockerPiece: &piece}}}
+	seconds := 10.0
+	tor := &Torrent{flowStartup: FlowStartupStatus{
+		Progress: &flow.StartupHistory{BlockedOn: "HEAD", HeadBlockerPiece: &piece},
+		Reserve:  &flow.ReservePlan{Known: true, TargetBytes: 64 << 20, AdditionalFillSeconds: &seconds},
+	}}
 	s := tor.FlowStartup()
 	s.Progress.BlockedOn = "NONE"
 	*s.Progress.HeadBlockerPiece = 10
+	s.Reserve.TargetBytes = 0
+	*s.Reserve.AdditionalFillSeconds = 0
 	if tor.FlowStartup().Progress.BlockedOn != "HEAD" || *tor.FlowStartup().Progress.HeadBlockerPiece != 0 {
 		t.Fatal("caller mutated internal progress")
+	}
+	if tor.FlowStartup().Reserve.TargetBytes != 64<<20 || *tor.FlowStartup().Reserve.AdditionalFillSeconds != 10 {
+		t.Fatal("caller mutated the recorded startup decision")
+	}
+}
+
+func TestStartupReserveReportsTheDecisionThatEnlargedTheGate(t *testing.T) {
+	tor := &Torrent{}
+	tor.recordStartupReserve(flow.ReservePlan{Reason: "UNKNOWN", TargetBytes: 32 << 20}, true)
+	chosen := flow.ReservePlan{Known: true, Reason: "SUPPLY_DEFICIT", TargetBytes: 96 << 20}
+	tor.recordStartupReserve(chosen, true)
+	for _, filling := range []bool{true, false} {
+		tor.recordStartupReserve(flow.ReservePlan{Known: true, Reason: "SUFFICIENT_SUPPLY", TargetBytes: 32 << 20}, filling)
+		tor.recordStartupReserve(flow.ReservePlan{Reason: "UNKNOWN", TargetBytes: 32 << 20}, filling)
+		if got := tor.FlowStartup().Reserve; got.TargetBytes != chosen.TargetBytes || got.Reason != chosen.Reason {
+			t.Fatal("diagnostics no longer describe the retained gate", got)
+		}
+	}
+	chosen.TargetBytes = 128 << 20
+	tor.recordStartupReserve(chosen, true)
+	if tor.FlowStartup().Reserve.TargetBytes != chosen.TargetBytes {
+		t.Fatal("larger reserve was not recorded")
 	}
 }

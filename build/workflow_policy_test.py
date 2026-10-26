@@ -16,6 +16,27 @@ def job(workflow, name):
 
 
 class WorkflowPolicyTests(unittest.TestCase):
+    def test_staged_release_keeps_gates_and_defers_public_container(self):
+        classify = job('ts_release.yml', 'classify')
+        self.assertIn('stage_before_publish', classify)
+        self.assertIn('==os.environ["FLOW_TAG"]', classify)
+        release = job('ts_release.yml', 'release')
+        self.assertIn("draft: ${{ needs.classify.outputs.staged == 'true' }}", release)
+        self.assertIn("needs.classify.outputs.staged != 'true' && needs.classify.outputs.channel == 'stable'", release)
+        self.assertIn('needs: [classify, cross, macos]', release)
+        self.assertIn("if: needs.classify.outputs.staged != 'true'", job('ts_release.yml', 'docker'))
+
+    def test_resumed_container_requires_published_exact_successful_tagged_source(self):
+        text = job('build-docker.yml', 'docker')
+        gate = text.index('Validate published source')
+        self.assertLess(gate, text.index('Download linux binaries'))
+        self.assertLess(gate, text.index('Login to GitHub Container Registry'))
+        for guard in ('r["status"]=="completed"', 'r["conclusion"]=="success"',
+                      'r["head_sha"]==os.environ["FLOW_SOURCE"]',
+                      'r["path"]==".github/workflows/ts_release.yml"',
+                      'not p["draft"]', 'git rev-parse "$FLOW_VERSION^{commit}"'):
+            self.assertIn(guard, text)
+
     def test_active_comparisons_do_not_depend_on_withdrawn_releases(self):
         for workflow, name in [('build.yml', 'high-bitrate-comparison'),
                                ('upgrade-benchmarks.yml', 'compare')]:

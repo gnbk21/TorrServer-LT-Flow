@@ -917,6 +917,26 @@
         "PRELOAD": "depuis le préchargement",
         "OPERATION": "durée de l’opération"
       }
+    },
+    "buffering": {
+      "title": "Diagnostic de mise en mémoire tampon",
+      "unknown": "Les mesures de débit ne sont pas encore assez fiables.",
+      "rates": "Données vérifiées {{delivery}} Mbit/s · besoin du média {{demand}} Mbit/s · déficit {{deficit}} Mbit/s",
+      "blocker": "Pièce {{piece}} ({{size}}) : {{finished}}/{{blocks}} blocs reçus, {{requested}} demandés, {{unrequested}} non demandés, {{writing}} en écriture.",
+      "blockerAge": "Requête la plus ancienne : {{age}} ms · sources : {{suppliers}}",
+      "verifying": "Les blocs reçus sont encore en écriture ou en vérification. La pièce n’est pas encore validée.",
+      "hint": "Ces observations concernent la position de lecture du serveur, pas le tampon interne du lecteur. Agrandir le cache ne corrige pas un déficit de débit durable.",
+      "reserve": "Réserve au démarrage : {{base}} → {{target}} Mio · limite {{maximum}} Mio",
+      "limited": "La réserve atteint la limite configurée ou disponible du cache. Une réserve plus grande ne garantit pas une lecture sans interruptions.",
+      "requests": "Files des pairs : {{queued_requests}} en attente, cible {{desired_requests}}, capacité {{capacity_requests}} · {{qualified_peers}}/{{sampled_peers}} pairs mesurés · {{capacity_limited_peers}} à capacité.",
+      "horizons": "Horizons de requête mesurés : {{horizon_min_ms}}–{{horizon_max_ms}} ms",
+      "recovery": "Dernière analyse de récupération : {{eligible}} admissibles ; exclus : {{uncertain_request}} temps incertain, {{stale_service}} mesures périmées, {{already_duplicated}} propriétaires multiples/absents, {{not_late}} non tardifs, {{receiving}} en réception.",
+      "states": {
+        "SUPPLY_DEFICIT": "Le débit mesuré est inférieur au besoin du média. Un tampon fini ne peut que retarder son épuisement.",
+        "SUFFICIENT_SUPPLY": "Le débit moyen récent couvre le besoin du média.",
+        "RECENT_GAPS": "Des interruptions récentes sont survenues malgré un débit moyen suffisant.",
+        "UNKNOWN": "Les mesures de débit ne sont pas encore assez fiables."
+      }
     }
   },
   "search": {
