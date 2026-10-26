@@ -27,7 +27,9 @@ def check(executable, output, personal_settings=None):
     metadata = json.loads(subprocess.check_output([
         'ffprobe', '-v', 'error', '-show_format', '-of', 'json', str(media)], text=True))
     rate = float(metadata['format']['bit_rate'])/8
-    base = min(32*MIB, max(4*MIB, math.ceil(rate)))
+    # ffprobe may read its full 5,000,000-byte analysis budget. Leave a normal
+    # head above that, plus enough subsequent pieces to measure Stage-B supply.
+    base = min(32*MIB, max(12*MIB, math.ceil(rate)))
     prefix, suffix = output/'000-padding.bin', output/'zzz-padding.bin'
     prefix.write_bytes(bytes(MIB//2))
     suffix.write_bytes(bytes(MIB))
@@ -37,7 +39,7 @@ def check(executable, output, personal_settings=None):
     assert tail_first > head_last+12, 'Generated file is too small for disjoint reserve/index evidence'
     flow = {'Enabled': True, 'AdaptiveStartup': True, 'SwarmProfile': 'adaptive',
             'BootstrapHeadMB': 1, 'ProbeGraceMs': 500, 'StartupBufferSeconds': 1,
-            'StartupBufferMinMB': 4, 'StartupBufferMaxMB': 32, 'StartupSafetyFactorPct': 100,
+            'StartupBufferMinMB': 12, 'StartupBufferMaxMB': 32, 'StartupSafetyFactorPct': 100,
             'MetricsEnabled': True, 'RangeTraceEnabled': True, 'CapacityAwareRequests': True,
             'AdaptiveUrgentHorizon': True, 'FrontierRecovery': True,
             'AdaptivePeerRequests': True, 'ContainerBurstHints': True}
@@ -79,7 +81,7 @@ def check(executable, output, personal_settings=None):
             report['fixture_only_settings_overrides'] = True
             server.ready()
         mandatory = set(range(head_last+1)) | set(range(tail_first, tail_last+1))
-        plan = PeerPlan(pieces=mandatory, rate=768*1024, request_queue=128, strict_request_queue=True)
+        plan = PeerPlan(pieces=mandatory, rate=MIB, request_queue=128, strict_request_queue=True)
         with LocalSwarm([prefix, media, suffix], peers=[plan], piece_length=MIB,
                         high_throughput=True) as swarm:
             status = upload(server, swarm)
@@ -87,7 +89,7 @@ def check(executable, output, personal_settings=None):
             index = next(f['id'] for f in status['file_stats'] if f['path'].endswith('generated.ts'))
             with ThreadPoolExecutor(max_workers=1) as pool:
                 def preload():
-                    with server.request(f'/stream?link={info_hash}&index={index}&preload&stat', timeout=45) as response:
+                    with server.request(f'/stream?link={info_hash}&index={index}&preload&stat', timeout=60) as response:
                         return json.load(response)
                 began = time.monotonic()
                 loading = pool.submit(preload)
@@ -99,7 +101,7 @@ def check(executable, output, personal_settings=None):
                     if (p.get('head_verified_bytes', 0) >= (head_last+1)*MIB
                             and p.get('missing_tail_pieces') == 0 and not p.get('bootstrap', True)):
                         base_ready_at = base_ready_at or time.monotonic()
-                    if time.monotonic()-began > 40:
+                    if time.monotonic()-began > 55:
                         raise TimeoutError('Optional reserve still blocks verified startup')
                     time.sleep(.2)
                 loading.result(timeout=3)
