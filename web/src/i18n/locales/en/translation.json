@@ -826,6 +826,7 @@
       "hint": "These observations concern the server read position, not the player’s internal buffer. Larger cache alone cannot correct a sustained supply deficit.",
       "reserve": "Startup reserve: {{base}} → {{target}} MiB · limit {{maximum}} MiB",
       "limited": "The reserve reached the configured or available cache limit. A larger reserve is not guaranteed to prevent stalls.",
+      "extraWaitLimited": "Optional startup reserve was reduced to avoid adding more than {{seconds}} seconds after the required head and index are ready.",
       "requests": "Peer queues: {{queued_requests}} pending, {{desired_requests}} target, {{capacity_requests}} capacity · {{qualified_peers}}/{{sampled_peers}} measured peers · {{capacity_limited_peers}} at capacity.",
       "horizons": "Measured request horizons: {{horizon_min_ms}}–{{horizon_max_ms}} ms",
       "recovery": "Last recovery scan: {{eligible}} eligible; excluded: {{uncertain_request}} uncertain timing, {{stale_service}} stale samples, {{already_duplicated}} duplicate/absent owners, {{not_late}} not late, {{receiving}} receiving.",

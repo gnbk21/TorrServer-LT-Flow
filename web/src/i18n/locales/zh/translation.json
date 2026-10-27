@@ -928,6 +928,7 @@
       "hint": "这些数据描述服务器的读取位置，而非播放器内部缓冲。仅增加缓存无法解决持续的供给不足。",
       "reserve": "启动储备：{{base}} → {{target}} MiB · 上限 {{maximum}} MiB",
       "limited": "储备已达到配置上限或可用缓存上限。更大的储备并不能保证播放不中断。",
+      "extraWaitLimited": "额外的启动储备已减少，以免在必要的文件头和索引就绪后再等待超过 {{seconds}} 秒。",
       "requests": "节点队列：待处理 {{queued_requests}}，目标 {{desired_requests}}，容量 {{capacity_requests}} · 已测量节点 {{qualified_peers}}/{{sampled_peers}} · {{capacity_limited_peers}} 个达到容量上限。",
       "horizons": "实测请求时间范围：{{horizon_min_ms}}–{{horizon_max_ms}} 毫秒",
       "recovery": "最近恢复扫描：{{eligible}} 个符合条件；排除项：时间不确定 {{uncertain_request}}、测量过期 {{stale_service}}、重复或无所有者 {{already_duplicated}}、尚未超时 {{not_late}}、正在接收 {{receiving}}。",

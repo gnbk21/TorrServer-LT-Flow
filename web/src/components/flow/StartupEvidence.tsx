@@ -21,7 +21,15 @@ export function StartupEvidence({ startup }: { startup: FlowStartup }) {
             })}
           </p>
           <p>{t(`flow.buffering.states.${startup.reserve.reason}`)}</p>
-          {startup.reserve.limited && <p>{t("flow.buffering.limited")}</p>}
+          {startup.reserve.extra_wait_limited ? (
+            <p>
+              {t("flow.buffering.extraWaitLimited", {
+                seconds: (startup.reserve.extra_wait_budget_ms ?? 0) / 1000,
+              })}
+            </p>
+          ) : (
+            startup.reserve.limited && <p>{t("flow.buffering.limited")}</p>
+          )}
         </div>
       )}
       {!!startup.phases?.length && (

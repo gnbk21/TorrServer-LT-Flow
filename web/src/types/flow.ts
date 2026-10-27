@@ -396,4 +396,8 @@ export interface ReservePlan {
   deficit_rate: number;
   forecast_seconds: number;
   additional_fill_seconds?: number;
+  requested_bytes?: number;
+  extra_wait_budget_ms?: number;
+  extra_wait_limited?: boolean;
+  extra_wait_expired?: boolean;
 }
