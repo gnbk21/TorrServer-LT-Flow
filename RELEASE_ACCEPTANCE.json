@@ -435,6 +435,25 @@
       "full_tagged_validation": "Required before publication; not yet completed at this preparation commit",
       "field_acceptance_passed": false,
       "private_configuration_published": false
+    },
+    {
+      "date": "2026-10-27",
+      "scope": "Flow 1.1.9 full implementation validation before tagged rebuild",
+      "source_commit": "49dbee114e28ef6f54ce16976cf2a908bdf5afac",
+      "build_run": 40467760680,
+      "security_run": 40467760747,
+      "macos_run": 40467760653,
+      "branch_run": 40467760686,
+      "all_required_actual_source_jobs_verified": true,
+      "full_comparisons_reused_from": 40467760680,
+      "tagged_validation_still_required": true,
+      "runtime_changes_after_this_source": "None permitted by the existing receipt verifier; only release documents and CI metadata may differ",
+      "local_frontend_tests_passed": 140,
+      "local_native_contract_test": "Not substituted: native exported contracts are checked in CI",
+      "field_acceptance_passed": false,
+      "controlled_startup_extra_wait_seconds": 10.052738792,
+      "controlled_partial_suffix_delivery_ms": 833.9868569998998,
+      "controlled_capacity_cases_passed": 15
     }
   ],
   "remaining": [],
@@ -462,11 +481,11 @@
   "published_tag": "MatriX.145.Flow-v1.1.8",
   "published_source_commit": "8907097ef3c5b177088a7cc7cd88d012f29f2094",
   "patch_validation": {
-    "tag": "MatriX.145.Flow-v1.1.8",
+    "tag": "MatriX.145.Flow-v1.1.9",
     "mode": "api_compatibility",
-    "candidate_commit": "78d2ec2ebfef9bd6180cfaf3be13bf3fd018361c",
-    "candidate_run": 40294716243,
-    "baseline_commit": "78d2ec2ebfef9bd6180cfaf3be13bf3fd018361c",
-    "baseline_run": 40294716178
+    "candidate_commit": "49dbee114e28ef6f54ce16976cf2a908bdf5afac",
+    "candidate_run": 40467760747,
+    "baseline_commit": "49dbee114e28ef6f54ce16976cf2a908bdf5afac",
+    "baseline_run": 40467760680
   }
 }
