@@ -77,3 +77,16 @@ build-input changes still fail closed.
 Because no release or assets existed, the unpublished tag was repaired using
 an exact old-tag-object lease. Its failed source and run remain in history.
 The corrected source must complete every required tagged gate before publication.
+
+## Published Latest: exact tagged receipts
+
+Published 27 October 2026 as [Flow 1.1.9](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.9), stable and Latest.
+Immutable binary source: `627dd3a9c673af507f04654014c1fd5ff7e09cb7`. This is the final tagged source. The unpublished tag repair is documented above; no published tag or asset was replaced.
+
+- [Tagged build 40475629958](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/40475629958) passed all 25 actual required essential roles. The unchanged runtime/UI proof reuses the full-source comparisons listed above; skipped jobs were not counted as passed.
+- [Exact-source security workflow 40475583643](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/40475583643) passed. There were zero open CodeQL alerts at publication, following the existing reviewed dispositions. No additional findings were dismissed for this release.
+- All 35 public assets are inventoried; 34 SHA256SUMS entries match GitHub asset digests. Four selected downloaded subjects (Windows EXE/ZIP, BUILDINFO.json and release.json) passed actual checksums. Every Windows ZIP member matched its inventory, including source/version identities and original notices. Other platform bytes were verified by tagged packaging, not all downloaded locally.
+- BUILDINFO.json and the Windows ZIP passed GitHub attestation checks bound to the exact source, tag ref and release workflow. Windows EXE SHA-256: `219985ee41a087b59b2871d9e8db91ae8790f624d83a0cbc8ce34a25e122f964`. ZIP SHA-256: `eaa48871f9d36c109136fc3158c8dd503c39d4baeb1d6c0090218c6428387e8f`.
+- [Container publication 40478348687](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/40478348687) passed actual version/linkage checks for Linux AMD64, ARM64 and ARMv7. Anonymous registry metadata confirmed their source/version labels and identical version/latest index digest: `sha256:7cbd15292569c0c695588073e9e2e798729a9372ec790108abedb6e7669f3e74`. No fresh local container playback is claimed.
+- The corrected tagged startup fixture exercised real probe/supply separation, optional reserve expiry in 10.06 seconds after required readiness, byte-exact ranges and missing-index protection.
+- The active owner installation and private settings were not replaced or uploaded. Public packages contain no personal state. Defaults and field-validation limits above remain in effect; no additional two-hour test was run.

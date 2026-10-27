@@ -7,8 +7,9 @@ They are unsupported for new installations. See [the fixes and compatibility
 notes](SECURITY_HARDENING.md) before updating an existing installation.
 
 All earlier public releases were withdrawn to private drafts on 25 October
-2026, and their old container versions were removed. Only 1.1.7 remains publicly
-published. See the [withdrawal record](docs/security/DISTRIBUTION_RETIREMENT_2026_10_25.md).
+2026, and their old container versions were removed. Use the current maintained
+stable release, [Flow 1.1.9](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.9),
+for new installations. See the [withdrawal record](docs/security/DISTRIBUTION_RETIREMENT_2026_10_25.md).
 
 Only the current stable release receives security maintenance. Historical
 source tags and engineering records are retained for auditability. Withdrawing

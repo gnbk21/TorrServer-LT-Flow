@@ -1,11 +1,11 @@
 # Current project status
 
-Updated 25 October 2026. This is the current status; dated audit sections
+Updated 27 October 2026. This is the current status; dated audit sections
 describe the revisions tested at those dates and do not override this table.
 
 | Area | Current state | Remaining gate |
 | --- | --- | --- |
-| Public distribution | Stable **Flow 1.1.7** is public and **Latest** for all eight platforms, source `87d1632e`. All 25 required tagged roles, public download/provenance checks, 15 isolated security API checks and three container architectures passed. [Verification](RELEASE_1_1_7_VERIFICATION.md) | Broader phone/public-swarm, physical recovery and endurance limits remain; retained administrator privileges and documented false positives have explicit reviewed dispositions |
+| Public distribution | Stable **Flow 1.1.9** is public and **Latest** for all eight platforms, immutable binary source `627dd3a9`. Full source checks and all 25 tagged roles, public checksums/provenance and three container architectures passed. [Verification](RELEASE_1_1_9_VERIFICATION.md) | Broader phone/public-swarm, physical recovery and endurance limits remain; documented security dispositions are accepted risks |
 | Reliability and compatible streaming controls | [PR #9](https://github.com/gnbk21/TorrServer-LT-Flow/pull/9) is merged and included in 1.1.6: scoped update recovery, transactional storage, partial search, session diagnostics/log rotation, bounded frontier recovery and adaptive peer request credit. Full accepted source comparisons passed; new controls stay off. [Reconciliation](docs/history/PARALLEL_STREAMING_CHECKLIST.md) | Mixed performance tradeoffs prevent default promotion; broader field acceptance remains separate. Owner installation/configuration are preserved |
 | October upgrade | PR #6 is merged into stable 1.1.4. PR #7 repairs slow CI dependency downloads and parallelizes validation. [Checklist](docs/history/OCTOBER_UPGRADE_CHECKLIST.md), [pipeline](CI_PIPELINE.md) | Legacy/defaults and opt-in experiments remain unchanged; field checks remain disclosed |
 | Published upgrade | PR #5 merged; corrected poster timeout and mobile settings action-panel defects; exact tagged and downloaded checks passed. Earlier five-repeat profile/transport comparisons remain recorded. Legacy/1024 KiB/PGO-off defaults retained | Eight-hour run interrupted after 965 cycles; physical checks, optional decoder rebuild, shared OS DNS protection and complete profiling attribution remain unverified |
@@ -30,16 +30,9 @@ describe the revisions tested at those dates and do not override this table.
 
 ## Current stable release
 
-Flow 1.1.7 (`MatriX.145.Flow-v1.1.7`, immutable binary source `87d1632e`) is
-public and Latest for Windows, Linux, Android and both macOS architectures.
-[PR #10](https://github.com/gnbk21/TorrServer-LT-Flow/pull/10) is merged: authentication fallback,
-browser origins/rebinding, outbound destination policy and cache confinement
-are hardened. All required tagged gates, selected public downloads, provenance
-and container checks passed. [Notes](RELEASE_1_1_7_NOTES.md),
-[verification](RELEASE_1_1_7_VERIFICATION.md). The full-branch scan and its 18 newly
-approved dispositions are documented; three pre-existing dispositions remain. Legacy and
-optional streaming-control defaults are unchanged. The owner installation and
-personal settings were not replaced.
+Flow 1.1.9 (`MatriX.145.Flow-v1.1.9`, immutable binary source `627dd3a9`) is public and Latest for all eight platforms. [PR #12](https://github.com/gnbk21/TorrServer-LT-Flow/pull/12) is merged. It bounds optional Adaptive startup reserve waits, improves stalled-block recovery and overloaded-peer scheduling, and corrects startup diagnostics. Full source checks and all required tagged gates passed. [Notes](RELEASE_1_1_9_NOTES.md), [verification](RELEASE_1_1_9_VERIFICATION.md).
+
+Flow 1.1.8 and 1.1.7 remain earlier public releases. Releases older than 1.1.7 were withdrawn from public downloads; historical availability statements below describe their original publication. Legacy remains the default, optional streaming controls remain opt-in, and the owner's active installation and settings were not replaced.
 
 ## Previous stable release: 1.1.6
 

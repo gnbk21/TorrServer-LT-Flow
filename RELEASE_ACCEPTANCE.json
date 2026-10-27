@@ -432,7 +432,7 @@
         "Owned Windows generated-media test: optional reserve ended 10.03 seconds after required data readiness; required missing index remained blocked; byte-exact head/tail ranges",
         "Owned Windows partial-block test: alternate peer delivered the stalled suffix before the original resumed; byte checks and queue-cap checks passed"
       ],
-      "full_tagged_validation": "Required before publication; not yet completed at this preparation commit",
+      "full_tagged_validation": "Completed successfully: 40475629958",
       "field_acceptance_passed": false,
       "private_configuration_published": false
     },
@@ -446,14 +446,15 @@
       "branch_run": 40467760686,
       "all_required_actual_source_jobs_verified": true,
       "full_comparisons_reused_from": 40467760680,
-      "tagged_validation_still_required": true,
+      "tagged_validation_still_required": false,
       "runtime_changes_after_this_source": "None permitted by the existing receipt verifier; only release documents and CI metadata may differ",
       "local_frontend_tests_passed": 140,
       "local_native_contract_test": "Not substituted: native exported contracts are checked in CI",
       "field_acceptance_passed": false,
       "controlled_startup_extra_wait_seconds": 10.052738792,
       "controlled_partial_suffix_delivery_ms": 833.9868569998998,
-      "controlled_capacity_cases_passed": 15
+      "controlled_capacity_cases_passed": 15,
+      "tagged_gate_run": 40475629958
     },
     {
       "date": "2026-10-27",
@@ -469,6 +470,39 @@
       "local_required_index_held": true,
       "old_tag_object": "84fc4ee072ae58b7b846f9d5e77614cfb0e5bb60",
       "tag_repair": "Unpublished tag only; replacement uses an exact old-object lease. Failed source/run remain in history."
+    },
+    {
+      "date": "2026-10-27",
+      "scope": "Flow 1.1.9 verified public Latest release",
+      "published_tag": "MatriX.145.Flow-v1.1.9",
+      "source_commit": "627dd3a9c673af507f04654014c1fd5ff7e09cb7",
+      "ci_run": 40475629958,
+      "exact_source_security_run": 40475583643,
+      "container_run": 40478348687,
+      "validation_scope": "essential",
+      "required_roles_passed": 25,
+      "full_comparisons_reused_from": 40467760680,
+      "fully_validated_runtime_source": "49dbee114e28ef6f54ce16976cf2a908bdf5afac",
+      "result": "passed",
+      "release_assets": 35,
+      "remote_asset_digests_verified": 34,
+      "downloaded_checksums_verified": 4,
+      "platform_count": 8,
+      "attestation_subjects_verified": [
+        "BUILDINFO.json",
+        "TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.9.zip"
+      ],
+      "windows_executable_sha256": "219985ee41a087b59b2871d9e8db91ae8790f624d83a0cbc8ce34a25e122f964",
+      "windows_package_sha256": "eaa48871f9d36c109136fc3158c8dd503c39d4baeb1d6c0090218c6428387e8f",
+      "container_index_digest": "sha256:7cbd15292569c0c695588073e9e2e798729a9372ec790108abedb6e7669f3e74",
+      "container_metadata_architectures": 3,
+      "all_platform_bytes_downloaded_locally": false,
+      "owner_installation_replaced": false,
+      "personal_configuration_uploaded": false,
+      "field_acceptance_passed": false,
+      "accepted_security_dispositions_are_not_fixes": true,
+      "verification_record": "RELEASE_1_1_9_VERIFICATION.md",
+      "corrected_tagged_startup_extra_wait_seconds": 10.059465082999992
     }
   ],
   "remaining": [],
@@ -493,8 +527,8 @@
     "Shared OS DNS leak protection and complete native profiling attribution"
   ],
   "release_target": "MatriX.145.Flow-v1.1.9",
-  "published_tag": "MatriX.145.Flow-v1.1.8",
-  "published_source_commit": "8907097ef3c5b177088a7cc7cd88d012f29f2094",
+  "published_tag": "MatriX.145.Flow-v1.1.9",
+  "published_source_commit": "627dd3a9c673af507f04654014c1fd5ff7e09cb7",
   "patch_validation": {
     "tag": "MatriX.145.Flow-v1.1.9",
     "mode": "api_compatibility",

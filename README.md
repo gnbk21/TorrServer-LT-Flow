@@ -2,7 +2,7 @@
 
 TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps the libtorrent engine, existing media cache and HTTP API, and adds a modern embedded web interface.
 
-> **Flow 1.1.8:** measured peer request budgets, bounded recovery of delayed blocks, supply-aware buffering and clearer dashboard evidence. Includes the 1.1.7 security fixes. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.8), [notes](RELEASE_1_1_8_NOTES.md). Legacy remains the default; streaming experiments remain opt-in.
+> **Flow 1.1.9:** bounded optional preload waits, recovery of stalled partial blocks, overload-aware peer queues and clearer startup diagnostics. Includes the 1.1.7 security fixes. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.9), [notes](RELEASE_1_1_9_NOTES.md). Legacy remains the default; streaming experiments remain opt-in.
 
 Use **1.1.7 or newer** for the security protections described in
 [our security policy](SECURITY.md). Historical plans, release measurements and
@@ -10,7 +10,7 @@ upstream evaluations are organized in the [documentation index](docs/README.md).
 
 ## Run on Windows
 
-1. Open [Flow 1.1.8](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.8), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.8.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
+1. Open [Flow 1.1.9](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.9), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.9.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
 2. In PowerShell, run the standard executable from the extracted folder, using a separate data directory for Flow:
 
    ```powershell
@@ -361,8 +361,8 @@ generates its own channel-aware release manifest, checksums, original dependency
 notices and GitHub build attestations. The managed scripts verify SHA-256 and
 the exact executable version; `-RequireAttestation` also requires GitHub CLI
 provenance verification. Executables remain unsigned by Authenticode. See
-[distribution and recovery](DISTRIBUTION.md), [current release notes](RELEASE_1_1_8_NOTES.md)
-and [release verification](RELEASE_1_1_8_VERIFICATION.md).
+[distribution and recovery](DISTRIBUTION.md), [current release notes](RELEASE_1_1_9_NOTES.md)
+and [release verification](RELEASE_1_1_9_VERIFICATION.md).
 Stable releases are tagged from `master`; ongoing integration uses `develop`.
 The broader field checks remain tracked separately in [project status](STATUS.md).
 

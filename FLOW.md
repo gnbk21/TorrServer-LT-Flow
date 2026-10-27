@@ -3,6 +3,14 @@
 This checkout tracks `trinity-aml/TorrServer-LT` on the `upstream` remote and
 `gnbk21/TorrServer-LT-Flow` on `origin`. The `develop` branch contains Flow work.
 
+## Current release
+
+Stable Flow 1.1.9 includes bounded optional Adaptive startup reserve waits and
+stalled-block recovery. The ordinary media head and required index still have
+to be verified; only the extra insurance wait is capped at ten seconds plus the
+scheduling tick. Legacy remains the default and streaming controls remain opt-in.
+[Notes](RELEASE_1_1_9_NOTES.md), [verification](RELEASE_1_1_9_VERIFICATION.md).
+
 ## First implementation milestone
 
 Flow settings live under `BitTorr.Flow` in the existing settings JSON and are
@@ -62,9 +70,10 @@ piece forced indefinitely.
 
 ## Reproducible comparison protocol
 
-The supplied `TorrServer-LT-windows-amd64.exe` is a MatriX.145.LT-1.1.9
-baseline. Before claiming a playback improvement, run it and a Flow build with
-separate `--path` directories, the same torrent corpus and cache settings, and
+The original evaluation baseline was MatriX.145.LT-1.1.9. Obtain the baseline
+separately and record its exact version. Before claiming a playback improvement,
+run it and a Flow build with separate `--path` directories, the same torrent
+corpus and cache settings, and
 the same PC, LAN and Just Player version. Do not share the production
 `config.db` between concurrent processes.
 
