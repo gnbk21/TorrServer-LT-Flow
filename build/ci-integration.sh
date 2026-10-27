@@ -8,6 +8,7 @@ case "${1:-}" in
         python3 build/playback_harness.py --executable "$binary" --output _out/controlled-playback --duration 20 --debug
         ;;
     startup)
+        python3 build/startup_reserve_check.py --executable "$binary" --output _out/startup-reserve-check
         python3 build/fixtures.py --output _out/startup-fixtures
         python3 build/startup_harness.py --executable "$binary" --fixtures _out/startup-fixtures --output _out/startup-check --assert-fast
         python3 build/startup_harness.py --executable "$binary" --fixtures _out/startup-fixtures --output _out/startup-custom-check --profile custom --assert-fast
@@ -32,6 +33,7 @@ case "${1:-}" in
     requests)
         python3 build/request_capacity_check.py --executable "$binary" --output _out/request-capacity
         python3 build/request_cancel_check.py --executable "$binary" --output _out/request-cancel
+        python3 build/partial_block_recovery_check.py --executable "$binary" --output _out/partial-block-recovery
         ;;
     sparse)
         python3 build/fixtures.py --output _out/sparse-fixtures

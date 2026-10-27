@@ -88,6 +88,7 @@ class PeerPlan:
     request_latency_ms: int = 0  # per-request service latency, independently pipelined
     late_cancel_completion: bool = False  # complete an old cancelled read on same-block reissue
     final_block_delay_ms: int = 0  # independently delayed piece tails; later blocks may overtake
+    partial_block_pause_ms: int = 0  # pause one piece-tail block after 15/16 of its payload
     corrupt_first_block: bool = False  # actual hash-failure/refetch regression
 
     def rate_at(self, elapsed):
@@ -137,7 +138,7 @@ class LocalSwarm:
         if not 1 <= peer_ip_start <= 254-len(self.plans):
             raise ValueError("fixture peer IP range exceeded")
         for plan in self.plans:
-            if plan.rate < 0 or plan.delay_ms < 0 or plan.request_latency_ms < 0 or plan.final_block_delay_ms < 0 or plan.choke_until < 0 or plan.metadata_delay < 0:
+            if plan.rate < 0 or plan.delay_ms < 0 or plan.request_latency_ms < 0 or plan.final_block_delay_ms < 0 or plan.partial_block_pause_ms < 0 or plan.choke_until < 0 or plan.metadata_delay < 0:
                 raise ValueError("negative peer timing or rate")
             if any(p < 0 or p >= self.piece_count for p in plan.available(self.piece_count, float('inf'))):
                 raise ValueError("piece outside generated torrent")
@@ -230,7 +231,25 @@ class LocalSwarm:
                                 if plan.corrupt_first_block and not stats.get('corrupted_blocks',0) and block:
                                     block=bytes([block[0]^1])+block[1:]
                                     stats['corrupted_blocks']=1
-                            send(b'\x07' + struct.pack('!II', piece, begin) + block)
+                            piece_size = min(owner.piece_length, len(owner.data)-piece*owner.piece_length)
+                            if (plan.partial_block_pause_ms and begin+count == piece_size
+                                    and count > 1 and not stats.get('partial_pauses', 0)):
+                                # Keep the wire frame open: this models payload
+                                # stopping mid-block, not a delayed complete reply.
+                                prefix = max(1, len(block)*15//16)
+                                message = b'\x07' + struct.pack('!II', piece, begin) + block
+                                sock.sendall(struct.pack('!I', len(message)) + message[:9+prefix])
+                                with owner.lock:
+                                    stats.update(partial_pauses=1, partial_pause_piece=piece,
+                                                 partial_pause_begin=begin,
+                                                 partial_pause_started_seconds=elapsed())
+                                if owner.stop.wait(plan.partial_block_pause_ms/1000):
+                                    return
+                                sock.sendall(block[prefix:])
+                                with owner.lock:
+                                    stats['partial_pause_finished_seconds'] = elapsed()
+                            else:
+                                send(b'\x07' + struct.pack('!II', piece, begin) + block)
                             record('piece', piece, begin, count)
                             with owner.lock:
                                 owner.sent_bytes += count

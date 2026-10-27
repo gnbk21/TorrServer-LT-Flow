@@ -13,6 +13,10 @@ on:
     paths-ignore: ['**/*.md']
   workflow_dispatch:
     inputs:
+      private_windows_source_run:
+        description: 'Private Windows candidate only; reuse unchanged UI from a successful published tagged run'
+        type: string
+        default: ''
       profile_source_run_id:
         description: 'Capture native CPU using symbol fixtures from an existing build; skips rebuilding'
         type: string
@@ -63,6 +67,69 @@ permissions:
   contents: read
 
 jobs:
+  private-windows-candidate:
+    if: github.event_name == 'workflow_dispatch' && inputs.private_windows_source_run != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Verify published unchanged UI source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FLOW_UI_RUN: ${{ inputs.private_windows_source_run }}
+        run: |
+          set -euo pipefail
+          python3 -c 'import os,re; assert re.fullmatch(r"[1-9][0-9]*",os.environ["FLOW_UI_RUN"])'
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$FLOW_UI_RUN" > source-run.json
+          python3 - <<'PY'
+          import json,os,re,subprocess
+          run=json.load(open('source-run.json'))
+          assert run['status']=='completed' and run['conclusion']=='success'
+          assert run['path']=='.github/workflows/ts_release.yml' and run['event']=='push'
+          source=run['head_sha']; assert re.fullmatch(r'[a-f0-9]{40}',source)
+          tag=run['head_branch']; assert re.fullmatch(r'MatriX\.145\.Flow-v[0-9.]+',tag)
+          release=json.loads(subprocess.check_output(['gh','api',f'repos/{os.environ["GITHUB_REPOSITORY"]}/releases/tags/{tag}']))
+          assert not release['draft'] and not release['prerelease']
+          assert subprocess.check_output(['git','rev-parse',tag+'^{commit}'],text=True).strip()==source
+          subprocess.run(['git','diff','--exit-code',source,'HEAD','--','web','server/web/pages/template','gen_web.go'],check=True)
+          print('Published UI source and unchanged UI inputs verified:',source)
+          PY
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: flow-web-cross
+          path: server/web/pages/template
+          run-id: ${{ inputs.private_windows_source_run }}
+          github-token: ${{ github.token }}
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: _src
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: _deps/windows-amd64
+          key: deps-windows-amd64-boost1.85.0-lt2.1.2-ossl3.5.7-flowsparse-pcfold2-${{ hashFiles('build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
+          restore-keys: deps-windows-amd64-boost1.85.0-lt2.1.2-ossl3.5.7-
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - run: bash build/ci-apt.sh g++-mingw-w64-x86-64
+      - name: Build private candidate
+        env:
+          TS_VERSION: ${{ format('MatriX.145.Flow-dev-{0}', github.sha) }}
+        run: bash build/windows-amd64.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          retention-days: 3
+          name: flow-private-windows-candidate
+          path: _out/TorrServer-LT-windows-amd64.exe
+          if-no-files-found: error
+
   release-inventory:
     needs: [cross, sources]
     runs-on: ubuntu-latest
@@ -130,7 +197,7 @@ jobs:
       candidate_run_id: ${{ format('{0}', github.run_id) }}
       comparison: transport
   windows-network-notifications:
-    if: ${{ !inputs.profile_source_run_id }}
+    if: ${{ !inputs.profile_source_run_id && !inputs.private_windows_source_run }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -186,7 +253,7 @@ jobs:
             _out/sparse-native-layers-build.log
           if-no-files-found: error
   web:
-    if: ${{ !inputs.profile_source_run_id }}
+    if: ${{ !inputs.profile_source_run_id && !inputs.private_windows_source_run }}
     uses: ./.github/workflows/build-web.yml
     with:
       artifact-name: flow-web-cross
@@ -195,7 +262,7 @@ jobs:
   # Fetch Boost + libtorrent once and cache _src, so the matrix below doesn't
   # download Boost (~120 MB) and clone libtorrent six times in parallel.
   sources:
-    if: ${{ !inputs.profile_source_run_id }}
+    if: ${{ !inputs.profile_source_run_id && !inputs.private_windows_source_run }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -228,6 +295,8 @@ jobs:
           source build/_deps.sh
           ensure_b2
           python3 build/apply_native_patches.py "$LT_DIR"
+          g++ -std=c++17 -O2 -I"$LT_DIR/include" build/test_flow_queue_pressure.cpp -o _out/test-flow-queue-pressure
+          _out/test-flow-queue-pressure
           cd "$LT_DIR/simulation"
           BOOST_ROOT="$BOOST_DIR" "$BOOST_DIR/b2" -q -j2 crypto=built-in webtorrent=off test_peer_connection test_transfer
 

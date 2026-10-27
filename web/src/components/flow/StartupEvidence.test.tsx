@@ -26,6 +26,27 @@ describe("startup preparation evidence", () => {
     expect(screen.getByText("flow.buffering.limited")).toBeInTheDocument();
     rerender(
       <StartupEvidence
+        startup={
+          {
+            reserve: {
+              ...reserve,
+              requested_bytes: 128 * 1048576,
+              extra_wait_budget_ms: 10000,
+              extra_wait_limited: true,
+              extra_wait_expired: true,
+            },
+          } as FlowStartup
+        }
+      />,
+    );
+    expect(
+      screen.getByText("flow.buffering.extraWaitLimited"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("flow.buffering.limited"),
+    ).not.toBeInTheDocument();
+    rerender(
+      <StartupEvidence
         startup={{ reserve: { ...reserve, known: false } } as FlowStartup}
       />,
     );

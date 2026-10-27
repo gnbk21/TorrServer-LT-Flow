@@ -1,0 +1,78 @@
+--- a/include/libtorrent/aux_/flow_stream_policy.hpp
++++ b/include/libtorrent/aux_/flow_stream_policy.hpp
+@@ -1,7 +1,7 @@
+ // Flow's bounded service model and duplicate-credit ownership.
+ // All policy clocks are monotonic milliseconds supplied by the network executor.
+ #pragma once
+-#define TORRENT_FLOW_STREAM_CONTROL 4
++#define TORRENT_FLOW_STREAM_CONTROL 5
+ #include <algorithm>
+ #include <array>
+ #include <atomic>
+@@ -150,6 +150,16 @@
+ 	eligible, uncertain_request, stale_service, already_duplicated, not_late,
+ 	receiving, count
+ };
++// Partial completion is not evidence of current progress. A block that has
++// stopped receiving may use the existing bounded hedge path, even past 75%.
++// Protect real recent payload for a service-relative grace; never treat an
++// unknown or future timestamp as fresh progress.
++inline bool flow_receiving_recent(int received, int length,
++	std::int64_t idle_ms, std::int64_t threshold_ms)
++{
++	return received>0 && length>0 && received<=length && idle_ms>=0
++		&& threshold_ms>0 && idle_ms<std::max<std::int64_t>(250,threshold_ms/2);
++}
+ inline flow_recovery_result flow_recovery_check(bool uncertain, bool fresh,
+ 	int owners, std::int64_t age, std::int64_t threshold, bool receiving)
+ {
+--- a/src/torrent.cpp
++++ b/src/torrent.cpp
+@@ -11612,11 +11612,13 @@
+ 				auto const age=request.flow_requested_at==time_point{} ? -1
+ 					: total_milliseconds(now-request.flow_requested_at);
+ 				auto const threshold=peer->flow_service.late_after_ms();
++				auto const payload_idle=peer->flow_last_payload!=time_point{}
++					&& now>=peer->flow_last_payload
++					? total_milliseconds(now-peer->flow_last_payload) : -1;
+ 				bool const receiving=progress.piece_index==request.block.piece_index
+-					&& progress.block_index==request.block.block_index && progress.bytes_downloaded>0
+-					&& (progress.bytes_downloaded>=progress.full_block_bytes*3/4
+-						|| (peer->flow_last_payload!=time_point{} && now>=peer->flow_last_payload
+-							&& now-peer->flow_last_payload<milliseconds(threshold/2)));
++					&& progress.block_index==request.block.block_index
++					&& flow_receiving_recent(progress.bytes_downloaded,
++						progress.full_block_bytes,payload_idle,threshold);
+ 				auto const result=flow_recovery_check(uncertain,peer->flow_service.fresh(now_ms),
+ 					m_picker->num_peers(request.block),age,threshold,receiving);
+ 				++flow_stream.recovery_scan[int(result)];
+--- a/simulation/test_peer_connection.cpp
++++ b/simulation/test_peer_connection.cpp
+@@ -837,3 +837,27 @@
+     TEST_CHECK(fast.urgent_work_allowed(500,1,8,true,4200));
+     TEST_CHECK(fast.urgent_work_allowed(0,0,8,true,4200));
+ }
++
++
++TORRENT_TEST(flow_partial_block_protection_requires_recent_progress)
++{
++    using namespace lt::aux;
++    using result=flow_recovery_result;
++    TEST_CHECK(flow_receiving_recent(15360,16384,100,1000));
++    TEST_CHECK(!flow_receiving_recent(15360,16384,2000,1000));
++    TEST_CHECK(flow_receiving_recent(4096,16384,499,1000));
++    TEST_CHECK(!flow_receiving_recent(4096,16384,500,1000));
++    TEST_CHECK(flow_receiving_recent(4096,16384,249,250));
++    TEST_CHECK(!flow_receiving_recent(4096,16384,250,250));
++    TEST_CHECK(!flow_receiving_recent(15360,16384,-1,1000));
++    TEST_CHECK(!flow_receiving_recent(0,16384,0,1000));
++    TEST_CHECK(!flow_receiving_recent(15360,0,0,1000));
++    TEST_CHECK(!flow_receiving_recent(16385,16384,0,1000));
++    TEST_CHECK(!flow_receiving_recent(15360,16384,0,0));
++    bool const stalled=flow_receiving_recent(15360,16384,2000,1000);
++    TEST_CHECK(flow_recovery_check(false,true,1,4000,1000,stalled)==result::eligible);
++    TEST_CHECK(flow_recovery_check(false,true,2,4000,1000,stalled)==result::already_duplicated);
++    TEST_CHECK(flow_recovery_check(false,true,1,500,1000,stalled)==result::not_late);
++    TEST_CHECK(flow_recovery_check(true,true,1,4000,1000,stalled)==result::uncertain_request);
++    TEST_CHECK(flow_recovery_check(false,false,1,4000,1000,stalled)==result::stale_service);
++}

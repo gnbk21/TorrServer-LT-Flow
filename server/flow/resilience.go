@@ -56,6 +56,10 @@ type ReservePlan struct {
 	DeficitRate           float64  `json:"deficit_rate"`
 	ForecastSeconds       int      `json:"forecast_seconds"`
 	AdditionalFillSeconds *float64 `json:"additional_fill_seconds,omitempty"`
+	RequestedBytes        int64    `json:"requested_bytes,omitempty"`
+	ExtraWaitBudgetMs     int64    `json:"extra_wait_budget_ms,omitempty"`
+	ExtraWaitLimited      bool     `json:"extra_wait_limited,omitempty"`
+	ExtraWaitExpired      bool     `json:"extra_wait_expired,omitempty"`
 }
 
 func finitePositive(value float64) bool {

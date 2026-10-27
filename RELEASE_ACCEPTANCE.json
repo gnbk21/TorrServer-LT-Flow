@@ -420,6 +420,21 @@
       "field_acceptance_passed": false,
       "accepted_security_dispositions_are_not_fixes": true,
       "verification_record": "RELEASE_1_1_8_VERIFICATION.md"
+    },
+    {
+      "date": "2026-10-27",
+      "release_target": "MatriX.145.Flow-v1.1.9",
+      "implementation_commit": "2a6f12f3413a2b1c8cf4d79ece42a7e02fb2df1d",
+      "local_verification": [
+        "100 portable Python tests passed",
+        "Go flow policy tests passed",
+        "Actual native queue-pressure, delayed-bootstrap, partial-progress and limit regression passed under MSVC",
+        "Owned Windows generated-media test: optional reserve ended 10.03 seconds after required data readiness; required missing index remained blocked; byte-exact head/tail ranges",
+        "Owned Windows partial-block test: alternate peer delivered the stalled suffix before the original resumed; byte checks and queue-cap checks passed"
+      ],
+      "full_tagged_validation": "Required before publication; not yet completed at this preparation commit",
+      "field_acceptance_passed": false,
+      "private_configuration_published": false
     }
   ],
   "remaining": [],
@@ -429,10 +444,10 @@
     "policy": "Publish stable releases as Latest after automated gates pass, while explicitly disclosing unfinished field and resource validation authorized by the owner.",
     "field_checks_are_not_passed": true,
     "tagged_gate_required": "ts_release.yml rebuilds and verifies the exact tagged source before publication.",
-    "requested_release": "MatriX.145.Flow-v1.1.8",
-    "latest_owner_request": "First prepare my package then publish",
+    "requested_release": "MatriX.145.Flow-v1.1.9",
+    "latest_owner_request": "Finish 1.1.9 and release it",
     "further_two_hour_tests": "Skipped at owner request; earlier completed runs are identified separately, not exact-final acceptance.",
-    "stage_before_publish": "MatriX.145.Flow-v1.1.8"
+    "stage_before_publish": "MatriX.145.Flow-v1.1.9"
   },
   "remaining_field_validation": [
     "Representative real-phone playback matrix",
@@ -443,7 +458,7 @@
     "Independent optional player decoder rebuild/redistribution audit; APK excluded from stable assets",
     "Shared OS DNS leak protection and complete native profiling attribution"
   ],
-  "release_target": "MatriX.145.Flow-v1.1.8",
+  "release_target": "MatriX.145.Flow-v1.1.9",
   "published_tag": "MatriX.145.Flow-v1.1.8",
   "published_source_commit": "8907097ef3c5b177088a7cc7cd88d012f29f2094",
   "patch_validation": {

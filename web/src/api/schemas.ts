@@ -449,11 +449,17 @@ export const flowSchema = z
             deficit_rate: z.number().nonnegative(),
             forecast_seconds: z.number().int().min(0).max(60),
             additional_fill_seconds: z.number().nonnegative().optional(),
+            requested_bytes: z.number().int().nonnegative().optional(),
+            extra_wait_budget_ms: z.number().int().nonnegative().optional(),
+            extra_wait_limited: z.boolean().optional(),
+            extra_wait_expired: z.boolean().optional(),
           })
           .refine(
             (p) =>
               p.base_bytes <= p.target_bytes &&
-              p.target_bytes <= p.maximum_bytes,
+              p.target_bytes <= p.maximum_bytes &&
+              (p.requested_bytes === undefined ||
+                p.target_bytes <= p.requested_bytes),
           )
           .optional(),
         state: z.string(),

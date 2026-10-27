@@ -36,3 +36,40 @@ func TestPreloadStragglersStayBoundedAndSkipVerifiedPieces(t *testing.T) {
 		t.Fatalf("bounded tail-first stragglers: %v", got)
 	}
 }
+
+func TestPreloadRecoveryTracksOnlyMissingCurrentPhase(t *testing.T) {
+	snapshot := map[int]storageState.ItemState{128: {Completed: true}}
+	got := preloadRecoveryPieces(snapshot, []int{128, 129, 7899}, 7899, 7899)
+	if !reflect.DeepEqual(got, []int{7899, 129}) {
+		t.Fatalf("bootstrap blockers: %v", got)
+	}
+	snapshot[7899] = storageState.ItemState{Completed: true}
+	got = preloadRecoveryPieces(snapshot, []int{128, 7899}, 7899, 7899)
+	if len(got) != 0 {
+		t.Fatalf("future head became a bootstrap frontier: %v", got)
+	}
+	got = preloadRecoveryPieces(nil, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 99}, 99, 99)
+	if !reflect.DeepEqual(got, []int{99, 0, 1, 2, 3, 4, 5, 6}) {
+		t.Fatalf("recovery was not bounded and tail-first: %v", got)
+	}
+}
+
+func TestPreloadRetargetKeepsIndexVerificationAndRecountsImmediately(t *testing.T) {
+	snapshot := map[int]storageState.ItemState{
+		0: {Completed: true}, 1: {Completed: true}, 2: {Size: 50}, 9: {Size: 100},
+	}
+	got, done := preloadGateTotals(snapshot, []int{0, 1, 2, 9}, 100)
+	if got != 350 || done != 2 {
+		t.Fatal(got, done)
+	}
+	// Removing optional head piece 2 must still wait for the received but
+	// unverified index, rather than trusting the old done/gate counters.
+	got, done = preloadGateTotals(snapshot, []int{0, 1, 9}, 100)
+	if got != 300 || done != 2 {
+		t.Fatal("received index was counted as verified", got, done)
+	}
+	snapshot[9] = storageState.ItemState{Completed: true}
+	if _, done = preloadGateTotals(snapshot, []int{0, 1, 9}, 100); done != 3 {
+		t.Fatal("verified reduced gate did not finish", done)
+	}
+}

@@ -141,6 +141,8 @@ type Cache struct {
 	// joining client's own reader takes over.
 	preloadMu      sync.Mutex
 	preloadProtect [][2]int
+	frontierMu     sync.Mutex
+	frontiers      recoveryFrontiers
 	// A small resident region survives a mobile client's last Range close.
 	// It shares the existing piece cache and expires without a timer goroutine.
 	warmProtect [2]int
@@ -1220,9 +1222,8 @@ func (c *Cache) applyStreamPriorities() {
 	}
 	c.waitFocusMu.Unlock()
 
-	// Native recovery may only hedge current, immediate reader misses. The
-	// ordinary window continues independently, and native expiry handles a
-	// reader that closes without another priority refresh.
+	// Merge immediate reader misses with separately leased bootstrap blockers.
+	// Native expiry and the per-owner leases retire abandoned demand.
 	if f := settings.CurrentFlow(); f.Enabled && f.FrontierRecovery {
 		frontiers := make([]int, 0, min(8, len(blocked)))
 		for piece := range blocked {
@@ -1241,7 +1242,7 @@ func (c *Cache) applyStreamPriorities() {
 			}
 		}
 		sort.Ints(frontiers)
-		_ = h.SetStreamFrontiers(frontiers)
+		c.publishRecoveryFrontiers(frontiers, false)
 	}
 
 	plen := c.PieceLength
@@ -2306,6 +2307,37 @@ func (c *Cache) SetPreloadReserve(ranges [][2]int) {
 	c.preloadMu.Lock()
 	c.preloadProtect = ranges
 	c.preloadMu.Unlock()
+}
+
+// SetPreloadFrontiers identifies only missing pieces in the active bootstrap or
+// prebuffer phase. It does not change priorities, create a forward window or
+// relax the native evidence and duplicate-credit requirements.
+func (c *Cache) SetPreloadFrontiers(handle *lt.Torrent, pieces []int) {
+	if c == nil {
+		return
+	}
+	f := settings.CurrentFlow()
+	if !f.Enabled || !f.FrontierRecovery {
+		return
+	}
+	// Bootstrap runs before the first reader, so it must bind its handle.
+	if handle != nil {
+		c.handle.CompareAndSwap(nil, handle)
+	}
+	c.publishRecoveryFrontiers(pieces, true)
+}
+
+func (c *Cache) publishRecoveryFrontiers(pieces []int, preload bool) {
+	f := settings.CurrentFlow()
+	if !f.Enabled || !f.FrontierRecovery {
+		return
+	}
+	c.frontierMu.Lock()
+	defer c.frontierMu.Unlock()
+	frontiers := c.frontiers.update(pieces, preload, time.Now(), c.NumPieces)
+	if h := c.handle.Load(); h != nil {
+		_ = h.SetStreamFrontiers(frontiers)
+	}
 }
 
 // preloadHeadTakenOver reports whether the reader at piece `cur` should take the

@@ -35,7 +35,7 @@ func TestNativeFrontiersPreserveIndependentViewersAndRetireClosedReader(t *testi
 	}
 	defer handle.Remove(false)
 	c := mkCache(t, count*pieceLen)
-	c.handle.Store(handle)
+	c.SetPreloadFrontiers(handle, []int{10})
 	file := FileInfo{Index: 1, Length: count * pieceLen}
 	first := NewReader(c, nil, file, "phone-one")
 	second := NewReader(c, nil, file, "phone-two")
@@ -60,11 +60,28 @@ func TestNativeFrontiersPreserveIndependentViewersAndRetireClosedReader(t *testi
 		}
 		t.Fatalf("native frontiers never became %d", want)
 	}
-	assertCount(2)
+	assertCount(3)
 	first.Close()
-	assertCount(1)
+	assertCount(2)
 	second.Close()
+	assertCount(1)
+	c.SetPreloadFrontiers(handle, nil)
 	assertCount(0)
+}
+
+func TestPreloadRecoveryDoesNotBindHandleWhenDisabled(t *testing.T) {
+	old := settings.BTsets()
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	for _, enabled := range []bool{false, true} {
+		f := settings.DefaultFlowSettings()
+		f.Enabled, f.FrontierRecovery = enabled, false
+		settings.StoreBTsets(&settings.BTSets{Flow: f})
+		c := &Cache{NumPieces: 10}
+		c.SetPreloadFrontiers(&lt.Torrent{}, []int{1})
+		if c.handle.Load() != nil || len(c.frontiers.preload) != 0 {
+			t.Fatal("disabled recovery changed native/cache ownership")
+		}
+	}
 }
 
 func TestDemandRatesRequireExplicitExperimentAndQualifiedFreshMedia(t *testing.T) {

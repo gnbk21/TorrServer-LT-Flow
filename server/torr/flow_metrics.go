@@ -60,13 +60,13 @@ type FlowStartupStatus struct {
 	TimeToFirstByteMs        int64  `json:"time_to_first_byte_ms"`
 }
 
-// A preload's gate grows monotonically. Retain the decision that actually
-// enlarged it when later delivery improves, becomes stale or the gate finishes.
+// Retain an enlargement decision through unqualified observations. An explicit
+// extra-wait limit may reduce optional insurance, and must replace that decision.
 func (t *Torrent) recordStartupReserve(plan flow.ReservePlan, filling bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	previous := t.flowStartup.Reserve
-	if previous == nil || !previous.Known || (filling && plan.Known && plan.TargetBytes >= previous.TargetBytes) {
+	if previous == nil || !previous.Known || plan.ExtraWaitBudgetMs > 0 || (filling && plan.Known && plan.TargetBytes >= previous.TargetBytes) {
 		t.flowStartup.Reserve = &plan
 	}
 }

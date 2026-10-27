@@ -54,6 +54,21 @@ test("bounded startup reserves retain older servers and reject impossible target
   });
   expect(flowSchema.safeParse({ hash: "fixture" }).success).toBe(true);
   expect(flowSchema.safeParse(response(reserve)).success).toBe(true);
+  const bounded = {
+    ...reserve,
+    requested_bytes: reserve.maximum_bytes,
+    extra_wait_budget_ms: 10000,
+    extra_wait_limited: true,
+    extra_wait_expired: true,
+  };
+  expect(flowSchema.parse(response(bounded)).startup?.reserve).toEqual(bounded);
+  expect(
+    flowSchema.safeParse(response({ ...bounded, extra_wait_budget_ms: -1 }))
+      .success,
+  ).toBe(false);
+  expect(
+    flowSchema.safeParse(response({ ...bounded, requested_bytes: 1 })).success,
+  ).toBe(false);
   expect(
     flowSchema.safeParse(
       response({ ...reserve, target_bytes: reserve.maximum_bytes + 1 }),

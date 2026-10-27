@@ -31,6 +31,11 @@ var activeStreams int32
 // http.ServeContent on top of a torrstor.Reader, so Range requests,
 // Content-Type detection and ETag handling all come for free.
 func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter) error {
+	// A player can time out while its detached preload continues. Do not attach
+	// a reader or report playback on the already cancelled retry connection.
+	if err := req.Context().Err(); err != nil {
+		return err
+	}
 	if FlowIsPaused() {
 		http.Error(resp, "Flow playback is paused", http.StatusServiceUnavailable)
 		return errors.New("torr.Stream: Flow playback paused")

@@ -1,0 +1,63 @@
+--- a/include/libtorrent/aux_/flow_stream_policy.hpp
++++ b/include/libtorrent/aux_/flow_stream_policy.hpp
+@@ -1,7 +1,7 @@
+ // Flow's bounded service model and duplicate-credit ownership.
+ // All policy clocks are monotonic milliseconds supplied by the network executor.
+ #pragma once
+-#define TORRENT_FLOW_STREAM_CONTROL 2
++#define TORRENT_FLOW_STREAM_CONTROL 3
+ #include <algorithm>
+ #include <array>
+ #include <atomic>
+@@ -85,7 +85,7 @@
+ 		// its bounded, measured credit to grow before applying the drain-time
+ 		// cutoff; otherwise a high-latency peer can remain stuck at two blocks.
+ 		return queue_ms <= urgent_horizon_ms(enabled,now)
+-			|| (enabled && fresh(now) && queued < desired);
++			|| (enabled && fresh(now) && mean_ms<=horizon_ms() && queued < desired);
+ 	}
+ 	std::int64_t late_after_ms() const {
+ 		return std::clamp<std::int64_t>(mean_ms+std::max<std::int64_t>(100,4*deviation_ms),250,15000);
+@@ -118,7 +118,10 @@
+ 		// delayed service is fresh; otherwise application-limited rate samples
+ 		// collapse a trained pipeline back to two blocks. Do not grow on idle
+ 		// queues. Jitter, snubbing, staleness and both capacity caps still apply.
+-		if (mean_ms>=2000 && 4*deviation_ms<=mean_ms) {
++		// Observed service includes our own remote queue. Once it exceeds the
++		// bounded horizon, more credit would amplify queueing without evidence
++		// of additional bandwidth. Drain toward the rate-derived target instead.
++		if (mean_ms>=2000 && mean_ms<=horizon && 4*deviation_ms<=mean_ms) {
+ 			int const probe=queued>=current ? std::max(2,current/4) : 0;
+ 			wanted=std::max(wanted,std::int64_t(std::min(cap,current+probe)));
+ 		}
+--- a/simulation/test_peer_connection.cpp
++++ b/simulation/test_peer_connection.cpp
+@@ -792,3 +792,28 @@
+     TEST_EQUAL(model.request_timeout_seconds(2,60,true,35000),15);
+     TEST_EQUAL(model.request_timeout_seconds(2,10,true,35000),10);
+ }
++
++
++TORRENT_TEST(flow_queue_pressure_does_not_amplify_slow_peer_credit)
++{
++    using namespace lt::aux;
++    flow_service_model model;
++    for(int i=0;i<32;++i) model.observe(30000,1000+i*100);
++    int credit=512;
++    for(int i=0;i<12;++i) {
++        auto const now=4200+i*500;
++        model.observe(30000,now);
++        int const next=model.credit(credit,65536,16384,512,1500,now,credit);
++        TEST_CHECK(next<=credit);
++        credit=next;
++    }
++    TEST_CHECK(credit<=32);
++    TEST_CHECK(!model.urgent_work_allowed(70000,16,512,true,9700));
++    // The earlier delayed-peer and application-limited regressions continue
++    // to require useful growth and retention within a qualified horizon.
++    flow_service_model delayed;
++    for(int i=0;i<32;++i) delayed.observe(2500,1000+i*100);
++    TEST_CHECK(delayed.credit(2,12000,16384,512,512,4200,2)>2);
++    TEST_CHECK(delayed.urgent_work_allowed(4000,2,4,true,4200));
++    TEST_EQUAL(delayed.credit(428,12000,16384,512,512,4800,0),428);
++}

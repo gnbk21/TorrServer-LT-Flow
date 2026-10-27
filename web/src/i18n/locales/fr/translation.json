@@ -928,6 +928,7 @@
       "hint": "Ces observations concernent la position de lecture du serveur, pas le tampon interne du lecteur. Agrandir le cache ne corrige pas un déficit de débit durable.",
       "reserve": "Réserve au démarrage : {{base}} → {{target}} Mio · limite {{maximum}} Mio",
       "limited": "La réserve atteint la limite configurée ou disponible du cache. Une réserve plus grande ne garantit pas une lecture sans interruptions.",
+      "extraWaitLimited": "La réserve de démarrage supplémentaire a été réduite pour ne pas ajouter plus de {{seconds}} secondes une fois les données initiales requises et l’index prêts.",
       "requests": "Files des pairs : {{queued_requests}} en attente, cible {{desired_requests}}, capacité {{capacity_requests}} · {{qualified_peers}}/{{sampled_peers}} pairs mesurés · {{capacity_limited_peers}} à capacité.",
       "horizons": "Horizons de requête mesurés : {{horizon_min_ms}}–{{horizon_max_ms}} ms",
       "recovery": "Dernière analyse de récupération : {{eligible}} admissibles ; exclus : {{uncertain_request}} temps incertain, {{stale_service}} mesures périmées, {{already_duplicated}} propriétaires multiples/absents, {{not_late}} non tardifs, {{receiving}} en réception.",
