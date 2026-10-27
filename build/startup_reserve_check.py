@@ -27,9 +27,10 @@ def check(executable, output, personal_settings=None):
     metadata = json.loads(subprocess.check_output([
         'ffprobe', '-v', 'error', '-show_format', '-of', 'json', str(media)], text=True))
     rate = float(metadata['format']['bit_rate'])/8
-    # ffprobe may read its full 5,000,000-byte analysis budget. Leave a normal
-    # head above that, plus enough subsequent pieces to measure Stage-B supply.
-    base = min(32*MIB, max(12*MIB, math.ceil(rate)))
+    # ffprobe's analysis must fit inside bootstrap. Announce the rest of the
+    # ordinary head only after the real probe finishes, leaving enough paced
+    # delivery to qualify supply independently of probe/runner timing.
+    base = min(32*MIB, max(16*MIB, math.ceil(rate)))
     prefix, suffix = output/'000-padding.bin', output/'zzz-padding.bin'
     prefix.write_bytes(bytes(MIB//2))
     suffix.write_bytes(bytes(MIB))
@@ -38,8 +39,8 @@ def check(executable, output, personal_settings=None):
     tail_first = tail_last-4
     assert tail_first > head_last+12, 'Generated file is too small for disjoint reserve/index evidence'
     flow = {'Enabled': True, 'AdaptiveStartup': True, 'SwarmProfile': 'adaptive',
-            'BootstrapHeadMB': 1, 'ProbeGraceMs': 500, 'StartupBufferSeconds': 1,
-            'StartupBufferMinMB': 12, 'StartupBufferMaxMB': 32, 'StartupSafetyFactorPct': 100,
+            'BootstrapHeadMB': 8, 'ProbeGraceMs': 500, 'StartupBufferSeconds': 1,
+            'StartupBufferMinMB': 16, 'StartupBufferMaxMB': 32, 'StartupSafetyFactorPct': 100,
             'MetricsEnabled': True, 'RangeTraceEnabled': True, 'CapacityAwareRequests': True,
             'AdaptiveUrgentHorizon': True, 'FrontierRecovery': True,
             'AdaptivePeerRequests': True, 'ContainerBurstHints': True}
@@ -81,7 +82,9 @@ def check(executable, output, personal_settings=None):
             report['fixture_only_settings_overrides'] = True
             server.ready()
         mandatory = set(range(head_last+1)) | set(range(tail_first, tail_last+1))
-        plan = PeerPlan(pieces=mandatory, rate=MIB, request_queue=128, strict_request_queue=True)
+        bootstrap_last = (prefix.stat().st_size+8*MIB-1)//MIB
+        bootstrap = set(range(bootstrap_last+1)) | set(range(tail_first, tail_last+1))
+        plan = PeerPlan(pieces=bootstrap, rate=MIB, request_queue=128, strict_request_queue=True)
         with LocalSwarm([prefix, media, suffix], peers=[plan], piece_length=MIB,
                         high_throughput=True) as swarm:
             status = upload(server, swarm)
@@ -97,6 +100,9 @@ def check(executable, output, personal_settings=None):
                 while not loading.done():
                     startup = server.json('/flow/status/'+info_hash+'?traces=false')['startup']
                     samples.append(startup)
+                    if startup.get('probe_success') and not report.get('body_released_after_probe'):
+                        plan.have_events = [(0, piece) for piece in sorted(mandatory-bootstrap)]
+                        report['body_released_after_probe'] = True
                     p = startup.get('progress') or {}
                     if (p.get('head_verified_bytes', 0) >= (head_last+1)*MIB
                             and p.get('missing_tail_pieces') == 0 and not p.get('bootstrap', True)):
@@ -113,6 +119,7 @@ def check(executable, output, personal_settings=None):
             reserve = report['startup'].get('reserve') or {}
             assert report['startup']['state'] == 'READY'
             assert report['startup']['probe_success'], 'Real ffprobe metadata was not used'
+            assert report.get('body_released_after_probe'), 'Fixture did not separate probe from supply measurement'
             assert any((s.get('reserve') or {}).get('requested_bytes', 0) > base for s in samples)
             assert any(s.get('startup_target_bytes', 0) > (head_last+1)*MIB for s in samples), 'Reserve extension not exercised'
             assert reserve.get('extra_wait_limited'), 'Optional wait limit not reported'

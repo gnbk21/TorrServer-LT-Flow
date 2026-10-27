@@ -53,3 +53,27 @@ unfinished under the owner's disclosed publication policy. No additional
 two-hour test was run. Existing security dispositions remain accepted risks,
 not additional fixes or proof of zero vulnerabilities. Windows executables
 are not Authenticode signed.
+
+## Unpublished tagged fixture correction
+
+The first tagged attempt, source `b0c27bf00901445a7786233fc7e7f0fef5a21390`,
+[run 40472788468](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/40472788468),
+failed the startup fixture's coverage assertion. Preload completed normally,
+but the real probe finished after almost all ordinary head data had arrived;
+supply correctly remained unknown and no optional reserve was requested.
+This failed attempt was not published and is not counted as passing.
+
+The fixture now supplies an 8 MiB probe head and the required index first,
+then announces the remaining ordinary 16 MiB head only after real probe success.
+The paced body interval qualifies actual supply before the normal gate completes.
+The reserve-extension, expiry, capacity, byte-exact Range and missing-index
+assertions remain enforced. The corrected fixture passed against the first
+attempt's exact Windows binary: 36.86 seconds total, 10.17 seconds extra wait,
+required index held, and the owned server stopped. Runtime, UI, native patches,
+dependencies and build recipes did not change. Only this specific regression
+fixture was added to the existing CI-only receipt allowlist; other runtime and
+build-input changes still fail closed.
+
+Because no release or assets existed, the unpublished tag was repaired using
+an exact old-tag-object lease. Its failed source and run remain in history.
+The corrected source must complete every required tagged gate before publication.

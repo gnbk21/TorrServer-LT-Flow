@@ -12,6 +12,8 @@ CI_FILES = {
     'build/essential_release.py', 'build/essential_release_test.py',
     'build/release_gates.py', 'build/release_gates_test.py',
     'RELEASE_ACCEPTANCE.json',
+    # Generated regression fixture only; no compiler, packaging or runtime input.
+    'build/startup_reserve_check.py',
 }
 
 # Reviewed API compatibility surface. This is deliberately not a blanket API

@@ -454,6 +454,21 @@
       "controlled_startup_extra_wait_seconds": 10.052738792,
       "controlled_partial_suffix_delivery_ms": 833.9868569998998,
       "controlled_capacity_cases_passed": 15
+    },
+    {
+      "date": "2026-10-27",
+      "scope": "Unpublished 1.1.9 startup fixture correction",
+      "failed_tag_source": "b0c27bf00901445a7786233fc7e7f0fef5a21390",
+      "failed_tag_run": 40472788468,
+      "published": false,
+      "observed_outcome": "Startup completed normally with unknown supply; the late probe left no observation interval to exercise optional reserve. The fixture correctly failed its coverage assertion.",
+      "correction": "Provide the real probe head and index first, then announce the remaining ordinary head only after the real probe finishes. Require the same reserve extension, bounded expiry, exact ranges and missing-index checks.",
+      "runtime_changed": false,
+      "local_exact_tagged_windows_fixture_passed": true,
+      "local_extra_wait_seconds": 10.17380250000042,
+      "local_required_index_held": true,
+      "old_tag_object": "84fc4ee072ae58b7b846f9d5e77614cfb0e5bb60",
+      "tag_repair": "Unpublished tag only; replacement uses an exact old-object lease. Failed source/run remain in history."
     }
   ],
   "remaining": [],

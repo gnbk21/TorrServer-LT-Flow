@@ -78,6 +78,7 @@ class EssentialReleaseTests(unittest.TestCase):
         validate_changes(['.github/workflows/build.yml', 'build/ci-apt.sh',
                           'build/ci-integration.sh', 'build/workflow_policy_test.py',
                           'build/essential_release.py', 'build/essential_release_test.py',
+                          'build/startup_reserve_check.py',
                           'RELEASE_ACCEPTANCE.json', 'RELEASE_1_1_4_NOTES.md'])
 
     def test_runtime_and_build_input_changes_require_full_validation(self):
