@@ -212,7 +212,7 @@
     "DefaultTrackers": "Трекери за замовчуванням",
     "DefaultTrackersHint": "Локальні announce URL, по одному на рядок. Використовуються самі, якщо всі віддалені завантаження не вдалися, або додаються після успішного завантаження віддаленого списку.",
     "ShowQuickVLCButton": "Show VLC button on torrent cards",
-    "ShowQuickVLCButtonHint": "Optional shortcut for single-video torrents. VLC must also be enabled.",
+    "ShowQuickVLCButtonHint": "Необов’язковий ярлик для торрентів з одним відео. VLC також має бути увімкнено.",
     "Bonjour": "Bonjour (mDNS)",
     "BonjourHint": "Оголошувати в локальній мережі для виявлення (mDNS)",
     "MSXAllowLAN": "Доступ MSX-проксі до локальної мережі"

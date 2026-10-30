@@ -220,7 +220,7 @@
     "DefaultTrackers": "Trackere implicite",
     "DefaultTrackersHint": "URL-uri de anunțare locale, câte unul pe linie. Sunt folosite singure când toate descărcările de la distanță eșuează sau sunt adăugate după o descărcare reușită de la distanță.",
     "ShowQuickVLCButton": "Show VLC button on torrent cards",
-    "ShowQuickVLCButtonHint": "Optional shortcut for single-video torrents. VLC must also be enabled.",
+    "ShowQuickVLCButtonHint": "Scurtătură opțională pentru torrente cu un singur videoclip. Trebuie activat și VLC.",
     "MSXAllowLAN": "Permite accesul proxy-ului MSX la rețeaua locală"
   },
   "Size": "Mărime",

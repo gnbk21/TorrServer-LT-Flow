@@ -346,6 +346,7 @@ export default function Settings() {
   const groupKeys = Object.keys(values).filter(
     (key) =>
       key !== "Flow.SchemaVersion" &&
+      key !== "Flow.SecurityProfile" &&
       (search.trim()
         ? `${labelFor(key)} ${hintFor(key)}`
             .toLocaleLowerCase()

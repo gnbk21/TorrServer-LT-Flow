@@ -22,6 +22,7 @@ from urllib.parse import urlencode
 
 from controlled_peer import LocalSwarm, PeerPlan
 from playback_harness import MIB, OwnedServer, range_read, upload
+from fixture_ports import joint_loopback_port
 import native_profiling
 
 
@@ -259,10 +260,22 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
     # Keep the controlled peer listener on loopback too. Preflight TCP and UDP
     # on the same OS-selected port rather than depending on wildcard adapter
     # enumeration or an engine-selected Windows ephemeral port.
-    with socket.socket() as tcp, socket.socket(type=socket.SOCK_DGRAM) as udp:
-        tcp.bind(('127.0.0.1', 0))
-        peer_port = tcp.getsockname()[1]
-        udp.bind(('127.0.0.1', peer_port))
+    report['port_allocation'] = {}
+    try:
+        peer_port = joint_loopback_port(evidence=report['port_allocation'])
+    except OSError as error:
+        # Admission is infrastructure evidence, not a failed streaming trial.
+        report.update(passed=False, failure_stage='fixture_port_allocation',
+                      failure_type=type(error).__name__, error=str(error))
+        root.mkdir(parents=True, exist_ok=True)
+        (root/'report.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
+        return report
+    except RuntimeError as error:
+        report.update(passed=False, failure_stage='fixture_port_allocation',
+                      failure_type=type(error).__name__, error=str(error))
+        root.mkdir(parents=True, exist_ok=True)
+        (root/'report.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
+        return report
     server = OwnedServer(executable, root, profile=capture_go,
         extra_arguments=['--torrentaddr', f'127.0.0.1:{peer_port}'], extra_settings={
         'CacheSize': cache_mb*MIB, 'PreloadCache': 10,

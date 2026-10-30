@@ -100,7 +100,7 @@ func Start() {
 	diagnostics.MarkEngineReady(false)
 	route.Use(func(c *gin.Context) {
 		if !engineReady.Load() && c.Request.URL.Path != "/echo" && c.Request.URL.Path != "/flow/network" {
-			c.AbortWithStatus(http.StatusServiceUnavailable)
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "torrent engine is starting", "code": "ENGINE_STARTING"})
 			return
 		}
 		c.Next()
@@ -118,7 +118,7 @@ func Start() {
 		}
 		if !flow.Maintenance.Enter() {
 			c.Header("Retry-After", "30")
-			c.AbortWithStatus(http.StatusServiceUnavailable)
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "maintenance is in progress", "code": "MAINTENANCE_BUSY"})
 			return
 		}
 		defer flow.Maintenance.Leave()

@@ -50,6 +50,11 @@ export const preparationApi = {
       .then((d) => preparationSchema.parse(d)),
   control: (hash: string, file_index: number, action: PreparationAction) =>
     api
-      .post<object, unknown>("/flow/preparation", { hash, file_index, action })
+      .post<object, unknown>(
+        "/flow/preparation",
+        { hash, file_index, action },
+        undefined,
+        action === "pause" || action === "cancel",
+      )
       .then((d) => preparationSchema.parse(d)),
 };

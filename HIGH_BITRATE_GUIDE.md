@@ -160,11 +160,15 @@ source/torrent and is not an in-place patch to an existing swarm. This optional
 source-publishing technique is not required for Flow streaming and does not
 silently convert or download the user's episode.
 
-**Cross-swarm/v2 reuse:** deferred engineering candidate. Current Flow identities,
-resume/storage verification and native callbacks require end-to-end v2/hybrid
-support (including SHA-256 `async_hash2`), compatible piece/file mapping and
-verified exact-byte reuse. Matching titles are insufficient. Enabling v2/QUIC,
-an ML controller or unrestricted duplicate requests is not a supported speed fix.
+**Verified exact-byte reuse:** implemented for eligible public v2/hybrid files
+with complete piece layers and matching file identity/geometry. Existing cache
+bytes are copied under bounded foreground-aware budgets and independently
+verified by libtorrent, including SHA-256 `async_hash2`, before becoming readable.
+Matching titles alone never qualify. Private torrents and incomplete metadata
+cannot participate. This does not discover another release or replace missing
+swarm supply. Independently verified subpiece streaming remains deferred;
+unverified blocks are never exposed as playable data. QUIC, ML tuning and
+unrestricted duplicate requests are outside this upgrade.
 
 ## Reproduce comparisons
 

@@ -102,7 +102,7 @@ func flowControl(c *gin.Context) {
 		return
 	}
 	if err := torr.SetFlowPaused(paused); err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": errorMessage(err)})
+		abortWithJSONError(c, http.StatusServiceUnavailable, err)
 		return
 	}
 	c.JSON(http.StatusOK, torr.SnapshotFlowTray())

@@ -55,7 +55,6 @@ export const commonSettings = new Set([
   "JacRedUrl",
   "JacRedKey",
   "SslPort",
-  "Flow.SecurityProfile",
   "Flow.RequirePlaybackToken",
   "Flow.Enabled",
   "Flow.AdaptiveStartup",

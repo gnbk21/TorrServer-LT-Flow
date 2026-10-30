@@ -85,12 +85,12 @@ func CheckAuth() gin.HandlerFunc {
 		// clients (Accept: */*, or those that already send Authorization) still get
 		// the challenge, so native players are unaffected.
 		if !shouldSendBasicChallenge(c) {
-			c.AbortWithStatus(http.StatusUnauthorized)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required", "code": "AUTH_REQUIRED"})
 			return
 		}
 
 		c.Header("WWW-Authenticate", "Basic realm=Authorization Required")
-		c.AbortWithStatus(http.StatusUnauthorized)
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required", "code": "AUTH_REQUIRED"})
 	}
 }
 

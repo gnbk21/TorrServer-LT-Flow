@@ -21,6 +21,12 @@ upstream evaluations are organized in the [documentation index](docs/README.md).
 
 Keep Flow and another TorrServer instance on **different ports and data directories**. Do not start them concurrently against the same `config.db`. The server listens on all interfaces by default. Keep it on a trusted private LAN or VPN. HTTP authentication (`--httpauth`, with an `accs.db` account file) protects management endpoints, but inherited playback routes can serve an existing torrent without credentials when its hash is known. Do not expose it directly to the Internet.
 
+Browser management always enforces the hostname and allowed-origin checks.
+Use Management origins, authentication and playback-token controls to configure
+access. The old `Flow.SecurityProfile` field is deprecated and retained only for
+configuration/API compatibility; its compatible/restricted value changes no
+origin enforcement and is no longer an editable web setting.
+
 The artifact also contains a `-gst` executable for optional GStreamer HLS transcoding. Direct playback uses the standard executable and does not require GStreamer. The `-gst` variant needs GStreamer installed separately at runtime.
 
 ## Console display

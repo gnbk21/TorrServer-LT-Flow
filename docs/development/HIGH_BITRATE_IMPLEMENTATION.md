@@ -138,7 +138,14 @@ hashes remain separate from the final source. Complete distributions, report
 hashes, artifact provenance and limits are recorded in
 [HIGH_BITRATE_OPTIMIZATION_EVIDENCE.json](../../HIGH_BITRATE_OPTIMIZATION_EVIDENCE.json).
 
-## Remaining environmental acceptance and deferred work
+## Historical acceptance snapshot (before the stable 1.1.9 release)
+
+The following records the original experiment's acceptance state. Current
+release status is defined by published releases and their attached provenance.
+As of 30 October 2026, public v2/hybrid storage and independently verified,
+bounded exact-byte reuse are implemented. The old deferral below explains the
+earlier decision, rather than the current execution path. See the current
+[high-bitrate guide](../../HIGH_BITRATE_GUIDE.md).
 
 - Real original-quality Lampa/Just Player playback, captured player Range traces,
   Android decoder/memory pressure, physical Wi-Fi/router measurements and
