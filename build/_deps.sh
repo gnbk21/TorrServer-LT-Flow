@@ -245,6 +245,13 @@ os.replace(tmp, path)
 PYEOF
 
     log "building libtorrent for $TARGET (toolset $compiler-$B2_VARIANT, crypto=openssl, webtorrent=on)"
+    # Native Windows b2 can cache a negative stat before the conditional rule
+    # writes this file. Establish the path first; generate-pkg-config replaces
+    # its contents with the actual target flags before installation.
+    if [[ "${MSYSTEM:-}" == UCRT64 && "$GOOS" == windows ]]; then
+        rm -f "$ltwork/libtorrent-rasterbar.pc"
+        touch "$ltwork/libtorrent-rasterbar.pc"
+    fi
     # shellcheck disable=SC2086
     ( cd "$ltwork" && BOOST_ROOT="$BOOST_DIR" "$BOOST_DIR/b2" -q -j"$JOBS" \
         --user-config="$jam" \
@@ -268,6 +275,12 @@ PYEOF
     # sed -i needs a suffix argument on BSD sed (native macOS runner); the
     # -i.bak + rm form is the portable spelling for both GNU and BSD.
     local pc="$deps/lib/pkgconfig/libtorrent-rasterbar.pc"
+    [[ -s "$pc" ]] || die "libtorrent did not generate its pkg-config metadata"
+    if [[ "${MSYSTEM:-}" == UCRT64 && "$GOOS" == windows ]]; then
+        # b2's native Windows path module emits /C:/... in this metadata.
+        # CGo invokes native pkg-config/GCC directly, without MSYS conversion.
+        sed -i.bak -E 's#"/([A-Za-z]:/)#"\1#g' "$pc"
+    fi
     sed -i.bak -E 's/-llib([A-Za-z0-9_-]+)\.a/-l\1/g' "$pc"
     local privlibs
     privlibs=$(private_link_libraries "$pc")

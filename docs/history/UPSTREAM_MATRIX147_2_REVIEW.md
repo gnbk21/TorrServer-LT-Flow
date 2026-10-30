@@ -38,9 +38,25 @@ evidence of higher torrent throughput or a remedy for sustained supply deficits.
   fetch sessions, episode/Unicode/media-type boundaries, expanded hash prefixes,
   literal folder collisions, v1/v2 names and scoped IPv6 whitelist/blacklist rules.
 - The native test, vet and race package lists now include `web/waf` and `torrfs`.
-  Complete native CI results will be recorded after the candidate run finishes.
+  Native CI run `41070115297` passed its complete unit-test and vet steps for
+  runtime source `b63256934cd82961169e8ab492469523f5575887`; additional comparison
+  and race jobs were still running at this checkpoint. CodeQL run `41070114825`
+  completed successfully. These results do not certify later source changes.
+- Following the owner's request, installed the official MSYS2 UCRT64 compiler
+  environment locally, verified the stable installer SHA-256 against its release
+  metadata, built pinned OpenSSL 3.5.7, WebRTC dependencies and patched libtorrent
+  2.1.2, and compiled both standard and GST Windows executables. GCC 16.2.0 and
+  Go 1.26.10 were used. `build/windows-native.sh` and `Enter-FlowBuild.ps1` retain
+  the setup without machine PATH or global Git configuration changes.
+- All three complete local native packages (`web/api`, `web/waf`, `torrfs`)
+  passed on Windows (90 tests/subtests passed; the existing optional contract
+  export was not requested). Local `go vet` passed for all three packages.
+  An initial sandbox run blocked four existing HTTP/certificate fixtures; the
+  unrestricted isolated-state rerun passed without adding skips or changing
+  assertions. Private JSON test evidence is retained under
+  `.tools/upstream1472/windows-native-tests-host.jsonl`.
 
-Local full-package compilation requires a C/C++ toolchain and patched libtorrent;
-neither is available in this Windows checkout. No owner's server or settings were
-used for the tests. Phone playback and an upstream executable benchmark are not
-claimed by these maintenance checks.
+No owner's server or settings were used for the tests. Phone playback, actual
+GST transcoding and an upstream executable benchmark are not claimed by these
+maintenance checks. The locally built executables are development artifacts;
+they were not installed over the owner's server or published as a release.

@@ -1,4 +1,4 @@
-# Local cross-build (no Docker)
+# Local native and cross-builds (no Docker)
 
 These scripts build **TorrServer-LT** for every supported target straight on a
 Linux host — no Docker, no QEMU. Each one builds a static OpenSSL, the WebRTC
@@ -10,6 +10,8 @@ links the Go binary against it through pkg-config. Final binaries land in
 `_out/TorrServer-LT-<target>-gst` is also built with `-tags gst` — the same
 binary plus the GStreamer HLS transcoding feature (pure Go; GStreamer is
 `dlopen`'d at runtime, so the deps above are unchanged).
+
+Native Windows development is supported through the MSYS2 UCRT64 setup below.
 
 libtorrent's own `Jamfile` emits a correct `libtorrent-rasterbar.pc` from its
 `install` target, so the per-target Cflags/defines/Libs flow straight into cgo
@@ -53,6 +55,41 @@ TARGETS="linux-arm64" build/all.sh # a subset
 `SKIP` (toolchain missing).
 
 ## Prerequisites per target
+
+### Native Windows development
+
+The local Windows environment uses MSYS2 UCRT64 under `.tools/msys64`, without
+changing the machine PATH. Install the official MSYS2 base archive there, then
+run `pacman -Syu` and install `mingw-w64-ucrt-x86_64-gcc`,
+`mingw-w64-ucrt-x86_64-cmake`, `mingw-w64-ucrt-x86_64-pkgconf`, `make`, `perl`
+and `python`. Package signatures stay enabled. Go must match `server/go.mod`.
+
+From the repository root in PowerShell:
+
+```powershell
+. ./build/Enter-FlowBuild.ps1
+& ./.tools/msys64/usr/bin/bash.exe -lc 'JOBS=4 bash build/windows-native.sh'
+```
+
+This uses the same pinned Boost, OpenSSL, libtorrent and reviewed native patches
+as the cross-build. Dependencies live in `_deps/windows-native-amd64`; binaries
+land in `_out`. The first native dependency build takes longer than later builds.
+Native b2 uses shortened object paths and an explicit Windows compiler path.
+The environment helper scopes Git ownership trust to this exact checkout for
+the terminal and its children; it does not edit global Git configuration.
+
+For subsequent tests in PowerShell:
+
+```powershell
+. ./build/Enter-FlowBuild.ps1
+Set-Location server
+go test -count=1 -timeout 180s ./web/api ./web/waf ./torrfs
+```
+
+These commands build and test source; they do not replace or restart an installed
+server or use its state directory.
+
+### Linux-hosted cross-builds
 
 The host needs `go`, `curl`, `git`, `cmake` (for the WebRTC deps) and a host
 C++ compiler (to bootstrap Boost's `b2`).
