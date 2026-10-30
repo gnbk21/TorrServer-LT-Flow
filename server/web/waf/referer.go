@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strings"
 	"unicode"
+
+	"golang.org/x/net/idna"
 )
 
 // defaultBlockedReferers is enforced for Referer/Origin checks unless the
@@ -116,6 +118,12 @@ func normalizeRefererRule(value string) (string, bool) {
 		}
 	}
 
+	return normalizeRefererHost(host)
+}
+
+// Normalize both configured rules and browser headers to the same DNS form.
+// Validation runs after IDNA conversion to enforce actual wire label lengths.
+func normalizeRefererHost(host string) (string, bool) {
 	host = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(host), "."))
 	host = strings.Trim(host, "[]")
 	if host == "" {
@@ -124,6 +132,12 @@ func normalizeRefererRule(value string) (string, bool) {
 	if net.ParseIP(host) != nil {
 		return host, true
 	}
+	var err error
+	host, err = idna.Lookup.ToASCII(host)
+	if err != nil {
+		return "", false
+	}
+	host = strings.ToLower(strings.TrimSuffix(host, "."))
 	if len(host) > 253 {
 		return "", false
 	}
@@ -149,8 +163,8 @@ func hostFromHeader(value string) string {
 	if err != nil {
 		return ""
 	}
-	host := strings.ToLower(strings.TrimSuffix(u.Hostname(), "."))
-	if host == "" {
+	host, ok := normalizeRefererHost(u.Hostname())
+	if !ok {
 		return ""
 	}
 	return host

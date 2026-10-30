@@ -86,6 +86,7 @@ Current user guides stay at the repository root. Historical plans and measuremen
 - [TorrServer-LT 1.2.1 evaluation](history/UPSTREAM_LT_1_2_1_EVALUATION.md)
 - [LT 1.2.1 / 1.2.2 integration and first full release](history/UPSTREAM_LT_INTEGRATION.md)
 - [YouROK MatriX.147.1 review](history/UPSTREAM_MATRIX147_1_REVIEW.md)
+- [YouROK MatriX.147.2 integration](history/UPSTREAM_MATRIX147_2_REVIEW.md)
 - [YouROK MatriX.147 review](history/UPSTREAM_MATRIX147_REVIEW.md)
 - [Upstream maintenance and high bitrate streaming](history/UPSTREAM_STREAMING_CHECKLIST.md)
 - [LT maintenance and high bitrate streaming verification](history/UPSTREAM_STREAMING_VERIFICATION.md)

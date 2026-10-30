@@ -1,6 +1,7 @@
 package torrfs
 
 import (
+	"fmt"
 	"io/fs"
 	"time"
 
@@ -47,18 +48,69 @@ func (d *CategoryDir) Stat() (fs.FileInfo, error) {
 	return d.info, nil
 }
 
+// torrentNames preserves unique titles and disambiguates duplicate sanitized
+// names with the shortest unique hash prefix, starting at eight hex digits.
+// Reserve literal titles too, so a generated suffix cannot hide another torrent.
+// Names depend on the visible set, not its listing order. Adding a duplicate
+// necessarily changes a formerly unique title into a suffixed directory.
+func torrentNames(torrs []*torr.Torrent) []string {
+	names := make([]string, len(torrs))
+	hashes := make([]string, len(torrs))
+	counts := make(map[string]int, len(torrs))
+	for i, t := range torrs {
+		names[i], hashes[i] = torrentName(t), t.Hash().HexString()
+		counts[names[i]]++
+	}
+	prefixes := make(map[string]int)
+	for i, name := range names {
+		if counts[name] < 2 {
+			continue
+		}
+		for width := 8; width <= len(hashes[i]); width += 4 {
+			prefixes[name+"\x00"+hashes[i][:width]]++
+		}
+	}
+	used := make(map[string]bool, len(torrs))
+	for name := range counts {
+		used[name] = true
+	}
+	for i, name := range names {
+		if counts[name] < 2 {
+			continue
+		}
+		candidate := ""
+		for width := 8; width <= len(hashes[i]); width += 4 {
+			prefix := hashes[i][:width]
+			candidate = name + " [" + prefix + "]"
+			if prefixes[name+"\x00"+prefix] == 1 && !used[candidate] {
+				break
+			}
+		}
+		// Full hashes can also occur in a literal title. Duplicate identities
+		// cannot occur in the torrent registry, but this bounds that case too.
+		base := candidate
+		for ordinal := 2; used[candidate]; ordinal++ {
+			candidate = fmt.Sprintf("%s (%d)", base, ordinal)
+		}
+		names[i], used[candidate] = candidate, true
+	}
+	return names
+}
+
 func (d *CategoryDir) ReadDir(n int) ([]fs.DirEntry, error) {
 	nodes := []fs.DirEntry{}
-	torrs := torr.ListTorrent()
-	for _, t := range torrs {
+	var torrs []*torr.Torrent
+	for _, t := range torr.ListTorrent() {
 		if categoryName(t.Category) != d.Name() {
 			continue
 		}
 		if settings.BTsets().ShowFSActiveTorr && !t.GotInfo() {
 			continue
 		}
-		td := NewTorrDir(nil, torrentName(t), t)
-		nodes = append(nodes, td)
+		torrs = append(torrs, t)
+	}
+	for i, name := range torrentNames(torrs) {
+		nodes = append(nodes, NewTorrDir(nil, name, torrs[i]))
 	}
 
 	return nodes, nil
