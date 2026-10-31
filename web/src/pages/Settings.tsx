@@ -639,7 +639,7 @@ export default function Settings() {
                   </span>
                 )}
                 {rule && (
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-slate-400 [overflow-wrap:anywhere]">
                     {t(
                       rule.restart_required
                         ? "settings.metadata.restart"

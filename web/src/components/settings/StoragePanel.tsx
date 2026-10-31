@@ -58,7 +58,8 @@ export function StoragePanel({ runtime }: { runtime?: RuntimeStatus }) {
         <p className="text-sm">
           {t("settings.storageView.pressure", {
             state: t(
-              `settings.storageView.pressureStates.${runtime.resources.pressure_state ?? "unknown"}`,
+              `settings.storageView.pressureStates.${runtime.resources.pressure_state || "unknown"}`,
+              { defaultValue: t("status.unknown") },
             ),
             samples: runtime.resources.recovery_samples ?? 0,
           })}

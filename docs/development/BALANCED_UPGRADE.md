@@ -48,10 +48,11 @@ Local evidence is retained under `_out/verification` and `.tools/upstream1472`:
   directories, including the separate GStreamer suite. All six changed workflow
   files passed actionlint; policy tests retain native/security/platform/package/
   provenance gates.
-- Browser suite: 118 scenarios passed across seven locales, mobile/landscape/
+- Browser suite: 120 scenarios passed across seven locales, mobile/landscape/
   desktop layouts, enlarged text, keyboard focus, long filenames, setup, settings,
-  storage and lazy metadata reads. Two additional targeted scenarios passed for
-  expired-proof renewal and localized metadata-recovery status.
+  storage and lazy metadata reads, expired-proof renewal and localized metadata
+  recovery. A further targeted mobile check reproduced and verified long-default
+  wrapping and unknown initial pressure evidence.
 - Production interface lab: three repeated runs passed the existing budgets
   after deferring unopened dialog code. Initial compressed JavaScript fell from
   206,552 bytes (over budget) to 194,059 bytes. LCP was 788/788/764 ms and CLS zero
@@ -86,6 +87,21 @@ privacy/retention assertions remain intact. Portable compiler concurrency is
 bounded to two packages. Production flush/shutdown deadlines are unchanged.
 The source-bound web handoff manifest is ignored by Git so its presence cannot
 mark an otherwise clean native build as modified; a policy test enforces this.
+Linux validation caught a cancelled metadata response ending as empty EOF and
+being labelled invalid metadata. Both cancellation and deadline cases were
+reproduced deterministically with `testing/synctest`; request cancellation now
+takes precedence over interpreting response bytes. Real HTTP bounds/cancellation
+tests remain separate. Final mobile review also fixed wrapping of long metadata
+defaults and the unknown label before the first pressure sample. Repeated native
+tests exposed a fixture leaking its service-health cooldown into the next test
+iteration; the fixture now clears only its own key before/after each run, retaining
+the outage cooldown and missing-torrent assertions.
+The startup fixture's former two-repeat assumption did not reach its 64-MiB
+large-piece precondition with the smaller VBR source. Its remux now targets
+80 MiB with a separate 120-second command bound; startup assertions are retained.
+CodeQL also identified the inventory's direct pathname lookup. Inventory now
+reuses `cachefs` directory capabilities for a pinned-root walk, with tests for
+escaping links and replacement of the selected pathname; no alert is dismissed.
 
 A 90 Mbps straggler comparison completed one pair but then failed its fixture
 supply check (177.38 then 104.40 Mbps, below the required 1.3× margin). That

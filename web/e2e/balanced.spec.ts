@@ -15,6 +15,7 @@ async function balancedFixture(page: Page) {
   );
   const value = {
     ...settings,
+    DefaultTrackers: "",
     Flow: { ...settings.Flow, IncidentFlightRecorder: false },
   };
   let mutations = 0,
@@ -430,4 +431,74 @@ test("playback overview describes the actual metadata recovery state", async ({
         { exact: true },
       ),
   ).toBeVisible();
+});
+
+test("long metadata defaults wrap and initial pressure evidence remains unknown", async ({
+  page,
+}) => {
+  await balancedFixture(page);
+  const longDefault = "https://tracker.invalid/" + "a".repeat(400);
+  await page.route("**/settings/metadata/v1", (route) =>
+    route.fulfill({
+      json: {
+        schema_version: 1,
+        fields: {
+          DefaultTrackers: {
+            type: "string",
+            default: longDefault,
+            restart_required: true,
+            experimental: false,
+            deprecated: false,
+            read_only: false,
+          },
+        },
+      },
+    }),
+  );
+  await page.route("**/runtime/status", (route) =>
+    route.fulfill({
+      json: {
+        dlna_enabled: false,
+        bonjour_enabled: false,
+        friendly_name: "Flow",
+        webdav_enabled: false,
+        webdav_path: "/dav",
+        fuse_path: "",
+        fuse_enabled: false,
+        bt: { active_streams: 0, torrent_count: 0, torrents: [] },
+        resources: {
+          budget_bytes: 0,
+          warm_budget_bytes: 0,
+          memory_pressure: false,
+          protected_overcommit: false,
+          background_limited: false,
+          ram_resident_bytes: 0,
+          disk_cache_bytes: 0,
+          pressure_state: "",
+          recovery_samples: 0,
+        },
+      },
+    }),
+  );
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/#/settings");
+  await page
+    .getByRole("searchbox", { name: "Search all settings", exact: true })
+    .fill("tracker");
+  await expect(page.getByText(longDefault, { exact: false })).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page
+    .getByRole("searchbox", { name: "Search all settings", exact: true })
+    .fill("");
+  await page.getByRole("tab", { name: "Advanced", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Runtime storage", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator("main")).not.toContainText(
+    "settings.storageView.pressureStates.",
+  );
 });

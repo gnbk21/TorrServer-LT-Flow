@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"server/flow"
@@ -116,6 +117,47 @@ func TestMetadataHTTPBoundsAndCancellation(t *testing.T) {
 type metadataRoundTripper func(*http.Request) (*http.Response, error)
 
 func (f metadataRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+type metadataBodyReader func([]byte) (int, error)
+
+func (f metadataBodyReader) Read(p []byte) (int, error) { return f(p) }
+
+func TestMetadataCancellationWinsOverEmptyEOF(t *testing.T) {
+	for _, deadline := range []bool{false, true} {
+		name := "cancelled"
+		if deadline {
+			name = "deadline"
+		}
+		t.Run(name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+				client := &http.Client{Transport: metadataRoundTripper(func(req *http.Request) (*http.Response, error) {
+					body := metadataBodyReader(func([]byte) (int, error) {
+						if deadline {
+							time.Sleep(time.Second)
+							synctest.Wait()
+						} else {
+							cancel()
+						}
+						// Models a transport reporting EOF when request cancellation
+						// closes an empty response body. No real network/timer race.
+						return 0, io.EOF
+					})
+					return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(body), Request: req}, nil
+				})}
+				_, err := readMetadataHTTP(ctx, client, "https://source.example/metadata")
+				want := context.Canceled
+				if deadline {
+					want = context.DeadlineExceeded
+				}
+				if !errors.Is(err, want) {
+					t.Fatalf("cancellation mislabeled: want %v, got %v", want, err)
+				}
+			})
+		})
+	}
+}
 
 func TestMetadataRedirectPrivacyAndHTTPSPolicy(t *testing.T) {
 	for _, destination := range []string{"https://target.example/a", "http://target.example/a",

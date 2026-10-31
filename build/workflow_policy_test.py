@@ -151,6 +151,9 @@ class WorkflowPolicyTests(unittest.TestCase):
                      '--rate-aware --cases below complementary late-have'):
             self.assertIn(flag, script)
         self.assertIn('set -euo pipefail', script)
+        self.assertIn('timeout 120s ffmpeg', script)
+        self.assertIn('-stream_loop -1', script)
+        self.assertIn('-fs 83886080', script)
 
     def test_publication_remains_gated_and_merged_receipts_remain_compatible(self):
         release = job('ts_release.yml', 'release')

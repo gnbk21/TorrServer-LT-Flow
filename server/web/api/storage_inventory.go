@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"server/cachefs"
 	"server/diagnostics"
 	sets "server/settings"
 	"server/torr/storage/torrstor"
@@ -23,23 +24,25 @@ type storageCategory struct {
 
 var pieceInventoryName = regexp.MustCompile(`^(?:[a-f0-9]{40}|[a-f0-9]{64})[/\\][0-9]+$`)
 
-// Walk only configured runtime roots, never the developer workspace or arbitrary
-// caller paths. Symlinks/junctions and nonregular files are not followed.
+// Walk only configured runtime roots, never arbitrary request paths. Reuse the
+// cache's owner-selected directory capability, pinning the root for the walk.
+// Descendant symlinks/junctions and nonregular files are not followed.
 func storageSize(ctx context.Context, root string, accept func(string) bool, descend ...func(string) bool) storageCategory {
 	out := storageCategory{Protected: true}
 	if root == "" {
 		return out
 	}
-	st, err := os.Lstat(root)
+	directory, err := cachefs.Open(root, false)
 	if os.IsNotExist(err) {
 		return out
 	}
-	if err != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+	if err != nil {
 		out.Truncated = true
 		return out
 	}
+	defer directory.Close()
 	visited := 0
-	_ = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+	_ = fs.WalkDir(directory.FS(), ".", func(path string, entry fs.DirEntry, err error) error {
 		visited++
 		if ctx.Err() != nil || visited > 10000 {
 			out.Truncated = true
@@ -54,16 +57,14 @@ func storageSize(ctx context.Context, root string, accept func(string) bool, des
 			return nil
 		}
 		if entry.IsDir() {
-			if path != root && len(descend) > 0 {
-				rel, err := filepath.Rel(root, path)
-				if err != nil || !descend[0](rel) {
+			if path != "." && len(descend) > 0 {
+				if !descend[0](filepath.FromSlash(path)) {
 					return fs.SkipDir
 				}
 			}
 			return nil
 		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil || !accept(rel) {
+		if !accept(filepath.FromSlash(path)) {
 			return nil
 		}
 		info, err := entry.Info()
