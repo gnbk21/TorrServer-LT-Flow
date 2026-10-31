@@ -154,6 +154,9 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn('timeout 120s ffmpeg', script)
         self.assertIn('-stream_loop -1', script)
         self.assertIn('-fs 83886080', script)
+        portable = job('checks.yml', 'portable')
+        self.assertIn("GOARCH: '386'", portable)
+        self.assertIn('go test ./settings/metadata_integer.go ./settings/metadata_integer_test.go', portable)
 
     def test_publication_remains_gated_and_merged_receipts_remain_compatible(self):
         release = job('ts_release.yml', 'release')

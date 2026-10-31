@@ -193,7 +193,7 @@ func SettingsMetadata() MetadataSnapshot {
 			if rule, ok := settingRules[path]; ok {
 				m.Choices = rule.Choices
 				if m.Type == "integer" {
-					lo, hi := rule.Min, rule.Max
+					lo, hi := rule.Min, settingIntegerLimit(field, rule.Max)
 					m.Min, m.Max = &lo, &hi
 				}
 				m.InvalidPolicy = "normalize"

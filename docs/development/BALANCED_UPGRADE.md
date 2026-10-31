@@ -111,6 +111,11 @@ metadata/storage, proof-token authority isolation, origin rejection, disabled
 recorder defaults and preservation of the isolated settings file. All three
 large-piece startup cases passed locally: ordering, bounded progress extension
 (197 seconds at a deliberately limited 320 KiB/s) and missing-index cancellation.
+The portability review reproduced rate-limit metadata advertising a 64-bit
+ceiling for 32-bit Go `int` fields. Advertised maxima now respect the wire field's
+width while retaining existing 64-bit limits. Its pure calculation was tested
+in an actual 32-bit Windows process and added to both portable CI hosts; the full
+32-bit native settings suite still requires that target's libtorrent toolchain.
 
 A 90 Mbps straggler comparison completed one pair but then failed its fixture
 supply check (177.38 then 104.40 Mbps, below the required 1.3× margin). That

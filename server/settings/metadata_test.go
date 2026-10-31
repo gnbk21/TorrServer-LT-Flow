@@ -23,6 +23,23 @@ func TestMetadataDefaultsValidationAndNormalization(t *testing.T) {
 		}
 		next := CloneSettings(base)
 		target := settingValue(reflect.ValueOf(next), path)
+		if target.OverflowInt(*m.Max + 1) {
+			// This architecture's JSON decoder rejects values beyond the field
+			// type before ValidateSettings can see them; do not wrap via SetInt.
+			document := map[string]any{}
+			node := document
+			parts := strings.Split(path, ".")
+			for _, part := range parts[:len(parts)-1] {
+				child := map[string]any{}
+				node[part], node = child, child
+			}
+			node[parts[len(parts)-1]] = *m.Max + 1
+			input, _ := json.Marshal(document)
+			if json.Unmarshal(input, next) == nil {
+				t.Fatalf("wire type accepted an unrepresentable value: %s", path)
+			}
+			continue
+		}
 		target.SetInt(*m.Max + 1)
 		if m.InvalidPolicy == "reject" && ValidateSettings(next) == nil {
 			t.Fatalf("unvalidated bound: %s", path)
