@@ -42,6 +42,7 @@ export interface FlowSettings {
   MetricsEnabled: boolean;
   DebugFlow: boolean;
   DiagnosticHistory?: boolean;
+  IncidentFlightRecorder?: boolean;
   DHTStatePersistence?: boolean;
   PreparationQuotaMB?: number;
   PeerResumeHints?: boolean;

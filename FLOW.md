@@ -11,6 +11,28 @@ to be verified; only the extra insurance wait is capped at ten seconds plus the
 scheduling tick. Legacy remains the default and streaming controls remain opt-in.
 [Notes](RELEASE_1_1_9_NOTES.md), [verification](RELEASE_1_1_9_VERIFICATION.md).
 
+## Settings metadata
+
+`GET /settings/metadata/v1` uses the existing management authentication and origin
+policy. Its versioned registry describes scalar defaults, editable bounds,
+choices, units, experimental/deprecated status and whether a change restarts the
+engine. The web client uses this registry, retaining built-in constraints only
+when an older server returns 404/405. Authentication, rate-limit and malformed
+modern responses remain visible errors.
+
+`invalid_policy` distinguishes rejected values, normalized values and historical
+API permissiveness (`legacy`). `legacy_zero` identifies a zero migration sentinel
+accepted by the API while the editor requests an explicit effective value. Cache
+and connection zero sentinels remain compatible. Cross-field constraints and
+durable saved/effective state still apply. Rate limits are KiB/s; media rates use
+Mbps or decimal MB/s; cache sizes use MiB. The apply preview shares the actual
+cache-budget allocator and explains live versus engine-restart application.
+
+`Flow.SecurityProfile` remains in saved configuration/API for compatibility but
+is deprecated and hidden in the normal editor. Browser origin enforcement uses
+the explicit management origin/hostname policy, authentication and rate limits;
+the old compatible/restricted choice does not change it.
+
 ## First implementation milestone
 
 Flow settings live under `BitTorr.Flow` in the existing settings JSON and are

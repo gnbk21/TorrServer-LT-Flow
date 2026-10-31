@@ -79,10 +79,11 @@ export async function apiClient<T>(
   options: RequestInit & { timeoutMs?: number; manual?: boolean } = {},
 ): Promise<T> {
   const url = new URL(endpoint, window.location.origin);
+  const { manual = false, timeoutMs = 30_000, ...requestOptions } = options;
   if (url.origin !== window.location.origin)
     throw new Error("Cross-origin API request rejected");
   const remaining = cooldownUntil - performance.now();
-  if (remaining > 0 && !options.manual)
+  if (remaining > 0 && !manual)
     throw new ApiError(
       429,
       "Retry later",
@@ -101,11 +102,11 @@ export async function apiClient<T>(
   const timeout = window.setTimeout(
     () =>
       controller.abort(new DOMException("Request timed out", "TimeoutError")),
-    options.timeoutMs ?? 30_000,
+    timeoutMs,
   );
   try {
     const response = await fetch(url, {
-      ...options,
+      ...requestOptions,
       headers,
       credentials: "same-origin",
       signal: controller.signal,

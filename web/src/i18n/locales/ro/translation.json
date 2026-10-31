@@ -450,7 +450,18 @@
     "list": "Listă",
     "importProgress": "Procesare surse: {{done}} / {{total}}",
     "exportPrivacy": "Exporturile conțin identificatorii și etichetele torrentelor, fără credențiale, trackere private, postere sau date personalizate ale clientului. Torrentele private necesită configurația originală a trackerului. Torrentele v2 și serverele vechi folosesc linkuri magnet în exporturile de linkuri compacte.",
-    "exportTooLarge": "Exportul bibliotecii depășește 16 MiB."
+    "exportTooLarge": "Exportul bibliotecii depășește 16 MiB.",
+    "media": {
+      "title": "Informații media",
+      "hint": "Folosește doar analiza limitată de pornire. Deschiderea nu descarcă media.",
+      "unknown": "Necunoscut pentru acest fișier; datele pot apărea după preîncărcare.",
+      "bitrate": "Bitrate disponibil al containerului",
+      "video": "Video",
+      "audio": "Audio",
+      "subtitle": "Subtitrare",
+      "truncated": "Maximum 32 de piste.",
+      "direct": "Playerele externe primesc octeții originali. Conversia GStreamer este separată; transcodarea poate modifica calitatea și solicita CPU-ul."
+    }
   },
   "runtime": {
     "torrents": "Torrente",
@@ -496,14 +507,16 @@
     "degraded": "Conexiune degradată",
     "localOnly": "Doar rețeaua locală",
     "offline": "Server indisponibil",
-    "authRequired": "Este necesară autentificarea sau accesul este refuzat",
+    "authRequired": "Autentificare necesară",
     "requestFailed": "Serverul nu a putut procesa cererea.",
     "stale": "Sunt afișate ultimele date primite. Acestea pot fi învechite.",
     "unknown": "Necunoscut",
     "enabled": "Activat",
     "disabled": "Dezactivat",
     "timeout": "Serverul nu a răspuns la timp. Încearcă din nou.",
-    "paused": "Motor întrerupt"
+    "paused": "Motor întrerupt",
+    "accessDenied": "Acces refuzat",
+    "rateLimited": "Pauză între cereri"
   },
   "dashboard": {
     "idle": "Pregătit pentru redare",
@@ -534,7 +547,32 @@
     "checkingCertificate": "Se verifică certificatul acestui server…",
     "serverTrustOnly": "Serverul are încredere în certificatul său. Telefonul trebuie să verifice separat adresa și încrederea.",
     "serverUntrusted": "Serverul nu are încredere în certificatul său. Un certificat autosemnat necesită o decizie separată pe telefon.",
-    "tlsNotReported": "Serverul nu raportează un port TLS. Un proxy sau o adresă HTTPS introdusă manual poate diferi; verifică pe telefon."
+    "tlsNotReported": "Serverul nu raportează un port TLS. Un proxy sau o adresă HTTPS introdusă manual poate diferi; verifică pe telefon.",
+    "guide": {
+      "bindAddresses": "Interfețele serverului",
+      "allInterfaces": "Toate interfețele",
+      "lanAddresses": "Adrese LAN anunțate",
+      "selectedAddress": "Adresa aleasă pentru telefon",
+      "title": "Configurarea telefonului",
+      "listener": "Verificați ascultătorul și adresa LAN aleasă.",
+      "listenerReady": "Ascultător pregătit. Cererea PC-ului a ajuns la Flow.",
+      "listenerPending": "Cererea a ajuns la Flow; starea ascultătorului nu este încă raportată.",
+      "proofHint": "Creați o probă doar pentru citire, valabilă cinci minute, și scanați codul QR pe telefon.",
+      "create": "Creați proba conexiunii",
+      "expired": "Proba a expirat. Creați alta.",
+      "copy": "Copiați adresa probei",
+      "received": "O cerere de la altă adresă a ajuns la Flow. Aceasta nu dovedește redarea în player.",
+      "sameClient": "Proba a fost deschisă de la adresa creatorului. Deschideți-o și pe telefon.",
+      "waiting": "Se așteaptă cererea telefonului.",
+      "access": "Verificați autentificarea și refuzurile recente de la adresa verificată. Aprobarea originilor rămâne o acțiune explicită în setările de securitate.",
+      "player": "Introduceți adresa de bază în Lampa, apoi deschideți fișierul în playerul extern. Disponibilitatea căutării este o verificare separată.",
+      "android": "Permisiunile Android depind de sistem, aplicație și SDK-ul țintă; WebView folosește permisiunea aplicației gazdă. Verificați accesul la rețeaua locală sau dispozitive apropiate numai dacă aplicația îl afișează.",
+      "limits": "Flow nu poate acorda permisiuni altei aplicații sau identifica orice eroare de browser. Proba păstrează date temporare limitate și nu acordă drepturi de administrare.",
+      "AUTH_REQUIRED": "Autentificare refuzată.",
+      "AUTH_ACCEPTED": "Cerere autentificată acceptată.",
+      "MANAGEMENT_ORIGIN_DENIED": "Originea de administrare a fost refuzată:",
+      "MANAGEMENT_HOST_DENIED": "Numele gazdei de administrare a fost refuzat:"
+    }
   },
   "app": {
     "error": "Pagina nu poate fi afișată.",
@@ -596,7 +634,8 @@
       "waiting": "O citire a serverului a așteptat cel puțin 500 ms în ultimele 60 de secunde. Aceasta nu dovedește blocarea decodării.",
       "idle": "Nicio cerere a playerului nu este activă. Acesta poate fi în pauză, deconectat sau poate folosi propriul buffer.",
       "peers": "Nu există peer-i conectați și nici octeți contigui disponibili. Verifică rețeaua locală și trackerele.",
-      "prepare": "Pregătiți episodul înainte sau alegeți o versiune mai mică. Cache-ul RAM nu poate înlocui viteza lipsă a roiului."
+      "prepare": "Pregătirea completă rămâne opțională și ocupă spațiu pe disc. Flow nu reduce automat calitatea; mai mult cache nu creează debitul lipsă al roiului.",
+      "pausePlayer": "Încercați o pauză scurtă în player pentru rezervă, fără descărcarea întregului episod."
     },
     "startupWait": "Așteptare la pornire",
     "startupTimingHint": "Metadatele sunt măsurate de la adăugarea torrentului; restul, de la preîncărcare. Liniuța indică lipsa observației.",
@@ -863,14 +902,17 @@
         "missing": "Niciun peer conectat verificat nu are bucata necesară.",
         "discovery": "Se așteaptă conectarea la un peer util.",
         "block": "Se așteaptă următoarele blocuri solicitate.",
-        "unknown": "Nu există suficiente date pentru a explica așteptarea."
+        "unknown": "Nu există suficiente date pentru a explica așteptarea.",
+        "reserve": "Datele necesare sunt gata; Flow umple rezerva opțională de pornire.",
+        "phone": "Serverul raportează că este pregătit, dar nu se observă o cerere activă de la player."
       },
       "actions": {
         "inspect": "Deschide detaliile tehnice sau exportă diagnosticul.",
         "waitMetadata": "Lasă încercarea deschisă. Se folosesc doar surse autorizate; videoclipul necesită în continuare peers.",
         "leaveOpen": "Lasă playerul deschis. Transferul serverului nu dovedește redarea fluentă pe telefon.",
         "waitBlock": "Nu mișca bara de căutare cât timp sosesc datele solicitate.",
-        "waitSuppliers": "Lasă căutarea să continue. Peers cunoscuți nu sunt neapărat surse accesibile."
+        "waitSuppliers": "Lasă căutarea să continue. Peers cunoscuți nu sunt neapărat surse accesibile.",
+        "setupPhone": "Verificați conexiunea telefonului și accesul Lampa."
       },
       "sessionSummary": "Totalurile sesiunii",
       "sampleCount": "Eșantioane înregistrate: {{count}}",
@@ -932,7 +974,50 @@
         "RECENT_GAPS": "Au existat întreruperi recente, deși viteza medie este suficientă.",
         "UNKNOWN": "Nu există încă suficiente măsurători fiabile ale livrării."
       }
-    }
+    },
+    "journey": {
+      "metadata": "Descoperirea metadatelor",
+      "connection": "Conectarea la parteneri",
+      "required": "Începutul și indexul necesare",
+      "reserve": "Rezervă opțională",
+      "http": "Livrare HTTP",
+      "observed": "Observat",
+      "unobserved": "Încă neobservat"
+    },
+    "adviser": {
+      "title": "Recomandare de reglaj",
+      "readOnly": "Câte un pas reversibil. Flow nu schimbă profilul sau calitatea video. Pregătirea completă este opțională.",
+      "inspect": "Actualizați diagnosticul înainte de reglaje; datele sunt incomplete sau vechi.",
+      "inspectStorage": "Opriți temporar alte operații intense pe disc și comparați așteptarea citirii. Latența istorică nu dovedește un defect actual.",
+      "setupPhone": "Rulați proba conexiunii telefonului, apoi reîncercați în Lampa. Lipsa cererii video nu dovedește o problemă de rețea a telefonului.",
+      "pausePlayer": "Puneți playerul pe pauză 30–60 de secunde, lăsând episodul deschis. Reluați și comparați bufferul continuu al serverului. Nu opriți descărcarea Flow.",
+      "waitMetadata": "Lăsați încercarea deschisă până se încheie recuperarea limitată a metadatelor. Reîncercați o singură dată după rezultat.",
+      "waitBlock": "Lăsați saltul sau preîncărcarea deschisă puțin și comparați progresul pieselor necesare. Mai multe cereri nu creează debit la sursă.",
+      "leaveOpen": "Păstrați sesiunea deschisă. Comparați date recente înainte de a modifica o configurație funcțională.",
+      "waitSuppliers": "Așteptați descoperirea sau reconectarea și comparați furnizorii piesei necesare, nu doar numărul total de parteneri."
+    },
+    "reuse": {
+      "title": "Reutilizarea octeților verificați",
+      "result": "Candidați: {{candidates}}; admiteri native: {{accepted}}; octeți verificați independent: {{verified}}",
+      "hint": "Necesită rădăcini v2 autentificate identice și straturi complete. Admiterea nu înseamnă verificare. Doar octeți rezidenți, fără altă versiune.",
+      "reasons": {
+        "NO_CACHE": "Fără cache activ",
+        "METADATA_NOT_REGISTERED": "Metadate neînregistrate",
+        "CLOSED": "Cache închis",
+        "PRIVATE_TORRENT": "Torrente private excluse",
+        "IDENTITY_OR_GEOMETRY": "Identitate sau geometrie incompatibilă",
+        "NO_V2_IDENTITY": "Fără identitate v2 autentificată",
+        "INCOMPLETE_PIECE_LAYERS": "Straturi complete indisponibile",
+        "INDEX_LIMIT": "Limita indexului atinsă",
+        "NO_FILES": "Fără fișiere v2 eligibile",
+        "DISABLED": "Reutilizare oprită",
+        "RESOURCE_PRESSURE": "Eligibil; cedează la presiune",
+        "RECONNECTING": "Eligibil; se așteaptă rețeaua",
+        "NO_MATCH_OBSERVED": "Eligibil; fără donator rezident observat pentru piesele cerute",
+        "ELIGIBLE": "Metadate eligibile pentru reutilizare verificată"
+      }
+    },
+    "metadataRecoverySummary": "Recuperare metadate: {{state}}; încercări {{attempts}}"
   },
   "search": {
     "source": "Sursă",
@@ -954,7 +1039,8 @@
       "seeds": "Surse complete",
       "peers": "Parteneri",
       "title": "Titlu"
-    }
+    },
+    "serviceSeparation": "Rezultatele descriu doar serviciul de căutare. Conectivitate torrent: {{state}}. O cădere a parserului nu dovedește un defect Flow sau al rețelei playerului."
   },
   "AddTorrent": "Adăugați un torrent nou",
   "Loading": "Se încarcă…",
@@ -1084,7 +1170,8 @@
         "MetadataFallback": "Recuperare automată a metadatelor magnet",
         "PublicMetadataCache": "Cache-uri publice gratuite de metadate",
         "FrontierRecovery": "Recuperarea blocurilor urgente întârziate (experiment)",
-        "AdaptivePeerRequests": "Buget adaptiv de cereri per sursă (experiment)"
+        "AdaptivePeerRequests": "Buget adaptiv de cereri per sursă (experiment)",
+        "IncidentFlightRecorder": "Înregistrator privat de incidente"
       }
     },
     "maintenance": {
@@ -1188,7 +1275,52 @@
     "metadataFallbackHelp": "După 15 secunde, încearcă două URL-uri HTTPS .torrent furnizate. Hash-ul trebuie să corespundă magnetului.",
     "publicMetadataCacheHelp": "Trimite hash-urile magnet v1 blocate la Torrage și iTorrents. Gratuit, fără cont. Serviciile pot fi indisponibile. Statutul privat este necunoscut înaintea metadatelor.",
     "streamRecoveryHelp": "Solicită blocul urgent de la altă sursă în limite comune pentru duplicate și capacitate. Dezactivat implicit; depinde de sursele disponibile.",
-    "streamRequestsHelp": "Ajustează cererile după timpul de servire și limitele sursei. Dezactivat implicit. Comparați pornirea, derularea și traficul redundant."
+    "streamRequestsHelp": "Ajustează cererile după timpul de servire și limitele sursei. Dezactivat implicit. Comparați pornirea, derularea și traficul redundant.",
+    "metadata": {
+      "fallback": "Server mai vechi: se folosesc limitele locale ale setărilor.",
+      "restart": "Repornire motor; alegeți momentul aplicării",
+      "live": "Se aplică fără repornirea motorului",
+      "experimental": "Experimental, opțional",
+      "default": "Implicit: {{value}}",
+      "interactions": "Cache-ul este per torrent; bugetul global este comun. Datele necesare citirii, preîncărcării și indexului îl pot depăși temporar. Sesiunile păstrate și sarcinile de fundal folosesc capacitatea liberă. Profilurile conexiunii nu aleg calitatea video.",
+      "cachePreview": "Buget comun: {{budget}} MiB; sesiuni păstrate: până la {{warm}} MiB. Sunt bugete de cache, nu limite de RAM."
+    },
+    "fieldHints": {
+      "IncidentFlightRecorder": "Implicit oprit. Fereastră țintă de trasare Go de 30 s (indiciu de 32 MiB), suspendată la presiune pe memorie. Păstrează maximum două capturi, la cinci minute distanță, fiecare limitată la 64 MiB. Trasele brute pot conține detalii private și sunt excluse din exporturile obișnuite."
+    },
+    "storageView": {
+      "title": "Stocarea serverului",
+      "preview": "Previzualizare. Cache-ul, pregătirea, diagnosticele și copiile au durate separate. Nu se șterge nimic.",
+      "scan": "Inspectați stocarea",
+      "ram": "Cache media rezident",
+      "evicting_disk_cache": "Cache evacuabil pe disc",
+      "preparation": "Date de pregătire păstrate",
+      "diagnostics": "Istoric și trase private",
+      "backups": "Copii protejate de recuperare",
+      "incomplete": "Inventar parțial",
+      "developer": "Inventarul spațiului de dezvoltare",
+      "developerHint": "Rulați din surse. Implicit doar previzualizare. Ștergerea cere manifestul verificat și SHA-256-ul său; numai cache-ul generat neschimbat și deblocat este eligibil. Compilatoarele, instalările, setările, acreditările, copiile, binarele de revenire, arhivele și manifestele sunt protejate.",
+      "incidents": "Capturi private de incidente",
+      "raw": "Afișați explicit descărcările brute. Pot conține date private și nu intră în exporturile obișnuite.",
+      "noCaptures": "Nu există capturi păstrate",
+      "pressure": "Memorie: {{state}}; probe de revenire {{samples}}/3",
+      "overcommit": "Datele necesare depășesc bugetul și rămân protejate",
+      "pressureStates": {
+        "normal": "normală",
+        "pressure": "presiune",
+        "recovering": "revenire",
+        "unknown": "necunoscută"
+      },
+      "incidentStates": {
+        "DISABLED": "Înregistrator oprit",
+        "PRESSURE_PAUSED": "Suspendat la presiune pe memorie",
+        "STORAGE_UNAVAILABLE": "Stocarea privată indisponibilă",
+        "RECORDER_UNAVAILABLE": "Înregistrator indisponibil; poate exista altă trasare activă",
+        "RECORDING": "Fereastră continuă activă",
+        "CAPTURE_DISCARDED": "Captură incompletă, prea mare sau eșuată eliminată",
+        "CAPTURE_SAVED": "Captură privată salvată"
+      }
+    }
   },
   "preparation": {
     "title": "Pregătește episodul",

@@ -7,6 +7,7 @@ import { humanizeBytes } from "../../lib/format";
 import { Button } from "../common/Button";
 import { Modal } from "../common/Modal";
 import { RequestError } from "../common/RequestState";
+import { StoragePanel } from "./StoragePanel";
 
 const previewSchema = z.object({
   digest: z.string().regex(/^[a-f0-9]{64}$/),
@@ -76,6 +77,7 @@ export function MaintenancePanel({ dirty }: { dirty: boolean }) {
   return (
     <section className="panel space-y-4">
       <h2 className="font-semibold">{t("settings.maintenance.title")}</h2>
+      <StoragePanel runtime={runtime.data} />
       {runtime.data?.build && (
         <div className="text-sm break-all space-y-1">
           <p>

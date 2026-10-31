@@ -34,8 +34,9 @@ Legacy as the default and experimental scheduling behind explicit switches.
   memory-aware buffer budget and diagnostics; ordinary player remains supported.
 - [x] Conditional technologies: document measured SQM/upload-headroom procedure,
   existing exact-byte web seeds and lossless remux use; do not alter the router.
-  Cross-swarm/v2 reuse is a longer-term candidate requiring end-to-end identity
-  and hashing support, not a ready configuration change in this implementation.
+  Cross-swarm/v2 reuse was deferred in this historical scope; public v2/hybrid
+  storage and verified exact-byte reuse were implemented later. See the dated
+  acceptance snapshot below and the current high-bitrate guide.
 - [x] Integration: settings/defaults/validation, backend/frontend contracts,
   translated diagnostics/controls, documentation and rollback instructions.
 - [x] Verification: meaningful units/races/native lifecycle tests, strict-cap

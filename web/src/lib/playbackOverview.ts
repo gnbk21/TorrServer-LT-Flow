@@ -29,6 +29,7 @@ export function playbackOverview(status: FlowStatusResponse, now: number) {
       action = bufferFresh ? "leaveOpen" : "inspect";
     } else if (
       (status.storage_io?.wait_p95_us ?? 0) > 250000 &&
+      (status.storage_io?.queued_jobs ?? 0) > 0 &&
       (session.recent_server_read_stalls ?? 0) > 0
     ) {
       cause = "storage";
@@ -50,6 +51,77 @@ export function playbackOverview(status: FlowStatusResponse, now: number) {
       cause = "block";
       action = "waitBlock";
     }
+  } else if (
+    status.startup?.progress &&
+    status.startup.progress.blocked_on !== "NONE"
+  ) {
+    cause = "block";
+    action = "waitBlock";
+  } else if (status.startup?.state === "ADAPTIVE_PREBUFFER") {
+    cause = "reserve";
+    action = "waitBlock";
+  } else if (
+    status.startup?.state === "READY" ||
+    status.startup?.state === "PLAYING"
+  ) {
+    cause = "phone";
+    action = "setupPhone";
   }
-  return { cause, action, age: fresh ? age : null, session, bufferFresh };
+  const confidence =
+    !fresh || cause === "unknown"
+      ? "unknown"
+      : ["metadata", "idle", "seek", "ready", "reserve"].includes(cause)
+        ? "high"
+        : "medium";
+  const adviser = !fresh
+    ? "inspect"
+    : cause === "storage"
+      ? "inspectStorage"
+      : cause === "phone"
+        ? "setupPhone"
+        : session?.buffer_warning
+          ? "pausePlayer"
+          : action;
+  const startup = status.startup;
+  const steps = [
+    { key: "metadata", complete: (startup?.metadata_ready_ms ?? -1) >= 0 },
+    {
+      key: "connection",
+      complete:
+        (startup?.first_peer_ms ?? -1) >= 0 ||
+        (session?.connected_peers ?? 0) > 0,
+    },
+    {
+      key: "required",
+      complete:
+        ["READY", "PLAYING"].includes(startup?.state ?? "") ||
+        ((startup?.bootstrap_complete_ms ?? 0) > 0 &&
+          !["INDEX", "HEAD_AND_INDEX"].includes(
+            startup?.progress?.blocked_on ?? "",
+          )),
+    },
+    {
+      key: "reserve",
+      complete:
+        (startup?.startup_prebuffer_ms ?? 0) > 0 ||
+        ["READY", "PLAYING"].includes(startup?.state ?? ""),
+    },
+    {
+      key: "http",
+      complete:
+        (session?.range_request_count ?? 0) > 0 &&
+        (session?.last_ttfb_ms ?? -1) >= 0,
+    },
+  ];
+  return {
+    cause,
+    action,
+    age: Number.isFinite(age) && age >= 0 ? age : null,
+    fresh,
+    session,
+    bufferFresh,
+    confidence,
+    adviser,
+    steps,
+  };
 }

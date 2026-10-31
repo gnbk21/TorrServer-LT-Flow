@@ -279,6 +279,14 @@ separate from Flow's playback address.
 
 ## Startup diagnostics
 
+The current development upgrade adds a unified playback journey and read-only
+adviser, guided phone connection proof, server-owned settings metadata and cache
+preview, steadier memory-pressure recovery, selected-file media/reuse information
+and read-only runtime storage inventory. Optional private incident tracing is
+advanced and default-off. See [diagnostics and setup](DIAGNOSTICS.md) and the
+[implementation/verification record](docs/development/BALANCED_UPGRADE.md).
+These source changes do not change the features in previously published binaries.
+
 Flow 1.1 returns explicit preload requests when the buffer
 is ready; an owned worker keeps the existing eight-second warm handoff in the
 background. Same-file requests share that worker, and an episode switch or

@@ -63,6 +63,15 @@ and limits background work. Process RSS, Go heap/system memory, handles where
 supported, cache bytes and system memory are separate observations. macOS does
 not currently supply available-system-memory pressure evidence.
 
+The entry threshold remains the larger of 512 MiB and 5% of system memory.
+Recovery now requires three fresh five-second samples strictly above 1.5 times
+that threshold. A repeated cached sample cannot advance recovery; an unknown or
+lower sample resets the recovery count while retaining an active pressure state.
+Warm/background reservations are released before publishing smaller foreground
+shares. Immediate reader, preload and required index protections still win.
+`pressure_state`, `recovery_samples`, `budget_changes` and protected overcommit
+make the transition visible. This is allocator hysteresis, not a second cache.
+
 Preparation yields to active streaming and memory/overcommit pressure. Scheduling
 reasons include `PLAYBACK_PRIORITY`, `MEMORY_PRESSURE`, `QUOTA`, `DISK_SPACE` and
 `QUEUED`. Jobs and verified bytes survive suspension. The disk guard retains at

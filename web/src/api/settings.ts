@@ -28,12 +28,25 @@ export const settingsApi = {
   plan: (sets: BTSettings) =>
     api.post<
       { action: string; sets: BTSettings },
-      { restart_required: boolean; active_work: boolean }
+      {
+        restart_required: boolean;
+        active_work: boolean;
+        cache_preview?: {
+          budget_bytes: number;
+          warm_budget_bytes: number;
+          memory_pressure: boolean;
+        };
+      }
     >("/settings", { action: "plan", sets }),
   apply: (sets: BTSettings, revision: string, when: "now" | "idle") =>
     api.post("/settings", { action: "set", sets, revision, when }),
   cancelPending: (revision: string) =>
-    api.post("/settings", { action: "cancel_pending", revision }),
+    api.post(
+      "/settings",
+      { action: "cancel_pending", revision },
+      undefined,
+      true,
+    ),
   get: (signal?: AbortSignal) =>
     api
       .post<{ action: string }, unknown>("/settings", { action: "get" }, signal)
