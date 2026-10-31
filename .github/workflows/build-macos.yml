@@ -74,7 +74,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _src
-          key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.9-v1
 
       # Per-arch install tree (lib + headers + .pc). With it present the b2
       # step short-circuits and only the Go binaries are relinked.
@@ -82,8 +82,8 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _deps/darwin-${{ matrix.arch }}
-          key: receipt1-${{ env.ImageVersion }}-deps-${{ matrix.runner }}-${{ runner.arch }}-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.7-flowsparse-pcfold2-${{ hashFiles('build/native_receipt.py', 'build/_common.sh', 'build/_deps.sh', 'build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
-          restore-keys: deps-${{ matrix.runner }}-${{ runner.arch }}-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.7-
+          key: receipt1-${{ env.ImageVersion }}-deps-${{ matrix.runner }}-${{ runner.arch }}-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.9-flowsparse-pcfold2-${{ hashFiles('build/native_receipt.py', 'build/_common.sh', 'build/_deps.sh', 'build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
+          restore-keys: deps-${{ matrix.runner }}-${{ runner.arch }}-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.9-
 
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
@@ -99,7 +99,7 @@ jobs:
       # base binary AND the -gst variant (see build/_deps.sh go_build).
       - name: Build
         env:
-          TS_VERSION: ${{ inputs.version || format('MatriX.145.Flow-dev-{0}', github.sha) }}
+          TS_VERSION: ${{ inputs.version || format('MatriX.148.Flow-dev-{0}', github.sha) }}
         run: bash build/darwin-native.sh ${{ matrix.arch }}
 
       # Native arm64 only: running x86_64 cgo tests under Rosetta is slow, and

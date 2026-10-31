@@ -1,11 +1,15 @@
 [CmdletBinding()]
-param([string]$Output = '')
+param(
+    [Parameter(Mandatory)][ValidatePattern('^\d+\.\d+\.\d+$')][string]$CandidateVersion,
+    [string]$Output = ''
+)
 $ErrorActionPreference = 'Stop'
 $flowCompareRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $flowCompareRoot
 . "$PSScriptRoot/Enter-FlowBuild.ps1"
 $flowCompareGo = (Get-Command go.exe -ErrorAction Stop).Source
 $flowComparePinned = ((Get-Content server/go.mod | Select-String '^go (\S+)$').Matches.Groups[1].Value)
+if ($CandidateVersion -eq $flowComparePinned) { throw 'Candidate must differ from the pinned Go version.' }
 if (!$Output) { $Output = Join-Path $flowCompareRoot ('.tools/go-comparison-' + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmss')) }
 [void](New-Item -ItemType Directory -Path $Output)
 $flowCompareOutput = (Resolve-Path -LiteralPath $Output).Path
@@ -22,7 +26,7 @@ function Get-FlowComparisonSourceDigest {
     } finally { $flowCompareHash.Dispose() }
 }
 $flowCompareInitialDigest = Get-FlowComparisonSourceDigest
-$flowCompareReport = [ordered]@{schema_version=1;source=(& git rev-parse HEAD).Trim();modified=[bool](& git status --porcelain);pinned=$flowComparePinned;candidate='1.27.3';passed=$false;promote=$false;results=$flowCompareResults;samples=$flowCompareSamples;decision='Retain the pinned runtime. This comparison is separate from eight-platform qualification and phone/public-swarm acceptance.'}
+$flowCompareReport = [ordered]@{schema_version=1;source=(& git rev-parse HEAD).Trim();modified=[bool](& git status --porcelain);pinned=$flowComparePinned;candidate=$CandidateVersion;passed=$false;promote=$false;results=$flowCompareResults;samples=$flowCompareSamples;decision='Retain the pinned runtime. This comparison is separate from eight-platform qualification and phone/public-swarm acceptance.'}
 $flowCompareReport.source_digest = $flowCompareInitialDigest
 function Invoke-FlowGoComparison {
     param([string]$Version,[string]$Name,[string[]]$Arguments)
@@ -46,13 +50,13 @@ function Invoke-FlowGoComparison {
     return $true
 }
 try {
-    foreach ($flowCompareVersion in @($flowComparePinned,'1.27.3')) {
+    foreach ($flowCompareVersion in @($flowComparePinned,$CandidateVersion)) {
         if (!(Invoke-FlowGoComparison $flowCompareVersion 'version' @('version'))) { continue }
         [void](Invoke-FlowGoComparison $flowCompareVersion 'compatibility' @('test','-p','2','-json','-count=1','-timeout','180s','./flow','./diagnostics','./settings','./lt','./torr','./torr/storage/torrstor','./web/api'))
-        [void](Invoke-FlowGoComparison $flowCompareVersion 'build' @('build','-pgo=off','-ldflags',"-X server/version.Version=MatriX.145.Flow-toolchain-$flowCompareVersion",'-o',(Join-Path $flowCompareOutput "Flow-go$flowCompareVersion.exe"),'./cmd'))
+        [void](Invoke-FlowGoComparison $flowCompareVersion 'build' @('build','-pgo=off','-ldflags',"-X server/version.Version=MatriX.148.Flow-toolchain-$flowCompareVersion",'-o',(Join-Path $flowCompareOutput "Flow-go$flowCompareVersion.exe"),'./cmd'))
     }
     for ($flowCompareRotation=0;$flowCompareRotation -lt 3;$flowCompareRotation++) {
-        $flowCompareOrder = if ($flowCompareRotation % 2) { @('1.27.3',$flowComparePinned) } else { @($flowComparePinned,'1.27.3') }
+        $flowCompareOrder = if ($flowCompareRotation % 2) { @($CandidateVersion,$flowComparePinned) } else { @($flowComparePinned,$CandidateVersion) }
         foreach ($flowCompareVersion in $flowCompareOrder) {
             [void](Invoke-FlowGoComparison $flowCompareVersion "benchmark-$flowCompareRotation" @('test','-run','^$','-pgo=off','-bench','^BenchmarkLibrarySingleUpsert$','-benchtime','3x','-count=1','-benchmem','./settings'))
         }

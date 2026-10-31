@@ -10,113 +10,110 @@ var DEPENDENCIESjson []byte
 //go:embed pages/THIRD_PARTY_NOTICES.txt
 var THIRDPARTYNOTICEStxt []byte
 
-//go:embed pages/assets/Add-CSsdcEBc.js
-var AssetsAddCSsdcEBcjs []byte
+//go:embed pages/assets/Add-DZWhQ6yD.js
+var AssetsAddDZWhQ6yDjs []byte
 
-//go:embed pages/assets/AddTorrentModal-CQsGWcib.js
-var AssetsAddTorrentModalCQsGWcibjs []byte
+//go:embed pages/assets/AddTorrentModal-vc_W2oJr.js
+var AssetsAddTorrentModalvcW2oJrjs []byte
 
-//go:embed pages/assets/Button-DZQPut1j.js
-var AssetsButtonDZQPut1jjs []byte
+//go:embed pages/assets/Button-D7wDFoAp.js
+var AssetsButtonD7wDFoApjs []byte
 
-//go:embed pages/assets/CacheMap-NRPjJ8kY.js
-var AssetsCacheMapNRPjJ8kYjs []byte
+//go:embed pages/assets/CacheMap-CA8FC8qw.js
+var AssetsCacheMapCA8FC8qwjs []byte
 
-//go:embed pages/assets/Certificates-B2lbfuwi.js
-var AssetsCertificatesB2lbfuwijs []byte
+//go:embed pages/assets/Certificates-c7DejxH4.js
+var AssetsCertificatesc7DejxH4js []byte
 
-//go:embed pages/assets/Dashboard-B_cnxpmy.js
-var AssetsDashboardBcnxpmyjs []byte
+//go:embed pages/assets/Dashboard-qmW2NhCU.js
+var AssetsDashboardqmW2NhCUjs []byte
 
-//go:embed pages/assets/FlowDiagnosticsDrawer-wuwnXkJn.js
-var AssetsFlowDiagnosticsDrawerwuwnXkJnjs []byte
+//go:embed pages/assets/FlowDiagnosticsDrawer-B0m__c5z.js
+var AssetsFlowDiagnosticsDrawerB0mc5zjs []byte
 
-//go:embed pages/assets/FlowHealthPanel-CoGSp5Cc.js
-var AssetsFlowHealthPanelCoGSp5Ccjs []byte
+//go:embed pages/assets/FlowHealthPanel-CQxo95sI.js
+var AssetsFlowHealthPanelCQxo95sIjs []byte
 
-//go:embed pages/assets/GstRuntimeStatus-Bla7UrYQ.js
-var AssetsGstRuntimeStatusBla7UrYQjs []byte
+//go:embed pages/assets/GstRuntimeStatus-1KSmN8-P.js
+var AssetsGstRuntimeStatus1KSmN8Pjs []byte
 
-//go:embed pages/assets/IntegrationSettings-CLaFDYA8.js
-var AssetsIntegrationSettingsCLaFDYA8js []byte
+//go:embed pages/assets/IntegrationSettings-C74J30J-.js
+var AssetsIntegrationSettingsC74J30Jjs []byte
 
-//go:embed pages/assets/LANTest-FD8LpLWb.js
-var AssetsLANTestFD8LpLWbjs []byte
+//go:embed pages/assets/LANTest-Cg74bgZT.js
+var AssetsLANTestCg74bgZTjs []byte
 
-//go:embed pages/assets/MaintenancePanel-3lccjxyt.js
-var AssetsMaintenancePanel3lccjxytjs []byte
+//go:embed pages/assets/MaintenancePanel-CES7W5O5.js
+var AssetsMaintenancePanelCES7W5O5js []byte
 
-//go:embed pages/assets/Modal-PaqGqwI6.js
-var AssetsModalPaqGqwI6js []byte
+//go:embed pages/assets/Modal-n0GtXwv2.js
+var AssetsModaln0GtXwv2js []byte
 
-//go:embed pages/assets/PhonePairingModal-DgkN2RQO.js
-var AssetsPhonePairingModalDgkN2RQOjs []byte
+//go:embed pages/assets/PhonePairingModal-B71bzvia.js
+var AssetsPhonePairingModalB71bzviajs []byte
 
-//go:embed pages/assets/PlaybackLinks-fTpeDHd7.js
-var AssetsPlaybackLinksfTpeDHd7js []byte
+//go:embed pages/assets/PlaybackLinks-CE2-Cg3b.js
+var AssetsPlaybackLinksCE2Cg3bjs []byte
 
-//go:embed pages/assets/PosterSearch-BbiLrdwj.js
-var AssetsPosterSearchBbiLrdwjjs []byte
+//go:embed pages/assets/PosterSearch-C62wf6aR.js
+var AssetsPosterSearchC62wf6aRjs []byte
 
-//go:embed pages/assets/RecentSessions-sArLmfKW.js
-var AssetsRecentSessionssArLmfKWjs []byte
+//go:embed pages/assets/RecentSessions-BvckngNW.js
+var AssetsRecentSessionsBvckngNWjs []byte
 
-//go:embed pages/assets/SessionCard-D--ZS3T9.js
-var AssetsSessionCardDZS3T9js []byte
+//go:embed pages/assets/SessionCard-w6OdyMaY.js
+var AssetsSessionCardw6OdyMaYjs []byte
 
-//go:embed pages/assets/Settings-Up-afY2_.js
-var AssetsSettingsUpafY2js []byte
+//go:embed pages/assets/Settings-DhHapqqb.js
+var AssetsSettingsDhHapqqbjs []byte
 
-//go:embed pages/assets/TorrentFilesDialog-salv6wV8.js
-var AssetsTorrentFilesDialogsalv6wV8js []byte
+//go:embed pages/assets/TorrentFilesDialog-CRVFk8cg.js
+var AssetsTorrentFilesDialogCRVFk8cgjs []byte
 
-//go:embed pages/assets/Torrents-DewJHaFQ.js
-var AssetsTorrentsDewJHaFQjs []byte
+//go:embed pages/assets/Torrents-ACW98uWR.js
+var AssetsTorrentsACW98uWRjs []byte
 
-//go:embed pages/assets/VideoPlayer-BSNg0YHs.js
-var AssetsVideoPlayerBSNg0YHsjs []byte
+//go:embed pages/assets/VideoPlayer-C7QS--zD.js
+var AssetsVideoPlayerC7QSzDjs []byte
 
-//go:embed pages/assets/certificates-uZgbS0wf.js
-var AssetscertificatesuZgbS0wfjs []byte
+//go:embed pages/assets/certificates-Cxtq0Hep.js
+var AssetscertificatesCxtq0Hepjs []byte
 
 //go:embed pages/assets/client-5nC5zTpw.js
 var Assetsclient5nC5zTpwjs []byte
 
-//go:embed pages/assets/createLucideIcon-BIlsU1G4.js
-var AssetscreateLucideIconBIlsU1G4js []byte
+//go:embed pages/assets/createLucideIcon-I2O3k_i9.js
+var AssetscreateLucideIconI2O3ki9js []byte
 
 //go:embed pages/assets/format-B_YcZLV7.js
 var AssetsformatBYcZLV7js []byte
 
-//go:embed pages/assets/hls-D9b4QHpD.js
-var AssetshlsD9b4QHpDjs []byte
-
-//go:embed pages/assets/index-0E4_NWI6.js
-var Assetsindex0E4NWI6js []byte
+//go:embed pages/assets/hls-D2SbReJ5.js
+var AssetshlsD2SbReJ5js []byte
 
 //go:embed pages/assets/index-BaWN1m9I.css
 var AssetsindexBaWN1m9Icss []byte
 
-//go:embed pages/assets/integrations-Cf7wFNJZ.js
-var AssetsintegrationsCf7wFNJZjs []byte
+//go:embed pages/assets/index-C8mOs301.js
+var AssetsindexC8mOs301js []byte
 
-//go:embed pages/assets/mediaBase-CgbHS-B_.js
-var AssetsmediaBaseCgbHSBjs []byte
+//go:embed pages/assets/integrations-r9sBPdpF.js
+var Assetsintegrationsr9sBPdpFjs []byte
 
-//go:embed pages/assets/preload-helper-uBIymjUX.js
-var AssetspreloadhelperuBIymjUXjs []byte
+//go:embed pages/assets/mediaBase-2UoGdBAq.js
+var AssetsmediaBase2UoGdBAqjs []byte
 
-//go:embed pages/assets/queries-BoZdcz3p.js
-var AssetsqueriesBoZdcz3pjs []byte
+//go:embed pages/assets/queries-BnZ1pDSU.js
+var AssetsqueriesBnZ1pDSUjs []byte
 
 //go:embed pages/assets/redact-ie8nnS8E.js
 var Assetsredactie8nnS8Ejs []byte
 
-//go:embed pages/assets/rolldown-runtime-hePW80VL.js
-var AssetsrolldownruntimehePW80VLjs []byte
+//go:embed pages/assets/rolldown-runtime-XKyaHtl9.js
+var AssetsrolldownruntimeXKyaHtl9js []byte
 
-//go:embed pages/assets/schemas-DvG7Ne2U.js
-var AssetsschemasDvG7Ne2Ujs []byte
+//go:embed pages/assets/schemas-Ct8qkdL4.js
+var AssetsschemasCt8qkdL4js []byte
 
 //go:embed pages/assets/translation-1KOBwrdV.js
 var Assetstranslation1KOBwrdVjs []byte
@@ -136,8 +133,8 @@ var AssetstranslationC8h1OLTejs []byte
 //go:embed pages/assets/translation-DVqkDutd.js
 var AssetstranslationDVqkDutdjs []byte
 
-//go:embed pages/assets/useQuery-CDvt9QO2.js
-var AssetsuseQueryCDvt9QO2js []byte
+//go:embed pages/assets/useQuery-CwjCYSbm.js
+var AssetsuseQueryCwjCYSbmjs []byte
 
 //go:embed pages/browserconfig.xml
 var Browserconfigxml []byte

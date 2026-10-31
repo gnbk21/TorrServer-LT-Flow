@@ -13,6 +13,10 @@ binary plus the GStreamer HLS transcoding feature (pure Go; GStreamer is
 
 Native Windows development is supported through the MSYS2 UCRT64 setup below.
 
+The 1.2 release uses Go 1.27.3 from `server/go.mod`. OpenSSL 3.5.9 is pinned
+together with its archive SHA-256. A custom `OPENSSL_VERSION` must also supply
+its independently reviewed `OPENSSL_SHA256`; extraction refuses a mismatch.
+
 libtorrent's own `Jamfile` emits a correct `libtorrent-rasterbar.pc` from its
 `install` target, so the per-target Cflags/defines/Libs flow straight into cgo
 (`server/lt` uses `#cgo pkg-config: libtorrent-rasterbar`). libtorrent is built
@@ -34,7 +38,7 @@ refetch fallback; use the supplied static builds for full Flow behavior.
 
 ```
 build/
-  _common.sh         paths + pinned versions (Boost 1.85.0, libtorrent v2.1.2, OpenSSL 3.5.7)
+  _common.sh         paths + pinned versions (Boost 1.85.0, libtorrent v2.1.2, OpenSSL 3.5.9)
   _fetch_sources.sh  download Boost + OpenSSL + clone libtorrent into _src/  (idempotent)
   _deps.sh           shared engine: openssl + webrtc deps + b2 install libtorrent → go_build
   _osxcross.sh       locate OSXCross wrappers/SDK (darwin targets)
@@ -107,8 +111,9 @@ Native dependency receipts record compiler driver/version, dependency archives,
 headers, pkg-config files and recipe/patch/flag identities. Every native build
 validates this receipt before reusing its cache. An identity/content mismatch
 rebuilds only the checked target under `_deps`, not arbitrary directories.
-`Compare-Go.ps1` evaluates Go 1.27.3 separately against the pinned 1.26.10 with
-compatibility/build checks and three alternating benchmark rotations. It retains
+`Compare-Go.ps1 -CandidateVersion X.Y.Z` evaluates a different candidate against
+the pinned runtime with compatibility/build checks and three alternating
+benchmark rotations. It retains
 all results and rejects qualification if source changes during the comparison.
 It never changes `go.mod` or promotes the candidate by itself.
 

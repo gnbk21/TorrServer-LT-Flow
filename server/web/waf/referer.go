@@ -121,7 +121,7 @@ func normalizeRefererRule(value string) (string, bool) {
 	return normalizeRefererHost(host)
 }
 
-// Normalize both configured rules and browser headers to the same DNS form.
+// Normalize configured rules and browser headers to the same IP or DNS form.
 // Validation runs after IDNA conversion to enforce actual wire label lengths.
 func normalizeRefererHost(host string) (string, bool) {
 	host = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(host), "."))
@@ -129,8 +129,8 @@ func normalizeRefererHost(host string) (string, bool) {
 	if host == "" {
 		return "", false
 	}
-	if net.ParseIP(host) != nil {
-		return host, true
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.String(), true
 	}
 	var err error
 	host, err = idna.Lookup.ToASCII(host)

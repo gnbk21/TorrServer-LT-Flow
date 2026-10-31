@@ -17,6 +17,14 @@ func TestUnstampedBuildCannotPretendToBeStable(t *testing.T) {
 	old := Version
 	defer func() { Version = old }()
 	for _, test := range []struct{ version, channel string }{
+		{"MatriX.148.Flow-dev-local", "development"},
+		{"MatriX.148.Flow-v1.2.0", "stable"},
+		{"MatriX.148.Flow-v1.2.0-preview.1", "preview"},
+		{"MatriX.148.Flow-v1.2.0-alpha.1", "preview"},
+		{"MatriX.148.Flow-v1.2.0-beta.1", "preview"},
+		{"MatriX.148.Flow-v1.2.0-rc.1", "preview"},
+		{"MatriX.149.Flow-v1.2.0", "development"},
+		{"MatriX.148.Flow-v1.2.0-malformed", "development"},
 		{"MatriX.145.Flow-dev-local", "development"},
 		{"MatriX.145.Flow-v1.1.3", "stable"},
 		{"MatriX.145.Flow-v1.2.0-preview.1", "preview"},

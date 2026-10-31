@@ -404,7 +404,7 @@ go_build() {
 cross_build() {
     local deps="$DEPS_ROOT/$TARGET"
     [[ "$TARGET" =~ ^[a-z0-9-]+$ && "$deps" == "$ROOT/_deps/"* ]] || die 'invalid native dependency target'
-    export BOOST_VERSION LIBTORRENT_REV OPENSSL_VERSION
+    export BOOST_VERSION LIBTORRENT_REV OPENSSL_VERSION OPENSSL_SHA256
     local driver native_identity
     driver=$(basename "$0")
     native_identity=$(python3 "$ROOT/build/native_receipt.py" identity --driver "$driver")

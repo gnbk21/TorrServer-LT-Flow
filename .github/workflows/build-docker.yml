@@ -94,7 +94,7 @@ jobs:
 
       - name: Verify runtime linkage on every container architecture
         env:
-          FLOW_VERSION: ${{ inputs.version || (startsWith(github.ref, 'refs/tags/') && github.ref_name || format('MatriX.145.Flow-dev-{0}', github.sha)) }}
+          FLOW_VERSION: ${{ inputs.version || (startsWith(github.ref, 'refs/tags/') && github.ref_name || format('MatriX.148.Flow-dev-{0}', github.sha)) }}
         run: |
           set -euo pipefail
           for platform in linux/amd64 linux/arm64 linux/arm/v7; do

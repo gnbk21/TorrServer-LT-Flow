@@ -503,6 +503,30 @@
       "accepted_security_dispositions_are_not_fixes": true,
       "verification_record": "RELEASE_1_1_9_VERIFICATION.md",
       "corrected_tagged_startup_extra_wait_seconds": 10.059465082999992
+    },
+    {
+      "scope": "Historical 1.1.9 focused validation record, not reused for the 1.2.0 feature/toolchain release",
+      "patch_validation": {
+        "tag": "MatriX.145.Flow-v1.1.9",
+        "mode": "api_compatibility",
+        "candidate_commit": "49dbee114e28ef6f54ce16976cf2a908bdf5afac",
+        "candidate_run": 40467760747,
+        "baseline_commit": "49dbee114e28ef6f54ce16976cf2a908bdf5afac",
+        "baseline_run": 40467760680
+      }
+    },
+    {
+      "scope": "Balanced upgrade pre-toolchain source qualification",
+      "source_commit": "5522a072d35ffc0a09e93e425cd0580a90be0acb",
+      "build_run": 41224042116,
+      "codeql_run": 41224042043,
+      "branch_run": 41224042069,
+      "macos_run": 41224042065,
+      "successful_checks": 56,
+      "conditional_skips": 6,
+      "open_pr_codeql_alerts": 0,
+      "ledger": "docs/development/BALANCED_UPGRADE.md",
+      "limits": "Qualifies the earlier source, not the final Go 1.27.3/OpenSSL 3.5.9 dependency update or tagged binaries."
     }
   ],
   "remaining": [],
@@ -512,10 +536,10 @@
     "policy": "Publish stable releases as Latest after automated gates pass, while explicitly disclosing unfinished field and resource validation authorized by the owner.",
     "field_checks_are_not_passed": true,
     "tagged_gate_required": "ts_release.yml rebuilds and verifies the exact tagged source before publication.",
-    "requested_release": "MatriX.145.Flow-v1.1.9",
-    "latest_owner_request": "Finish 1.1.9 and release it",
+    "requested_release": "MatriX.148.Flow-v1.2.0",
+    "latest_owner_request": "Make a new release with all balanced upgrade changes and update Go and dependencies; Go 1.27 requested explicitly.",
     "further_two_hour_tests": "Skipped at owner request; earlier completed runs are identified separately, not exact-final acceptance.",
-    "stage_before_publish": "MatriX.145.Flow-v1.1.9"
+    "stage_before_publish": "MatriX.148.Flow-v1.2.0"
   },
   "remaining_field_validation": [
     "Representative real-phone playback matrix",
@@ -526,15 +550,26 @@
     "Independent optional player decoder rebuild/redistribution audit; APK excluded from stable assets",
     "Shared OS DNS leak protection and complete native profiling attribution"
   ],
-  "release_target": "MatriX.145.Flow-v1.1.9",
+  "release_target": "MatriX.148.Flow-v1.2.0",
   "published_tag": "MatriX.145.Flow-v1.1.9",
   "published_source_commit": "627dd3a9c673af507f04654014c1fd5ff7e09cb7",
-  "patch_validation": {
-    "tag": "MatriX.145.Flow-v1.1.9",
-    "mode": "api_compatibility",
-    "candidate_commit": "49dbee114e28ef6f54ce16976cf2a908bdf5afac",
-    "candidate_run": 40467760747,
-    "baseline_commit": "49dbee114e28ef6f54ce16976cf2a908bdf5afac",
-    "baseline_run": 40467760680
+  "release_qualification": {
+    "tag": "MatriX.148.Flow-v1.2.0",
+    "scope": "full",
+    "status": "pending_exact_source_and_tagged_gates",
+    "go": "1.27.3",
+    "openssl": "3.5.9",
+    "openssl_sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+    "comparison": "Two Windows comparisons passed both compilers on one common Go 1.26.10 minimum source; serial run retained all 12 samples. Actual raised minimum requires fresh full qualification.",
+    "release_notes": "RELEASE_1_2_0_NOTES.md",
+    "personal_configuration_included": false,
+    "required_before_publication": [
+      "all required PR checks",
+      "exact-source CodeQL",
+      "exact-tag full release roles",
+      "asset checksums and provenance",
+      "isolated packaged runtime validation"
+    ],
+    "container_publication": "Verify all three architectures from the exact published source/run after draft promotion."
   }
 }

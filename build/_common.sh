@@ -17,10 +17,11 @@ LIBTORRENT_REV=${LIBTORRENT_REV:-6da363d2994f17c0b3c0450d124cf73a31a73847}
 # Static OpenSSL per target: required by webtorrent=on (DTLS + wss:// trackers)
 # and gives libtorrent https tracker/web-seed support (crypto=openssl).
 # 3.5 is the LTS branch (EOL 2030-04).
-OPENSSL_VERSION=${OPENSSL_VERSION:-3.5.7}
+OPENSSL_VERSION=${OPENSSL_VERSION:-3.5.9}
+OPENSSL_SHA256=${OPENSSL_SHA256:-603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a}
 # First number must stay >= 132: the Android client gates its settings UI on the
 # leading digit run (>131 shows PreloadCache, hides the legacy PreloadBuffer).
-TS_VERSION=${TS_VERSION:-MatriX.145.Flow-dev}
+TS_VERSION=${TS_VERSION:-MatriX.148.Flow-dev}
 
 # --- paths -----------------------------------------------------------
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -11,6 +11,7 @@ Current user guides stay at the repository root. Historical plans and measuremen
 - [High bitrate streaming in Flow development builds](../HIGH_BITRATE_GUIDE.md)
 - [RuTracker search in Lampa](../LAMPA_RUTRACKER.md)
 - [Automatic magnet metadata recovery](../METADATA_RECOVERY.md)
+- [TorrServer-Flow 1.2.0](../RELEASE_1_2_0_NOTES.md)
 - [TorrServer-Flow 1.1.9](../RELEASE_1_1_9_NOTES.md)
 - [Flow 1.1.9 verification](../RELEASE_1_1_9_VERIFICATION.md)
 - [TorrServer-Flow 1.1.8](../RELEASE_1_1_8_NOTES.md)
@@ -23,6 +24,7 @@ Current user guides stay at the repository root. Historical plans and measuremen
 
 ## Development and field validation
 
+- [MatriX.148 evaluation and integration](development/UPSTREAM_MATRIX148_REVIEW.md)
 - [Adaptive reliability and access controls](development/ADAPTIVE_RELIABILITY.md)
 - [High bitrate streaming implementation](development/HIGH_BITRATE_IMPLEMENTATION.md)
 - [Automatic metadata recovery verification](development/METADATA_RECOVERY_VERIFICATION.md)

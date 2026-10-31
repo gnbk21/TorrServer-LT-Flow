@@ -19,7 +19,7 @@ balanced roadmap. Historical release evidence remains in `docs/history`.
 | Development | Local verification and toolchain/cache receipts | Implemented; Quick/Full entry point and verified native compiler/dependency/recipe receipts |
 | CI | Shared source-bound web artifact; independent Linux build/validation; retain all release gates | Implemented; source/trust-boundary tests, actual PR-run identity checked, workflow policy/actionlint checks |
 | Verification | Timer policies, byte fixtures/index placement/VBR, repeated matched measurements | Implemented; results and limitations below |
-| Toolchain | Separate Go 1.27.3 comparison; retain 1.26.10 until qualified | Evaluated on Windows; pin retained, no promotion |
+| Toolchain | Separate Go 1.27.3 comparison; retain 1.26.10 until qualified | Windows comparison passed; owner-requested 1.2.0 promotion now requires fresh full platform gates, as recorded below |
 
 Compatibility: preserve media bytes, Range behavior, torrent identity, saved
 settings and existing defaults. No automatic profile/origin changes, paid
@@ -148,7 +148,16 @@ The separate Go comparison passed builds and compatibility checks for 1.26.10
 and 1.27.3 and retained 12 benchmark observations across three alternating
 rotations. Measurements were mixed and variable. This was Windows qualification
 of that comparison snapshot, not eight-platform qualification or authorization
-to upgrade the runtime; `server/go.mod` stays at 1.26.10.
+to upgrade the runtime; that assessment snapshot retained Go 1.26.10.
+
+Release follow-up (2026-11-01): the owner requested Go 1.27 explicitly. Two
+additional Windows comparisons with updated dependencies and OpenSSL 3.5.9
+passed compatibility/build checks for both compilers on a fixed common-minimum
+source. The serial run retained all 12 observations without selecting its best
+result. Go 1.27.3 is now selected for 1.2.0 and must pass fresh full platform,
+native, security and exact-tag gates before publication. This changes the
+previous toolchain decision explicitly; it does not turn the Windows comparison
+into eight-platform or public-swarm acceptance. See `RELEASE_1_2_0_NOTES.md`.
 
 ## Reconciliation and operational decisions
 
@@ -168,3 +177,36 @@ to upgrade the runtime; `server/go.mod` stays at 1.26.10.
   fixture-admission adjustment with retained evidence, not a video-quality change.
   Phone/public-swarm and physical recovery acceptance remain explicitly separate;
   no new two-hour test was added.
+
+
+## Release qualification follow-up — 1 November 2026
+
+The owner requested a new stable release, Go 1.27, review of MatriX.148 and the
+148 version prefix. The candidate is `MatriX.148.Flow-v1.2.0`; earlier release
+identities and evidence remain unchanged. Both reviewed MatriX.148 fixes are
+adapted with before/after regressions; see [the review](UPSTREAM_MATRIX148_REVIEW.md).
+New helpers accept both 145/148, with Flow semantic ordering. Old installed
+145-only updater scripts need the new package/helper once.
+
+With Go 1.27.3 and OpenSSL 3.5.9, the local verification entry point passed
+native standard/GST builds, all 37 ordinary native package tests, vet, 118 Python
+checks, web lint/typechecking, 144 web tests (one separate contract export opt-in
+skip), embedding and receipt checks. The exported Go responses additionally
+passed all six frontend contracts. Updated web dependencies passed 121 browser
+scenarios and three production labs (LCP 840/784/788 ms, CLS zero, initial gzip
+JavaScript 194,086 bytes). These are controlled browser observations, not phone
+playback or field INP. After the two MatriX.148 fixes and prefix migration, the
+complete WAF, Torznab and version suites, 118 Python checks, offline mixed-prefix
+release selection and updater state checks passed again.
+
+The vulnerability scanner was rebuilt with Go 1.27.3 after its older Go 1.26
+binary correctly refused to process the raised language minimum. Standard and
+GST reachable-vulnerability scans then passed; a module-only GO-2026-5932 entry
+remains reported without a reachable call trace. The web audit has zero high or
+critical entries and two moderate minimatch-v3 entries whose upstream advisory
+identifies a v10.2.6-only algorithm. No finding was dismissed or audit suppressed.
+
+These local records are not final publication acceptance. Fresh PR platform/
+security/native checks, exact-source CodeQL and full tagged distribution/
+provenance validation remain required. The 1.2.0 feature/dependency upgrade does
+not use the essential-patch shortcut or add a two-hour test.

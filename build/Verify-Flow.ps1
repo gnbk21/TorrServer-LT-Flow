@@ -37,6 +37,7 @@ try {
     Invoke-FlowVerificationStep 'package-inventory' $flowPython @('-X','utf8','build/test_packages.py')
     Invoke-FlowVerificationStep 'harness-tests' $flowPython @('-X','utf8','-m','unittest','discover','-s','build','-p','*_test.py')
     Invoke-FlowVerificationStep 'web-lint' $flowNode @('node_modules/eslint/bin/eslint.js','src') $flowWeb
+    Invoke-FlowVerificationStep 'web-tooling-contract' $flowNode @('--test','scripts/linter-glob-compat.test.mjs') $flowWeb
     Invoke-FlowVerificationStep 'web-tests' $flowNode @('node_modules/vitest/vitest.mjs','run') $flowWeb
     Invoke-FlowVerificationStep 'web-typecheck' $flowNode @('node_modules/typescript/bin/tsc','--noEmit') $flowWeb
     Invoke-FlowVerificationStep 'web-build' $flowNode @('node_modules/vite/bin/vite.js','build') $flowWeb

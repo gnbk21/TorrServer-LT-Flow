@@ -2,15 +2,15 @@
 
 TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps the libtorrent engine, existing media cache and HTTP API, and adds a modern embedded web interface.
 
-> **Flow 1.1.9:** bounded optional preload waits, recovery of stalled partial blocks, overload-aware peer queues and clearer startup diagnostics. Includes the 1.1.7 security fixes. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.9), [notes](RELEASE_1_1_9_NOTES.md). Legacy remains the default; streaming experiments remain opt-in.
+> **Flow 1.2.0:** unified playback diagnosis, guided phone setup, clearer settings and storage views, steadier pressure recovery and optional private incident recording. Built with Go 1.27.3 and OpenSSL 3.5.9. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.148.Flow-v1.2.0), [notes](RELEASE_1_2_0_NOTES.md). Legacy remains the default; streaming experiments remain opt-in.
 
-Use **1.1.7 or newer** for the security protections described in
+Use the maintained **1.2.0 release or newer** for current dependency fixes and the security protections described in
 [our security policy](SECURITY.md). Historical plans, release measurements and
 upstream evaluations are organized in the [documentation index](docs/README.md).
 
 ## Run on Windows
 
-1. Open [Flow 1.1.9](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.9), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.9.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
+1. Open [Flow 1.2.0](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.148.Flow-v1.2.0), download **`TorrServer-Flow-windows-amd64-MatriX.148.Flow-v1.2.0.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
 2. In PowerShell, run the standard executable from the extracted folder, using a separate data directory for Flow:
 
    ```powershell
@@ -279,7 +279,7 @@ separate from Flow's playback address.
 
 ## Startup diagnostics
 
-The current development upgrade adds a unified playback journey and read-only
+Flow 1.2.0 adds a unified playback journey and read-only
 adviser, guided phone connection proof, server-owned settings metadata and cache
 preview, steadier memory-pressure recovery, selected-file media/reuse information
 and read-only runtime storage inventory. Optional private incident tracing is

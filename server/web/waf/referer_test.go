@@ -47,6 +47,44 @@ func TestIsBlockedReferer(t *testing.T) {
 	}
 }
 
+// MatriX.148 #946: rules and headers must identify the address, not its spelling.
+func TestRefererRulesAndHeadersShareIPNormalization(t *testing.T) {
+	for _, tc := range []struct {
+		name, rules string
+		headers     []string
+		canonical   string
+	}{
+		{"IPv6", "2001:0db8::0001\n2001:db8:0:0:0:0:0:1\n", []string{
+			"http://[2001:db8::1]/", "https://[2001:DB8:0:0:0:0:0:1]:8090/",
+		}, "2001:db8::1"},
+		{"mapped IPv4", "192.0.2.1\n::ffff:c000:201\n", []string{
+			"http://192.0.2.1/", "http://[::ffff:192.0.2.1]:8090/",
+		}, "192.0.2.1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			blocked := scanRefererBuf([]byte(tc.rules))
+			deduplicated := mergeReferers(nil, blocked)
+			if len(deduplicated) != 1 || deduplicated[0] != tc.canonical {
+				t.Fatalf("equivalent rules were not canonicalized/deduplicated: %q", deduplicated)
+			}
+			for _, header := range tc.headers {
+				for _, origin := range []bool{false, true} {
+					referer, originHeader := header, ""
+					if origin {
+						referer, originHeader = "", header
+					}
+					if host, ok := isBlockedReferer(referer, originHeader, deduplicated); !ok || host != tc.canonical {
+						t.Errorf("referer=%q origin=%q: host=%q blocked=%v", referer, originHeader, host, ok)
+					}
+				}
+			}
+			if _, ok := isBlockedReferer("http://[2001:db8::2]/", "http://192.0.2.2/", deduplicated); ok {
+				t.Fatal("another address was blocked")
+			}
+		})
+	}
+}
+
 func TestBlockedReferersFromConfig(t *testing.T) {
 	got := blockedReferersFromConfig([]byte("example.com\nbylampa.online\n"))
 	want := append(append([]string(nil), defaultBlockedReferers...), "example.com")
