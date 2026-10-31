@@ -44,7 +44,7 @@ Local evidence is retained under `_out/verification` and `.tools/upstream1472`:
   harness tests, embedding tests, native Windows build, all 37 ordinary native
   package test directories and vet. The separately exported actual Go contracts
   passed all six frontend contract checks.
-- Python harness/policy tests: 113 passed. Package inventory: all 38 test
+- Python harness/policy tests: 114 passed. Package inventory: all 38 test
   directories, including the separate GStreamer suite. All six changed workflow
   files passed actionlint; policy tests retain native/security/platform/package/
   provenance gates.
@@ -77,6 +77,15 @@ Warm-cache residency varied, so ordinary seek timings cannot establish a general
 speed improvement. A cheap admission check was restored before memory sampling
 on native rate updates, with a regression test proving suppressed updates do not
 invoke the memory sampler.
+
+The first final-source CI run also exposed a test-only one-second history-file
+drain assumption on a cold Windows runner (`TestHistoryNestedEnumsCannotRetainSecrets`).
+Functional filesystem tests now allow a bounded five-second drain and check
+previously ignored close results. Explicit blocked-writer deadlines and all
+privacy/retention assertions remain intact. Portable compiler concurrency is
+bounded to two packages. Production flush/shutdown deadlines are unchanged.
+The source-bound web handoff manifest is ignored by Git so its presence cannot
+mark an otherwise clean native build as modified; a policy test enforces this.
 
 A 90 Mbps straggler comparison completed one pair but then failed its fixture
 supply check (177.38 then 104.40 Mbps, below the required 1.3× margin). That
