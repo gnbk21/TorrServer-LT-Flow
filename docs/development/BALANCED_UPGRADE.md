@@ -48,14 +48,13 @@ Local evidence is retained under `_out/verification` and `.tools/upstream1472`:
   directories, including the separate GStreamer suite. All six changed workflow
   files passed actionlint; policy tests retain native/security/platform/package/
   provenance gates.
-- Browser suite: 120 scenarios passed across seven locales, mobile/landscape/
+- Browser suite: 121 scenarios passed across seven locales, mobile/landscape/
   desktop layouts, enlarged text, keyboard focus, long filenames, setup, settings,
   storage and lazy metadata reads, expired-proof renewal and localized metadata
-  recovery. A further targeted mobile check reproduced and verified long-default
-  wrapping and unknown initial pressure evidence.
+  recovery, long-default wrapping and unknown initial pressure evidence.
 - Production interface lab: three repeated runs passed the existing budgets
   after deferring unopened dialog code. Initial compressed JavaScript fell from
-  206,552 bytes (over budget) to 194,059 bytes. LCP was 788/788/764 ms and CLS zero
+  206,552 bytes (over budget) to 194,057 bytes. LCP was 784/764/764 ms and CLS zero
   under the lab's 4× CPU slowdown and controlled network. These are browser-lab
   results, not physical-phone INP or playback measurements.
 - Media fixtures: fast, slow-peer and disconnect cases passed 90 Range operations,
@@ -102,6 +101,16 @@ large-piece precondition with the smaller VBR source. Its remux now targets
 CodeQL also identified the inventory's direct pathname lookup. Inventory now
 reuses `cachefs` directory capabilities for a pinned-root walk, with tests for
 escaping links and replacement of the selected pathname; no alert is dismissed.
+Directory enumeration itself uses batches of at most 128 entries, a shared
+10,000-entry budget, a depth bound and cancellation checks between batches.
+This avoids the standard walker's unbounded initial directory read. The native
+Windows OS prevents the root-rename fixture operation, which is explicitly
+skipped there and exercised by the Linux suite.
+Final executable route integration also verified authenticated creation/status/
+metadata/storage, proof-token authority isolation, origin rejection, disabled
+recorder defaults and preservation of the isolated settings file. All three
+large-piece startup cases passed locally: ordering, bounded progress extension
+(197 seconds at a deliberately limited 320 KiB/s) and missing-index cancellation.
 
 A 90 Mbps straggler comparison completed one pair but then failed its fixture
 supply check (177.38 then 104.40 Mbps, below the required 1.3× margin). That

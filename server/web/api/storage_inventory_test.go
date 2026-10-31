@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -76,5 +77,29 @@ func TestStorageInventoryPrunesUnrelatedTrees(t *testing.T) {
 	out := storageSize(context.Background(), root, func(string) bool { return true }, func(p string) bool { return p == "flow-incidents" })
 	if out.Files != 1 || out.Bytes != 3 || out.Truncated {
 		t.Fatal(out)
+	}
+}
+
+func TestStorageInventoryStopsAtEntryBudgetAndDuringCancellation(t *testing.T) {
+	root := t.TempDir()
+	for i := 0; i < 10001; i++ {
+		if err := os.WriteFile(filepath.Join(root, fmt.Sprintf("%05d", i)), []byte("x"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	out := storageSize(context.Background(), root, func(string) bool { return true })
+	if !out.Truncated || out.Files != 10000 || out.Bytes != 10000 {
+		t.Fatal("entry budget was not enforced", out)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	calls := 0
+	out = storageSize(ctx, root, func(string) bool {
+		calls++
+		cancel()
+		return true
+	})
+	if !out.Truncated || calls != 1 || out.Files != 1 {
+		t.Fatal("cancelled scan kept processing directory entries", out, calls)
 	}
 }

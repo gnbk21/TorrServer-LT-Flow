@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 	"github.com/gin-gonic/gin"
-	"io/fs"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -42,42 +42,71 @@ func storageSize(ctx context.Context, root string, accept func(string) bool, des
 	}
 	defer directory.Close()
 	visited := 0
-	_ = fs.WalkDir(directory.FS(), ".", func(path string, entry fs.DirEntry, err error) error {
-		visited++
-		if ctx.Err() != nil || visited > 10000 {
+	var walk func(string, int)
+	walk = func(relative string, depth int) {
+		if ctx.Err() != nil || visited >= 10000 || depth >= 64 {
 			out.Truncated = true
-			return fs.SkipAll
+			return
 		}
+		// OpenRoot pins a directory, rejecting replacement FIFOs before we
+		// open its contents. Replacement links cannot escape the selected root.
+		subdir, err := directory.OpenRoot(relative)
 		if err != nil {
 			out.Truncated = true
-			return nil
+			return
 		}
-		if entry.Type()&os.ModeSymlink != 0 {
+		defer subdir.Close()
+		reader, err := subdir.Open(".")
+		if err != nil {
 			out.Truncated = true
-			return nil
+			return
 		}
-		if entry.IsDir() {
-			if path != "." && len(descend) > 0 {
-				if !descend[0](filepath.FromSlash(path)) {
-					return fs.SkipDir
+		defer reader.Close()
+		for {
+			if ctx.Err() != nil || visited >= 10000 {
+				out.Truncated = true
+				return
+			}
+			// WalkDir/ReadDir(-1) would inventory an entire large directory
+			// before its callback sees the deadline or entry budget.
+			entries, readErr := reader.ReadDir(min(128, 10001-visited))
+			for _, entry := range entries {
+				if ctx.Err() != nil || visited >= 10000 {
+					out.Truncated = true
+					return
+				}
+				visited++
+				path := filepath.Join(relative, entry.Name())
+				if entry.Type()&os.ModeSymlink != 0 {
+					out.Truncated = true
+					continue
+				}
+				if entry.IsDir() {
+					if len(descend) == 0 || descend[0](path) {
+						walk(path, depth+1)
+					}
+					continue
+				}
+				if !accept(path) {
+					continue
+				}
+				info, err := entry.Info()
+				if err != nil {
+					out.Truncated = true
+				} else if info.Mode().IsRegular() {
+					out.Files++
+					out.Bytes += info.Size()
 				}
 			}
-			return nil
+			if readErr != nil {
+				if readErr != io.EOF {
+					out.Truncated = true
+				}
+				return
+			}
 		}
-		if !accept(filepath.FromSlash(path)) {
-			return nil
-		}
-		info, err := entry.Info()
-		if err != nil {
-			out.Truncated = true
-			return nil
-		}
-		if info.Mode().IsRegular() {
-			out.Files++
-			out.Bytes += info.Size()
-		}
-		return nil
-	})
+	}
+	walk(".", 0)
 	return out
 }
 func runtimeStorage(c *gin.Context) {
