@@ -96,13 +96,10 @@ func ValidateSettings(s *BTSets) error {
 	if err := validateDiskCachePath(s.UseDisk, s.TorrentsSavePath); err != nil {
 		return err
 	}
-	if s.CacheSize < 0 || s.CacheSize > 16<<30 || s.PeersListenPort < 0 || s.PeersListenPort > 65535 || s.ConnectionsLimit < 0 || s.ConnectionsLimit > 10000 || s.DownloadRateLimit < 0 || s.UploadRateLimit < 0 {
-		return errors.New("settings exceed supported bounds")
+	if err := validateRegisteredSettings(s); err != nil {
+		return err
 	}
 	if f := s.Flow; f != nil {
-		if f.GlobalCacheBudgetMB < 0 || f.GlobalCacheBudgetMB > 1048576 || f.WarmCacheBudgetMB < 0 || f.WarmCacheBudgetMB > 65536 || f.PreparationConcurrency < 0 || f.PreparationConcurrency > 16 || f.ManagementRateLimit < 0 || f.ManagementRateLimit > 60000 || (f.PlaybackTokenTTL != 0 && (f.PlaybackTokenTTL < 30 || f.PlaybackTokenTTL > 86400)) {
-			return errors.New("Flow resource or access settings exceed supported bounds")
-		}
 		if f.SchemaVersion != 0 && f.SchemaVersion != 1 {
 			return errors.New("unsupported Flow settings schema")
 		}
@@ -191,6 +188,7 @@ func NeedsEngineRestart(old, next *BTSets) bool {
 	b.ShowFSActiveTorr = a.ShowFSActiveTorr
 	b.SslCert, b.SslKey = a.SslCert, a.SslKey
 	if a.Flow != nil && b.Flow != nil {
+		b.Flow.IncidentFlightRecorder = a.Flow.IncidentFlightRecorder
 		b.Flow.AdaptiveUrgentHorizon = a.Flow.AdaptiveUrgentHorizon
 		b.Flow.ContainerBurstHints = a.Flow.ContainerBurstHints
 		av, bv := reflect.ValueOf(a.Flow).Elem(), reflect.ValueOf(b.Flow).Elem()

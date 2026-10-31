@@ -7,10 +7,12 @@ import (
 	"server/lt"
 	sets "server/settings"
 	"server/torr"
+	"server/torr/storage/torrstor"
 	"time"
 )
 
 type FlowStatusResponse struct {
+	Reuse             *torrstor.ReuseStatus        `json:"reuse,omitempty"`
 	Hash              string                       `json:"hash"`
 	Integrity         *flow.IntegritySnapshot      `json:"integrity,omitempty"`
 	Startup           torr.FlowStartupStatus       `json:"startup"`
@@ -37,7 +39,8 @@ func flowStatus(c *gin.Context) {
 	timeline := t.FlowTimeline()
 	warmup := t.NextEpisodeWarmupStatus()
 	integrity := t.FlowIntegrity()
-	c.JSON(http.StatusOK, FlowStatusResponse{Hash: c.Param("hash"), Integrity: &integrity, Startup: t.FlowStartup(), Sessions: t.FlowStatusWithTraces(c.Query("traces") != "false"), Trackers: t.FlowTrackers(), Network: torr.NetworkStatusSnapshot(), Sparse: t.SparseStatus(), StorageIO: lt.StorageIOStats(), Timeline: &timeline, SampledAt: time.Now().UTC().Format(time.RFC3339Nano), NextEpisodeWarmup: &warmup})
+	reuse := torrstor.Global().CacheByHash(t.StorageHash()).ReuseStatus()
+	c.JSON(http.StatusOK, FlowStatusResponse{Reuse: &reuse, Hash: c.Param("hash"), Integrity: &integrity, Startup: t.FlowStartup(), Sessions: t.FlowStatusWithTraces(c.Query("traces") != "false"), Trackers: t.FlowTrackers(), Network: torr.NetworkStatusSnapshot(), Sparse: t.SparseStatus(), StorageIO: lt.StorageIOStats(), Timeline: &timeline, SampledAt: time.Now().UTC().Format(time.RFC3339Nano), NextEpisodeWarmup: &warmup})
 }
 
 func nextEpisodeWarmup(c *gin.Context) {

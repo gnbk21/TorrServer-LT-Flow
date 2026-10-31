@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"server/diagnostics"
 	"server/log"
 	"server/lt"
 	"server/settings"
@@ -576,6 +577,9 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 	})
 	if settings.CurrentFlow().MetricsEnabled && r.group != ProbeReaderGroup {
 		r.cache.flowCounters.Wait(time.Since(waitStarted))
+	}
+	if r.group != ProbeReaderGroup && parent.Err() == nil && time.Since(waitStarted) >= 500*time.Millisecond {
+		diagnostics.Incidents.Capture("SERVER_READ_STALL")
 	}
 	if !ready {
 		if parent.Err() != nil {

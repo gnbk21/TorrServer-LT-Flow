@@ -68,38 +68,43 @@ const hashGraceSec = 30
 type Cache struct {
 	// Recent eviction markers distinguish missing native blocks from a new
 	// download. They contain no media data and are bounded to 2048 entries.
-	evicted           map[int]bool // guarded by mu
-	storage           *Storage
-	flowCounters      flow.Counters
-	storageEvidence   flow.StorageObservations
-	reuseVerified     map[int]bool // guarded by mu; only these pieces wait for native hashes
-	reuseClosed       atomic.Bool
-	flowMu            sync.Mutex
-	verifiedReads     atomic.Bool
-	flowScarce        map[int]bool // at most 256 bounded diagnostic entries
-	flowScarceAt      time.Time
-	flowQueueMs       int64
-	flowSuppliers     map[int]int
-	flowGroups        map[string]*flowGroup
-	flowPaused        bool // guarded by flowMu; intentional suspension is not supply loss
-	flowDownload      float64
-	flowRates         flow.RateWindow
-	flowLastRefresh   time.Time
-	flowAhead         atomic.Int64 // zero retains the upstream window
-	flowUrgentActive  atomic.Bool
-	flowWaiting       atomic.Int64 // actual external reads blocked on missing bytes
-	flowReconnect     atomic.Bool
-	flowBufferFull    atomic.Bool // sampled from contiguous active windows
-	indexMu           sync.Mutex
-	indexes           map[int]cachedBurstIndex
-	indexBusy         bool
-	indexClosed       bool
-	indexWorkers      sync.WaitGroup
-	resourceBudget    atomic.Int64 // zero means not yet coordinated
-	backgroundLimited atomic.Bool
-	warmupRiskUntil   atomic.Int64 // short-lived watcher lease; no diagnostic poll drives scheduling
-	nextMu            sync.Mutex
-	nextWarmup        nextEpisodeWarmup
+	evicted            map[int]bool // guarded by mu
+	storage            *Storage
+	flowCounters       flow.Counters
+	storageEvidence    flow.StorageObservations
+	reuseVerified      map[int]bool // guarded by mu; only these pieces wait for native hashes
+	reuseClosed        atomic.Bool
+	reuseEligibility   string // guarded by storage.reuseMu
+	reuseCandidates    atomic.Uint64
+	reuseAccepted      atomic.Uint64
+	reuseRejected      atomic.Uint64
+	reuseVerifiedBytes atomic.Uint64
+	flowMu             sync.Mutex
+	verifiedReads      atomic.Bool
+	flowScarce         map[int]bool // at most 256 bounded diagnostic entries
+	flowScarceAt       time.Time
+	flowQueueMs        int64
+	flowSuppliers      map[int]int
+	flowGroups         map[string]*flowGroup
+	flowPaused         bool // guarded by flowMu; intentional suspension is not supply loss
+	flowDownload       float64
+	flowRates          flow.RateWindow
+	flowLastRefresh    time.Time
+	flowAhead          atomic.Int64 // zero retains the upstream window
+	flowUrgentActive   atomic.Bool
+	flowWaiting        atomic.Int64 // actual external reads blocked on missing bytes
+	flowReconnect      atomic.Bool
+	flowBufferFull     atomic.Bool // sampled from contiguous active windows
+	indexMu            sync.Mutex
+	indexes            map[int]cachedBurstIndex
+	indexBusy          bool
+	indexClosed        bool
+	indexWorkers       sync.WaitGroup
+	resourceBudget     atomic.Int64 // zero means not yet coordinated
+	backgroundLimited  atomic.Bool
+	warmupRiskUntil    atomic.Int64 // short-lived watcher lease; no diagnostic poll drives scheduling
+	nextMu             sync.Mutex
+	nextWarmup         nextEpisodeWarmup
 
 	StorageID   int64
 	InfoHash    flow.InfoHash
@@ -405,6 +410,9 @@ func (c *Cache) SignalPieceComplete(piece int) {
 		}
 		if p.Complete() {
 			c.mu.Lock()
+			if c.reuseVerified[piece] {
+				c.reuseVerifiedBytes.Add(uint64(p.expectedSize()))
+			}
 			delete(c.reuseVerified, piece)
 			c.mu.Unlock()
 		}

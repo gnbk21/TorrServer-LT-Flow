@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"server/diagnostics"
 	"server/flow"
 	"server/netpolicy"
 	sets "server/settings"
@@ -20,6 +21,9 @@ var managementLimiter flow.ManagementLimiter
 var playbackSigner, playbackSignerError = flow.NewCapabilitySigner()
 
 func managementPath(path string) bool {
+	if strings.HasPrefix(path, "/flow/pairing/proof/") {
+		return false
+	}
 	return path != "/echo" && !strings.HasPrefix(path, "/stream") && !strings.HasPrefix(path, "/play/") && !strings.HasPrefix(path, "/flow/play/") && path != "/playlist" && !strings.HasPrefix(path, "/playlist/") && !strings.HasPrefix(path, "/assets/") && path != "/" && path != "/favicon.ico"
 }
 
@@ -48,6 +52,7 @@ func ManagementPolicy() gin.HandlerFunc {
 		}
 		origin := c.GetHeader("Origin")
 		if (origin != "" || c.GetHeader("Sec-Fetch-Site") != "") && !browserManagementHost(c.Request.Host, f.ManagementOrigins) {
+			diagnostics.Pairing.RecordAccess(c.Request, "MANAGEMENT_HOST_DENIED")
 			c.AbortWithStatusJSON(403, gin.H{"error": "browser management hostname requires an explicit allowed origin", "code": "MANAGEMENT_HOST_DENIED"})
 			return
 		}
@@ -65,10 +70,12 @@ func ManagementPolicy() gin.HandlerFunc {
 				}
 			}
 			if !allowed {
+				diagnostics.Pairing.RecordAccess(c.Request, "MANAGEMENT_ORIGIN_DENIED")
 				c.AbortWithStatusJSON(403, gin.H{"error": "management origin is not allowed", "code": "MANAGEMENT_ORIGIN_DENIED"})
 				return
 			}
 		} else if site := c.GetHeader("Sec-Fetch-Site"); site == "cross-site" || site == "same-site" {
+			diagnostics.Pairing.RecordAccess(c.Request, "MANAGEMENT_ORIGIN_DENIED")
 			// Navigations such as an image/link to GET /shutdown can omit Origin.
 			c.AbortWithStatusJSON(403, gin.H{"error": "cross-origin management request requires an allowed Origin", "code": "MANAGEMENT_ORIGIN_DENIED"})
 			return

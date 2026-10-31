@@ -11,8 +11,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
+	"server/diagnostics"
 	sets "server/settings"
 	"server/torr"
+	"server/torr/storage/torrstor"
 )
 
 // Action: get, set, def
@@ -21,6 +23,11 @@ type setsReqJS struct {
 	Sets     *sets.BTSets `json:"sets,omitempty"`
 	Revision string       `json:"revision,omitempty"`
 	When     string       `json:"when,omitempty"`
+}
+
+func settingsMetadata(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	c.JSON(http.StatusOK, sets.SettingsMetadata())
 }
 
 // settings godoc
@@ -56,7 +63,8 @@ func settings(c *gin.Context) {
 			abortWithJSONError(c, 400, err)
 			return
 		}
-		c.JSON(200, gin.H{"restart_required": sets.NeedsEngineRestart(sets.BTsets(), sets.NormalizeConfiguration(req.Sets)), "active_work": torr.FlowHasActiveWork()})
+		normalized := sets.NormalizeConfiguration(req.Sets)
+		c.JSON(200, gin.H{"restart_required": sets.NeedsEngineRestart(sets.BTsets(), normalized), "active_work": torr.FlowHasActiveWork(), "cache_preview": torrstor.BudgetPlan(normalized.Flow, diagnostics.Memory())})
 		return
 	} else if req.Action == "cancel_pending" {
 		if err := torr.CancelPendingConfiguration(req.Revision); err != nil {

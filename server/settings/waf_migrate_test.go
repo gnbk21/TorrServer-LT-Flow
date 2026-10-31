@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -143,12 +144,13 @@ func TestMigrateWAFListsWriteFailureKeepsFiles(t *testing.T) {
 	if err := os.WriteFile(wip, []byte("127.0.0.1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chmod(Path, 0o555); err != nil {
-		t.Fatal(err)
+	// chmod cannot make a directory unwritable on Windows (or for root).
+	// Inject the actual persistence failure without changing host permissions.
+	writes := 0
+	migrateWAFLists(func(WAFConfig) error { writes++; return errors.New("controlled persistence failure") })
+	if writes != 1 {
+		t.Fatal("migration never attempted persistence")
 	}
-	t.Cleanup(func() { _ = os.Chmod(Path, 0o755) })
-
-	MigrateWAFLists()
 
 	if !fileExists(wip) {
 		t.Fatal("source file must not be renamed when write fails")
