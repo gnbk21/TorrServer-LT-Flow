@@ -44,7 +44,7 @@ Local evidence is retained under `_out/verification` and `.tools/upstream1472`:
   harness tests, embedding tests, native Windows build, all 37 ordinary native
   package test directories and vet. The separately exported actual Go contracts
   passed all six frontend contract checks.
-- Python harness/policy tests: 114 passed. Package inventory: all 38 test
+- Python harness/policy tests: 115 passed. Package inventory: all 38 test
   directories, including the separate GStreamer suite. All six changed workflow
   files passed actionlint; policy tests retain native/security/platform/package/
   provenance gates.
@@ -116,6 +116,15 @@ ceiling for 32-bit Go `int` fields. Advertised maxima now respect the wire field
 width while retaining existing 64-bit limits. Its pure calculation was tested
 in an actual 32-bit Windows process and added to both portable CI hosts; the full
 32-bit native settings suite still requires that target's libtorrent toolchain.
+Commit `207ca375` completed 55 successful checks, including CodeQL. Its only
+failed job was Windows stragglers: four pre-process allocation failures consumed
+128 consecutive TCP-selected ports (53542–53669) rejected by UDP with 10013.
+All eight trials that started passed. That failed artifact remains retained.
+The allocator now keeps its first OS-selected port, then spreads unique candidates
+across unprivileged ports rather than walking a contiguous exclusion. Both real
+binds still decide admission, all sockets close, the retry bound stays 32, and no
+server-start or playback assertion is retried. A deterministic exclusion-range
+regression reproduced the old exhaustion before the fix.
 
 A 90 Mbps straggler comparison completed one pair but then failed its fixture
 supply check (177.38 then 104.40 Mbps, below the required 1.3× margin). That

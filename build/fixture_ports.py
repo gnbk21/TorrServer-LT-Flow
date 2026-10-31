@@ -4,6 +4,7 @@ This is a preflight, not a reservation handed to libtorrent. The final bind can
 still fail and must remain a server-start assertion, never a playback retry.
 """
 import errno
+import random
 import socket
 
 
@@ -17,20 +18,25 @@ def joint_loopback_port(*, attempts=32, socket_factory=socket.socket, evidence=N
     if not 1 <= attempts <= 128:
         raise ValueError('attempts must be between 1 and 128')
     failures = []
-    for attempt in range(attempts):
+    # Windows can hand out sequential TCP ephemeral ports inside a large UDP
+    # exclusion. Repeated bind(0) then makes no useful progress. Keep the initial
+    # OS-selected port, then spread distinct candidates across unprivileged ports;
+    # the real TCP and UDP binds remain the only admission authority.
+    candidates = [0, *random.SystemRandom().sample(range(1024, 65536), attempts-1)]
+    for attempt, candidate in enumerate(candidates):
         tcp = udp = None
         port = None
         try:
             tcp = socket_factory(socket.AF_INET, socket.SOCK_STREAM)
             udp = socket_factory(socket.AF_INET, socket.SOCK_DGRAM)
-            tcp.bind(('127.0.0.1', 0))
+            tcp.bind(('127.0.0.1', candidate))
             port = tcp.getsockname()[1]
             udp.bind(('127.0.0.1', port))
             if evidence is not None:
                 evidence.update(attempts=attempt+1, admission_failures=failures, port=port)
             return port
         except OSError as error:
-            failure = {'attempt': attempt+1, 'port': port, 'errno': error.errno,
+            failure = {'attempt': attempt+1, 'candidate_port': candidate, 'port': port, 'errno': error.errno,
                        'winerror': getattr(error, 'winerror', None)}
             failures.append(failure)
             if evidence is not None:
