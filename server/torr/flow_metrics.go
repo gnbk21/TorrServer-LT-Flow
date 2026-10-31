@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"server/diagnostics"
 	"server/flow"
 	"server/log"
 	"server/settings"
@@ -163,6 +164,9 @@ func (t *Torrent) startupStage(stage string) {
 	loaded := t.PreloadedBytes
 	t.mu.Unlock()
 	t.historyEvent(flow.HistoryEvent{Type: "startup", Stage: stage, File: file, OperationMeasured: true, ElapsedMs: elapsed, Bytes: loaded})
+	if stage == "FAILED" || stage == "TIMEOUT" {
+		diagnostics.Incidents.Capture("STARTUP_FAILURE")
+	}
 }
 
 type FlowSessionStatus struct {

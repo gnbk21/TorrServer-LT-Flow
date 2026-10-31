@@ -10,6 +10,7 @@ import { useExternalMediaBase } from "../../hooks/mediaBase";
 import { useVisible } from "../../hooks/queries";
 import { certificatesApi } from "../../api/certificates";
 import { RequestError } from "../common/RequestState";
+import { GuidedPhoneSetup } from "./GuidedPhoneSetup";
 export interface PhonePairingModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -121,6 +122,7 @@ export function PhonePairingModal({
           />
         </label>
         {!safe && <p role="status">{t("pairing.invalidAddress")}</p>}
+        <GuidedPhoneSetup base={safe} visible={isOpen && visible} />
         {safe && (
           <>
             <div className="panel space-y-2 text-sm">

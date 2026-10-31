@@ -23,7 +23,7 @@ var backupMu sync.Mutex
 func portableBackup(c *gin.Context) {
 	backup, err := sets.ExportBackup()
 	if err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": errorMessage(err)})
+		abortWithErrorCode(c, http.StatusServiceUnavailable, "MAINTENANCE_BUSY", err)
 		return
 	}
 	data, err := json.MarshalIndent(backup, "", "  ")
@@ -141,7 +141,7 @@ func backupApply(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "restore and recovery failed; use the local pre-apply backup", "recovery_backup": name})
 			return
 		}
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "restore failed; previous settings and library were restored", "recovery_backup": name})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "restore failed; previous settings and library were restored", "code": "RESTORE_FAILED", "recovery_backup": name})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"restored": true, "library_count": len(backup.Library), "recovery_backup": name})

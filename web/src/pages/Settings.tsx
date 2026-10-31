@@ -1,4 +1,6 @@
 import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { getSettingsMetadata } from "../api/settingsMetadata";
 import { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import type { BTSettings } from "../types/settings";
 import { useForm, type RegisterOptions } from "react-hook-form";
@@ -98,6 +100,7 @@ const groups: Record<string, string[]> = {
     "Flow.MSXAllowLAN",
   ],
   advanced: [
+    "Flow.IncidentFlightRecorder",
     "Flow.StreamTransportBufferKiB",
     "PadTailPartial",
     "EnableDebug",
@@ -111,11 +114,22 @@ export default function Settings() {
   const query = useSettings();
   const runtime = useRuntime();
   const configuration = useConfiguration();
+  const metadata = useQuery({
+    queryKey: ["settings-metadata-v1"],
+    queryFn: ({ signal }) => getSettingsMetadata(signal),
+    retry: false,
+    staleTime: 300000,
+  });
   const [draftRevision, setDraftRevision] = useState("");
   const [draftBase, setDraftBase] = useState<BTSettings>();
   const [plan, setPlan] = useState<{
     restart_required: boolean;
     active_work: boolean;
+    cache_preview?: {
+      budget_bytes: number;
+      warm_budget_bytes: number;
+      memory_pressure: boolean;
+    };
   }>();
   const { setDirty } = useDirty();
   const [searchParams] = useSearchParams();
@@ -222,7 +236,7 @@ export default function Settings() {
   const submit = async (raw: Record<string, SettingsValue>) => {
     if (conflict || integrationDirty || certificateDirty) return;
     const data = decode(raw);
-    const errors = validateSettings(data);
+    const errors = validateSettings(data, metadata.data ?? undefined);
     if (Object.keys(errors).length) {
       for (const [name, message] of Object.entries(errors))
         fieldError(name, { message: t(message, { defaultValue: message }) });
@@ -346,6 +360,9 @@ export default function Settings() {
   const groupKeys = Object.keys(values).filter(
     (key) =>
       key !== "Flow.SchemaVersion" &&
+      key !== "Flow.SecurityProfile" &&
+      !metadata.data?.fields[key]?.deprecated &&
+      !metadata.data?.fields[key]?.read_only &&
       (search.trim()
         ? `${labelFor(key)} ${hintFor(key)}`
             .toLocaleLowerCase()
@@ -377,6 +394,14 @@ export default function Settings() {
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-semibold">{t("nav.settings")}</h1>
+      {metadata.error && (
+        <RequestError error={metadata.error} retry={() => metadata.refetch()} />
+      )}
+      {metadata.data === null && (
+        <p className="text-sm text-slate-400">
+          {t("settings.metadata.fallback")}
+        </p>
+      )}
       <label className="field max-w-xl">
         {t("settings.search")}
         <input
@@ -418,6 +443,9 @@ export default function Settings() {
                 ).toFixed(0)
               : "—",
           })}
+        </p>
+        <p className="text-sm text-slate-400">
+          {t("settings.metadata.interactions")}
         </p>
         {configuration.data && (
           <details className="text-xs break-all">
@@ -585,7 +613,13 @@ export default function Settings() {
           {keys.map((key) => {
             const value = values[key];
             const label = labelFor(key);
-            const bounds = flowBounds[key.replace("Flow.", "")];
+            const rule = metadata.data?.fields[key];
+            const bounds =
+              rule?.min !== undefined && rule.max !== undefined
+                ? [rule.min, rule.max]
+                : flowBounds[key.replace("Flow.", "")];
+            const unit =
+              key === "CacheSize" ? "MiB" : (rule?.unit ?? settingsUnit(key));
             return (
               <div
                 className={`field panel ${key === "DefaultTrackers" || key === "TorznabUrls" ? "md:col-span-2" : ""}`}
@@ -597,11 +631,30 @@ export default function Settings() {
                     {t("settings.changed")}
                   </span>
                 )}
-                {typeof value === "number" && settingsUnit(key) && (
+                {typeof value === "number" && unit && (
                   <span className="text-xs text-slate-400">
                     {key === "Flow.ManagementRateLimit"
                       ? t("settings.requestsPerMinute")
-                      : settingsUnit(key)}
+                      : unit}
+                  </span>
+                )}
+                {rule && (
+                  <span className="text-xs text-slate-400 [overflow-wrap:anywhere]">
+                    {t(
+                      rule.restart_required
+                        ? "settings.metadata.restart"
+                        : "settings.metadata.live",
+                    )}
+                    {rule.experimental
+                      ? ` · ${t("settings.metadata.experimental")}`
+                      : ""}
+                    {" · "}
+                    {t("settings.metadata.default", {
+                      value:
+                        key === "CacheSize"
+                          ? `${Number(rule.default) / 1048576} MiB`
+                          : String(rule.default),
+                    })}
                   </span>
                 )}
                 {!!search.trim() && (
@@ -647,8 +700,12 @@ export default function Settings() {
                   <input
                     id={field(key)}
                     type="number"
-                    min={1}
-                    max={16384}
+                    min={
+                      rule?.min !== undefined
+                        ? Math.max(1, Math.ceil(rule.min / 1048576))
+                        : 1
+                    }
+                    max={rule?.max !== undefined ? rule.max / 1048576 : 16384}
                     step={1}
                     value={Number(value) / 1048576}
                     onChange={(e) =>
@@ -662,7 +719,11 @@ export default function Settings() {
                     id={field(key)}
                     {...register(key, { valueAsNumber: true })}
                   >
-                    {[0, 64, 256, 1024].map((size) => (
+                    {(
+                      rule?.choices?.filter(
+                        (v): v is number => typeof v === "number",
+                      ) ?? [0, 64, 256, 1024]
+                    ).map((size) => (
                       <option key={size} value={size}>
                         {size === 0
                           ? t("settings.transportDirect")
@@ -675,14 +736,18 @@ export default function Settings() {
                 ) : key === "Flow.SwarmProfile" ? (
                   <>
                     <select id={field(key)} {...register(key)}>
-                      {[
-                        "legacy",
-                        "adaptive",
-                        "conservative",
-                        "balanced",
-                        "aggressive",
-                        "custom",
-                      ].map((profile) => (
+                      {(
+                        rule?.choices?.filter(
+                          (v): v is string => typeof v === "string",
+                        ) ?? [
+                          "legacy",
+                          "adaptive",
+                          "conservative",
+                          "balanced",
+                          "aggressive",
+                          "custom",
+                        ]
+                      ).map((profile) => (
                         <option key={profile} value={profile}>
                           {t(`settings.profiles.${profile}`)}
                         </option>
@@ -817,6 +882,16 @@ export default function Settings() {
         </p>
         {confirm === "save" && (
           <div className="space-y-2">
+            {plan?.cache_preview && (
+              <p>
+                {t("settings.metadata.cachePreview", {
+                  budget: Math.round(plan.cache_preview.budget_bytes / 1048576),
+                  warm: Math.round(
+                    plan.cache_preview.warm_budget_bytes / 1048576,
+                  ),
+                })}
+              </p>
+            )}
             <p>
               {t(
                 plan?.restart_required

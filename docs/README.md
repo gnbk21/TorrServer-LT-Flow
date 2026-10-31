@@ -11,6 +11,7 @@ Current user guides stay at the repository root. Historical plans and measuremen
 - [High bitrate streaming in Flow development builds](../HIGH_BITRATE_GUIDE.md)
 - [RuTracker search in Lampa](../LAMPA_RUTRACKER.md)
 - [Automatic magnet metadata recovery](../METADATA_RECOVERY.md)
+- [TorrServer-Flow 1.2.0](../RELEASE_1_2_0_NOTES.md)
 - [TorrServer-Flow 1.1.9](../RELEASE_1_1_9_NOTES.md)
 - [Flow 1.1.9 verification](../RELEASE_1_1_9_VERIFICATION.md)
 - [TorrServer-Flow 1.1.8](../RELEASE_1_1_8_NOTES.md)
@@ -23,6 +24,7 @@ Current user guides stay at the repository root. Historical plans and measuremen
 
 ## Development and field validation
 
+- [MatriX.148 evaluation and integration](development/UPSTREAM_MATRIX148_REVIEW.md)
 - [Adaptive reliability and access controls](development/ADAPTIVE_RELIABILITY.md)
 - [High bitrate streaming implementation](development/HIGH_BITRATE_IMPLEMENTATION.md)
 - [Automatic metadata recovery verification](development/METADATA_RECOVERY_VERIFICATION.md)
@@ -86,6 +88,7 @@ Current user guides stay at the repository root. Historical plans and measuremen
 - [TorrServer-LT 1.2.1 evaluation](history/UPSTREAM_LT_1_2_1_EVALUATION.md)
 - [LT 1.2.1 / 1.2.2 integration and first full release](history/UPSTREAM_LT_INTEGRATION.md)
 - [YouROK MatriX.147.1 review](history/UPSTREAM_MATRIX147_1_REVIEW.md)
+- [YouROK MatriX.147.2 integration](history/UPSTREAM_MATRIX147_2_REVIEW.md)
 - [YouROK MatriX.147 review](history/UPSTREAM_MATRIX147_REVIEW.md)
 - [Upstream maintenance and high bitrate streaming](history/UPSTREAM_STREAMING_CHECKLIST.md)
 - [LT maintenance and high bitrate streaming verification](history/UPSTREAM_STREAMING_VERIFICATION.md)

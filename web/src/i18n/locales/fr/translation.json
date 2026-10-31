@@ -299,7 +299,7 @@
     "StatusFound": "trouvé",
     "StatusMissing": "non trouvé",
     "Version": "Version de GStreamer",
-    "VersionHint": "Installed GStreamer version (minimum 1.22, e.g. 1.22 or 1.28)",
+    "VersionHint": "Version installée de GStreamer (minimum 1.22, par exemple 1.22 ou 1.28)",
     "Path": "Chemin de GStreamer",
     "PathHint": "Chemin d'installation de GStreamer. Laisser vide pour la détection automatique.",
     "Proxy": "Proxy via GStreamer",
@@ -328,7 +328,7 @@
     "SegmentSeconds": "Durée du segment (secondes)",
     "SegmentSecondsHint": "Durée cible d'un segment HLS ; le mode copie utilise les limites Cue du fichier si disponibles.",
     "AppSinkBuffers": "AppSink buffers",
-    "AppSinkBuffersHint": "Queue of ready appsink buffers. Usually leave the default value.",
+    "AppSinkBuffersHint": "File des tampons appsink prêts. Conservez généralement la valeur par défaut.",
     "VideoBitrate": "Débit vidéo (kbps)",
     "VideoBitrateHint": "Utilisé uniquement lorsque le transcodage vidéo en H.264 est activé.",
     "TranscodeH264": "Transcoder en H.264",
@@ -336,10 +336,10 @@
     "TranscodeAV1": "Transcoder en AV1",
     "TranscodeVP9": "Transcoder en VP9",
     "TranscodeHint": "Désactivé : copie sans perte de qualité ; activé : conversion en H.264 via CPU/GPU.",
-    "TempFS": "Enable file buffer for source stream",
-    "TempFSHint": "Creates a temporary gst-XXXXXX ring buffer in the TorrServer working directory. Helps smooth speed drops on weak torrents; SSD storage is recommended.",
+    "TempFS": "Activer le tampon fichier du flux source",
+    "TempFSHint": "Crée un tampon circulaire temporaire gst-XXXXXX dans le répertoire de travail de TorrServer. Il atténue les baisses de débit des torrents peu disponibles ; un SSD est recommandé.",
     "TempFSRing": "Additional stream buffer",
-    "TempFSRingHint": "0 = base buffer around 90 seconds. Each unit adds roughly 30 seconds; 10 adds about 300 seconds.",
+    "TempFSRingHint": "0 = tampon de base d’environ 90 secondes. Chaque unité ajoute environ 30 secondes ; 10 ajoute environ 300 secondes.",
     "AudioTrack": "Piste audio",
     "SegmentDiff": "Alignement des segments en copie",
     "SegmentDiffHint": "Tolérance d'alignement des keyframes en mode copie ; 0 désactive la limite. Généralement inchangé.",
@@ -456,7 +456,18 @@
     "list": "Liste",
     "importProgress": "Traitement de {{done}} / {{total}} sources",
     "exportPrivacy": "Les exports contiennent les identifiants et libellés des torrents, sans identifiants de connexion, trackers privés, affiches ni données personnalisées du client. Les torrents privés nécessitent leur configuration de tracker originale. Les torrents v2 et les anciens serveurs utilisent des liens magnet dans les exports de liens compacts.",
-    "exportTooLarge": "L’export de la bibliothèque dépasse 16 Mio."
+    "exportTooLarge": "L’export de la bibliothèque dépasse 16 Mio.",
+    "media": {
+      "title": "Informations média",
+      "hint": "Utilise uniquement l’analyse bornée du démarrage. Ouvrir les détails ne télécharge rien.",
+      "unknown": "Inconnu pour ce fichier exact ; les données peuvent apparaître après préchargement.",
+      "bitrate": "Débit disponible du conteneur",
+      "video": "Vidéo",
+      "audio": "Audio",
+      "subtitle": "Sous-titre",
+      "truncated": "Limité à 32 pistes.",
+      "direct": "Les lecteurs externes reçoivent les octets d’origine. La conversion GStreamer est distincte ; le transcodage peut modifier la qualité et charger le processeur."
+    }
   },
   "runtime": {
     "torrents": "Torrents",
@@ -502,14 +513,16 @@
     "degraded": "Connexion dégradée",
     "localOnly": "Réseau local uniquement",
     "offline": "Serveur indisponible",
-    "authRequired": "Authentification requise ou accès refusé",
+    "authRequired": "Authentification requise",
     "requestFailed": "Le serveur n’a pas pu traiter la demande.",
     "stale": "Dernières données reçues affichées. Elles peuvent être obsolètes.",
     "unknown": "Inconnu",
     "enabled": "Activé",
     "disabled": "Désactivé",
     "timeout": "Le serveur n’a pas répondu à temps. Réessayez.",
-    "paused": "Moteur en pause"
+    "paused": "Moteur en pause",
+    "accessDenied": "Accès refusé",
+    "rateLimited": "Temporisation des requêtes"
   },
   "dashboard": {
     "idle": "Prêt pour la lecture",
@@ -540,7 +553,32 @@
     "checkingCertificate": "Vérification du certificat de ce serveur…",
     "serverTrustOnly": "Ce serveur fait confiance à son certificat. Le téléphone doit vérifier séparément l’adresse et la confiance.",
     "serverUntrusted": "Ce serveur ne fait pas confiance à son certificat. Un certificat autosigné nécessite une décision de confiance sur le téléphone.",
-    "tlsNotReported": "Ce serveur ne signale aucun port TLS. Un proxy ou une adresse HTTPS saisie peut différer ; vérifiez sur le téléphone."
+    "tlsNotReported": "Ce serveur ne signale aucun port TLS. Un proxy ou une adresse HTTPS saisie peut différer ; vérifiez sur le téléphone.",
+    "guide": {
+      "bindAddresses": "Interfaces du serveur",
+      "allInterfaces": "Toutes les interfaces",
+      "lanAddresses": "Adresses LAN annoncées",
+      "selectedAddress": "Adresse choisie pour le téléphone",
+      "title": "Configuration du téléphone",
+      "listener": "Vérifiez l’écoute et l’adresse LAN choisie.",
+      "listenerReady": "Écoute prête. La requête du PC a atteint Flow.",
+      "listenerPending": "La requête a atteint Flow ; l’état de l’écoute n’est pas encore signalé.",
+      "proofHint": "Créez une preuve en lecture seule de cinq minutes et scannez son QR avec le téléphone.",
+      "create": "Créer la preuve de connexion",
+      "expired": "Preuve expirée. Créez-en une nouvelle.",
+      "copy": "Copier l’URL de preuve",
+      "received": "Une requête d’une autre adresse a atteint Flow. Cela ne prouve pas la lecture vidéo.",
+      "sameClient": "Preuve ouverte depuis l’adresse du créateur. Ouvrez-la aussi sur le téléphone.",
+      "waiting": "En attente de la requête du téléphone.",
+      "access": "Vérifiez l’authentification et les refus récents de l’adresse vérifiée. Les origines restent à approuver explicitement dans Sécurité.",
+      "player": "Définissez l’adresse de base choisie dans Lampa, puis ouvrez le fichier avec le lecteur externe. La recherche et le parseur se vérifient séparément.",
+      "android": "Les permissions Android dépendent du système, de l’application et du SDK ciblé ; une WebView utilise la permission de son application. Vérifiez l’accès au réseau local ou aux appareils à proximité si l’application le propose.",
+      "limits": "Flow ne peut ni accorder une permission à une autre application ni identifier toutes les erreurs du navigateur. La preuve conserve des données temporaires bornées et ne donne aucun droit de gestion.",
+      "AUTH_REQUIRED": "Authentification refusée.",
+      "AUTH_ACCEPTED": "Requête authentifiée acceptée.",
+      "MANAGEMENT_ORIGIN_DENIED": "Origine de gestion refusée :",
+      "MANAGEMENT_HOST_DENIED": "Nom d’hôte de gestion refusé :"
+    }
   },
   "app": {
     "error": "Impossible d’afficher cette page.",
@@ -602,7 +640,8 @@
       "waiting": "Une lecture serveur a attendu au moins 500 ms durant les 60 dernières secondes. Cela ne prouve pas un blocage du décodage.",
       "idle": "Aucune requête du lecteur n’est active. Il peut être en pause, déconnecté ou utiliser son propre buffer.",
       "peers": "Aucun pair connecté et aucun octet contigu disponible. Vérifiez le réseau local et les trackers.",
-      "prepare": "Préparez l’épisode à l’avance ou choisissez une version plus légère. Le cache RAM ne remplace pas le débit manquant du réseau de pairs."
+      "prepare": "La préparation complète reste facultative et occupe du disque. Flow ne réduit jamais automatiquement la qualité ; plus de cache ne crée pas le débit manquant des pairs.",
+      "pausePlayer": "Essayez une courte pause dans le lecteur pour constituer une réserve sans télécharger tout l’épisode."
     },
     "startupWait": "Attente au démarrage",
     "startupTimingHint": "Métadonnées : depuis l’ajout du torrent ; autres durées : depuis le préchargement. Un tiret signifie non observé.",
@@ -869,14 +908,17 @@
         "missing": "Aucun pair connecté échantillonné ne possède la pièce requise.",
         "discovery": "En attente d’une connexion à un pair utile.",
         "block": "En attente des prochains blocs demandés.",
-        "unknown": "Les mesures ne suffisent pas à expliquer l’attente."
+        "unknown": "Les mesures ne suffisent pas à expliquer l’attente.",
+        "reserve": "Les données nécessaires sont prêtes ; Flow remplit la réserve de démarrage facultative.",
+        "phone": "Le serveur se dit prêt, mais aucune requête active du lecteur n’est observée."
       },
       "actions": {
         "inspect": "Consultez les détails techniques ou exportez le diagnostic.",
         "waitMetadata": "Laissez la tentative ouverte. Seules les sources autorisées sont utilisées ; la vidéo nécessite toujours des pairs.",
         "leaveOpen": "Gardez le lecteur ouvert. La transmission du serveur ne prouve pas la fluidité sur le téléphone.",
         "waitBlock": "Ne déplacez plus la barre de lecture pendant l’arrivée des données.",
-        "waitSuppliers": "Laissez la recherche de pairs continuer. Un pair connu n’est pas nécessairement joignable ni utile."
+        "waitSuppliers": "Laissez la recherche de pairs continuer. Un pair connu n’est pas nécessairement joignable ni utile.",
+        "setupPhone": "Vérifiez la connexion du téléphone et l’accès Lampa."
       },
       "sessionSummary": "Totaux de la session",
       "sampleCount": "Échantillons enregistrés : {{count}}",
@@ -938,7 +980,50 @@
         "RECENT_GAPS": "Des interruptions récentes sont survenues malgré un débit moyen suffisant.",
         "UNKNOWN": "Les mesures de débit ne sont pas encore assez fiables."
       }
-    }
+    },
+    "journey": {
+      "metadata": "Découverte des métadonnées",
+      "connection": "Connexion aux pairs",
+      "required": "Début et index nécessaires",
+      "reserve": "Réserve facultative",
+      "http": "Livraison HTTP",
+      "observed": "Observé",
+      "unobserved": "Pas encore observé"
+    },
+    "adviser": {
+      "title": "Conseil de réglage",
+      "readOnly": "Un changement réversible à la fois. Flow ne change ni profil ni qualité vidéo. La préparation complète est facultative.",
+      "inspect": "Actualisez le diagnostic avant tout réglage : les données sont incomplètes ou anciennes.",
+      "inspectStorage": "Suspendez temporairement les autres accès disque intensifs, puis comparez les attentes de lecture. Une latence passée ne prouve pas une panne actuelle.",
+      "setupPhone": "Lancez la preuve de connexion du téléphone, puis réessayez dans Lampa. L’absence de requête vidéo ne prouve pas un défaut réseau du téléphone.",
+      "pausePlayer": "Mettez le lecteur en pause 30 à 60 secondes en gardant l’épisode ouvert. Reprenez et comparez le tampon contigu du serveur. Ne suspendez pas les téléchargements Flow.",
+      "waitMetadata": "Gardez la tentative ouverte pendant la récupération bornée des métadonnées. Réessayez une seule fois après son résultat.",
+      "waitBlock": "Laissez brièvement la recherche ou le préchargement ouvert et comparez les pièces requises. Plus de requêtes ne crée pas de débit à la source.",
+      "leaveOpen": "Gardez cette session ouverte. Comparez des données récentes avant de modifier une configuration qui fonctionne.",
+      "waitSuppliers": "Attendez la découverte ou reconnexion et comparez les fournisseurs de la pièce requise, pas seulement le total des pairs."
+    },
+    "reuse": {
+      "title": "Réutilisation d’octets exacts vérifiés",
+      "result": "Candidats : {{candidates}} ; admissions natives : {{accepted}} ; octets vérifiés indépendamment : {{verified}}",
+      "hint": "Exige des racines v2 authentifiées identiques et des couches complètes. Admission ne signifie pas vérification. Seuls les octets résidents sont réutilisés, jamais une autre version.",
+      "reasons": {
+        "NO_CACHE": "Aucun cache actif",
+        "METADATA_NOT_REGISTERED": "Métadonnées non enregistrées",
+        "CLOSED": "Cache fermé",
+        "PRIVATE_TORRENT": "Torrents privés exclus",
+        "IDENTITY_OR_GEOMETRY": "Identité ou découpage incompatible",
+        "NO_V2_IDENTITY": "Aucune identité v2 authentifiée",
+        "INCOMPLETE_PIECE_LAYERS": "Couches complètes indisponibles",
+        "INDEX_LIMIT": "Limite de l’index atteinte",
+        "NO_FILES": "Aucun fichier v2 admissible",
+        "DISABLED": "Réutilisation désactivée",
+        "RESOURCE_PRESSURE": "Admissible ; suspendu sous pression",
+        "RECONNECTING": "Admissible ; en attente du réseau",
+        "NO_MATCH_OBSERVED": "Admissible ; aucun donneur résident observé pour les pièces demandées",
+        "ELIGIBLE": "Métadonnées admissibles à la réutilisation vérifiée"
+      }
+    },
+    "metadataRecoverySummary": "Récupération : {{state}} ; tentatives {{attempts}}"
   },
   "search": {
     "source": "Source",
@@ -960,7 +1045,8 @@
       "seeds": "Sources complètes",
       "peers": "Pairs",
       "title": "Titre"
-    }
+    },
+    "serviceSeparation": "Les résultats décrivent uniquement le service de recherche. Connectivité torrent : {{state}}. Une panne du parseur ne prouve pas un défaut Flow ou réseau du lecteur."
   },
   "AddTorrent": "Ajouter un nouveau torrent",
   "Loading": "Chargement…",
@@ -1090,7 +1176,8 @@
         "MetadataFallback": "Récupération automatique des métadonnées magnet",
         "PublicMetadataCache": "Caches publics gratuits de métadonnées",
         "FrontierRecovery": "Reprise des blocs urgents en retard (expérience)",
-        "AdaptivePeerRequests": "Quota adaptatif de requêtes par pair (expérience)"
+        "AdaptivePeerRequests": "Quota adaptatif de requêtes par pair (expérience)",
+        "IncidentFlightRecorder": "Enregistreur privé d’incidents"
       }
     },
     "maintenance": {
@@ -1194,7 +1281,52 @@
     "metadataFallbackHelp": "Après 15 secondes, essayer deux URL HTTPS .torrent fournies. L’empreinte doit correspondre au magnet.",
     "publicMetadataCacheHelp": "Envoie l’empreinte des magnets v1 bloqués à Torrage et iTorrents. Gratuit, sans compte. Services parfois indisponibles. Statut privé inconnu avant récupération.",
     "streamRecoveryHelp": "Demande un bloc urgent à un autre pair dans des limites communes de doublons et de capacité. Désactivé par défaut ; dépend des sources disponibles.",
-    "streamRequestsHelp": "Adapte les requêtes au temps de service et aux limites du pair. Désactivé par défaut. Comparer démarrage, recherche et octets redondants."
+    "streamRequestsHelp": "Adapte les requêtes au temps de service et aux limites du pair. Désactivé par défaut. Comparer démarrage, recherche et octets redondants.",
+    "metadata": {
+      "fallback": "Ancien serveur : les contraintes intégrées sont utilisées.",
+      "restart": "Redémarrage du moteur ; choisissez le moment",
+      "live": "Sans redémarrage du moteur",
+      "experimental": "Expérimental, sur activation",
+      "default": "Valeur par défaut : {{value}}",
+      "interactions": "Le cache est par torrent et le budget global est partagé. Les lectures, préchargements et index indispensables peuvent le dépasser temporairement. Les sessions conservées et tâches de fond utilisent la capacité libre. Les profils de connexion ne déterminent pas la qualité vidéo.",
+      "cachePreview": "Budget partagé : {{budget}} Mio ; sessions conservées : jusqu’à {{warm}} Mio. Ce sont des budgets de cache, pas des limites de RAM."
+    },
+    "fieldHints": {
+      "IncidentFlightRecorder": "Désactivé par défaut. Fenêtre cible de trace Go de 30 s (indication de 32 Mio), suspendue sous pression mémoire. Deux captures au maximum, espacées de cinq minutes et limitées à 64 Mio chacune. Les traces brutes peuvent contenir des détails privés et sont exclues des exports ordinaires."
+    },
+    "storageView": {
+      "title": "Stockage du serveur",
+      "preview": "Aperçu en lecture seule. Cache, préparation, diagnostics et sauvegardes ont des durées distinctes. Rien n’est supprimé.",
+      "scan": "Inspecter le stockage",
+      "ram": "Cache média résident",
+      "evicting_disk_cache": "Cache disque évictable",
+      "preparation": "Préparation conservée",
+      "diagnostics": "Historique et traces privées",
+      "backups": "Sauvegardes protégées",
+      "incomplete": "Inventaire partiel",
+      "developer": "Inventaire de développement",
+      "developerHint": "Exécutez depuis les sources. Aperçu par défaut. La suppression exige le manifeste vérifié et son SHA-256 ; seuls les caches générés inchangés et non verrouillés sont admissibles. Outils, installations, réglages, identifiants, sauvegardes, binaires de retour, archives et manifestes sont protégés.",
+      "incidents": "Captures privées d’incidents",
+      "raw": "Afficher explicitement les téléchargements bruts. Ils peuvent contenir des données privées et sont exclus des exports ordinaires.",
+      "noCaptures": "Aucune capture conservée",
+      "pressure": "Mémoire : {{state}} ; échantillons de reprise {{samples}}/3",
+      "overcommit": "Les données indispensables dépassent le budget et restent protégées",
+      "pressureStates": {
+        "normal": "normale",
+        "pressure": "pression",
+        "recovering": "reprise",
+        "unknown": "inconnue"
+      },
+      "incidentStates": {
+        "DISABLED": "Enregistreur désactivé",
+        "PRESSURE_PAUSED": "Suspendu sous pression mémoire",
+        "STORAGE_UNAVAILABLE": "Stockage privé indisponible",
+        "RECORDER_UNAVAILABLE": "Enregistreur indisponible ; une autre trace est peut-être active",
+        "RECORDING": "Fenêtre glissante active",
+        "CAPTURE_DISCARDED": "Capture incomplète, trop grande ou échouée abandonnée",
+        "CAPTURE_SAVED": "Capture privée enregistrée"
+      }
+    }
   },
   "preparation": {
     "title": "Préparer cet épisode",

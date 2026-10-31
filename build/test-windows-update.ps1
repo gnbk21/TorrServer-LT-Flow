@@ -27,13 +27,13 @@ $headers = @{Authorization='Basic '+[Convert]::ToBase64String([Text.Encoding]::A
 
 function Manifest([string]$Path) {
     $versionText = (& $Path --version | Out-String)
-    if ($LASTEXITCODE -ne 0 -or $versionText -notmatch '(MatriX\.145\.Flow-[a-zA-Z0-9.-]+)') { throw 'Use two native Flow binaries with different identities.' }
+    if ($LASTEXITCODE -ne 0 -or $versionText -notmatch '(MatriX\.(?:145|148)\.Flow-[a-zA-Z0-9.-]+)') { throw 'Use two native Flow binaries with different identities.' }
     $version=$Matches[1]; $identity=$Commit
-    if ($version -match '^MatriX\.145\.Flow-dev-([a-f0-9]{40})') { $identity=$Matches[1] }
+    if ($version -match '^MatriX\.(?:145|148)\.Flow-dev-([a-f0-9]{40})') { $identity=$Matches[1] }
     if ($identity -notmatch '^[a-f0-9]{40}$') { throw 'Supply the verified CI commit for release binaries.' }
     $channel = 'stable'
-    if ($version -cmatch '^MatriX\.145\.Flow-(v[0-9]+\.[0-9]+\.[0-9]+-(preview|alpha|beta|rc)\.[0-9]+|preview\.[0-9]+)\z') { $channel = 'preview' }
-    elseif ($version -cnotmatch '^MatriX\.145\.Flow-v[0-9]+\.[0-9]+\.[0-9]+\z') { throw 'Update transport fixtures require valid stable or prerelease identities; development artifacts are deliberately not releases.' }
+    if ($version -cmatch '^MatriX\.(?:145|148)\.Flow-(v[0-9]+\.[0-9]+\.[0-9]+-(preview|alpha|beta|rc)\.[0-9]+|preview\.[0-9]+)\z') { $channel = 'preview' }
+    elseif ($version -cnotmatch '^MatriX\.(?:145|148)\.Flow-v[0-9]+\.[0-9]+\.[0-9]+\z') { throw 'Update transport fixtures require valid stable or prerelease identities; development artifacts are deliberately not releases.' }
     [pscustomobject]@{schema_version=1;repository='gnbk21/TorrServer-LT-Flow';channel=$channel;Version=$version;commit=$identity;files=[pscustomobject]@{'TorrServer-LT-windows-amd64.exe'=[pscustomobject]@{url="https://github.com/gnbk21/TorrServer-LT-Flow/releases/download/$version/TorrServer-LT-windows-amd64.exe";sha256=(Get-FileHash -LiteralPath $Path).Hash.ToLowerInvariant();size=(Get-Item -LiteralPath $Path).Length}}}
 }
 $oldManifest = Manifest $baselinePath

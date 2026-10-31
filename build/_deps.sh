@@ -245,6 +245,13 @@ os.replace(tmp, path)
 PYEOF
 
     log "building libtorrent for $TARGET (toolset $compiler-$B2_VARIANT, crypto=openssl, webtorrent=on)"
+    # Native Windows b2 can cache a negative stat before the conditional rule
+    # writes this file. Establish the path first; generate-pkg-config replaces
+    # its contents with the actual target flags before installation.
+    if [[ "${MSYSTEM:-}" == UCRT64 && "$GOOS" == windows ]]; then
+        rm -f "$ltwork/libtorrent-rasterbar.pc"
+        touch "$ltwork/libtorrent-rasterbar.pc"
+    fi
     # shellcheck disable=SC2086
     ( cd "$ltwork" && BOOST_ROOT="$BOOST_DIR" "$BOOST_DIR/b2" -q -j"$JOBS" \
         --user-config="$jam" \
@@ -268,6 +275,12 @@ PYEOF
     # sed -i needs a suffix argument on BSD sed (native macOS runner); the
     # -i.bak + rm form is the portable spelling for both GNU and BSD.
     local pc="$deps/lib/pkgconfig/libtorrent-rasterbar.pc"
+    [[ -s "$pc" ]] || die "libtorrent did not generate its pkg-config metadata"
+    if [[ "${MSYSTEM:-}" == UCRT64 && "$GOOS" == windows ]]; then
+        # b2's native Windows path module emits /C:/... in this metadata.
+        # CGo invokes native pkg-config/GCC directly, without MSYS conversion.
+        sed -i.bak -E 's#"/([A-Za-z]:/)#"\1#g' "$pc"
+    fi
     sed -i.bak -E 's/-llib([A-Za-z0-9_-]+)\.a/-l\1/g' "$pc"
     local privlibs
     privlibs=$(private_link_libraries "$pc")
@@ -390,6 +403,11 @@ go_build() {
 # --- orchestrator ----------------------------------------------------
 cross_build() {
     local deps="$DEPS_ROOT/$TARGET"
+    [[ "$TARGET" =~ ^[a-z0-9-]+$ && "$deps" == "$ROOT/_deps/"* ]] || die 'invalid native dependency target'
+    export BOOST_VERSION LIBTORRENT_REV OPENSSL_VERSION OPENSSL_SHA256
+    local driver native_identity
+    driver=$(basename "$0")
+    native_identity=$(python3 "$ROOT/build/native_receipt.py" identity --driver "$driver")
     # Stale-tree guard: the per-function "already installed" early-returns
     # only check file presence, so a _deps tree built from an older pin
     # (2.0.13, no OpenSSL) would silently survive a version bump. Stamp the
@@ -397,12 +415,17 @@ cross_build() {
     local stamp="$deps/.stamp"
     local patch_recipe
     patch_recipe=$(python3 "$ROOT/build/apply_native_patches.py" --recipe)
-    local want="lt=$LIBTORRENT_REV patches=$patch_recipe openssl=$OPENSSL_VERSION webtorrent=on pc-fold=2"
+    local want="lt=$LIBTORRENT_REV patches=$patch_recipe openssl=$OPENSSL_VERSION webtorrent=on pc-fold=2 receipt=$native_identity"
     if [[ -e "$deps" && "$(cat "$stamp" 2>/dev/null || true)" != "$want" ]]; then
         log "deps tree for $TARGET is stale (want: $want) — rebuilding"
         rm -rf "$deps"
     fi
     mkdir -p "$deps"
+    if [[ -f "$deps/.flow-native-receipt.json" ]] && ! python3 "$ROOT/build/native_receipt.py" verify --driver "$driver" --deps "$deps"; then
+        log 'native cache content changed — rebuilding the owned dependency target'
+        rm -rf "$deps"
+        mkdir -p "$deps"
+    fi
     # The stamp records the RECIPE this tree is (being) built with, so it's
     # written up front: a failed run resumes from the per-function
     # "already installed" guards instead of being nuked and restarted.
@@ -412,6 +435,7 @@ cross_build() {
     build_openssl "$deps"
     build_webrtc_deps "$deps"
     build_libtorrent "$deps"
+    python3 "$ROOT/build/native_receipt.py" write --driver "$driver" --deps "$deps"
     go_build "$deps"
     log "done: $OUT_DIR/TorrServer-LT-${TARGET}${BINEXT:-}"
 }

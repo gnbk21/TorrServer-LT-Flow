@@ -12,6 +12,19 @@ import (
 	"time"
 )
 
+// Privacy/retention tests require completed filesystem I/O, not a one-second
+// host-speed guarantee. Hosted Windows disk flushes can exceed that under cold
+// compilation. Blocked-writer deadline tests below retain their short bounds;
+// no production shutdown/flush deadline is changed.
+const historyFileTestWait = 5 * time.Second
+
+func closeHistoryFileForTest(t *testing.T, h *History) {
+	t.Helper()
+	if !h.Close(historyFileTestWait) {
+		t.Fatal("history file writer did not drain")
+	}
+}
+
 func TestHistoryRetentionPrivacyAndRotation(t *testing.T) {
 	dir := t.TempDir()
 	name := filepath.Join(dir, "flow-history.jsonl")
@@ -31,9 +44,7 @@ func TestHistoryRetentionPrivacyAndRotation(t *testing.T) {
 	h.Record(HistoryEvent{Type: "startup", Stage: "READY", Run: "secret-token", Torrent: 1, ElapsedMs: 223})
 	h.Record(HistoryEvent{Type: "https://tracker/private?passkey=secret"})
 	h.Record(HistoryEvent{Type: "startup", Stage: "token=private"})
-	if !h.Close(time.Second) {
-		t.Fatal("history did not drain")
-	}
+	closeHistoryFileForTest(t, h)
 	if h.Status().Written != 1 || h.Status().Dropped != 2 {
 		t.Fatalf("status: %+v", h.Status())
 	}
@@ -56,9 +67,7 @@ func TestHistoryRetentionPrivacyAndRotation(t *testing.T) {
 		t.Fatal(err)
 	}
 	h2.Record(HistoryEvent{Type: "engine_started"})
-	if !h2.Close(time.Second) {
-		t.Fatal("restart did not drain")
-	}
+	closeHistoryFileForTest(t, h2)
 	second, _ := os.ReadFile(name)
 	if !bytes.HasPrefix(second, first) {
 		t.Fatal("restart lost existing history")
@@ -85,9 +94,7 @@ func TestSparseHistoryIsNumericBoundedRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.Record(HistoryEvent{Type: "sparse", Torrent: 1, Sparse: &SparseHistory{SampledPeers: 512, Truncated: true, UsefulPeers: 3, RequestTimeouts: 5, RequestsDropped: 2, OutstandingBytes: 1 << 20, MaxQueueMs: 30000}})
-	if !h.Close(time.Second) {
-		t.Fatal("history did not drain")
-	}
+	closeHistoryFileForTest(t, h)
 	data, err := os.ReadFile(filepath.Join(dir, "flow-history.jsonl"))
 	if err != nil {
 		t.Fatal(err)
@@ -178,9 +185,7 @@ func TestHistoryRepairsInterruptedLastRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.Record(HistoryEvent{Type: "engine_stopped"})
-	if !h.Close(time.Second) {
-		t.Fatal("history did not drain")
-	}
+	closeHistoryFileForTest(t, h)
 	data, _ := os.ReadFile(name)
 	if !bytes.HasPrefix(data, good) {
 		t.Fatal("valid history was lost")

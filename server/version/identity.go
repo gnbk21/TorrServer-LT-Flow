@@ -12,8 +12,8 @@ type BuildIdentity struct {
 	Modified bool   `json:"modified"`
 }
 
-var stableBuildPattern = regexp.MustCompile(`^MatriX\.145\.Flow-v[0-9]+\.[0-9]+\.[0-9]+$`)
-var previewBuildPattern = regexp.MustCompile(`^MatriX\.145\.Flow-(?:v[0-9]+\.[0-9]+\.[0-9]+-(?:alpha|beta|preview|rc)\.[0-9]+|preview\.[0-9]+)$`)
+var stableBuildPattern = regexp.MustCompile(`^MatriX\.(?:145|148)\.Flow-v[0-9]+\.[0-9]+\.[0-9]+$`)
+var previewBuildPattern = regexp.MustCompile(`^MatriX\.(?:145|148)\.Flow-(?:v[0-9]+\.[0-9]+\.[0-9]+-(?:alpha|beta|preview|rc)\.[0-9]+|preview\.[0-9]+)$`)
 
 func Identity() BuildIdentity {
 	i := BuildIdentity{Version: Version, Channel: "development"}

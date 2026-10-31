@@ -723,7 +723,20 @@ async function mockServer(
       route.fulfill({
         status: code,
         contentType: "application/json",
-        body: JSON.stringify(data),
+        body: JSON.stringify(
+          code === 503 && status === 503
+            ? {
+                ...(data as object),
+                error: "torrent engine is starting",
+                code: "ENGINE_STARTING",
+              }
+            : data,
+        ),
+      });
+    if (path === "/settings/metadata/v1")
+      return route.fulfill({
+        status: 404,
+        json: { error: "older fixture server" },
       });
     if (path === "/echo")
       return route.fulfill({ body: "MatriX.145.Flow-test" });
@@ -926,7 +939,9 @@ for (const viewport of [
     ).toBe(true);
   });
 }
-test("503 remains starting rather than offline", async ({ page }) => {
+test("explicit engine-starting 503 remains starting rather than offline", async ({
+  page,
+}) => {
   await mockServer(page, { status: 503 });
   await page.goto("/");
   await expect(page.getByText("Starting engine…").first()).toBeVisible();
@@ -1422,7 +1437,7 @@ test("authentication failure is actionable and skip link does not change routes"
   await mockServer(page, { status: 401 });
   await page.goto("/#/torrents");
   await expect(
-    page.getByText("Authentication required or access denied").first(),
+    page.getByText("Authentication required", { exact: true }).first(),
   ).toBeVisible();
   await page.keyboard.press("Tab");
   await page.getByRole("link", { name: "Skip to content" }).press("Enter");

@@ -19,6 +19,8 @@ const status = {
 } as FlowStatusResponse;
 test("stale or future evidence cannot diagnose the swarm", () => {
   expect(playbackOverview(status, now + 11000).cause).toBe("stale");
+  expect(playbackOverview(status, now + 11000).age).toBe(11000);
+  expect(playbackOverview(status, now + 11000).confidence).toBe("unknown");
   expect(playbackOverview(status, now - 1).cause).toBe("stale");
   expect(
     playbackOverview(

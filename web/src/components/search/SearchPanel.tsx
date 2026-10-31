@@ -1,5 +1,10 @@
 import { pollingDelay } from "../../api/client";
-import { useFlow, useSettings, useVisibilityGate } from "../../hooks/queries";
+import {
+  useFlow,
+  useNetwork,
+  useSettings,
+  useVisibilityGate,
+} from "../../hooks/queries";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -29,6 +34,7 @@ export function SearchPanel({
   const [source, setSource] = useState<SearchSource | "all">("all");
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const settings = useSettings();
+  const network = useNetwork();
   const [outcomes, setOutcomes] = useState<SearchOutcome[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -272,6 +278,16 @@ export function SearchPanel({
         </div>
         {!sources.length && <p>{t("search.noSources")}</p>}
       </form>
+      <p className="text-sm text-slate-400">
+        {t("search.serviceSeparation", {
+          state:
+            network.error || !network.data
+              ? t("status.unknown")
+              : t(
+                  `status.${network.data.connectivity === "ONLINE" ? "online" : network.data.connectivity === "DEGRADED" ? "degraded" : "localOnly"}`,
+                ),
+        })}
+      </p>
       {!!error && <RequestError error={error} retry={retryAction} />}
       {!!outcomes.length && (
         <ul

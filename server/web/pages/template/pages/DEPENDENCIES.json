@@ -16,7 +16,7 @@
     "react-router-dom@7.18.4",
     "react@19.3.0",
     "tailwind-merge@3.7.0",
-    "zod@4.6.5"
+    "zod@4.6.7"
   ],
   "packages": [
     {
@@ -766,9 +766,9 @@
       ]
     },
     {
-      "key": "zod@4.6.5",
+      "key": "zod@4.6.7",
       "name": "zod",
-      "version": "4.6.5",
+      "version": "4.6.7",
       "license": "MIT",
       "notice_sha256": "3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8",
       "dependencies": []

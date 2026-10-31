@@ -12,6 +12,38 @@ import (
 	"time"
 )
 
+// MatriX.148 #947: check the real result mapping for both XML size sources.
+func TestSearchOneFormatsSizeInBinaryUnits(t *testing.T) {
+	previous := settings.BTsets()
+	settings.StoreBTsets(&settings.BTSets{Flow: settings.DefaultFlowSettings()})
+	t.Cleanup(func() { settings.StoreBTsets(previous) })
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`<rss><channel>
+<item><title>enclosure</title><enclosure url="magnet:?xt=urn:btih:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" length="1610612736"/></item>
+<item><title>bytes</title><size>512</size></item>
+<item><title>kibibytes</title><size>1024</size></item>
+<item><title>mebibytes</title><size>734003200</size></item>
+<item><title>tebibytes</title><size>1099511627776</size></item>
+</channel></rss>`))
+	}))
+	defer srv.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	results, err := searchOneDetailed(ctx, srv.URL, "fixture", "generated", "fixture", "", 0, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"1.5 GiB", "512 B", "1.0 KiB", "700.0 MiB", "1.0 TiB"}
+	if len(results) != len(want) {
+		t.Fatalf("got %d results, want %d", len(results), len(want))
+	}
+	for i, size := range want {
+		if results[i].Size != size {
+			t.Errorf("result %d size=%q, want %q", i, results[i].Size, size)
+		}
+	}
+}
+
 func TestDetailedSearchBoundsParallelRequestsAndKeepsSourceOutcomes(t *testing.T) {
 	old := settings.BTsets()
 	defer settings.StoreBTsets(old)

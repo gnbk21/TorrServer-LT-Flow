@@ -30,14 +30,22 @@ artifact is separate from the stable server release.
 
 ## Channels
 
-- `MatriX.145.Flow-vX.Y.Z`: stable, after acceptance evidence is recorded in
+- `MatriX.148.Flow-vX.Y.Z`: stable, after acceptance evidence is recorded in
   `RELEASE_ACCEPTANCE.json` and the tagged commit is present on `master`.
   Flow stable releases follow the owner-approved policy: required automated gates pass;
   unfinished field checks are explicitly disclosed in the release notes.
-- `MatriX.145.Flow-vX.Y.Z-preview.N` (or alpha/beta/rc): prerelease. Preview
+- `MatriX.148.Flow-vX.Y.Z-preview.N` (or alpha/beta/rc): prerelease. Preview
   builds pass CI but may have remaining real-device or long-session gates.
 - `MatriX.145.Flow-preview.N`: the initial numbered preview releases.
 - Development branch artifacts are not published releases.
+
+Flow 1.2.0 advances the reviewed upstream maintenance prefix from `145` to
+`148`; the Flow semantic version remains independent. Current helpers recognize
+both prefixes and compare the Flow version. Historical tags, hashes and download
+links remain unchanged. Pre-1.2 installed update helpers recognize only `145`:
+install the 1.2.0 Windows package/helper once to cross this boundary, retaining
+your existing state/configuration. This naming change grants no new permission
+and does not claim that Flow implements every upstream feature.
 
 Docker `latest` follows stable releases; `preview` follows prereleases. A
 version-specific image remains available. Choosing a preview is explicit.

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"server/diagnostics"
 	"server/flow"
 	"server/netpolicy"
 	sets "server/settings"
@@ -20,6 +21,9 @@ var managementLimiter flow.ManagementLimiter
 var playbackSigner, playbackSignerError = flow.NewCapabilitySigner()
 
 func managementPath(path string) bool {
+	if strings.HasPrefix(path, "/flow/pairing/proof/") {
+		return false
+	}
 	return path != "/echo" && !strings.HasPrefix(path, "/stream") && !strings.HasPrefix(path, "/play/") && !strings.HasPrefix(path, "/flow/play/") && path != "/playlist" && !strings.HasPrefix(path, "/playlist/") && !strings.HasPrefix(path, "/assets/") && path != "/" && path != "/favicon.ico"
 }
 
@@ -48,7 +52,8 @@ func ManagementPolicy() gin.HandlerFunc {
 		}
 		origin := c.GetHeader("Origin")
 		if (origin != "" || c.GetHeader("Sec-Fetch-Site") != "") && !browserManagementHost(c.Request.Host, f.ManagementOrigins) {
-			c.AbortWithStatusJSON(403, gin.H{"error": "browser management hostname requires an explicit allowed origin"})
+			diagnostics.Pairing.RecordAccess(c.Request, "MANAGEMENT_HOST_DENIED")
+			c.AbortWithStatusJSON(403, gin.H{"error": "browser management hostname requires an explicit allowed origin", "code": "MANAGEMENT_HOST_DENIED"})
 			return
 		}
 		// Browser management access always needs an explicit origin grant.
@@ -65,12 +70,14 @@ func ManagementPolicy() gin.HandlerFunc {
 				}
 			}
 			if !allowed {
-				c.AbortWithStatusJSON(403, gin.H{"error": "management origin is not allowed"})
+				diagnostics.Pairing.RecordAccess(c.Request, "MANAGEMENT_ORIGIN_DENIED")
+				c.AbortWithStatusJSON(403, gin.H{"error": "management origin is not allowed", "code": "MANAGEMENT_ORIGIN_DENIED"})
 				return
 			}
 		} else if site := c.GetHeader("Sec-Fetch-Site"); site == "cross-site" || site == "same-site" {
+			diagnostics.Pairing.RecordAccess(c.Request, "MANAGEMENT_ORIGIN_DENIED")
 			// Navigations such as an image/link to GET /shutdown can omit Origin.
-			c.AbortWithStatusJSON(403, gin.H{"error": "cross-origin management request requires an allowed Origin"})
+			c.AbortWithStatusJSON(403, gin.H{"error": "cross-origin management request requires an allowed Origin", "code": "MANAGEMENT_ORIGIN_DENIED"})
 			return
 		}
 		if c.Request.Method != http.MethodOptions {
@@ -80,7 +87,7 @@ func ManagementPolicy() gin.HandlerFunc {
 			}
 			if !managementLimiter.Allow(key, f.ManagementRateLimit, time.Now()) {
 				c.Header("Retry-After", "60")
-				c.AbortWithStatusJSON(429, gin.H{"error": "management request limit reached"})
+				c.AbortWithStatusJSON(429, gin.H{"error": "management request limit reached", "code": "RATE_LIMITED"})
 				return
 			}
 		}
@@ -155,7 +162,7 @@ func playbackLink(c *gin.Context) {
 		return
 	}
 	if playbackSignerError != nil {
-		c.AbortWithStatus(503)
+		abortWithErrorCode(c, 503, "PLAYBACK_SIGNER_UNAVAILABLE", playbackSignerError)
 		return
 	}
 	expires := time.Now().Add(time.Duration(sets.CurrentFlow().PlaybackTokenTTL) * time.Second)
@@ -169,7 +176,7 @@ func playbackLink(c *gin.Context) {
 }
 func capabilityPlayback(c *gin.Context) {
 	if playbackSignerError != nil {
-		c.AbortWithStatus(503)
+		abortWithErrorCode(c, 503, "PLAYBACK_SIGNER_UNAVAILABLE", playbackSignerError)
 		return
 	}
 	claim, err := playbackSigner.Verify(c.Param("token"), time.Now())

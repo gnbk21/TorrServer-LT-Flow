@@ -40,6 +40,7 @@ func TestExportFrontendContracts(t *testing.T) {
 		Kind    string `json:"kind"`
 		Payload any    `json:"payload"`
 	}{
+		{"settings-metadata", sets.SettingsMetadata()},
 		{"settings", sets.BTSets{CacheSize: 64 << 20, ReaderReadAHead: 95, PreloadCache: 50, Flow: sets.DefaultFlowSettings()}},
 		{"settings", sets.BTSets{CacheSize: 64 << 20, Flow: nil}},
 		{"torrent", state.TorrentStatus{Hash: hash, Title: "Generated fixture", Stat: state.TorrentInDB}},

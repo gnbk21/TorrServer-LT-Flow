@@ -5,13 +5,13 @@ from concurrent.futures import ThreadPoolExecutor
 import json
 import math
 from pathlib import Path
-import socket
 import subprocess
 import time
 import urllib.error
 
 from controlled_peer import LocalSwarm, PeerPlan
 from playback_harness import OwnedServer, upload, range_read
+from fixture_ports import joint_loopback_port
 
 MIB = 1048576
 
@@ -48,15 +48,19 @@ def check(executable, output, personal_settings=None):
                'DisableUPNP': True, 'EnableLPD': False, 'EnableBonjour': False,
                'EnableDLNA': False, 'EnableRutorSearch': False, 'RetrackersMode': 0,
                'DefaultTrackers': '', 'Flow': flow}
-    with socket.socket() as tcp, socket.socket(type=socket.SOCK_DGRAM) as udp:
-        tcp.bind(('127.0.0.1', 0))
-        peer_port = tcp.getsockname()[1]
-        udp.bind(('127.0.0.1', peer_port))
+    report = {'synthetic_transport_only': True, 'passed': False, 'media_rate': rate,
+              'base_bytes': base, 'nonaligned_offset': prefix.stat().st_size,
+              'port_allocation': {}}
+    try:
+        peer_port = joint_loopback_port(evidence=report['port_allocation'])
+    except (OSError, RuntimeError) as error:
+        report.update(failure_stage='fixture_port_allocation',
+                      failure_type=type(error).__name__, error=str(error))
+        (output/'report.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
+        return report
     server = OwnedServer(executable, output/'state', extra_settings=(
         personal_settings if personal_settings is not None else fixture),
         extra_arguments=['--torrentaddr', f'127.0.0.1:{peer_port}'])
-    report = {'synthetic_transport_only': True, 'passed': False, 'media_rate': rate,
-              'base_bytes': base, 'nonaligned_offset': prefix.stat().st_size}
     try:
         server.ready()
         with server.request('/echo', timeout=5) as response:
@@ -181,5 +185,5 @@ if __name__ == '__main__':
     parser.add_argument('--output', required=True, type=Path)
     args = parser.parse_args()
     result = check(args.executable, args.output)
-    print(json.dumps({k: result[k] for k in ('passed', 'elapsed_seconds', 'extra_wait_seconds',
+    print(json.dumps({k: result.get(k) for k in ('failure_stage', 'port_allocation', 'passed', 'elapsed_seconds', 'extra_wait_seconds',
                                            'missing_index_held', 'owned_server_stopped')}))

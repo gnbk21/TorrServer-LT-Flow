@@ -115,7 +115,7 @@ jobs:
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _src
-          key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.9-v1
       - run: bash build/_fetch_sources.sh
       - working-directory: server
         run: go mod download

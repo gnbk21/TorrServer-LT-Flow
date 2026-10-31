@@ -42,9 +42,7 @@ func TestPeerStormPreservesCountsAndImportantEvents(t *testing.T) {
 	}
 	h.Record(HistoryEvent{Type: "startup", Stage: "READY"})
 	h.Record(HistoryEvent{Type: "engine_stopped"})
-	if !h.Close(time.Second) {
-		t.Fatal("close did not drain")
-	}
+	closeHistoryFileForTest(t, h)
 	events := readDiagnosticEvents(t, dir)
 	var count uint64
 	ready := false
@@ -105,9 +103,7 @@ func TestHistoryNestedEnumsCannotRetainSecrets(t *testing.T) {
 	h.Record(HistoryEvent{Type: "playback_sample", Playback: &PlaybackHistory{State: "PLAYING", WaitReason: "192.0.2.10"}})
 	h.Record(HistoryEvent{Type: "startup_sample", Startup: &StartupHistory{BlockedOn: "INDEX", MissingTailPieces: 1}})
 	h.Record(HistoryEvent{Type: "playback_sample", Playback: &PlaybackHistory{State: "PLAYING", WaitReason: "UNCHOKE", Session: 1}})
-	if !h.Close(time.Second) {
-		t.Fatal("close")
-	}
+	closeHistoryFileForTest(t, h)
 	if h.Status().Dropped != 2 || len(readDiagnosticEvents(t, dir)) != 2 {
 		t.Fatalf("privacy validation: %+v", h.Status())
 	}
@@ -121,22 +117,20 @@ func TestHistoryReportsUnconfirmedTerminationAndFlushesExitRequest(t *testing.T)
 	}
 	h.Record(HistoryEvent{Type: "engine_started"})
 	h.Record(HistoryEvent{Type: "shutdown_requested", Stage: "SIGNAL"})
-	if !h.Flush(time.Second) {
+	if !h.Flush(historyFileTestWait) {
 		t.Fatal("exit request not flushed")
 	}
 	events := readDiagnosticEvents(t, dir)
 	if len(events) != 2 || events[1].Stage != "SIGNAL" {
 		t.Fatalf("flush did not persist exit intent: %+v", events)
 	}
-	if !h.Close(time.Second) {
-		t.Fatal("close")
-	}
+	closeHistoryFileForTest(t, h)
 	h, err = NewHistory(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	h.Record(HistoryEvent{Type: "engine_stopped"})
-	h.Close(time.Second)
+	closeHistoryFileForTest(t, h)
 	events = readDiagnosticEvents(t, dir)
 	if events[2].Type != "previous_run" || events[2].Stage != "UNCONFIRMED_TERMINATION" {
 		t.Fatalf("missing unclean receipt: %+v", events)
@@ -145,7 +139,7 @@ func TestHistoryReportsUnconfirmedTerminationAndFlushesExitRequest(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	h.Close(time.Second)
+	closeHistoryFileForTest(t, h)
 	if len(readDiagnosticEvents(t, dir)) != len(events) {
 		t.Fatal("clean closure mislabeled as unconfirmed")
 	}
@@ -168,7 +162,7 @@ func TestCleanEngineStopWithTrailingPeerSummaryIsNotCrash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h.Close(time.Second)
+	closeHistoryFileForTest(t, h)
 	if h.Status().Written != 0 {
 		t.Fatal("trailing peer summary caused false crash receipt")
 	}
@@ -187,12 +181,10 @@ func TestExitEvidenceBypassesFullOrdinaryQueue(t *testing.T) {
 	}
 	h.Record(HistoryEvent{Type: "first_byte"}) // prove the ordinary queue is full
 	go h.writeLoop(f, name, size)
-	if !h.RecordExit("SIGNAL", time.Second) {
+	if !h.RecordExit("SIGNAL", historyFileTestWait) {
 		t.Fatal("full queue discarded exit evidence")
 	}
-	if !h.Close(time.Second) {
-		t.Fatal("close")
-	}
+	closeHistoryFileForTest(t, h)
 	found := false
 	for _, e := range readDiagnosticEvents(t, dir) {
 		found = found || e.Type == "shutdown_requested" && e.Stage == "SIGNAL"
@@ -211,11 +203,11 @@ func TestHistoryActualEncodedRecordLimitKeepsRotationBounded(t *testing.T) {
 	e := HistoryEvent{Type: "playback_sample", Playback: &PlaybackHistory{State: "PLAYING", WaitReason: "READY", Session: 1, DownloadRate: 1e10, BufferSeconds: 120}}
 	for i := 0; i < 1800; i++ {
 		h.Record(e)
-		if i%100 == 0 && !h.Flush(time.Second) {
+		if i%100 == 0 && !h.Flush(historyFileTestWait) {
 			t.Fatal("flush")
 		}
 	}
-	h.Close(time.Second)
+	closeHistoryFileForTest(t, h)
 	for i := 0; i <= HistoryArchives; i++ {
 		name := filepath.Join(dir, "flow-history.jsonl")
 		if i > 0 {

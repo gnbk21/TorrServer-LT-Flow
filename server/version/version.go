@@ -6,8 +6,8 @@ package version
 // version" from the FIRST digit run in this string and gates its settings UI on
 // it — e.g. it only shows the PreloadCache field (and hides the dead legacy
 // PreloadBuffer switch) when that number is > 131. Keep the first number >= 132
-// so the client unlocks the modern controls; "145" tracks upstream MatriX
-// feature parity (and is that first digit run), ".Flow-v1.0.1" marks the fork and
-// carries its own semantic version. Release tags must keep this shape
-// (MatriX.145.Flow-vX.Y.Z) so the gate stays satisfied.
-var Version = "MatriX.145.Flow-dev-local"
+// so the client unlocks the modern controls. "148" identifies the reviewed
+// upstream maintenance baseline; Flow retains its own feature set and semantic
+// version. New releases use MatriX.148.Flow-vX.Y.Z. Historical MatriX.145.Flow
+// identities remain recognized by the release and update helpers.
+var Version = "MatriX.148.Flow-dev-local"

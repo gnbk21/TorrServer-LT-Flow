@@ -2,15 +2,15 @@
 
 TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps the libtorrent engine, existing media cache and HTTP API, and adds a modern embedded web interface.
 
-> **Flow 1.1.9:** bounded optional preload waits, recovery of stalled partial blocks, overload-aware peer queues and clearer startup diagnostics. Includes the 1.1.7 security fixes. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.9), [notes](RELEASE_1_1_9_NOTES.md). Legacy remains the default; streaming experiments remain opt-in.
+> **Flow 1.2.0:** unified playback diagnosis, guided phone setup, clearer settings and storage views, steadier pressure recovery and optional private incident recording. Built with Go 1.27.3 and OpenSSL 3.5.9. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.148.Flow-v1.2.0), [notes](RELEASE_1_2_0_NOTES.md). Legacy remains the default; streaming experiments remain opt-in.
 
-Use **1.1.7 or newer** for the security protections described in
+Use the maintained **1.2.0 release or newer** for current dependency fixes and the security protections described in
 [our security policy](SECURITY.md). Historical plans, release measurements and
 upstream evaluations are organized in the [documentation index](docs/README.md).
 
 ## Run on Windows
 
-1. Open [Flow 1.1.9](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.145.Flow-v1.1.9), download **`TorrServer-Flow-windows-amd64-MatriX.145.Flow-v1.1.9.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
+1. Open [Flow 1.2.0](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.148.Flow-v1.2.0), download **`TorrServer-Flow-windows-amd64-MatriX.148.Flow-v1.2.0.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
 2. In PowerShell, run the standard executable from the extracted folder, using a separate data directory for Flow:
 
    ```powershell
@@ -20,6 +20,12 @@ upstream evaluations are organized in the [documentation index](docs/README.md).
 3. On the PC, open <http://127.0.0.1:8090>. On a phone on the same local network, use `http://<PC-LAN-IP>:8090` as the TorrServer address in your client (for example, Lampa), then play with Just Player. Allow the server through Windows Firewall on private networks if prompted.
 
 Keep Flow and another TorrServer instance on **different ports and data directories**. Do not start them concurrently against the same `config.db`. The server listens on all interfaces by default. Keep it on a trusted private LAN or VPN. HTTP authentication (`--httpauth`, with an `accs.db` account file) protects management endpoints, but inherited playback routes can serve an existing torrent without credentials when its hash is known. Do not expose it directly to the Internet.
+
+Browser management always enforces the hostname and allowed-origin checks.
+Use Management origins, authentication and playback-token controls to configure
+access. The old `Flow.SecurityProfile` field is deprecated and retained only for
+configuration/API compatibility; its compatible/restricted value changes no
+origin enforcement and is no longer an editable web setting.
 
 The artifact also contains a `-gst` executable for optional GStreamer HLS transcoding. Direct playback uses the standard executable and does not require GStreamer. The `-gst` variant needs GStreamer installed separately at runtime.
 
@@ -272,6 +278,14 @@ See the [free local Jackett setup](LAMPA_RUTRACKER.md); its search address is
 separate from Flow's playback address.
 
 ## Startup diagnostics
+
+Flow 1.2.0 adds a unified playback journey and read-only
+adviser, guided phone connection proof, server-owned settings metadata and cache
+preview, steadier memory-pressure recovery, selected-file media/reuse information
+and read-only runtime storage inventory. Optional private incident tracing is
+advanced and default-off. See [diagnostics and setup](DIAGNOSTICS.md) and the
+[implementation/verification record](docs/development/BALANCED_UPGRADE.md).
+These source changes do not change the features in previously published binaries.
 
 Flow 1.1 returns explicit preload requests when the buffer
 is ready; an owned worker keeps the existing eight-second warm handoff in the

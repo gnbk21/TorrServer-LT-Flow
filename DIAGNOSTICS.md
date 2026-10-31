@@ -4,6 +4,69 @@ Flow's web diagnostics show live server observations. Enable **Diagnostic
 history** in Flow settings to retain evidence after playback ends. Detailed Range
 tracing is independent and is not required for the periodic history below.
 
+## Playback diagnosis and phone setup
+
+The playback overview follows metadata discovery, peer connection, required
+head/index bytes, optional reserve and HTTP delivery in one view. It shows the
+current blocker, evidence age, confidence and one suggested reversible step.
+Old or missing observations remain unknown. The adviser never changes settings,
+profiles, trusted origins or quality. Server buffers and read waits do not measure
+the player's decoded buffer or displayed frames. Search/parser availability is
+shown separately in Search; a parser outage does not establish a torrent-network
+fault. Full episode preparation remains an explicit optional operation.
+
+**Connect phone → Guided phone setup** checks listener interfaces and advertised
+LAN addresses, then creates a five-minute read-only connection proof. Scan that
+proof's QR from the phone. A request from a different network address proves that
+another client reached Flow; it does not identify the physical device. A PC-only
+preview is labelled separately. Related authentication or browser-origin rejection
+evidence appears after the visitor is observed. Unseen requests cannot be
+diagnosed conclusively: check the chosen address, Wi-Fi/router isolation and the
+app's local-network permission. Android behavior depends on its version, the app
+and target SDK; Flow cannot grant another app's permissions.
+
+Proof creation and status use the existing management authentication/origin/rate
+policy. If HTTP authentication is disabled, the existing trusted-LAN access
+policy still applies. Enable authentication when that is not appropriate. A
+proof token grants no management or playback authority. At most 64 proofs and
+128 short-lived access observations are held in memory; neither is persisted.
+Setup remains available while the torrent engine starts. Creating a proof does
+not add a trusted management origin. Add an origin only after explicitly deciding
+to trust that exact application.
+
+Expand **Media information** for a selected file to see metadata already obtained
+by the bounded startup probe: codec, audio/subtitle tracks and available bitrate.
+This read does not initiate a probe or inspect every search result. Unknown
+information stays unknown. Direct playback preserves the media bytes; optional
+GStreamer conversion is a separate explicitly selected path. Diagnostics also
+show exact-byte reuse eligibility, accepted candidates and natively verified
+bytes, plus metadata recovery and next-episode warmup state. A matching candidate
+alone is not proof that bytes passed native verification.
+
+## Optional incident traces and storage previews
+
+**Settings → Advanced → Incident flight recorder** is
+default-off. When enabled on a writable installation, Go's flight recorder targets
+30 seconds of recent execution history with a 32 MiB size hint. That hint is not
+a total-memory cap. A server read stall of at least 500 ms or startup failure can
+save one asynchronous capture, at most once every five minutes. Each raw output
+has a separate 64 MiB hard limit; incomplete/oversized output is discarded. At
+most two raw captures are retained. Memory pressure pauses the recorder and it
+resumes after pressure recovery. A conflicting runtime trace or storage failure
+is reported without failing playback.
+
+Raw traces can contain private process details. They are private files in
+`flow-incidents`, excluded from ordinary support reports and portable exports.
+Under **Settings → Advanced → Runtime storage**, explicitly select raw traces
+before downloading one. Retained captures remain accessible with the recorder
+disabled. ETW/Perfetto remain the tools for native C++ attribution.
+
+The runtime storage scan is read-only and separates evicting disk cache, retained
+preparation data, diagnostics, backups and resident RAM cache. It skips links and
+uses a one-second/10,000-entry traversal limit; an incomplete category is labelled.
+It does not delete files. Developer-workspace inventory and cleanup are separate;
+see [the build guide](build/README.md).
+
 ## What is recorded
 
 - `startup_sample`, at most once every two seconds plus a final snapshot:

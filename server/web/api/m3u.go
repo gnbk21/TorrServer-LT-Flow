@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/anacrolix/missinggo/v2/httptoo"
 
@@ -149,8 +152,10 @@ func sendM3U(c *gin.Context, name, hash string, m3u string) {
 	c.Header("Content-Type", "audio/x-mpegurl")
 	c.Header("Connection", "close")
 	if hash != "" {
-		etag := hex.EncodeToString([]byte(fmt.Sprintf("%s/%s", hash, name)))
-		c.Header("ETag", httptoo.EncodeQuotedString(etag))
+		// Include the final URLs, including this fetch's isolated session token.
+		// An unchanged torrent and filename do not imply an unchanged playlist.
+		sum := sha256.Sum256([]byte(hash + "/" + name + "\n" + m3u))
+		c.Header("ETag", httptoo.EncodeQuotedString(hex.EncodeToString(sum[:])))
 	}
 	if name == "" {
 		name = "playlist.m3u"
@@ -255,13 +260,54 @@ func findFileNamesakes(files []*state.TorrentFileStat, file *state.TorrentFileSt
 	name := filepath.Base(strings.TrimSuffix(file.Path, filepath.Ext(file.Path)))
 	var namesakes []*state.TorrentFileStat
 	for _, f := range files {
-		if strings.Contains(f.Path, name) { // external tracks always include name of videofile
-			if f != file { // exclude itself
-				namesakes = append(namesakes, f)
-			}
+		if f == file || !isExternalTrack(f.Path) {
+			continue
+		}
+		if containsMediaName(f.Path, name) {
+			namesakes = append(namesakes, f)
 		}
 	}
 	return namesakes
+}
+
+// External tracks must carry the video name with word boundaries. A name may
+// appear in a parent directory (Subs/Episode 1/English.srt), but Episode 10 and
+// Aliens must not be attached to Episode 1 and Alien.
+func containsMediaName(path, name string) bool {
+	if name == "" {
+		return false
+	}
+	first, _ := utf8.DecodeRuneInString(name)
+	last, _ := utf8.DecodeLastRuneInString(name)
+	word := func(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) || unicode.IsMark(r) }
+	for offset := 0; offset <= len(path); {
+		index := strings.Index(path[offset:], name)
+		if index < 0 {
+			return false
+		}
+		start := offset + index
+		end := start + len(name)
+		before, _ := utf8.DecodeLastRuneInString(path[:start])
+		after, _ := utf8.DecodeRuneInString(path[end:])
+		if (start == 0 || !word(before) || !word(first)) &&
+			(end == len(path) || !word(after) || !word(last)) {
+			return true
+		}
+		_, width := utf8.DecodeRuneInString(path[start:])
+		offset = start + width
+	}
+	return false
+}
+
+func isExternalTrack(path string) bool {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".srt", ".ass", ".ssa", ".vtt", ".sub", ".idx", ".mka", ".dts", ".eac3", ".ec3":
+		return true
+	case ".m3u", ".pls": // Playlists are not audio sidecars.
+		return false
+	default:
+		return utils.GetMimeType(path) == "audio/*"
+	}
 }
 
 func searchLastPlayed(tor *state.TorrentStatus) int {

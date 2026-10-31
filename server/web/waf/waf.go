@@ -3,6 +3,7 @@ package waf
 import (
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 
 	"server/log"
@@ -68,5 +69,12 @@ func clientIP(c *gin.Context) net.IP {
 		// RemoteAddr without port (rare)
 		host = strings.Trim(c.Request.RemoteAddr, "[]")
 	}
-	return net.ParseIP(host)
+	// ParseAddr accepts scoped IPv6 (fe80::1%interface) without treating an
+	// IPv4 address with a bogus zone as a valid ACL identity. Only the numeric
+	// address participates in IP ranges; proxy headers remain untrusted.
+	addr, err := netip.ParseAddr(host)
+	if err != nil {
+		return nil
+	}
+	return net.IP(addr.AsSlice())
 }

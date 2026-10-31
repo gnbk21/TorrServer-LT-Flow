@@ -19,6 +19,10 @@ const (
 // object exists yet. After a successful write, each source file is renamed
 // to *.bak and is not read again.
 func MigrateWAFLists() {
+	migrateWAFLists(SetWAFConfig)
+}
+
+func migrateWAFLists(write func(WAFConfig) error) {
 	if ReadOnly {
 		return
 	}
@@ -51,7 +55,7 @@ func MigrateWAFLists() {
 		return
 	}
 
-	if err := SetWAFConfig(WAFConfig{
+	if err := write(WAFConfig{
 		Version:   WAFConfigVersion,
 		Whitelist: whitelist,
 		Blacklist: blacklist,

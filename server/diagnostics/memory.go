@@ -19,10 +19,15 @@ type MemoryStatus struct {
 	SystemAvailableBytes uint64    `json:"system_available_bytes"`
 	SystemAvailable      bool      `json:"system_available"`
 	Pressure             bool      `json:"pressure"`
+	PressureState        string    `json:"pressure_state"`
+	RecoverySamples      int       `json:"recovery_samples"`
+	PressureEntryBytes   uint64    `json:"pressure_entry_bytes"`
+	PressureExitBytes    uint64    `json:"pressure_exit_bytes"`
 }
 
 var memoryMu sync.Mutex
 var memorySample MemoryStatus
+var memoryPressure pressurePolicy
 
 // Cache the OS query for five seconds. RSS includes native allocations and
 // resident code; subtracting the Go heap does not measure libtorrent's heap.
@@ -38,6 +43,11 @@ func Memory() MemoryStatus {
 	memorySample = MemoryStatus{RSSBytes: rss, RSSAvailable: rssOK, Handles: handles, HandlesAvailable: handlesOK, GoHeapBytes: m.HeapAlloc, GoSystemBytes: m.Sys, Goroutines: runtime.NumGoroutine(), SampledAt: time.Now()}
 	total, available, known := systemMemory()
 	memorySample.SystemTotalBytes, memorySample.SystemAvailableBytes, memorySample.SystemAvailable = total, available, known
-	memorySample.Pressure = known && available < max(uint64(512<<20), total/20)
+	memoryPressure.sample(total, available, known, memorySample.SampledAt)
+	memorySample.Pressure = memoryPressure.active
+	memorySample.PressureState = memoryPressure.state(known)
+	memorySample.RecoverySamples = memoryPressure.recovering
+	memorySample.PressureEntryBytes = pressureEntry(total)
+	memorySample.PressureExitBytes = pressureEntry(total) + pressureEntry(total)/2
 	return memorySample
 }

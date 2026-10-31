@@ -42,6 +42,8 @@ toolchains/
 /_deps/
 /_out/
 /.tools/
+# Source-bound CI handoff metadata is not application source or embedded UI.
+/server/web/pages/template/flow-web-source.json
 
 # rutor search DB — a ~52 MB runtime download (rutor.go fetches it from the
 # mirror), not a source/fixture. Used by the manual full-parse rutor tests.

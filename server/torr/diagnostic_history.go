@@ -32,7 +32,8 @@ func (t *Torrent) recordStartupProgress(progress flow.StartupHistory, force bool
 // The existing one-second torrent watcher owns sampling. Nothing is polled on
 // the HTTP read path and opening the diagnostics drawer is not required.
 func (t *Torrent) recordPlaybackHistory(now time.Time) {
-	if !settings.CurrentFlow().DiagnosticHistory || !settings.CurrentFlow().MetricsEnabled || t.bt == nil || t.bt.history.Load() == nil {
+	f := settings.CurrentFlow()
+	if (!f.DiagnosticHistory && !f.IncidentFlightRecorder) || !f.MetricsEnabled || t.bt == nil {
 		return
 	}
 	t.flowMu.Lock()
@@ -69,6 +70,9 @@ func (t *Torrent) recordPlaybackHistory(now time.Time) {
 	for _, s := range sessions {
 		identity, ok := identities[s.SessionID]
 		if !ok {
+			continue
+		}
+		if !f.DiagnosticHistory {
 			continue
 		}
 		p := flow.PlaybackHistory{Session: identity.id, State: s.State, DemandOffsetBytes: s.DemandOffsetBytes, DeliveredOffsetBytes: s.PlaybackOffsetBytes, BufferBytes: s.BufferAheadBytes, BufferSeconds: s.BufferAheadSeconds, DeliveryRate: s.Delivery.LongRate, DownloadRate: s.DownloadRate, ConsumptionRate: s.PlaybackConsumptionRate, SupplyQualified: s.SupplyQualified, WaitReason: s.WaitReason, ActiveReaders: s.ActiveReaders, RangeRequests: s.RangeRequestCount, RangeCancels: s.RangeCancelCount, RecentReadStalls: s.RecentServerReadStalls, RecentWaitP95Ms: s.RecentPieceWaitP95Ms, Suppliers: s.RequiredPieceSuppliers}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"server/diagnostics"
 	"server/log"
 	"server/settings"
 )
@@ -77,20 +78,22 @@ func CheckAuth() gin.HandlerFunc {
 		}
 
 		if _, ok := c.Get(gin.AuthUserKey); ok {
+			diagnostics.Pairing.RecordAccess(c.Request, "AUTH_ACCEPTED")
 			return
 		}
+		diagnostics.Pairing.RecordAccess(c.Request, "AUTH_REQUIRED")
 
 		// SPA XHR/fetch probes must not trigger the browser's native Basic dialog.
 		// The initial document navigation (Accept: text/html) and third-party
 		// clients (Accept: */*, or those that already send Authorization) still get
 		// the challenge, so native players are unaffected.
 		if !shouldSendBasicChallenge(c) {
-			c.AbortWithStatus(http.StatusUnauthorized)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required", "code": "AUTH_REQUIRED"})
 			return
 		}
 
 		c.Header("WWW-Authenticate", "Basic realm=Authorization Required")
-		c.AbortWithStatus(http.StatusUnauthorized)
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required", "code": "AUTH_REQUIRED"})
 	}
 }
 

@@ -184,5 +184,7 @@ for individual timings, profile failures and the policy decision. Use the ledger
 for exact passing runs and remaining checks. Local timing is not
 a public-swarm benchmark, physical NAT/IPv6 test, multi-hour endurance result or
 Android decoded-frame measurement. Paid providers are excluded by the user's
-free-only preference. Pure-v2 storage, QUIC, application DoH, AI prediction,
-transcoding and another engine are not justified additions to this sparse-source work.
+free-only preference. Pure-v2/hybrid identities, storage verification and bounded
+exact-byte reuse are now implemented; see `torrstor/verified_reuse.go` and the
+current high-bitrate guide. QUIC, application DoH, AI prediction, automatic
+transcoding and another engine remain outside this sparse-source work.

@@ -19,6 +19,42 @@ type reuseEntry struct {
 
 var reuseWorker atomic.Bool
 
+type ReuseStatus struct {
+	Eligible       bool   `json:"eligible"`
+	Reason         string `json:"reason"`
+	Candidates     uint64 `json:"candidates"`
+	NativeAccepted uint64 `json:"native_accepted"`
+	NativeRejected uint64 `json:"native_rejected"`
+	VerifiedBytes  uint64 `json:"verified_bytes"`
+}
+
+func (c *Cache) ReuseStatus() ReuseStatus {
+	if c == nil || c.storage == nil {
+		return ReuseStatus{Reason: "NO_CACHE"}
+	}
+	c.storage.reuseMu.Lock()
+	reason := c.reuseEligibility
+	c.storage.reuseMu.Unlock()
+	if reason == "" {
+		reason = "METADATA_NOT_REGISTERED"
+	}
+	eligible := reason == "ELIGIBLE"
+	if c.reuseClosed.Load() {
+		eligible = false
+		reason = "CLOSED"
+	} else if !settings.CurrentFlow().Enabled {
+		eligible = false
+		reason = "DISABLED"
+	} else if eligible && c.backgroundLimited.Load() {
+		reason = "RESOURCE_PRESSURE"
+	} else if eligible && c.flowReconnect.Load() {
+		reason = "RECONNECTING"
+	} else if eligible && c.reuseCandidates.Load() == 0 {
+		reason = "NO_MATCH_OBSERVED"
+	}
+	return ReuseStatus{eligible, reason, c.reuseCandidates.Load(), c.reuseAccepted.Load(), c.reuseRejected.Load(), c.reuseVerifiedBytes.Load()}
+}
+
 // SetReuseMetadata replaces an owner's metadata atomically. The index retains
 // only authenticated roots/layers, bounded across all live caches. Private,
 // incomplete or oversized metadata yields ordinary swarm downloads.
@@ -29,32 +65,52 @@ func (s *Storage) SetReuseMetadata(c *Cache, metadata *lt.ParsedTorrent) bool {
 	s.reuseMu.Lock()
 	defer s.reuseMu.Unlock()
 	s.removeReuseLocked(c)
-	if metadata == nil || c.reuseClosed.Load() || metadata.Private || flow.ParseInfoHash(metadata.InfoHash) != c.InfoHash || metadata.InfoHashV2 == "" || !metadata.CompletePieceLayers() || metadata.PieceLength != c.PieceLength || len(metadata.V2Files) > reuseDescriptorLimit {
-		return false
+	fail := func(reason string) bool { c.reuseEligibility = reason; return false }
+	if metadata == nil {
+		return fail("METADATA_NOT_REGISTERED")
+	}
+	if c.reuseClosed.Load() {
+		return fail("CLOSED")
+	}
+	if metadata.Private {
+		return fail("PRIVATE_TORRENT")
+	}
+	if flow.ParseInfoHash(metadata.InfoHash) != c.InfoHash || metadata.PieceLength != c.PieceLength {
+		return fail("IDENTITY_OR_GEOMETRY")
+	}
+	if metadata.InfoHashV2 == "" {
+		return fail("NO_V2_IDENTITY")
+	}
+	if !metadata.CompletePieceLayers() {
+		return fail("INCOMPLETE_PIECE_LAYERS")
+	}
+	if len(metadata.V2Files) > reuseDescriptorLimit {
+		return fail("INDEX_LIMIT")
 	}
 	entries := make([]reuseEntry, 0, len(metadata.V2Files))
 	layerBytes := 0
 	lastEnd := int64(0)
 	for _, file := range metadata.V2Files {
 		if file.Offset < lastEnd {
-			return false
+			return fail("IDENTITY_OR_GEOMETRY")
 		}
 		proof := flow.NewReuseFile(file, metadata.PieceLength, metadata.TotalSize)
 		if proof == nil {
-			return false
+			return fail("IDENTITY_OR_GEOMETRY")
 		}
 		lastEnd = file.Offset + file.Size
 		layerBytes += len(proof.Pieces) * 32
 		if len(s.reuseEntries)+len(entries)+1 > reuseDescriptorLimit || s.reuseLayerBytes+layerBytes > reuseLayerBudget {
-			return false
+			return fail("INDEX_LIMIT")
 		}
 		entries = append(entries, reuseEntry{c, proof})
 	}
 	if len(entries) == 0 {
-		return false
+		return fail("NO_FILES")
 	}
 	s.reuseEntries = append(s.reuseEntries, entries...)
 	s.reuseLayerBytes += layerBytes
+	c.reuseEligibility = "ELIGIBLE"
 	return true
 }
 
@@ -159,6 +215,7 @@ func (c *Cache) tryReusePiece(ctx context.Context, closed <-chan struct{}, handl
 		reuseWorker.Store(false)
 		return false
 	}
+	c.reuseCandidates.Add(1)
 	go func() {
 		defer reuseWorker.Store(false)
 		cancelled := func() bool {
@@ -197,9 +254,12 @@ func (c *Cache) tryReusePiece(ctx context.Context, closed <-chan struct{}, handl
 		c.mu.Unlock()
 		accepted, err := handle.TryReusePiece(piece, data)
 		if !accepted || err != nil {
+			c.reuseRejected.Add(1)
 			c.mu.Lock()
 			delete(c.reuseVerified, piece)
 			c.mu.Unlock()
+		} else {
+			c.reuseAccepted.Add(1)
 		}
 	}()
 	return true

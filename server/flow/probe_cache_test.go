@@ -22,7 +22,7 @@ func TestProbeCacheIdentityRetryAndBound(t *testing.T) {
 	if lease == 0 {
 		t.Fatal("failure retry missing")
 	}
-	c.Finish(key, lease, ProbeResult{"800000", 60}, true, now.Add(time.Minute))
+	c.Finish(key, lease, ProbeResult{BitRate: "800000", Duration: 60}, true, now.Add(time.Minute))
 	if r, ok := c.Get(key, now.Add(time.Hour)); !ok || r.Duration != 60 {
 		t.Fatal("success missing")
 	}
@@ -51,12 +51,34 @@ func TestExpiredProbeCannotOverwriteReplacement(t *testing.T) {
 	if old == 0 || replacement == 0 || old == replacement {
 		t.Fatal("lease not replaced")
 	}
-	cache.Finish(key, old, ProbeResult{"1", 1}, true, now.Add(37*time.Second))
+	cache.Finish(key, old, ProbeResult{BitRate: "1", Duration: 1}, true, now.Add(37*time.Second))
 	if _, ok := cache.Get(key, now.Add(38*time.Second)); ok {
 		t.Fatal("stale result replaced active lease")
 	}
-	cache.Finish(key, replacement, ProbeResult{"800000", 60}, true, now.Add(39*time.Second))
+	cache.Finish(key, replacement, ProbeResult{BitRate: "800000", Duration: 60}, true, now.Add(39*time.Second))
 	if result, ok := cache.Get(key, now.Add(40*time.Second)); !ok || result.Duration != 60 {
 		t.Fatal("replacement result lost")
+	}
+}
+
+func TestProbeTrackMetadataIsBoundedAndCopied(t *testing.T) {
+	var c ProbeCache
+	now := time.Now()
+	key := ProbeKey{"hash", 1, 100, "file"}
+	tracks := make([]ProbeTrack, 40)
+	for i := range tracks {
+		tracks[i] = ProbeTrack{Index: i, Type: "audio", Codec: "aac", Title: string(make([]byte, 1000))}
+	}
+	lease := c.Begin(key, now)
+	c.Finish(key, lease, ProbeResult{Duration: 1, Tracks: tracks}, true, now)
+	tracks[0].Codec = "modified"
+	r, ok := c.Get(key, now)
+	if !ok || !r.Truncated || len(r.Tracks) != 32 || len(r.Tracks[0].Title) > 128 || r.Tracks[0].Codec != "aac" {
+		t.Fatal("metadata escaped bounds or retained caller ownership")
+	}
+	r.Tracks[0].Codec = "reader mutation"
+	again, _ := c.Get(key, now)
+	if again.Tracks[0].Codec != "aac" {
+		t.Fatal("reader changed shared cache")
 	}
 }
