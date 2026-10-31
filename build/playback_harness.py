@@ -302,7 +302,14 @@ if __name__ == "__main__":
     parser.add_argument("--cases", nargs="+", choices=("fast","slow","disconnect"), default=["fast","slow","disconnect"])
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
-    paths = [args.fixtures / name for name in ("head.mp4","tail.mp4","seekable.mkv","variable.mp4")] if args.fixtures else generate(args.output / "fixtures")
+    if args.fixtures:
+        manifest = args.fixtures/'fixtures.json'
+        names = [row['name'] for row in json.loads(manifest.read_text(encoding='utf-8'))['fixtures']] if manifest.is_file() else ["head.mp4","tail.mp4","seekable.mkv","variable.mp4"]
+        if any(Path(name).name != name for name in names):
+            raise ValueError('Fixture manifest must contain plain file names')
+        paths = [args.fixtures/name for name in names]
+    else:
+        paths = generate(args.output / "fixtures")
     cases = {"fast": (0,0,0), "slow": (2*MIB,2,0), "disconnect": (4*MIB,1,100)}
     result = {"schema_version":1,"executable_sha256":hashlib.sha256(args.executable.read_bytes()).hexdigest(),"cases":[]}
     try:

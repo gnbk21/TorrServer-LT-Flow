@@ -185,5 +185,5 @@ if __name__ == '__main__':
     parser.add_argument('--output', required=True, type=Path)
     args = parser.parse_args()
     result = check(args.executable, args.output)
-    print(json.dumps({k: result[k] for k in ('passed', 'elapsed_seconds', 'extra_wait_seconds',
+    print(json.dumps({k: result.get(k) for k in ('failure_stage', 'port_allocation', 'passed', 'elapsed_seconds', 'extra_wait_seconds',
                                            'missing_index_held', 'owned_server_stopped')}))

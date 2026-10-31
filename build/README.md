@@ -89,6 +89,56 @@ go test -count=1 -timeout 180s ./web/api ./web/waf ./torrfs
 These commands build and test source; they do not replace or restart an installed
 server or use its state directory.
 
+For one verification entry point using this installed environment:
+
+```powershell
+./build/Verify-Flow.ps1 -Scope Quick
+./build/Verify-Flow.ps1 -Scope Full
+```
+
+Quick runs the package inventory, Python harness tests, web lint/tests/typecheck/
+build, embedding checks, native build, every ordinary native package test and
+vet. Full additionally runs the race detector, browser checks and interface lab.
+Neither starts a two-hour test. Receipts and individual logs are written under
+`_out/verification`; failures remain failures. Native packages run with bounded
+compiler concurrency. Full-database Rutor tests remain explicitly opt-in.
+
+Native dependency receipts record compiler driver/version, dependency archives,
+headers, pkg-config files and recipe/patch/flag identities. Every native build
+validates this receipt before reusing its cache. An identity/content mismatch
+rebuilds only the checked target under `_deps`, not arbitrary directories.
+`Compare-Go.ps1` evaluates Go 1.27.3 separately against the pinned 1.26.10 with
+compatibility/build checks and three alternating benchmark rotations. It retains
+all results and rejects qualification if source changes during the comparison.
+It never changes `go.mod` or promotes the candidate by itself.
+
+PR checks build the web artifact once. Compatible cross/macOS/CodeQL consumers
+download it only after checking repository, PR, head and merge-source identity.
+Artifacts from another source or trust boundary are rejected. Linux validation
+depends directly on its Linux build; it need not wait for the other platforms.
+Required security, native, platform, packaging and provenance gates remain.
+
+### Workspace storage inventory
+
+```powershell
+python build/workspace_storage.py --output .tools/storage-preview.json
+```
+
+This defaults to preview-only. It inventories known build/cache/toolchain and
+evidence-archive roots. Installed toolchains, binaries, settings, credentials,
+backups, rollback artifacts, verified evidence archives and manifests are
+protected. Only narrowly listed generated caches can be selected for cleanup.
+Explicit apply requires the reviewed manifest and its SHA-256, then rechecks
+canonical paths, file identity and locks. Changed, active, locked, linked or
+outside-workspace paths are skipped/rejected. No recursive deletion is used.
+Keep the preview private because local paths can identify an installation.
+
+`compare_streaming.py` runs three or more alternating baseline/candidate
+rotations using identical settings and a calibrated controlled swarm. It retains
+every failed attempt and all individual values alongside medians. Use the same
+native SDK and fixed source for both builds. Its HTTP byte checks do not measure
+phone decoding or public-swarm performance.
+
 ### Linux-hosted cross-builds
 
 The host needs `go`, `curl`, `git`, `cmake` (for the WebRTC deps) and a host

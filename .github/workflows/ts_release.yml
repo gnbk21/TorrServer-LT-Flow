@@ -4,6 +4,7 @@ on:
     tags: ['MatriX.145.Flow-*']
 permissions:
   contents: read
+  actions: read
 jobs:
   classify:
     runs-on: ubuntu-latest

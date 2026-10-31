@@ -31,7 +31,10 @@ def summarize(runs):
     result = {}
     for name, _ in POLICIES:
         rows = [r for r in runs if r["policy"] == name]
-        summary = {"passed": sum(bool(r["passed"]) for r in rows), "total": len(rows)}
+        infrastructure = [r for r in rows if r.get('failure_stage') == 'fixture_port_allocation']
+        rows = [r for r in rows if r not in infrastructure]
+        summary = {"passed": sum(bool(r["passed"]) for r in rows), "total": len(rows),
+                   "allocation_failures": len(infrastructure)}
         for key in ("preload_ready_ms", "peak_observed_rss_bytes", "native_redundant_bytes",
                     "cpu_seconds", "cold_seek_ttfb_p95_ms"):
             values = [r[key] for r in rows if r.get(key) is not None]
@@ -106,9 +109,10 @@ def check(args):
             controls = [s.get("stream_control") for s in
                         row.get('preload_samples', []) + row["samples"]]
             controls = [s for s in controls if s and s.get("known")]
-            if not controls:
+            allocation_failed = row.get('failure_stage') == 'fixture_port_allocation'
+            if not controls and not allocation_failed:
                 row["passed"], row["policy_error"] = False, "Native stream observations unavailable"
-            if args.case == "high-latency" and options.get("adaptive_peer_requests"):
+            if not allocation_failed and args.case == "high-latency" and options.get("adaptive_peer_requests"):
                 policies = [s.get("request_policy", {}) for s in controls]
                 if not any(p.get("enabled") and p.get("qualified_peers", 0) > 0
                            and p.get("horizon_max_ms", 0) > 2000 for p in policies):

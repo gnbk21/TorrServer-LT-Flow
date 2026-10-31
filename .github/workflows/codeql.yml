@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: codeql-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -75,7 +76,7 @@ jobs:
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _deps/linux-amd64
-          key: codeql-native-${{ runner.os }}-${{ hashFiles('build/_common.sh', 'build/_deps.sh', 'build/native-patches/**') }}
+          key: receipt1-${{ env.ImageVersion }}-codeql-native-${{ runner.os }}-${{ hashFiles('build/native_receipt.py', 'build/_common.sh', 'build/_deps.sh', 'build/_common.sh', 'build/_deps.sh', 'build/native-patches/**') }}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: flow-web-codeql

@@ -89,7 +89,9 @@ class WorkflowPolicyTests(unittest.TestCase):
         web = job('build-web.yml', 'web')
         self.assertIn('Download validated same-run web UI', web)
         self.assertIn("if: inputs.reuse-artifact != ''", web)
-        self.assertIn('if: ${{ !inputs.reuse-artifact }}', web)
+        self.assertIn("if: env.FLOW_WEB_BUILD == '1'", web)
+        self.assertIn("inputs.artifact-name == 'flow-web-pr'", web)
+        self.assertIn('build/shared_web.py verify', web)
         release = job('ts_release.yml', 'release')
         self.assertIn('python3 build/release_gates.py verified-jobs.json', release)
 
@@ -99,14 +101,30 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertNotIn('native-streaming-tests', cross)
         self.assertNotIn('go test ', cross)
         self.assertNotIn('playback_harness.py', cross)
-        self.assertIn('name: flow-linux-native-deps', cross)
+        linux = job('build.yml', 'linux-build')
+        self.assertIn('needs: [sources, web]', linux)
+        self.assertIn('name: linux-amd64', linux)
+        self.assertIn('name: flow-linux-native-deps', linux)
+        self.assertNotIn('          - linux-amd64', cross)
         native = job('build.yml', 'linux-validation')
+        self.assertIn('needs: linux-build', native)
         for gate in ('Native upload cache-miss regression', 'Unit tests', 'Go vet',
                      'Verify API contracts', 'Race tests and reachable Go vulnerability scan',
                      'Bounded fuzz campaigns', 'Library persistence measurement'):
             self.assertIn(gate, native)
         self.assertIn('name: flow-linux-native-deps', native)
         self.assertIn('tar -xzf _out/linux-native-deps.tar.gz', native)
+
+    def test_pr_web_consumers_require_the_same_validated_source(self):
+        source=job('checks.yml','web')
+        self.assertIn("'flow-web-pr'",source)
+        self.assertNotIn("if: github.event_name == 'push'",source)
+        shared=job('build-web.yml','web')
+        self.assertIn('build/shared_web.py resolve',shared)
+        self.assertIn('build/shared_web.py write',shared)
+        self.assertIn('build/shared_web.py verify',shared)
+        self.assertIn('run-id: ${{ steps.shared.outputs.run-id }}',shared)
+        self.assertNotIn('pull_request_target',shared)
 
     def test_every_integration_case_is_retained_and_dispatched(self):
         script = (ROOT / 'build/ci-integration.sh').read_text()

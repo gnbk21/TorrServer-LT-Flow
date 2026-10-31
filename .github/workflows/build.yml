@@ -65,6 +65,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   private-windows-candidate:
@@ -112,7 +113,7 @@ jobs:
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _deps/windows-amd64
-          key: deps-windows-amd64-boost1.85.0-lt2.1.2-ossl3.5.7-flowsparse-pcfold2-${{ hashFiles('build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
+          key: receipt1-${{ env.ImageVersion }}-deps-windows-amd64-boost1.85.0-lt2.1.2-ossl3.5.7-flowsparse-pcfold2-${{ hashFiles('build/native_receipt.py', 'build/_common.sh', 'build/_deps.sh', 'build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
           restore-keys: deps-windows-amd64-boost1.85.0-lt2.1.2-ossl3.5.7-
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -131,7 +132,7 @@ jobs:
           if-no-files-found: error
 
   release-inventory:
-    needs: [cross, sources]
+    needs: [cross, linux-build, sources]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -178,7 +179,7 @@ jobs:
           if-no-files-found: error
   upgrade-profile-comparison:
     if: github.event_name == 'pull_request' && github.head_ref == 'feature/flow-upgrade'
-    needs: [cross]
+    needs: [cross, linux-build]
     permissions:
       contents: read
       actions: read
@@ -188,7 +189,7 @@ jobs:
       comparison: profiles
   upgrade-transport-comparison:
     if: github.event_name == 'pull_request' && github.head_ref == 'feature/flow-upgrade'
-    needs: [cross]
+    needs: [cross, linux-build]
     permissions:
       contents: read
       actions: read
@@ -213,7 +214,7 @@ jobs:
           go test -count=1 ./web/auth/rejected_body.go ./web/auth/rejected_body_test.go
   sparse-native-layers:
     if: inputs.evaluate_sparse_baseline
-    needs: [cross, sources]
+    needs: [cross, linux-build, sources]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -300,6 +301,60 @@ jobs:
           cd "$LT_DIR/simulation"
           BOOST_ROOT="$BOOST_DIR" "$BOOST_DIR/b2" -q -j2 crypto=built-in webtorrent=off test_peer_connection test_transfer
 
+  linux-build:
+    name: linux-amd64
+    needs: [sources, web]
+    if: ${{ !cancelled() && needs.sources.result == 'success' && needs.web.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ inputs.web_artifact || 'flow-web-cross' }}
+          path: server/web/pages/template
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: _src
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.7-v1
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: _deps/linux-amd64
+          key: deps-linux-amd64-receipt1-${{ env.ImageVersion }}-${{ hashFiles('build/_common.sh', 'build/_deps.sh', 'build/linux-amd64.sh', 'build/native_receipt.py', 'build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: Build
+        env:
+          TS_VERSION: ${{ inputs.version || format('MatriX.145.Flow-dev-{0}', github.sha) }}
+        run: bash build/linux-amd64.sh
+      - name: Retain exact Linux native dependencies for validation
+        run: tar -czf _out/linux-native-deps.tar.gz _deps/linux-amd64
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          retention-days: 3
+          name: flow-linux-native-deps
+          path: _out/linux-native-deps.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          retention-days: 14
+          name: TorrServer-LT-linux-amd64
+          path: _out/TorrServer-LT-linux-amd64*
+          if-no-files-found: error
+      - name: Build symbol-preserving native profiler fixture
+        env:
+          TS_PROFILE_SYMBOLS: '1'
+          TS_VERSION: ${{ format('MatriX.145.Flow-profile-{0}', github.sha) }}
+        run: bash build/linux-amd64.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          retention-days: 14
+          name: flow-native-profile-linux-amd64
+          path: _out/TorrServer-LT-linux-amd64
+          if-no-files-found: error
+
   cross:
     needs: [sources, web]
     if: ${{ !cancelled() && needs.sources.result == 'success' && needs.web.result == 'success' }}
@@ -310,7 +365,6 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - linux-amd64
           - linux-arm64
           - linux-armv7
           - windows-amd64
@@ -337,7 +391,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: _deps/${{ matrix.target }}
-          key: deps-${{ matrix.target }}-boost1.85.0-lt2.1.2-ossl3.5.7-flowsparse-pcfold2-${{ hashFiles('build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
+          key: receipt1-${{ env.ImageVersion }}-deps-${{ matrix.target }}-boost1.85.0-lt2.1.2-ossl3.5.7-flowsparse-pcfold2-${{ hashFiles('build/native_receipt.py', 'build/_common.sh', 'build/_deps.sh', 'build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
           restore-keys: deps-${{ matrix.target }}-boost1.85.0-lt2.1.2-ossl3.5.7-
 
       - name: Set up Go
@@ -374,17 +428,6 @@ jobs:
         env:
           TS_VERSION: ${{ inputs.version || format('MatriX.145.Flow-dev-{0}', github.sha) }}
         run: bash build/${{ matrix.target }}.sh
-
-      - name: Retain exact Linux native dependencies for validation
-        if: matrix.target == 'linux-amd64'
-        run: tar -czf _out/linux-native-deps.tar.gz _deps/linux-amd64
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: matrix.target == 'linux-amd64'
-        with:
-          retention-days: 3
-          name: flow-linux-native-deps
-          path: _out/linux-native-deps.tar.gz
-          if-no-files-found: error
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -450,13 +493,13 @@ jobs:
       # Ordinary and updater artifacts above retain their original stripping.
       # Keep symbols only in a separate, unpublished profiler fixture.
       - name: Build symbol-preserving native profiler fixture
-        if: matrix.target == 'linux-amd64' || matrix.target == 'windows-amd64'
+        if: matrix.target == 'windows-amd64'
         env:
           TS_PROFILE_SYMBOLS: '1'
           TS_VERSION: ${{ format('MatriX.145.Flow-profile-{0}', github.sha) }}
         run: bash build/${{ matrix.target }}.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: matrix.target == 'linux-amd64' || matrix.target == 'windows-amd64'
+        if: matrix.target == 'windows-amd64'
         with:
           retention-days: 14
           name: flow-native-profile-${{ matrix.target }}
@@ -464,7 +507,7 @@ jobs:
           if-no-files-found: error
 
   linux-validation:
-    needs: cross
+    needs: linux-build
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -683,7 +726,7 @@ jobs:
           if-no-files-found: warn
 
   controlled-integration:
-    needs: cross
+    needs: [cross, linux-build]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -740,7 +783,7 @@ jobs:
           if-no-files-found: error
 
   native-profiling:
-    needs: cross
+    needs: [cross, linux-build]
     if: ${{ always() && inputs.validation_scope != 'essential' && !inputs.capacity_case && (inputs.profile_source_run_id || needs.cross.result == 'success') }}
     permissions:
       contents: read
@@ -759,7 +802,7 @@ jobs:
       case: ${{ inputs.capacity_case }}
 
   high-bitrate-comparison:
-    needs: cross
+    needs: [cross, linux-build]
     if: inputs.validation_scope != 'essential'
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -813,7 +856,7 @@ jobs:
   parallel-streaming:
     if: inputs.validation_scope != 'essential'
     name: Parallel streaming (${{ matrix.target }}, ${{ matrix.case }})
-    needs: cross
+    needs: [cross, linux-build]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -868,7 +911,7 @@ jobs:
           if-no-files-found: error
 
   windows-service:
-    needs: cross
+    needs: [cross, linux-build]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -942,7 +985,7 @@ jobs:
   # Development master images retain their separate channel. Release images
   # publish only from ts_release.yml after every native/package gate passes.
   docker:
-    needs: [cross, native-streaming-tests, linux-validation, controlled-evidence, high-bitrate-comparison, windows-service, native-profiling, release-inventory, windows-network-notifications]
+    needs: [cross, linux-build, native-streaming-tests, linux-validation, controlled-evidence, high-bitrate-comparison, windows-service, native-profiling, release-inventory, windows-network-notifications]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && inputs.release_channel != 'stable' && inputs.release_channel != 'preview'
     permissions:
       contents: read
