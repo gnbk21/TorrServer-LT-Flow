@@ -246,3 +246,13 @@ and packaging rejects dirty/missing/duplicate VCS modification metadata. All 122
 harness/policy tests pass. The old build was cancelled, not accepted. Publication
 requires rebuilding the still-unpublished tag from this correction; old evidence
 and source commits remain retained, and no published tag or asset is overwritten.
+
+The corrected clean-provenance tagged executable (`5c7b0f39`) passed all eleven
+isolated startup/access-control checks, but the exact-source master scan found
+two overlapping character-class findings in pairing validation. Both redundant
+expressions now use the equivalent ASCII alphanumeric class. Four API tests
+cover creation/status, mixed-case and length boundaries, invalid characters and
+partial matches. Typecheck, lint, all 148 web unit tests (one explicit contract
+opt-in skip), and the production build passed. These findings were corrected,
+not dismissed. The superseded unpublished tag build was cancelled; final-source
+security and full tagged gates must pass before publication.

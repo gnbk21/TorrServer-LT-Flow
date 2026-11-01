@@ -2,7 +2,7 @@ import { z } from "zod";
 import { api } from "./client";
 
 const proofSchema = z.object({
-  id: z.string().regex(/^[A-Z2-7a-z0-9]{20,64}$/i),
+  id: z.string().regex(/^[a-z0-9]{20,64}$/i),
   expires_at: z.string().datetime({ offset: true }),
   reached_at: z.string().datetime({ offset: true }).optional(),
   different_client: z.boolean(),
@@ -27,7 +27,7 @@ export const pairingApi = {
       .object({
         schema_version: z.literal(1),
         proof: proofSchema.extend({
-          token: z.string().regex(/^[A-Z2-7a-z0-9]{20,64}$/i),
+          token: z.string().regex(/^[a-z0-9]{20,64}$/i),
         }),
         startup: z.object({
           listeners_ready: z.boolean(),
