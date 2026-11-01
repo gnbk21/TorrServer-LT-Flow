@@ -65,6 +65,8 @@ renamed, and the prefix does not imply complete upstream feature parity.
   the maintainer's advisory identifies the affected 10.2.6 preprocessing algorithm,
   which v3 does not contain. This development-only audit discrepancy is recorded,
   rather than described as a zero-finding audit.
+- Preserve original dependency-notice bytes through Git and CI artifacts. Refuse
+  dirty release checkouts and binaries with dirty or missing VCS provenance.
 - Add one local verification entry point, complete test-package inventory and
   compiler/dependency/patch receipts. Share a source-bound web build across PR
   consumers and let Linux validation proceed independently of other platforms.

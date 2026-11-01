@@ -46,15 +46,15 @@ class BinaryIdentity(unittest.TestCase):
     def test_exact_go_build_settings(self):
         tag = "MatriX.145.Flow-v0.2.0-preview.4"
         commit = "a" * 40
-        info = f'\tbuild\t-ldflags="-s -w -X server/version.Version={tag}"\n\tbuild\tvcs.revision={commit}\n'
+        info = f'\tbuild\t-ldflags="-s -w -X server/version.Version={tag}"\n\tbuild\tvcs.revision={commit}\n\tbuild\tvcs.modified=false\n'
         self.assertTrue(binary_identity_matches(info, tag, commit))
         self.assertTrue(binary_identity_matches(info.replace("-X ", "-X="), tag, commit))
 
     def test_prefixes_wrong_settings_and_malformed_flags_fail_closed(self):
         tag = "MatriX.145.Flow-v0.2.0-preview.4"
         commit = "a" * 40
-        valid = f'\tbuild\t-ldflags="-s -w -X server/version.Version={tag}"\n\tbuild\tvcs.revision={commit}\n'
-        for invalid in (valid.replace(tag, tag + "0"), valid.replace(commit, "b" * 40), valid.replace("-X ", ""), valid.replace('"\n', '\n', 1), valid + f'\tbuild\tvcs.revision={commit}\n'):
+        valid = f'\tbuild\t-ldflags="-s -w -X server/version.Version={tag}"\n\tbuild\tvcs.revision={commit}\n\tbuild\tvcs.modified=false\n'
+        for invalid in (valid.replace("vcs.modified=false", "vcs.modified=true"), valid.replace("\tbuild\tvcs.modified=false\n", ""), valid + "\tbuild\tvcs.modified=false\n", valid.replace(tag, tag + "0"), valid.replace(commit, "b" * 40), valid.replace("-X ", ""), valid.replace('"\n', '\n', 1), valid + f'\tbuild\tvcs.revision={commit}\n\tbuild\tvcs.modified=false\n'):
             self.assertFalse(binary_identity_matches(invalid, tag, commit))
 
 

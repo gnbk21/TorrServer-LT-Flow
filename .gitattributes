@@ -9,6 +9,9 @@ build/just-player/*.patch text eol=lf -whitespace
 distribution/** text eol=lf
 web/** text=auto eol=lf
 server/web/pages/template/** text=auto eol=lf
+# Generated notices concatenate original upstream license bytes, including CRLF.
+# Preserve those bytes so rebuilding the qualified bundle leaves Git clean.
+server/web/pages/template/pages/THIRD_PARTY_NOTICES.txt -text -whitespace
 # Bundled vendor CSS template literals intentionally contain whitespace-only
 # lines. Preserve the content-hashed build output instead of rewriting it.
 server/web/pages/template/pages/assets/*.js -whitespace

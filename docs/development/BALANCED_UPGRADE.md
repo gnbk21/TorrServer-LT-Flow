@@ -232,3 +232,17 @@ release commits/manifests and updated to their supported Node 24 runtime (includ
 the provenance wrapper's nested action). Build/runtime versions are deliberately
 recorded separately. No Node 20 runtime override or security-gate waiver is used.
 These new workflow inputs require fresh CI execution before merge/publication.
+
+
+The first unpublished 1.2.0 tagged attempt (`e007b736`, run `41293794534`) was
+rejected by independent executable verification: the correct tag/source reported
+`vcs.modified=true`. The complete downloaded UI artifact differed from committed
+source only in the aggregate notice's original CRLF bytes (the apparent XML
+working-file difference was already identical to its Git blob). A real isolated
+Git round-trip reproduced normalization of those original notice bytes. The
+notice file now bypasses text normalization; its original dependency bytes/hashes
+remain intact. Native release jobs check clean source before/after the build,
+and packaging rejects dirty/missing/duplicate VCS modification metadata. All 122
+harness/policy tests pass. The old build was cancelled, not accepted. Publication
+requires rebuilding the still-unpublished tag from this correction; old evidence
+and source commits remain retained, and no published tag or asset is overwritten.

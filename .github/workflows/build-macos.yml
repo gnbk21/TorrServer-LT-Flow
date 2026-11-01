@@ -100,7 +100,10 @@ jobs:
       - name: Build
         env:
           TS_VERSION: ${{ inputs.version || format('MatriX.148.Flow-dev-{0}', github.sha) }}
-        run: bash build/darwin-native.sh ${{ matrix.arch }}
+        run: |
+          python3 build/release_checkout.py --version "$TS_VERSION"
+          bash build/darwin-native.sh ${{ matrix.arch }}
+          python3 build/release_checkout.py --version "$TS_VERSION"
 
       # Native arm64 only: running x86_64 cgo tests under Rosetta is slow, and
       # the build.yml linux-amd64 job already gates the test suite.

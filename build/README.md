@@ -129,6 +129,10 @@ download it only after checking repository, PR, head and merge-source identity.
 Artifacts from another source or trust boundary are rejected. Linux validation
 depends directly on its Linux build; it need not wait for the other platforms.
 Required security, native, platform, packaging and provenance gates remain.
+Stable/preview native jobs check source cleanliness before and after building;
+packaging rejects dirty or absent `vcs.modified` metadata. Original notice bytes
+are preserved in Git so a fresh web build does not dirty the checkout. Development
+builds keep honest VCS state and may still build uncommitted work.
 
 ### Workspace storage inventory
 

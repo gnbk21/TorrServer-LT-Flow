@@ -44,11 +44,11 @@ def binary_identity_matches(info, tag, commit):
         fields = line.split(maxsplit=1)
         if len(fields) == 2 and fields[0] == "build":
             key, separator, value = fields[1].partition("=")
-            if separator and key in ("vcs.revision", "-ldflags"):
+            if separator and key in ("vcs.revision", "vcs.modified", "-ldflags"):
                 if key in settings:
                     return False
                 settings[key] = value
-    if settings.get("vcs.revision") != commit:
+    if settings.get("vcs.revision") != commit or settings.get("vcs.modified") != "false":
         return False
     try:
         value = shlex.split(settings.get("-ldflags", ""))
