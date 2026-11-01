@@ -17,6 +17,13 @@ The 1.2 release uses Go 1.27.3 from `server/go.mod`. OpenSSL 3.5.9 is pinned
 together with its archive SHA-256. A custom `OPENSSL_VERSION` must also supply
 its independently reviewed `OPENSSL_SHA256`; extraction refuses a mismatch.
 
+The web/CI toolchain uses Node 26.13.0 LTS from the root `.node-version`.
+`Verify-Flow.ps1` accepts that version on PATH or the official Windows ZIP
+extracted under `.tools/node-v26.13.0-win-x64`; its PATH change is process-local.
+The verification receipt records the actual Node version. Current pinned GitHub
+Actions use their supported Node 24 internal runtime; that runtime is independent
+of the Node 26 web build. Deprecated Node 20 action pins are not retained.
+
 libtorrent's own `Jamfile` emits a correct `libtorrent-rasterbar.pc` from its
 `install` target, so the per-target Cflags/defines/Libs flow straight into cgo
 (`server/lt` uses `#cgo pkg-config: libtorrent-rasterbar`). libtorrent is built

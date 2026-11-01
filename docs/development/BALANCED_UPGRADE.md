@@ -210,3 +210,25 @@ These local records are not final publication acceptance. Fresh PR platform/
 security/native checks, exact-source CodeQL and full tagged distribution/
 provenance validation remain required. The 1.2.0 feature/dependency upgrade does
 not use the essential-patch shortcut or add a two-hour test.
+
+
+The first dependency-update CI source (`e9ac5f34`) passed 55 checks, including
+CodeQL (zero open PR findings), but did not qualify for release: Intel macOS
+failed fetching modules from the official Go proxy (network I/O timeouts), and
+the Windows cancellation fixture's automatic wildcard UDP listener hit WinError
+10013 before any tracker announce or peer payload. Failed evidence is retained.
+The cancellation fixture now uses the existing bounded joint-port preflight and
+an explicit loopback torrent listener, with separate failure stages and no
+streaming retries. All six native trials passed locally, including all three
+required late-completion races and byte hashes; two admission/lifecycle policy
+regressions raise the Python total to 120.
+
+At the owner's request, web builds now pin Node 26.13.0 LTS through `.node-version`.
+The official Windows ZIP was SHA-256 checked and installed only under `.tools`.
+Locked install, lint, 144 unit tests, production build, 121 browser scenarios and
+three interface labs passed. Generated embedded web content is unchanged from
+the Node 24 build. GitHub Action pins were separately reviewed against official
+release commits/manifests and updated to their supported Node 24 runtime (including
+the provenance wrapper's nested action). Build/runtime versions are deliberately
+recorded separately. No Node 20 runtime override or security-gate waiver is used.
+These new workflow inputs require fresh CI execution before merge/publication.

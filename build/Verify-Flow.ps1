@@ -29,7 +29,15 @@ function Invoke-FlowVerificationStep {
     Write-Host ("{0}: passed ({1:N1}s)" -f $Name,$flowStepTimer.Elapsed.TotalSeconds)
 }
 try {
-    $flowNode = (Get-Command node.exe -ErrorAction Stop).Source
+    $flowNodeVersion = (Get-Content -LiteralPath (Join-Path $flowVerifyRoot '.node-version') -Raw).Trim()
+    $flowNode = Join-Path $flowVerifyRoot ".tools/node-v$flowNodeVersion-win-x64/node.exe"
+    if (!(Test-Path -LiteralPath $flowNode)) { $flowNode = (Get-Command node.exe -ErrorAction Stop).Source }
+    $flowActualNodeVersion = (& $flowNode --version).Trim()
+    if ($LASTEXITCODE -or $flowActualNodeVersion -ne "v$flowNodeVersion") {
+        throw "Use Node $flowNodeVersion from .node-version; found $flowActualNodeVersion. See build/README.md."
+    }
+    $env:PATH = (Split-Path -Parent $flowNode) + ';' + $env:PATH
+    $flowVerifyReceipt.node_version = $flowActualNodeVersion
     $flowPython = if (Test-Path -LiteralPath 'C:/Python314/python.exe') { 'C:/Python314/python.exe' } else { (Get-Command python.exe -ErrorAction Stop).Source }
     $flowGo = (Get-Command go.exe -ErrorAction Stop).Source
     $flowWeb = Join-Path $flowVerifyRoot 'web'

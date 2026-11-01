@@ -59,10 +59,10 @@ jobs:
             runner: macos-15-intel
             artifact: TorrServer-LT-darwin-amd64
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Download freshly generated web UI
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ inputs.web_artifact || 'flow-web-macos' }}
           path: server/web/pages/template
@@ -71,7 +71,7 @@ jobs:
       # fetched by the linux matrix are reused here (the cache is not
       # OS-partitioned — it is a plain tar of the source trees).
       - name: Cache Boost + libtorrent sources
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: _src
           key: src-boost1.85.0-lt2.1.2-ossl3.5.9-v1
@@ -79,14 +79,14 @@ jobs:
       # Per-arch install tree (lib + headers + .pc). With it present the b2
       # step short-circuits and only the Go binaries are relinked.
       - name: Cache libtorrent install tree
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: _deps/darwin-${{ matrix.arch }}
           key: receipt1-${{ env.ImageVersion }}-deps-${{ matrix.runner }}-${{ runner.arch }}-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.9-flowsparse-pcfold2-${{ hashFiles('build/native_receipt.py', 'build/_common.sh', 'build/_deps.sh', 'build/native-patches/**', 'build/apply_native_patches.py', 'build/patch_libtorrent_header.py') }}
           restore-keys: deps-${{ matrix.runner }}-${{ runner.arch }}-darwin-${{ matrix.arch }}-boost1.85.0-lt2.1.2-ossl3.5.9-
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: server/go.mod
           cache: true
@@ -122,7 +122,7 @@ jobs:
           _out/${{ matrix.artifact }} --version
           _out/${{ matrix.artifact }}-gst --version
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           retention-days: 14
           name: ${{ matrix.artifact }}

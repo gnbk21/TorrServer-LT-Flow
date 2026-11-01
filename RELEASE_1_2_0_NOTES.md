@@ -52,6 +52,9 @@ renamed, and the prefix does not imply complete upstream feature parity.
 
 - Build with **Go 1.27.3** and **OpenSSL 3.5.9 LTS**. Verify the OpenSSL archive
   against its reviewed SHA-256 before extraction; include it in native receipts.
+- Use **Node 26.13.0 LTS** for web builds through one `.node-version` pin.
+  Update GitHub Actions to reviewed immutable releases using their supported
+  Node 24 internal runtime, removing the deprecated Node 20 declarations.
 - Update Go networking/cryptography, HTTP/CORS, DNS, JSON/MIME, validation and
   protobuf dependency chains. Update purego to 0.11.2, including its macOS native
   profiling crash fix. Retain the reviewed Boost 1.85.0 and current libtorrent

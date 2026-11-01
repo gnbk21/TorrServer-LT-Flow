@@ -9,6 +9,7 @@ import struct
 import time
 
 from controlled_peer import LocalSwarm, PeerPlan
+from fixture_ports import joint_loopback_port
 from playback_harness import OwnedServer, range_read, upload, MIB
 
 
@@ -17,7 +18,11 @@ def trial(executable, directory, fixture, late, stream_controls=False):
     report = {'late_completion_enabled': late, 'stream_controls': stream_controls, 'passed': False}
     server = None
     swarm = None
+    stage = 'fixture_port_allocation'
     try:
+        report['port_allocation'] = {}
+        peer_port = joint_loopback_port(evidence=report['port_allocation'])
+        stage = 'server_ready'
         server = OwnedServer(executable, directory/'state', extra_settings={
             'EnableDebug': True, 'CacheSize': 64*MIB, 'PreloadCache': 10,
             'Flow': {'Enabled': True, 'RangeTraceEnabled': True,
@@ -25,8 +30,10 @@ def trial(executable, directory, fixture, late, stream_controls=False):
                      'FrontierRecovery': stream_controls, 'AdaptivePeerRequests': stream_controls,
                      'BootstrapHeadMB': 4, 'ProbeGraceMs': 300,
                      'StartupBufferMinMB': 4, 'StartupBufferMaxMB': 4,
-                     'GlobalCacheBudgetMB': 64}})
+                     'GlobalCacheBudgetMB': 64}},
+            extra_arguments=['--torrentaddr', f'127.0.0.1:{peer_port}'])
         server.ready()
+        stage = 'controlled_streaming'
         with LocalSwarm([fixture], peers=[PeerPlan(rate=2*MIB, request_queue=64,
                 strict_request_queue=True, request_latency_ms=250,
                 late_cancel_completion=late)], piece_length=MIB, high_throughput=True) as swarm:
@@ -62,6 +69,8 @@ def trial(executable, directory, fixture, late, stream_controls=False):
                 report['error'] = 'Strict capacity violated or late-completion race was not exercised'
     except Exception as error:
         report['error'] = str(error)
+        report['failure_stage'] = stage
+        report['failure_type'] = type(error).__name__
         if server is not None and swarm is not None:
             try:
                 report['failure_flow'] = server.json('/flow/status/'+swarm.info_hash.hex(), timeout=3)

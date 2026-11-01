@@ -570,6 +570,8 @@
       "asset checksums and provenance",
       "isolated packaged runtime validation"
     ],
-    "container_publication": "Verify all three architectures from the exact published source/run after draft promotion."
+    "container_publication": "Verify all three architectures from the exact published source/run after draft promotion.",
+    "web_node": "26.13.0",
+    "github_actions_runtime": "node24, verified from official pinned manifests"
   }
 }
