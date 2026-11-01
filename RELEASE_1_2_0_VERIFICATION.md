@@ -1,0 +1,26 @@
+# Flow 1.2.0 publication verification
+
+Published 1 November 2026 as [TorrServer-Flow 1.2.0](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.148.Flow-v1.2.0), stable and **Latest**.
+Immutable binary source: `aaf2bc583d196d376751dccf265242273eaad89d`. Published tags/assets were not replaced. The first unpublished attempt (`e007b736`, run `41293794534`) was cancelled after an independent executable check found dirty VCS metadata. Git had normalized original CRLF notice bytes. The corrected source preserves those bytes and enforces clean pre/post build state plus `vcs.modified=false`; the unpublished tag was rebuilt, with the original evidence retained.
+
+A second unpublished candidate (`5c7b0f39`, run `41296854379`) passed clean-provenance runtime checks but was superseded after master CodeQL reported two overlapping pairing character classes. Equivalent alphanumeric expressions and four API regressions resolve them without dismissal; final-source scans and gates below were rerun.
+
+- [PR #13](https://github.com/gnbk21/TorrServer-LT-Flow/pull/13) merged after six source-bound workflows passed: 63 successful jobs and six intentional conditional skips. REST job inventories were checked directly because the CLI summary omitted downstream matrix jobs.
+- [Full tagged build](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/41297719987) passed all 25 named required roles plus ten high-bitrate comparisons, eight parallel-streaming cases and two native CPU captures. No essential-patch shortcut or new two-hour test was used.
+- [Exact-source CodeQL](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/41297693716) passed with zero open master-branch findings. This is not a claim of zero vulnerabilities; existing security dispositions remain documented accepted capabilities/risks.
+- Public verification confirmed 35 release assets, eight platform packages, 34 GitHub asset digests against SHA256SUMS and 4 downloaded checksum comparisons. Every Windows ZIP member, standard/GST Go 1.27.3 build identity, source-matched helper script, original notice and inventory was checked. Reproducible packaging and CycloneDX validation passed in the tagged workflow.
+- GitHub CLI verified attestations for BUILDINFO.json and the Windows ZIP against the immutable tag/source, official publication workflow and hosted-runner policy.
+- The isolated packaged Windows executable passed: exact stable build identity, recorder disabled by default, echo and embedded UI, uncached HTML and live module asset, authenticated settings metadata, runtime storage preview, read-only pairing proof, proof cannot authorize management, same-PC proof not presented as phone evidence, untrusted origin rejected, settings unchanged by read-only diagnostics. No owner installation/state was opened or replaced.
+- [Container publication](https://github.com/gnbk21/TorrServer-LT-Flow/actions/runs/41312485879) verified runtime linkage/version for Linux AMD64, ARM64 and ARMv7. Anonymous registry metadata confirmed source/version labels and matching version/latest index digest: `sha256:55f61c67ec643a67e20e95581187a4099a2bd5b8aaaa3e9b759e37d9f7ef4a43`. Local container movie playback was not claimed.
+
+## Upgrade decisions and limits
+
+Go 1.27.3 and Node 26.13.0 LTS were selected at the owner's request after compatibility checks. GitHub Actions separately use their supported Node 24 runtime. OpenSSL 3.5.9 archive integrity is pinned; reviewed Boost 1.85.0 and libtorrent 2.1.2 remain unchanged. Node is a build tool, not a prerequisite for the server executable.
+
+MatriX.148 includes both reviewed upstream maintenance fixes. It identifies a maintenance baseline, not complete upstream feature parity. New helpers recognize both 145/148 and compare Flow semantic versions; older 145-only Windows helpers require installing the new package/helper once, retaining the existing state directory.
+
+Node 26 validation passed 148 unit tests (one explicit contract-export opt-in skip), 121 browser scenarios and three interface labs; these checks also passed in the final tagged web job. Six separately exported Go/frontend contracts passed in CI. Harness/policy tests passed 122 cases. Both MatriX.148 bugs were reproduced before fixes; all six repaired Windows cancellation trials passed locally and the tagged Windows gate passed.
+
+The two remaining moderate Yarn audit entries concern ESLint's development-only minimatch 3.1.5; the maintainer advisory identifies a 10.2.6 preprocessing algorithm absent from v3. This discrepancy is documented without suppressing the audit or calling it a zero-finding scan. Go scans also report a module-only GO-2026-5932 entry without a reachable call trace.
+
+Representative final-version phone/public-swarm playback, physical Windows boot/sleep/network recovery and multi-hour resource acceptance remain incomplete under the owner's disclosed publication policy. Windows binaries are not Authenticode signed. Measurements were variable; no general streaming speed gain or unlimited peer supply is claimed. Legacy/experimental defaults, original media bytes and saved settings remain compatible. Public assets contain no personal configuration. [Notes](RELEASE_1_2_0_NOTES.md), [implementation ledger](docs/development/BALANCED_UPGRADE.md).

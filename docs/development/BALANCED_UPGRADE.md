@@ -19,7 +19,7 @@ balanced roadmap. Historical release evidence remains in `docs/history`.
 | Development | Local verification and toolchain/cache receipts | Implemented; Quick/Full entry point and verified native compiler/dependency/recipe receipts |
 | CI | Shared source-bound web artifact; independent Linux build/validation; retain all release gates | Implemented; source/trust-boundary tests, actual PR-run identity checked, workflow policy/actionlint checks |
 | Verification | Timer policies, byte fixtures/index placement/VBR, repeated matched measurements | Implemented; results and limitations below |
-| Toolchain | Separate Go 1.27.3 comparison; retain 1.26.10 until qualified | Windows comparison passed; owner-requested 1.2.0 promotion now requires fresh full platform gates, as recorded below |
+| Toolchain | Separate Go 1.27.3 comparison; retain 1.26.10 until qualified | Go 1.27.3 promoted after the separate comparison and final full eight-platform/security/tagged qualification; historical assessment below retained |
 
 Compatibility: preserve media bytes, Range behavior, torrent identity, saved
 settings and existing defaults. No automatic profile/origin changes, paid
@@ -256,3 +256,20 @@ partial matches. Typecheck, lint, all 148 web unit tests (one explicit contract
 opt-in skip), and the production build passed. These findings were corrected,
 not dismissed. The superseded unpublished tag build was cancelled; final-source
 security and full tagged gates must pass before publication.
+
+
+## Final publication reconciliation - 1 November 2026
+
+All implementation stages in the original roadmap are integrated in stable
+Flow 1.2.0 (`MatriX.148.Flow-v1.2.0`, source `aaf2bc583d196d376751dccf265242273eaad89d`). The final full tagged workflow
+`41297719987` passed all 25 required named roles and 20 mandatory comparison/native
+profiling roles; exact-source security `41297693716` passed with zero open master
+findings. Public package/checksum/provenance, isolated Windows execution and
+three container architectures were independently verified. PR #13 is merged.
+[Complete publication receipt and limits](../../RELEASE_1_2_0_VERIFICATION.md).
+
+The owner-requested Go 1.27.3 and Node 26.13.0 promotions supersede the assessment
+snapshot's retained toolchains after compatibility and platform qualification.
+Legacy and experimental defaults remain unchanged. Final phone/public-swarm,
+physical Windows recovery and multi-hour field checks remain explicitly
+unverified under the approved disclosure policy. No new two-hour test was added.

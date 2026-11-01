@@ -5,11 +5,7 @@ This checkout tracks `trinity-aml/TorrServer-LT` on the `upstream` remote and
 
 ## Current release
 
-Stable Flow 1.1.9 includes bounded optional Adaptive startup reserve waits and
-stalled-block recovery. The ordinary media head and required index still have
-to be verified; only the extra insurance wait is capped at ten seconds plus the
-scheduling tick. Legacy remains the default and streaming controls remain opt-in.
-[Notes](RELEASE_1_1_9_NOTES.md), [verification](RELEASE_1_1_9_VERIFICATION.md).
+Stable Flow 1.2.0 adds unified playback diagnosis and a read-only adviser, guided phone proof, backend settings metadata/cache previews, pressure-recovery hysteresis, optional private flight recording and bounded storage views. It includes the reviewed MatriX.147.2/148 maintenance fixes and updated Go/web/native dependencies. Legacy and existing experiments retain their defaults; no quality reduction or mandatory full download is introduced. [Notes](RELEASE_1_2_0_NOTES.md), [verification](RELEASE_1_2_0_VERIFICATION.md).
 
 ## Settings metadata
 

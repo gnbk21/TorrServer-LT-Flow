@@ -12,6 +12,7 @@ Current user guides stay at the repository root. Historical plans and measuremen
 - [RuTracker search in Lampa](../LAMPA_RUTRACKER.md)
 - [Automatic magnet metadata recovery](../METADATA_RECOVERY.md)
 - [TorrServer-Flow 1.2.0](../RELEASE_1_2_0_NOTES.md)
+- [Flow 1.2.0 verification](../RELEASE_1_2_0_VERIFICATION.md)
 - [TorrServer-Flow 1.1.9](../RELEASE_1_1_9_NOTES.md)
 - [Flow 1.1.9 verification](../RELEASE_1_1_9_VERIFICATION.md)
 - [TorrServer-Flow 1.1.8](../RELEASE_1_1_8_NOTES.md)
