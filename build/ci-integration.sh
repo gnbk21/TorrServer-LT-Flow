@@ -13,7 +13,10 @@ case "${1:-}" in
         python3 build/startup_harness.py --executable "$binary" --fixtures _out/startup-fixtures --output _out/startup-check --assert-fast
         python3 build/startup_harness.py --executable "$binary" --fixtures _out/startup-fixtures --output _out/startup-custom-check --profile custom --assert-fast
         mkdir -p _out/startup-piece-fixtures
-        ffmpeg -hide_banner -loglevel error -stream_loop 1 -i _out/startup-fixtures/variable.mp4 -c copy -movflags +faststart _out/startup-piece-fixtures/variable.mp4
+        # VBR size depends on source complexity; two repetitions need not cover
+        # the large-piece case's 64-MiB minimum. Remux to an 80-MiB byte target,
+        # with a separate time bound. The harness still enforces its minimum.
+        timeout 120s ffmpeg -hide_banner -loglevel error -stream_loop -1 -i _out/startup-fixtures/variable.mp4 -c copy -fs 83886080 -movflags +faststart _out/startup-piece-fixtures/variable.mp4
         python3 build/startup_piece_check.py --executable "$binary" --fixtures _out/startup-piece-fixtures --output _out/startup-piece-ordering --case ordering --assert-fixed
         python3 build/startup_piece_check.py --executable "$binary" --fixtures _out/startup-piece-fixtures --output _out/startup-piece-progress --case progress --assert-fixed
         python3 build/startup_piece_check.py --executable "$binary" --fixtures _out/startup-piece-fixtures --output _out/startup-piece-missing-index --case missing-index --assert-fixed

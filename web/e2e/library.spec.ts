@@ -17,6 +17,11 @@ for (const total of [1, 200, 1000, 5000])
     await page.route("**/*", async (route) => {
       const url = new URL(route.request().url());
       const path = url.pathname;
+      if (path === "/settings/metadata/v1")
+        return route.fulfill({
+          status: 404,
+          json: { error: "older fixture server" },
+        });
       if (path === "/echo")
         return route.fulfill({ body: "MatriX.145.Flow-test" });
       if (path === "/flow/active")

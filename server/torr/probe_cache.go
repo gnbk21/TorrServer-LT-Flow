@@ -7,6 +7,19 @@ import (
 
 var mediaProbes flow.ProbeCache
 
+// CachedMediaInfo observes the existing bounded startup probe only. Opening
+// file details cannot activate a torrent, perform reads or launch ffprobe.
+func (t *Torrent) CachedMediaInfo(index int) (flow.ProbeResult, bool) {
+	if t == nil {
+		return flow.ProbeResult{}, false
+	}
+	key, ok := t.probeKey(index)
+	if !ok {
+		return flow.ProbeResult{}, false
+	}
+	return mediaProbes.Get(key, time.Now())
+}
+
 func (t *Torrent) probeKey(index int) (flow.ProbeKey, bool) {
 	f := t.fileByID(index)
 	if f == nil {

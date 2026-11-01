@@ -32,7 +32,7 @@ func flowLANTest(c *gin.Context) {
 	}
 	control := http.NewResponseController(c.Writer)
 	if err := control.SetWriteDeadline(time.Now().Add(15 * time.Second)); err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "bounded transfer deadline unavailable"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "bounded transfer deadline unavailable", "code": "SERVICE_UNAVAILABLE"})
 		return
 	}
 	defer control.SetWriteDeadline(time.Time{})

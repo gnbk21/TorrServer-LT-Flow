@@ -1,0 +1,4 @@
+{
+  "native": [".", "bonjour", "cachefs", "cmd", "console", "diagnostics", "dlna", "ffprobe", "flow", "jacred", "log", "lt", "mcp", "mimetype", "netbind", "netchange", "netpolicy", "rutor", "searchstatus", "settings", "tgbot", "torr", "torr/storage/torrstor", "torr/utils", "torrfs", "torrshash", "torznab", "utils", "version", "web", "web/api", "web/api/utils", "web/auth", "web/msx", "web/pages/template", "web/sslcerts", "web/waf"],
+  "gst": ["gstreamer"]
+}

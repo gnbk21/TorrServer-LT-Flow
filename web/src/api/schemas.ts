@@ -163,6 +163,16 @@ export const flowSessionSchema = z
   .passthrough();
 export const flowSchema = z
   .object({
+    reuse: z
+      .object({
+        eligible: z.boolean(),
+        reason: z.string().max(64),
+        candidates: z.number().int().nonnegative(),
+        native_accepted: z.number().int().nonnegative(),
+        native_rejected: z.number().int().nonnegative(),
+        verified_bytes: z.number().int().nonnegative(),
+      })
+      .optional(),
     integrity: z
       .object({
         failures: z.number().int().nonnegative(),
@@ -522,6 +532,30 @@ export const activeSchema = z.object({
 
 export const runtimeSchema = z
   .object({
+    incidents: z
+      .object({
+        enabled: z.boolean(),
+        recording: z.boolean(),
+        capturing: z.boolean(),
+        pressure_paused: z.boolean(),
+        code: z.string().max(64),
+        last_reason: z.string().max(64).optional(),
+        last_attempt: z.string(),
+        files: z
+          .array(
+            z.object({
+              name: z.string().regex(/^incident-[A-Za-z0-9T.-]+\.trace$/),
+              bytes: z
+                .number()
+                .int()
+                .nonnegative()
+                .max(64 * 1048576),
+              created_at: z.string().datetime({ offset: true }),
+            }),
+          )
+          .max(2),
+      })
+      .optional(),
     build: z
       .object({
         version: z.string().max(160),

@@ -1,13 +1,17 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	sets "server/settings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 )
+
+var managementRateFixtureID atomic.Uint64
 
 func TestCompatibleManagementStillRejectsUnapprovedBrowserOrigins(t *testing.T) {
 	old := sets.BTsets()
@@ -72,6 +76,11 @@ func TestBrowserManagementRejectsRebindingButAllowsApprovedProxy(t *testing.T) {
 }
 
 func TestManagementOriginRateAndPlaybackCompatibility(t *testing.T) {
+	// The real limiter is process-wide. Each invocation gets fresh peer keys,
+	// including under go test -count, while requests within it share a budget.
+	fixtureID := managementRateFixtureID.Add(1)
+	firstPeer := fmt.Sprintf("[2001:db8::%x]:9", fixtureID*2)
+	secondPeer := fmt.Sprintf("[2001:db8::%x]:9", fixtureID*2+1)
 	old := sets.BTsets()
 	t.Cleanup(func() { sets.StoreBTsets(old) })
 	f := sets.DefaultFlowSettings()
@@ -93,22 +102,22 @@ func TestManagementOriginRateAndPlaybackCompatibility(t *testing.T) {
 		r.ServeHTTP(w, req)
 		return w.Code
 	}
-	if got := request("OPTIONS", "/settings", "https://evil.example", "192.0.2.1:9"); got != 403 {
+	if got := request("OPTIONS", "/settings", "https://evil.example", firstPeer); got != 403 {
 		t.Fatal(got)
 	}
-	if got := request("OPTIONS", "/settings", "https://controller.example", "192.0.2.1:9"); got != 204 {
+	if got := request("OPTIONS", "/settings", "https://controller.example", firstPeer); got != 204 {
 		t.Fatal(got)
 	}
-	if got := request("POST", "/settings", "http://127.0.0.1:8090", "192.0.2.1:9"); got != 204 {
+	if got := request("POST", "/settings", "http://127.0.0.1:8090", firstPeer); got != 204 {
 		t.Fatal(got)
 	}
-	if got := request("POST", "/settings", "http://127.0.0.1:8090", "192.0.2.1:9"); got != 429 {
+	if got := request("POST", "/settings", "http://127.0.0.1:8090", firstPeer); got != 429 {
 		t.Fatal(got)
 	}
-	if got := request("POST", "/settings", "", "192.0.2.2:9"); got != 204 {
+	if got := request("POST", "/settings", "", secondPeer); got != 204 {
 		t.Fatal("forwarded header affected identity", got)
 	}
-	if got := request("GET", "/stream", "https://evil.example", "192.0.2.1:9"); got != 204 {
+	if got := request("GET", "/stream", "https://evil.example", firstPeer); got != 204 {
 		t.Fatal("compatible playback changed", got)
 	}
 	f2 := *f

@@ -2,6 +2,7 @@ package flow
 
 import (
 	"math"
+	"strings"
 	"sync"
 	"time"
 )
@@ -15,9 +16,36 @@ type ProbeKey struct {
 	Path  string
 }
 type ProbeResult struct {
-	BitRate  string
-	Duration float64
+	BitRate   string       `json:"bitrate"`
+	Duration  float64      `json:"duration_seconds"`
+	Tracks    []ProbeTrack `json:"tracks"`
+	Truncated bool         `json:"truncated"`
+	ProbedAt  time.Time    `json:"probed_at"`
 }
+type ProbeTrack struct {
+	Index    int    `json:"index"`
+	Type     string `json:"type"`
+	Codec    string `json:"codec"`
+	Language string `json:"language,omitempty"`
+	Title    string `json:"title,omitempty"`
+}
+
+func boundedProbeResult(result ProbeResult) ProbeResult {
+	if len(result.BitRate) > 32 {
+		result.BitRate = ""
+	}
+	result.Truncated = result.Truncated || len(result.Tracks) > 32
+	result.Tracks = append([]ProbeTrack{}, result.Tracks[:min(32, len(result.Tracks))]...)
+	bound := func(s string) string { return strings.ToValidUTF8(s[:min(128, len(s))], "") }
+	for i := range result.Tracks {
+		p := &result.Tracks[i]
+		p.Codec = bound(p.Codec)
+		p.Language = bound(p.Language)
+		p.Title = bound(p.Title)
+	}
+	return result
+}
+
 type probeEntry struct {
 	lease         uint64
 	result        ProbeResult
@@ -41,7 +69,9 @@ func (c *ProbeCache) Get(key ProbeKey, now time.Time) (ProbeResult, bool) {
 	}
 	e.used = now
 	c.entries[key] = e
-	return e.result, true
+	r := e.result
+	r.Tracks = append([]ProbeTrack{}, r.Tracks...)
+	return r, true
 }
 
 // Begin reserves one bounded probe lease. Failures back off for a minute;
@@ -83,10 +113,12 @@ func (c *ProbeCache) Finish(key ProbeKey, lease uint64, result ProbeResult, succ
 	if entry, ok := c.entries[key]; !ok || lease == 0 || entry.lease != lease {
 		return
 	}
-	success = success && result.Duration >= 0 && !math.IsNaN(result.Duration) && !math.IsInf(result.Duration, 0) && (result.Duration > 0 || result.BitRate != "")
+	result = boundedProbeResult(result)
+	success = success && result.Duration >= 0 && !math.IsNaN(result.Duration) && !math.IsInf(result.Duration, 0) && (result.Duration > 0 || result.BitRate != "" || len(result.Tracks) > 0)
 	ttl := time.Minute
 	if success {
 		ttl = 24 * time.Hour
+		result.ProbedAt = now
 	} else {
 		result = ProbeResult{}
 	}

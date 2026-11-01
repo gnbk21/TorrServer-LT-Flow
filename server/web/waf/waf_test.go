@@ -156,6 +156,50 @@ func TestClientIPIPv6(t *testing.T) {
 	if ip == nil || ip.String() != "2001:db8::2" {
 		t.Fatalf("clientIP without port = %v, want 2001:db8::2", ip)
 	}
+	for _, remote := range []string{"[fe80::1%eth0]:12345", "fe80::1%wlan0", "[fe80::1%12]"} {
+		c.Request.RemoteAddr = remote
+		if got := clientIP(c); got == nil || got.String() != "fe80::1" {
+			t.Fatalf("clientIP(%q) = %v, want fe80::1", remote, got)
+		}
+	}
+	for _, remote := range []string{"192.0.2.1%wlan0:12345", "[fe80::1%]:12345", "not-an-address"} {
+		c.Request.RemoteAddr = remote
+		if got := clientIP(c); got != nil {
+			t.Fatalf("clientIP(%q) = %v, want nil", remote, got)
+		}
+	}
+}
+
+func TestScopedIPv6ClientsStillFollowIPRules(t *testing.T) {
+	withTestWAFDB(t, func(dir string) {
+		if err := settings.SetWAFConfig(settings.WAFConfig{
+			Whitelist: []string{"fe80::/10"}, Blacklist: []string{"fe80::2"},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		Load()
+		r := gin.New()
+		r.Use(WAF())
+		r.GET("/", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+		for _, tc := range []struct {
+			remote string
+			want   int
+		}{
+			{"[fe80::1%wlan0]:12345", http.StatusNoContent},
+			{"[fe80::2%wlan0]:12345", http.StatusForbidden},
+			{"[2001:db8::1]:12345", http.StatusForbidden},
+			{"[fe80::1%]:12345", http.StatusForbidden},
+		} {
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req.RemoteAddr = tc.remote
+			req.Header.Set("X-Forwarded-For", "fe80::1")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			if w.Code != tc.want {
+				t.Errorf("remote %q: status=%d, want %d", tc.remote, w.Code, tc.want)
+			}
+		}
+	})
 }
 
 func TestMiddlewareBanStatus(t *testing.T) {

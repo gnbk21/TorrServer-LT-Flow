@@ -51,7 +51,7 @@ def patch_plan(tag, acceptance):
     plan = acceptance.get('patch_validation')
     if not plan or plan.get('tag') != tag:
         return None  # new releases retain full validation unless explicitly scoped
-    if not re.fullmatch(r'MatriX\.145\.Flow-v\d+\.\d+\.[1-9]\d*', tag):
+    if not re.fullmatch(r'MatriX\.(?:145|148)\.Flow-v\d+\.\d+\.[1-9]\d*', tag):
         raise ValueError('Focused checks require a stable patch tag')
     if plan.get('mode') != 'api_compatibility':
         raise ValueError('Unsupported focused validation mode')

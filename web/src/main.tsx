@@ -39,7 +39,6 @@ import { DirtyProvider, useDirty } from "./hooks/dirty";
 import { flowApi } from "./api/flow";
 import { ApiError } from "./api/client";
 import { Button } from "./components/common/Button";
-import { Modal } from "./components/common/Modal";
 import { Appearance } from "./components/common/Appearance";
 import { ObservedPlayback } from "./components/flow/ObservedPlayback";
 import { Loading, RequestError } from "./components/common/RequestState";
@@ -47,6 +46,9 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Torrents = lazy(() => import("./pages/Torrents"));
 const Add = lazy(() => import("./pages/Add"));
 const Settings = lazy(() => import("./pages/Settings"));
+const Modal = lazy(() =>
+  import("./components/common/Modal").then((m) => ({ default: m.Modal })),
+);
 const Pairing = lazy(() =>
   import("./components/pairing/PhonePairingModal").then((m) => ({
     default: m.PhonePairingModal,
@@ -159,22 +161,28 @@ function Shell() {
   }, [i18n.resolvedLanguage]);
   const error = tray.error || network.error || version.error;
   const status =
-    (error instanceof ApiError && error.isStarting) ||
-    tray.data?.server_state === "STARTING"
-      ? "starting"
-      : error instanceof ApiError && error.isUnauthorized
-        ? "authRequired"
-        : error
-          ? "offline"
-          : !tray.data
+    error instanceof ApiError && error.status === 403
+      ? "accessDenied"
+      : error instanceof ApiError && error.status === 429
+        ? "rateLimited"
+        : error instanceof ApiError && error.isUnauthorized
+          ? "authRequired"
+          : (error instanceof ApiError && error.isStarting) ||
+              (!error && tray.data?.server_state === "STARTING")
             ? "starting"
-            : paused
-              ? "paused"
-              : network.data?.connectivity === "ONLINE"
-                ? "online"
-                : network.data?.connectivity === "DEGRADED"
-                  ? "degraded"
-                  : "localOnly";
+            : error instanceof ApiError && error.isUnauthorized
+              ? "authRequired"
+              : error
+                ? "offline"
+                : !tray.data
+                  ? "unknown"
+                  : paused
+                    ? "paused"
+                    : network.data?.connectivity === "ONLINE"
+                      ? "online"
+                      : network.data?.connectivity === "DEGRADED"
+                        ? "degraded"
+                        : "localOnly";
   const links = [
     { to: "/", key: "dashboard", Icon: Activity },
     { to: "/torrents", key: "torrents", Icon: Library },
@@ -319,27 +327,31 @@ function Shell() {
           />
         </Suspense>
       )}
-      <Modal
-        isOpen={blocker.state === "blocked"}
-        onClose={() => blocker.reset?.()}
-        title={t("settings.unsaved")}
-      >
-        <p>{t("settings.unsavedHint")}</p>
-        <div className="actions mt-4">
-          <Button onClick={() => blocker.reset?.()}>
-            {t("settings.keepEditing")}
-          </Button>
-          <Button
-            variant="danger"
-            onClick={() => {
-              setDirty(false);
-              blocker.proceed?.();
-            }}
+      {blocker.state === "blocked" && (
+        <Suspense fallback={<Loading />}>
+          <Modal
+            isOpen
+            onClose={() => blocker.reset?.()}
+            title={t("settings.unsaved")}
           >
-            {t("settings.discard")}
-          </Button>
-        </div>
-      </Modal>
+            <p>{t("settings.unsavedHint")}</p>
+            <div className="actions mt-4">
+              <Button onClick={() => blocker.reset?.()}>
+                {t("settings.keepEditing")}
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  setDirty(false);
+                  blocker.proceed?.();
+                }}
+              >
+                {t("settings.discard")}
+              </Button>
+            </div>
+          </Modal>
+        </Suspense>
+      )}
     </div>
   );
 }

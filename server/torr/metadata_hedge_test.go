@@ -41,6 +41,11 @@ func TestMetadataRecoveryCooldownDistinguishesMissingFromUnavailable(t *testing.
 		if unavailable {
 			source.url = "https://unavailable-fixture.example/a"
 		}
+		// Service health is shared across torrents. Isolate this fixture's key
+		// across repeated test runs without resetting the mutex-bearing registry.
+		serviceKey := metadataServiceKey(source.url)
+		metadataHealth.Observe(serviceKey, false, time.Now())
+		t.Cleanup(func() { metadataHealth.Observe(serviceKey, false, time.Now()) })
 		var calls int
 		fetch := func(context.Context, string) ([]byte, error) {
 			calls++

@@ -34,7 +34,23 @@ if [[ ! -d "$SSL_DIR" ]]; then
         curl -fL --retry 3 -o "$SSL_TAR" \
             "https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz"
     fi
-    log "extracting OpenSSL"
+    python3 - "$SSL_TAR" "$OPENSSL_SHA256" <<'PY'
+# FLOW_OPENSSL_SOURCE_CHECK
+import hashlib
+from pathlib import Path
+import re
+import sys
+
+archive, expected = Path(sys.argv[1]), sys.argv[2]
+if not re.fullmatch(r'[a-f0-9]{64}', expected):
+    raise SystemExit('A reviewed OPENSSL_SHA256 is required for the selected source version')
+with archive.open('rb') as source:
+    actual = hashlib.file_digest(source, 'sha256').hexdigest()
+if actual != expected:
+    raise SystemExit('OpenSSL source archive checksum mismatch; refusing extraction')
+# END_FLOW_OPENSSL_SOURCE_CHECK
+PY
+    log "extracting verified OpenSSL"
     tar -xzf "$SSL_TAR" -C "$SRC_DIR"
 else
     log "OpenSSL ${OPENSSL_VERSION} already in $SSL_DIR"

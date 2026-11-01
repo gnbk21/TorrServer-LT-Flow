@@ -7,6 +7,7 @@ import { Button } from "../common/Button";
 import { PlaybackLinks } from "../common/PlaybackLinks";
 import { PrepareEpisode } from "./PrepareEpisode";
 import { WebSeeds } from "./WebSeeds";
+import { MediaInformation } from "./MediaInformation";
 import { RequestError, Loading } from "../common/RequestState";
 import { torrentsApi } from "../../api/torrents";
 import { viewedApi } from "../../api/viewed";
@@ -151,6 +152,7 @@ export function TorrentFilesDialog({
                     }
                   />
                   <PrepareEpisode hash={torrent.hash} index={file.id} />
+                  <MediaInformation hash={torrent.hash} index={file.id} />
                 </article>
               );
             })}

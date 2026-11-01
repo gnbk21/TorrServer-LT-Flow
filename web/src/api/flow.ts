@@ -20,6 +20,7 @@ export const flowApi = {
       `/flow/warmup/${encodeURIComponent(hash)}`,
       { file_index, action },
       signal,
+      true,
     ),
   playbackLink: async (hash: string, index: number, signal?: AbortSignal) => {
     const data = await api.post<object, { path: string; expires_at: string }>(
@@ -64,5 +65,6 @@ export const flowApi = {
       "/flow/control",
       { action },
       signal,
+      true,
     ),
 };

@@ -1,4 +1,5 @@
 import type { BTSettings } from "../types/settings";
+import type { SettingsMetadata } from "../api/settingsMetadata";
 export const flowBounds: Record<string, readonly [number, number]> = {
   StreamTransportBufferKiB: [0, 1024],
   GlobalCacheBudgetMB: [0, 1048576],
@@ -55,7 +56,6 @@ export const commonSettings = new Set([
   "JacRedUrl",
   "JacRedKey",
   "SslPort",
-  "Flow.SecurityProfile",
   "Flow.RequirePlaybackToken",
   "Flow.Enabled",
   "Flow.AdaptiveStartup",
@@ -138,43 +138,60 @@ export function mergeSettings(
 }
 export function validateSettings(
   values: Record<string, SettingsValue>,
+  metadata?: SettingsMetadata,
 ): Record<string, string> {
   const errors: Record<string, string> = {};
-  if (
-    values["Flow.StreamTransportBufferKiB"] !== undefined &&
-    ![0, 64, 256, 1024].includes(
-      Number(values["Flow.StreamTransportBufferKiB"]),
-    )
-  )
-    errors["Flow.StreamTransportBufferKiB"] = "0 / 64 / 256 / 1024 KiB";
-  for (const [name, [min, max]] of Object.entries(flowBounds)) {
-    const key = `Flow.${name}`;
-    const value = values[key];
+  if (metadata) {
+    for (const [key, rule] of Object.entries(metadata.fields)) {
+      const value = values[key];
+      if (value === undefined || rule.read_only || rule.deprecated) continue;
+      if (
+        (rule.type === "integer" &&
+          (!Number.isInteger(value) ||
+            (rule.min !== undefined && Number(value) < rule.min) ||
+            (rule.max !== undefined && Number(value) > rule.max))) ||
+        (rule.choices && !rule.choices.includes(value as string | number))
+      )
+        errors[key] =
+          rule.choices?.join(" / ") ?? `${rule.min ?? ""}–${rule.max ?? ""}`;
+    }
+  } else {
     if (
-      value !== undefined &&
-      (!Number.isInteger(value) || Number(value) < min || Number(value) > max)
+      values["Flow.StreamTransportBufferKiB"] !== undefined &&
+      ![0, 64, 256, 1024].includes(
+        Number(values["Flow.StreamTransportBufferKiB"]),
+      )
     )
-      errors[key] = `${min}–${max}`;
-  }
-  for (const [key, min, max] of [
-    ["CacheSize", 1, 16 * 1024 * 1024 * 1024],
-    ["ReaderReadAHead", 5, 100],
-    ["PreloadCache", 0, 100],
-    ["ConnectionsLimit", 1, 10000],
-    ["DHTConnectionsLimit", 1, 100000],
-    ["PeersListenPort", 0, 65535],
-    ["SslPort", 0, 65535],
-    ["RetrackersMode", 0, 3],
-    ["TorrentDisconnectTimeout", 1, 86400],
-    ["DownloadRateLimit", 0, Number.MAX_SAFE_INTEGER],
-    ["UploadRateLimit", 0, Number.MAX_SAFE_INTEGER],
-  ] as const) {
-    const value = values[key];
-    if (
-      value !== undefined &&
-      (!Number.isInteger(value) || Number(value) < min || Number(value) > max)
-    )
-      errors[key] = `${min}–${max}`;
+      errors["Flow.StreamTransportBufferKiB"] = "0 / 64 / 256 / 1024 KiB";
+    for (const [name, [min, max]] of Object.entries(flowBounds)) {
+      const key = `Flow.${name}`;
+      const value = values[key];
+      if (
+        value !== undefined &&
+        (!Number.isInteger(value) || Number(value) < min || Number(value) > max)
+      )
+        errors[key] = `${min}–${max}`;
+    }
+    for (const [key, min, max] of [
+      ["CacheSize", 1, 16 * 1024 * 1024 * 1024],
+      ["ReaderReadAHead", 5, 100],
+      ["PreloadCache", 0, 100],
+      ["ConnectionsLimit", 1, 10000],
+      ["DHTConnectionsLimit", 1, 100000],
+      ["PeersListenPort", 0, 65535],
+      ["SslPort", 0, 65535],
+      ["RetrackersMode", 0, 3],
+      ["TorrentDisconnectTimeout", 1, 86400],
+      ["DownloadRateLimit", 0, Number.MAX_SAFE_INTEGER],
+      ["UploadRateLimit", 0, Number.MAX_SAFE_INTEGER],
+    ] as const) {
+      const value = values[key];
+      if (
+        value !== undefined &&
+        (!Number.isInteger(value) || Number(value) < min || Number(value) > max)
+      )
+        errors[key] = `${min}–${max}`;
+    }
   }
   for (const [min, max] of [
     ["StartupBufferMinMB", "StartupBufferMaxMB"],

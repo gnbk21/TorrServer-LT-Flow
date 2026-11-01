@@ -17,6 +17,11 @@ for (const legacy of [false, true]) {
     let legacyReads = 0;
     await page.route("**/*", async (route) => {
       const path = new URL(route.request().url()).pathname;
+      if (path === "/settings/metadata/v1")
+        return route.fulfill({
+          status: 404,
+          json: { error: "older fixture server" },
+        });
       if (path === "/echo")
         return route.fulfill({ body: "MatriX.145.Flow-test" });
       if (path === "/flow/library")

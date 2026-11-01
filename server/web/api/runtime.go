@@ -25,12 +25,13 @@ type RuntimeStatus struct {
 	FuseEnabled    bool                  `json:"fuse_enabled"`
 
 	// BitTorrent client (structured alternative to plaintext GET /stat).
-	BT              *torr.ClientStatusSnapshot `json:"bt,omitempty"`
-	Memory          diagnostics.MemoryStatus   `json:"memory"`
-	CacheAllocation torrstor.AllocationStatus  `json:"cache_allocation"`
-	Startup         diagnostics.StartupStatus  `json:"startup"`
-	Resources       torrstor.ResourceStatus    `json:"resources"`
-	Exposure        gin.H                      `json:"exposure"`
+	BT              *torr.ClientStatusSnapshot  `json:"bt,omitempty"`
+	Memory          diagnostics.MemoryStatus    `json:"memory"`
+	CacheAllocation torrstor.AllocationStatus   `json:"cache_allocation"`
+	Startup         diagnostics.StartupStatus   `json:"startup"`
+	Resources       torrstor.ResourceStatus     `json:"resources"`
+	Exposure        gin.H                       `json:"exposure"`
+	Incidents       *diagnostics.IncidentStatus `json:"incidents,omitempty"`
 }
 
 // runtimeStatus godoc
@@ -60,6 +61,7 @@ func runtimeStatus(c *gin.Context) {
 	}
 
 	bt := torr.SnapshotClientStatus()
+	incidents := diagnostics.Incidents.Status()
 	c.JSON(http.StatusOK, RuntimeStatus{
 		Build:           version.Identity(),
 		DLNAEnabled:     dlna,
@@ -75,5 +77,6 @@ func runtimeStatus(c *gin.Context) {
 		Startup:         diagnostics.Startup(),
 		Resources:       torrstor.Resources(),
 		Exposure:        ExposureSummary(),
+		Incidents:       &incidents,
 	})
 }

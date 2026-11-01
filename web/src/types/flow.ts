@@ -238,6 +238,14 @@ export interface FlowTrackerSummary {
   last_at: string;
 }
 export interface FlowStatusResponse extends Observed {
+  reuse?: {
+    eligible: boolean;
+    reason: string;
+    candidates: number;
+    native_accepted: number;
+    native_rejected: number;
+    verified_bytes: number;
+  };
   integrity?: {
     failures: number;
     recent_failures: number;

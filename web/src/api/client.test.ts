@@ -49,7 +49,7 @@ describe("API contract", () => {
     await expect(apiClient("/torrents")).rejects.toMatchObject({
       status: 503,
       message: "engine starting",
-      isStarting: true,
+      isStarting: false,
     });
   });
   it("does not offer a destructive defaults getter; explicit reset posts def", async () => {
@@ -95,11 +95,40 @@ describe("API contract", () => {
     );
   });
   it("recognizes authorization failures separately", () => {
-    expect(new ApiError(403, "Forbidden", null).isUnauthorized).toBe(true);
+    expect(new ApiError(403, "Forbidden", null).isUnauthorized).toBe(false);
+    expect(new ApiError(401, "Unauthorized", null).isUnauthorized).toBe(true);
+    expect(
+      new ApiError(503, "Unavailable", { code: "ENGINE_STARTING" }).isStarting,
+    ).toBe(true);
+    expect(
+      new ApiError(503, "Maintenance", { code: "SERVICE_UNAVAILABLE" })
+        .isStarting,
+    ).toBe(false);
   });
 });
 
 describe("management cooldown", () => {
+  it("allows one deliberate pause/cancel attempt during polling cooldown without replay", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response('{"error":"maintenance"}', {
+        status: 503,
+        headers: { "Retry-After": "60", "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+    await expect(apiClient("/runtime/status")).rejects.toMatchObject({
+      isStarting: false,
+    });
+    fetcher.mockImplementation(() => Promise.resolve(new Response("{}")));
+    const { flowApi } = await import("./flow");
+    await flowApi.control("pause");
+    await flowApi.warmup("hash", 1, "cancel");
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    await expect(apiClient("/runtime/status")).rejects.toMatchObject({
+      status: 429,
+    });
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
   it("honors Retry-After without replaying a mutation", async () => {
     vi.useFakeTimers();
     const fetcher = vi.fn().mockResolvedValue(

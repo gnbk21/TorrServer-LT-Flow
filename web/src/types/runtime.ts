@@ -36,6 +36,16 @@ export interface ClientStatus {
 }
 
 export interface RuntimeStatus {
+  incidents?: {
+    enabled: boolean;
+    recording: boolean;
+    capturing: boolean;
+    pressure_paused: boolean;
+    code: string;
+    last_reason?: string;
+    last_attempt: string;
+    files: Array<{ name: string; bytes: number; created_at: string }>;
+  };
   build?: {
     version: string;
     channel: "stable" | "preview" | "development";
@@ -50,6 +60,9 @@ export interface RuntimeStatus {
     background_limited: boolean;
     ram_resident_bytes: number;
     disk_cache_bytes: number;
+    pressure_state?: string;
+    recovery_samples?: number;
+    budget_changes?: number;
   };
   exposure?: {
     http_auth: boolean;

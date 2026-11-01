@@ -7,7 +7,6 @@ import (
 	stdlog "log"
 	"net"
 	"net/http"
-	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -24,7 +23,6 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/location/v2"
 	"github.com/gin-gonic/gin"
-	"github.com/wlynxg/anet"
 
 	"server/bonjour"
 	"server/dlna"
@@ -99,8 +97,8 @@ func Start() {
 	engineReady.Store(false)
 	diagnostics.MarkEngineReady(false)
 	route.Use(func(c *gin.Context) {
-		if !engineReady.Load() && c.Request.URL.Path != "/echo" && c.Request.URL.Path != "/flow/network" {
-			c.AbortWithStatus(http.StatusServiceUnavailable)
+		if !engineReady.Load() && !engineIndependentPath(c.Request.URL.Path) {
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "torrent engine is starting", "code": "ENGINE_STARTING"})
 			return
 		}
 		c.Next()
@@ -112,13 +110,13 @@ func Start() {
 		// Storage writes acquire their own exclusive lease after validating the
 		// request. Counting that request here would make it conflict with itself.
 		storageWrite := path == "/storage/settings" && c.Request.Method == http.MethodPost
-		if storageWrite || path == "/flow/maintenance" || strings.HasPrefix(path, "/flow/backup") || path == "/echo" || path == "/flow/tray" || path == "/flow/network" || path == "/runtime/status" || strings.HasPrefix(path, "/shutdown") || path == "/" || strings.HasPrefix(path, "/assets/") {
+		if storageWrite || engineIndependentPath(path) || path == "/flow/maintenance" || strings.HasPrefix(path, "/flow/backup") || path == "/flow/tray" || path == "/runtime/status" || strings.HasPrefix(path, "/shutdown") {
 			c.Next()
 			return
 		}
 		if !flow.Maintenance.Enter() {
 			c.Header("Retry-After", "30")
-			c.AbortWithStatus(http.StatusServiceUnavailable)
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "maintenance is in progress", "code": "MAINTENANCE_BUSY"})
 			return
 		}
 		defer flow.Maintenance.Leave()
@@ -159,7 +157,7 @@ func Start() {
 		}
 	}
 	// Bind and serve the local API before constructing the libtorrent session.
-	// Only /echo and /flow/network answer until the engine is ready.
+	// Read-only setup and the web shell remain available while the engine starts.
 	for _, ip := range netbind.Normalize(settings.IPs) {
 		if settings.Ssl {
 			if err := startListener(route, netbind.Addr(ip, settings.SslPort), true); err != nil {
@@ -372,29 +370,16 @@ func echo(c *gin.Context) {
 }
 
 func GetLocalIps() []string {
-	ifaces, err := anet.Interfaces()
+	list, err := netbind.LocalIPs()
 	if err != nil {
 		log.TLogln("Error get local IPs")
 		return nil
 	}
-	var list []string
-	for _, i := range ifaces {
-		addrs, _ := anet.InterfaceAddrsByInterface(&i)
-		if i.Flags&net.FlagUp == net.FlagUp {
-			for _, addr := range addrs {
-				var ip net.IP
-				switch v := addr.(type) {
-				case *net.IPNet:
-					ip = v.IP
-				case *net.IPAddr:
-					ip = v.IP
-				}
-				if !ip.IsLoopback() && !ip.IsLinkLocalUnicast() && !ip.IsLinkLocalMulticast() {
-					list = append(list, ip.String())
-				}
-			}
-		}
-	}
-	sort.Strings(list)
 	return list
+}
+
+func engineIndependentPath(path string) bool {
+	return path == "/echo" || path == "/flow/network" || path == "/settings/metadata/v1" ||
+		path == "/flow/pairing" || strings.HasPrefix(path, "/flow/pairing/status/") ||
+		strings.HasPrefix(path, "/flow/pairing/proof/") || path == "/" || strings.HasPrefix(path, "/assets/")
 }

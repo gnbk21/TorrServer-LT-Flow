@@ -47,6 +47,44 @@ func TestIsBlockedReferer(t *testing.T) {
 	}
 }
 
+// MatriX.148 #946: rules and headers must identify the address, not its spelling.
+func TestRefererRulesAndHeadersShareIPNormalization(t *testing.T) {
+	for _, tc := range []struct {
+		name, rules string
+		headers     []string
+		canonical   string
+	}{
+		{"IPv6", "2001:0db8::0001\n2001:db8:0:0:0:0:0:1\n", []string{
+			"http://[2001:db8::1]/", "https://[2001:DB8:0:0:0:0:0:1]:8090/",
+		}, "2001:db8::1"},
+		{"mapped IPv4", "192.0.2.1\n::ffff:c000:201\n", []string{
+			"http://192.0.2.1/", "http://[::ffff:192.0.2.1]:8090/",
+		}, "192.0.2.1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			blocked := scanRefererBuf([]byte(tc.rules))
+			deduplicated := mergeReferers(nil, blocked)
+			if len(deduplicated) != 1 || deduplicated[0] != tc.canonical {
+				t.Fatalf("equivalent rules were not canonicalized/deduplicated: %q", deduplicated)
+			}
+			for _, header := range tc.headers {
+				for _, origin := range []bool{false, true} {
+					referer, originHeader := header, ""
+					if origin {
+						referer, originHeader = "", header
+					}
+					if host, ok := isBlockedReferer(referer, originHeader, deduplicated); !ok || host != tc.canonical {
+						t.Errorf("referer=%q origin=%q: host=%q blocked=%v", referer, originHeader, host, ok)
+					}
+				}
+			}
+			if _, ok := isBlockedReferer("http://[2001:db8::2]/", "http://192.0.2.2/", deduplicated); ok {
+				t.Fatal("another address was blocked")
+			}
+		})
+	}
+}
+
 func TestBlockedReferersFromConfig(t *testing.T) {
 	got := blockedReferersFromConfig([]byte("example.com\nbylampa.online\n"))
 	want := append(append([]string(nil), defaultBlockedReferers...), "example.com")
@@ -123,6 +161,62 @@ func TestScanRefererBufWarnings(t *testing.T) {
 func TestHostFromHeaderNormalizesPortAndTrailingDot(t *testing.T) {
 	if got := hostFromHeader("https://Example.COM.:443/path"); got != "example.com" {
 		t.Fatalf("hostFromHeader()=%q", got)
+	}
+}
+
+func TestRefererRulesAndHeadersShareIDNNormalization(t *testing.T) {
+	blocked := blockedReferersFromConfig([]byte("пример.рф\nxn--e1afmkfd.xn--p1ai\n"))
+	count := 0
+	for _, host := range blocked {
+		if host == "xn--e1afmkfd.xn--p1ai" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("equivalent rules were not deduplicated: %q", blocked)
+	}
+	for _, tc := range []struct {
+		url  string
+		want bool
+	}{
+		{"https://пример.рф/", true},
+		{"https://xn--e1afmkfd.xn--p1ai/", true},
+		{"https://SUB.ПРИМЕР.РФ.:443/path", true},
+		{"https://sub.xn--e1afmkfd.xn--p1ai/path", true},
+		{"https://xn--e1afmkfd.xn--p1ai.evil.example/", false},
+		{"https://notxn--e1afmkfd.xn--p1ai/", false},
+		{"https://пример.рф@safe.example/", false},
+	} {
+		for _, origin := range []bool{false, true} {
+			referer, originHeader := tc.url, ""
+			if origin {
+				referer, originHeader = "", tc.url
+			}
+			if _, got := isBlockedReferer(referer, originHeader, blocked); got != tc.want {
+				t.Errorf("referer %q origin %q blocked=%v, want %v", referer, originHeader, got, tc.want)
+			}
+		}
+	}
+}
+
+func TestIDNRulesRetainHostValidation(t *testing.T) {
+	for _, tc := range []struct {
+		input, want string
+		ok          bool
+	}{
+		{"https://BÜCHER.example/", "xn--bcher-kva.example", true},
+		{"пример。рф。", "xn--e1afmkfd.xn--p1ai", true},
+		{"bu\u0308cher.example", "xn--bcher-kva.example", true},
+		{strings.Repeat("я", 60) + ".example", "", false},
+		{"xn--.example", "", false},
+		{"bad_.example", "", false},
+		{"https://user@пример.рф/", "", false},
+		{"https://пример.рф/path", "", false},
+		{"*.пример.рф", "", false},
+	} {
+		if got, ok := normalizeRefererRule(tc.input); got != tc.want || ok != tc.ok {
+			t.Errorf("normalizeRefererRule(%q) = %q, %v; want %q, %v", tc.input, got, ok, tc.want, tc.ok)
+		}
 	}
 }
 

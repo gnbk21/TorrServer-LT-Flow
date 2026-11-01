@@ -214,7 +214,7 @@
     "DefaultTrackers": "默认 Tracker",
     "DefaultTrackersHint": "本地 announce URL，每行一个。当所有远程获取失败时单独使用，或在远程列表成功加载后合并。",
     "ShowQuickVLCButton": "Show VLC button on torrent cards",
-    "ShowQuickVLCButtonHint": "Optional shortcut for single-video torrents. VLC must also be enabled.",
+    "ShowQuickVLCButtonHint": "单视频种子的可选快捷入口。还需要启用 VLC。",
     "MSXAllowLAN": "允许 MSX 代理访问局域网"
   },
   "Size": "大小",
@@ -299,7 +299,7 @@
     "StatusFound": "已找到",
     "StatusMissing": "未找到",
     "Version": "GStreamer 版本",
-    "VersionHint": "Installed GStreamer version (minimum 1.22, e.g. 1.22 or 1.28)",
+    "VersionHint": "已安装的 GStreamer 版本（最低为 1.22，例如 1.22 或 1.28）",
     "Path": "GStreamer 路径",
     "PathHint": "GStreamer 安装路径。留空则自动检测。",
     "Proxy": "通过 GStreamer 代理",
@@ -328,7 +328,7 @@
     "SegmentSeconds": "分段时长（秒）",
     "SegmentSecondsHint": "目标 HLS 分段时长；复制模式在可用时使用文件 Cue 边界。",
     "AppSinkBuffers": "AppSink buffers",
-    "AppSinkBuffersHint": "Queue of ready appsink buffers. Usually leave the default value.",
+    "AppSinkBuffersHint": "已就绪的 appsink 缓冲队列。通常保留默认值。",
     "VideoBitrate": "视频比特率 (kbps)",
     "VideoBitrateHint": "仅在启用视频转码为 H.264 时使用。",
     "TranscodeH264": "转码 H.264",
@@ -336,10 +336,10 @@
     "TranscodeAV1": "转码 AV1",
     "TranscodeVP9": "转码 VP9",
     "TranscodeHint": "关闭时复制视频且无质量损失；开启时使用 CPU/GPU 转换为 H.264。",
-    "TempFS": "Enable file buffer for source stream",
-    "TempFSHint": "Creates a temporary gst-XXXXXX ring buffer in the TorrServer working directory. Helps smooth speed drops on weak torrents; SSD storage is recommended.",
+    "TempFS": "启用源流文件缓冲",
+    "TempFSHint": "在 TorrServer 工作目录中创建临时的 gst-XXXXXX 环形缓冲文件，用于缓解冷门种子的速度波动；建议使用 SSD。",
     "TempFSRing": "Additional stream buffer",
-    "TempFSRingHint": "0 = base buffer around 90 seconds. Each unit adds roughly 30 seconds; 10 adds about 300 seconds.",
+    "TempFSRingHint": "0 表示约 90 秒的基本缓冲。每增加 1 约增加 30 秒；10 约增加 300 秒。",
     "AudioTrack": "音轨",
     "SegmentDiff": "复制分段对齐",
     "SegmentDiffHint": "复制模式关键帧对齐容差；0 表示无限制。通常无需更改。",
@@ -456,7 +456,18 @@
     "list": "列表",
     "importProgress": "正在处理来源：{{done}} / {{total}}",
     "exportPrivacy": "导出包含种子标识和名称，但不包含凭据、私有 tracker、海报和客户端自定义数据。私有种子需要原始 tracker 配置。v2 种子和旧版服务器在紧凑链接导出中使用磁力链接。",
-    "exportTooLarge": "媒体库导出超过 16 MiB。"
+    "exportTooLarge": "媒体库导出超过 16 MiB。",
+    "media": {
+      "title": "媒体信息",
+      "hint": "仅使用已有的有限启动探测。打开详情不会获取媒体。",
+      "unknown": "此文件的信息未知，正常预加载后可能显示。",
+      "bitrate": "可用容器码率",
+      "video": "视频",
+      "audio": "音频",
+      "subtitle": "字幕",
+      "truncated": "最多显示 32 个轨道。",
+      "direct": "外部播放器接收原始字节。GStreamer 转换为独立可选路径，视频转码可能改变画质并增加 CPU 占用。"
+    }
   },
   "runtime": {
     "torrents": "种子",
@@ -502,14 +513,16 @@
     "degraded": "连接受限",
     "localOnly": "仅限局域网",
     "offline": "服务器不可用",
-    "authRequired": "需要身份验证或访问被拒绝",
+    "authRequired": "需要认证",
     "requestFailed": "服务器无法完成请求。",
     "stale": "正在显示上次收到的数据，可能已过期。",
     "unknown": "未知",
     "enabled": "已启用",
     "disabled": "已禁用",
     "timeout": "服务器未及时响应，请重试。",
-    "paused": "引擎已暂停"
+    "paused": "引擎已暂停",
+    "accessDenied": "访问被拒绝",
+    "rateLimited": "请求冷却中"
   },
   "dashboard": {
     "idle": "准备就绪",
@@ -540,7 +553,32 @@
     "checkingCertificate": "正在检查此服务器的证书…",
     "serverTrustOnly": "服务器信任自己的证书。手机仍需单独检查所选地址及证书信任。",
     "serverUntrusted": "服务器不信任自己的证书。自签名证书需要您在手机上单独决定是否信任。",
-    "tlsNotReported": "服务器未报告 TLS 监听端口。代理或手动输入的 HTTPS 地址可能不同；请在手机上检查。"
+    "tlsNotReported": "服务器未报告 TLS 监听端口。代理或手动输入的 HTTPS 地址可能不同；请在手机上检查。",
+    "guide": {
+      "bindAddresses": "服务器监听接口",
+      "allInterfaces": "所有接口",
+      "lanAddresses": "公布的局域网地址",
+      "selectedAddress": "选定的手机地址",
+      "title": "手机连接向导",
+      "listener": "检查监听服务及所选局域网地址。",
+      "listenerReady": "监听已就绪，电脑请求已到达 Flow。",
+      "listenerPending": "请求已到达 Flow，但监听就绪状态尚未上报。",
+      "proofHint": "创建有效期五分钟的只读验证，并用手机扫描其二维码。",
+      "create": "创建连接验证",
+      "expired": "验证已过期，请重新创建。",
+      "copy": "复制验证链接",
+      "received": "来自其他地址的请求已到达 Flow，但这不能证明播放器可以播放。",
+      "sameClient": "验证来自创建者的地址，请也在手机上打开。",
+      "waiting": "正在等待手机请求。",
+      "access": "检查已验证地址的认证状态和近期访问拒绝。可信来源仍须由所有者在安全设置中明确批准。",
+      "player": "在 Lampa 中设置所选基础地址，再用外部播放器打开文件。搜索或解析服务是否可用需要单独检查。",
+      "android": "Android 权限取决于系统、应用及目标 SDK；WebView 使用宿主应用的权限。仅当应用提供相关选项时，检查本地网络或附近设备权限。",
+      "limits": "Flow 无法为其他应用授予权限，也不能准确识别每一种浏览器错误。验证仅保存有限的临时证据，不授予任何管理权限。",
+      "AUTH_REQUIRED": "认证被拒绝。",
+      "AUTH_ACCEPTED": "已接受通过认证的请求。",
+      "MANAGEMENT_ORIGIN_DENIED": "管理来源被拒绝：",
+      "MANAGEMENT_HOST_DENIED": "管理主机名被拒绝："
+    }
   },
   "app": {
     "error": "无法显示此页面。",
@@ -602,7 +640,8 @@
       "waiting": "最近 60 秒内某次服务器读取等待至少 500 毫秒。这不能证明播放器解码停顿。",
       "idle": "没有活动的播放器请求。播放器可能已暂停、断开连接，或正在使用自身缓冲。",
       "peers": "没有已连接节点，也没有连续可用字节。请检查本地网络就绪情况和追踪器状态。",
-      "prepare": "请提前准备剧集或选择较小的版本。更大的内存缓存无法弥补群集供给不足。"
+      "prepare": "完整剧集预下载始终是可选操作，并占用保留磁盘空间。Flow 不会自动降低画质；增加缓存无法创造缺失的种子带宽。",
+      "pausePlayer": "尝试在播放器中短暂暂停，以积累流式缓冲，无需下载完整剧集。"
     },
     "startupWait": "启动等待原因",
     "startupTimingHint": "元数据耗时从添加种子开始计算，其他耗时从预加载开始计算。横线表示尚未观察到。",
@@ -869,14 +908,17 @@
         "missing": "已采样的连接节点均不具备所需分片。",
         "discovery": "正在等待可提供数据的节点连接。",
         "block": "正在等待下一批请求的数据块。",
-        "unknown": "现有数据不足以确定等待原因。"
+        "unknown": "现有数据不足以确定等待原因。",
+        "reserve": "必需数据已就绪，Flow 正在填充可选启动储备。",
+        "phone": "服务器报告已就绪，但尚未观察到播放器的活动请求。"
       },
       "actions": {
         "inspect": "打开技术详情或导出诊断。",
         "waitMetadata": "请保持本次尝试开启。恢复仅使用已授权的来源；视频数据仍需要节点提供。",
         "leaveOpen": "请保持播放器开启。服务器正在传输并不能证明手机播放流畅。",
         "waitBlock": "请停止拖动进度条，等待所需数据到达。",
-        "waitSuppliers": "请保持本次尝试开启以继续发现节点。已知节点不一定可以连接或提供数据。"
+        "waitSuppliers": "请保持本次尝试开启以继续发现节点。已知节点不一定可以连接或提供数据。",
+        "setupPhone": "验证手机连接和 Lampa 访问设置。"
       },
       "sessionSummary": "整个会话的汇总",
       "sampleCount": "已记录的采样数：{{count}}",
@@ -938,7 +980,50 @@
         "RECENT_GAPS": "虽然平均供给充足，但近期出现过中断。",
         "UNKNOWN": "目前还没有足够可靠的供给测量。"
       }
-    }
+    },
+    "journey": {
+      "metadata": "发现元数据",
+      "connection": "连接节点",
+      "required": "必需的文件头与索引",
+      "reserve": "可选缓冲储备",
+      "http": "HTTP 传输",
+      "observed": "已观察到",
+      "unobserved": "尚未观察到"
+    },
+    "adviser": {
+      "title": "只读调优建议",
+      "readOnly": "每次只建议一个可撤销的步骤。Flow 不会自动更改配置档或画质。完整预下载仅为可选操作。",
+      "inspect": "当前证据不完整或已过期，请先刷新诊断再更改设置。",
+      "inspectStorage": "暂时暂停电脑上其他占用磁盘的任务，再比较读取等待时间。历史延迟本身不能证明当前磁盘故障。",
+      "setupPhone": "先运行手机连接验证，再从 Lampa 重试。没有视频请求并不能证明手机网络有问题。",
+      "pausePlayer": "保持剧集打开，在播放器中暂停 30–60 秒，再继续播放并比较服务器连续缓冲。请勿暂停 Flow 下载。",
+      "waitMetadata": "保持当前尝试打开，等待有限的元数据恢复完成；得到结果后再手动重试一次。",
+      "waitBlock": "短暂保持跳转或预加载打开，并比较必需分片的进度。增加请求无法创造缺失的源带宽。",
+      "leaveOpen": "保持会话打开。更改正常工作的配置前，先比较最新证据。",
+      "waitSuppliers": "等待节点发现或重连完成，并比较必需分片的供应者数量，而不仅是节点总数。"
+    },
+    "reuse": {
+      "title": "已验证的精确字节复用",
+      "result": "候选：{{candidates}}；原生引擎接受：{{accepted}}；独立验证字节：{{verified}}",
+      "hint": "需要匹配的已认证 v2 根及完整分片层。原生引擎接受不等于验证完成。仅复用驻留字节，绝不选择其他版本。",
+      "reasons": {
+        "NO_CACHE": "没有活动缓存",
+        "METADATA_NOT_REGISTERED": "元数据尚未注册",
+        "CLOSED": "缓存已关闭",
+        "PRIVATE_TORRENT": "私有种子不参与复用",
+        "IDENTITY_OR_GEOMETRY": "标识或分片映射不兼容",
+        "NO_V2_IDENTITY": "没有已认证的 v2 标识",
+        "INCOMPLETE_PIECE_LAYERS": "缺少完整分片层",
+        "INDEX_LIMIT": "已达到复用索引限制",
+        "NO_FILES": "没有符合条件的 v2 文件",
+        "DISABLED": "复用已关闭",
+        "RESOURCE_PRESSURE": "符合条件，为资源压力让步",
+        "RECONNECTING": "符合条件，等待网络恢复",
+        "NO_MATCH_OBSERVED": "符合条件，尚未为所请求分片观察到匹配驻留来源",
+        "ELIGIBLE": "元数据符合已验证复用条件"
+      }
+    },
+    "metadataRecoverySummary": "元数据恢复：{{state}}；尝试次数 {{attempts}}"
   },
   "search": {
     "source": "来源",
@@ -960,7 +1045,8 @@
       "seeds": "做种者",
       "peers": "节点",
       "title": "标题"
-    }
+    },
+    "serviceSeparation": "搜索或解析结果仅代表对应服务。种子连接：{{state}}。解析服务故障不能证明 Flow 或播放器网络故障。"
   },
   "AddTorrent": "添加新种子",
   "Loading": "正在加载…",
@@ -1090,7 +1176,8 @@
         "MetadataFallback": "自动恢复磁力链接元数据",
         "PublicMetadataCache": "免费的公共元数据缓存",
         "FrontierRecovery": "紧急延迟块恢复（实验）",
-        "AdaptivePeerRequests": "自适应节点请求预算（实验）"
+        "AdaptivePeerRequests": "自适应节点请求预算（实验）",
+        "IncidentFlightRecorder": "私有故障飞行记录器"
       }
     },
     "maintenance": {
@@ -1194,7 +1281,52 @@
     "metadataFallbackHelp": "15 秒后尝试磁力链接中最多两个 HTTPS .torrent 地址。哈希必须匹配。",
     "publicMetadataCacheHelp": "将卡住的 v1 磁力哈希发送给 Torrage 和 iTorrents。免费且无需账户。服务可能不可用。获取元数据前无法判断私有状态。",
     "streamRecoveryHelp": "在共享重复请求限制和节点队列容量内，向其他节点请求紧急延迟块。默认关闭，效果取决于可用来源。",
-    "streamRequestsHelp": "根据测量的服务时间和节点容量调整请求数量。默认关闭，请比较启动、跳转和重复流量。"
+    "streamRequestsHelp": "根据测量的服务时间和节点容量调整请求数量。默认关闭，请比较启动、跳转和重复流量。",
+    "metadata": {
+      "fallback": "旧版服务器：使用内置设置约束。",
+      "restart": "需要重启引擎；请选择应用时间",
+      "live": "无需重启引擎即可应用",
+      "experimental": "实验功能，需手动启用",
+      "default": "默认值：{{value}}",
+      "interactions": "缓存大小按种子设置，全局预算由各种子共享。必需的读取、预加载和索引数据可能暂时超出预算。保留会话及后台任务使用空闲容量。连接策略不会改变视频画质。",
+      "cachePreview": "共享驱逐预算：{{budget}} MiB；保留会话最多 {{warm}} MiB。这是缓存预算，并非进程内存上限。"
+    },
+    "fieldHints": {
+      "IncidentFlightRecorder": "默认关闭。目标保留 30 秒 Go 跟踪窗口（32 MiB 为大小提示），内存压力下暂停。最多保留两个原始记录，间隔至少五分钟，每个输出硬限制为 64 MiB。原始跟踪可能包含进程隐私信息，不包含在普通支持导出中。"
+    },
+    "storageView": {
+      "title": "运行时存储",
+      "preview": "只读预览。缓存、预下载、诊断及备份各有不同的生命周期。不会删除任何内容。",
+      "scan": "检查运行时存储",
+      "ram": "内存媒体缓存",
+      "evicting_disk_cache": "可驱逐磁盘缓存",
+      "preparation": "保留的预下载数据",
+      "diagnostics": "历史与私有跟踪",
+      "backups": "受保护的恢复副本",
+      "incomplete": "清单不完整",
+      "developer": "开发工作区清单",
+      "developerHint": "从源码工作区运行，默认仅预览。删除必须提供审阅后的清单及其 SHA-256，仅未变化且未锁定的生成缓存文件符合条件。工具链、安装、设置、凭据、备份、回退程序、证据归档与清单受保护。",
+      "incidents": "私有故障记录",
+      "raw": "明确显示原始跟踪下载。其中可能包含隐私信息，普通支持导出不会包含这些文件。",
+      "noCaptures": "没有保留的记录",
+      "pressure": "内存：{{state}}；恢复样本 {{samples}}/3",
+      "overcommit": "必需的前台数据超过驱逐预算，仍受保护",
+      "pressureStates": {
+        "normal": "正常",
+        "pressure": "有压力",
+        "recovering": "恢复中",
+        "unknown": "未知"
+      },
+      "incidentStates": {
+        "DISABLED": "记录器已关闭",
+        "PRESSURE_PAUSED": "内存压力下已暂停",
+        "STORAGE_UNAVAILABLE": "私有记录存储不可用",
+        "RECORDER_UNAVAILABLE": "记录器不可用，可能已有其他跟踪运行",
+        "RECORDING": "滚动窗口已启用",
+        "CAPTURE_DISCARDED": "已丢弃不完整、过大或失败的记录",
+        "CAPTURE_SAVED": "私有记录已保存"
+      }
+    }
   },
   "preparation": {
     "title": "准备剧集",

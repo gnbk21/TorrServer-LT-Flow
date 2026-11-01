@@ -27,9 +27,9 @@ function Get-FlowRelease {
     if ($Channel -eq 'preview') { $endpoint = 'https://api.github.com/repos/gnbk21/TorrServer-LT-Flow/releases?per_page=100' }
     $releaseResponse = Invoke-RestMethod -Uri $endpoint -Headers $headers -TimeoutSec 30
     $releases = @($releaseResponse)
-    $tagPattern = '^MatriX\.145\.Flow-v[0-9]+\.[0-9]+\.[0-9]+$'
+    $tagPattern = '^MatriX\.(?:145|148)\.Flow-v[0-9]+\.[0-9]+\.[0-9]+$'
     if ($Channel -eq 'preview') {
-        $tagPattern = '^MatriX\.145\.Flow-(v[0-9]+\.[0-9]+\.[0-9]+-(preview|alpha|beta|rc)\.[0-9]+|preview\.[0-9]+)$'
+        $tagPattern = '^MatriX\.(?:145|148)\.Flow-(v[0-9]+\.[0-9]+\.[0-9]+-(preview|alpha|beta|rc)\.[0-9]+|preview\.[0-9]+)$'
     }
     $eligible = @($releases | Where-Object { -not $_.draft -and ([bool]$_.prerelease -eq ($Channel -eq 'preview')) -and $_.tag_name -cmatch $tagPattern })
     $release = $null
@@ -89,11 +89,11 @@ function Compare-FlowVersions {
     param([string]$Left, [string]$Right)
     $values = @()
     foreach ($tag in @($Left,$Right)) {
-        if ($tag -cmatch '^MatriX\.145\.Flow-v([0-9]+)\.([0-9]+)\.([0-9]+)(?:-(alpha|beta|preview|rc)\.([0-9]+))?$') {
+        if ($tag -cmatch '^MatriX\.(?:145|148)\.Flow-v([0-9]+)\.([0-9]+)\.([0-9]+)(?:-(alpha|beta|preview|rc)\.([0-9]+))?$') {
             $rank = 4; $sequence = 0L
             if ($Matches[4]) { $rank = @('alpha','beta','preview','rc').IndexOf($Matches[4]); $sequence = [long]$Matches[5] }
             $values += ,@([long]$Matches[1],[long]$Matches[2],[long]$Matches[3],$rank,$sequence)
-        } elseif ($tag -cmatch '^MatriX\.145\.Flow-preview\.([0-9]+)$') {
+        } elseif ($tag -cmatch '^MatriX\.(?:145|148)\.Flow-preview\.([0-9]+)$') {
             $values += ,@(0L,0L,0L,2,[long]$Matches[1])
         } else { throw 'Cannot compare a non-release Flow version.' }
     }

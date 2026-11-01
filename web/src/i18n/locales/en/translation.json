@@ -437,14 +437,16 @@
     "degraded": "Degraded",
     "localOnly": "Local only",
     "offline": "Server unavailable",
-    "authRequired": "Authentication required or access denied",
+    "authRequired": "Authentication required",
     "requestFailed": "The server could not complete the request.",
     "stale": "Showing the last received data. It may be out of date.",
     "unknown": "Unknown",
     "enabled": "Enabled",
     "disabled": "Disabled",
     "timeout": "The server did not respond in time. Please try again.",
-    "paused": "Engine paused"
+    "paused": "Engine paused",
+    "accessDenied": "Access denied",
+    "rateLimited": "Request cooldown"
   },
   "dashboard": {
     "idle": "Ready when you are",
@@ -500,7 +502,8 @@
       "waiting": "A server read waited at least 500 ms within the last 60 seconds. This does not prove a player decoding stall.",
       "idle": "No player request is active. The player may be paused, disconnected, or consuming its own buffer.",
       "peers": "No connected peers and no contiguous bytes are available. Check local network readiness and tracker status.",
-      "prepare": "Prepare the episode before watching, or choose a smaller release. A larger RAM cache cannot replace missing swarm capacity."
+      "prepare": "Full episode preparation remains optional and uses retained disk space. Flow never lowers video quality automatically; more cache cannot create missing swarm bandwidth.",
+      "pausePlayer": "Try a short pause in the player to build streaming reserve without downloading the full episode."
     },
     "startupWait": "Startup wait",
     "startupTimingHint": "Metadata time is measured from torrent registration; other times from preload. A dash means not observed.",
@@ -767,14 +770,17 @@
         "missing": "No sampled connected peer has the required piece.",
         "discovery": "Waiting for a useful peer connection.",
         "block": "Waiting for the next requested blocks.",
-        "unknown": "There is not enough evidence to identify the current wait."
+        "unknown": "There is not enough evidence to identify the current wait.",
+        "reserve": "Flow is filling optional startup insurance after the required media data.",
+        "phone": "The server reports readiness, but no active player request is observed."
       },
       "actions": {
         "inspect": "Open technical details or export diagnostics.",
         "waitMetadata": "Keep the attempt open. Recovery uses only authorized sources and still requires peers for the video.",
         "leaveOpen": "Keep the player open. Server delivery does not establish whether the phone is displaying video smoothly.",
         "waitBlock": "Leave the seek bar still while the requested data arrives.",
-        "waitSuppliers": "Keep the attempt open while discovery continues. Known peers are not necessarily reachable suppliers."
+        "waitSuppliers": "Keep the attempt open while discovery continues. Known peers are not necessarily reachable suppliers.",
+        "setupPhone": "Verify phone connectivity and Lampa access settings."
       },
       "sessionSummary": "Whole-session totals",
       "sampleCount": "Recorded samples: {{count}}",
@@ -836,7 +842,50 @@
         "RECENT_GAPS": "Recent gaps occurred despite sufficient average delivery.",
         "UNKNOWN": "Supply is not yet measured reliably."
       }
-    }
+    },
+    "journey": {
+      "metadata": "Metadata discovery",
+      "connection": "Peer connection",
+      "required": "Required head/index",
+      "reserve": "Optional reserve",
+      "http": "HTTP delivery",
+      "observed": "Observed",
+      "unobserved": "Not yet observed"
+    },
+    "adviser": {
+      "title": "Read-only tuning adviser",
+      "readOnly": "One reversible step at a time. Flow does not change profiles or video quality. Full preparation is optional.",
+      "inspect": "Refresh diagnostics before changing settings; the current evidence is incomplete or old.",
+      "inspectStorage": "Temporarily pause other disk-intensive work on the PC, then compare read waits. Historical latency alone does not prove a current disk fault.",
+      "setupPhone": "Run the phone connection proof, then retry from Lampa. No open video request does not establish a phone-network fault.",
+      "pausePlayer": "Pause in the player for 30–60 seconds while leaving the episode open, then resume and compare the contiguous server buffer. Do not pause Flow downloads.",
+      "waitMetadata": "Leave this attempt open while bounded metadata recovery runs; retry once only after its result is known.",
+      "waitBlock": "Leave the seek/preload open briefly and compare required-piece progress. More requests cannot create missing source bandwidth.",
+      "leaveOpen": "Keep this session open. Compare fresh evidence before changing a working configuration.",
+      "waitSuppliers": "Allow discovery/reconnection to finish and compare suppliers for the required piece, not only the total peer count."
+    },
+    "reuse": {
+      "title": "Verified exact-byte reuse",
+      "result": "Candidates: {{candidates}}; native admissions: {{accepted}}; independently verified bytes: {{verified}}",
+      "hint": "Requires matching authenticated v2 roots and complete piece layers. Native admission is not verification. Only resident bytes are reused; another release is never selected.",
+      "reasons": {
+        "NO_CACHE": "No active cache",
+        "METADATA_NOT_REGISTERED": "Metadata not registered",
+        "CLOSED": "Cache closed",
+        "PRIVATE_TORRENT": "Private torrents excluded",
+        "IDENTITY_OR_GEOMETRY": "Incompatible identity or piece mapping",
+        "NO_V2_IDENTITY": "No authenticated v2 identity",
+        "INCOMPLETE_PIECE_LAYERS": "Complete piece layers unavailable",
+        "INDEX_LIMIT": "Reuse index limit reached",
+        "NO_FILES": "No eligible v2 files",
+        "DISABLED": "Flow reuse disabled",
+        "RESOURCE_PRESSURE": "Eligible; yields to resource pressure",
+        "RECONNECTING": "Eligible; waiting for network recovery",
+        "NO_MATCH_OBSERVED": "Eligible; no matching resident donor observed for requested pieces",
+        "ELIGIBLE": "Eligible verified reuse metadata"
+      }
+    },
+    "metadataRecoverySummary": "Metadata recovery: {{state}}; attempts {{attempts}}"
   },
   "torrent": {
     "justPlayer": "Play in Just Player",
@@ -901,7 +950,18 @@
     "list": "List",
     "importProgress": "Processing {{done}} / {{total}} sources",
     "exportPrivacy": "Exports include torrent identities and labels, but omit credentials, private trackers, posters and custom client data. Private torrents need their original tracker configuration. v2 torrents and older servers use magnets in compact-link exports.",
-    "exportTooLarge": "The library export exceeds 16 MiB."
+    "exportTooLarge": "The library export exceeds 16 MiB.",
+    "media": {
+      "title": "Media information",
+      "hint": "Uses the existing bounded startup probe only. Opening details does not fetch media.",
+      "unknown": "Unknown for this exact file; information may appear after normal preload.",
+      "bitrate": "Available container bitrate",
+      "video": "Video",
+      "audio": "Audio",
+      "subtitle": "Subtitle",
+      "truncated": "Limited to 32 tracks.",
+      "direct": "External players receive original media bytes. Optional GStreamer conversion is separate; video transcoding can change quality and use more CPU."
+    }
   },
   "pairing": {
     "title": "Connect your phone",
@@ -925,7 +985,32 @@
     "checkingCertificate": "Checking this server’s certificate…",
     "serverTrustOnly": "This server trusts its certificate. Your phone must check the selected address and trust separately.",
     "serverUntrusted": "This server does not trust its certificate. A self-signed certificate needs a separate trust decision on your phone.",
-    "tlsNotReported": "This server does not report a TLS listener. A proxy or manually entered HTTPS address may differ; check it on your phone."
+    "tlsNotReported": "This server does not report a TLS listener. A proxy or manually entered HTTPS address may differ; check it on your phone.",
+    "guide": {
+      "bindAddresses": "Listener interfaces",
+      "allInterfaces": "All interfaces",
+      "lanAddresses": "Advertised LAN addresses",
+      "selectedAddress": "Chosen phone address",
+      "title": "Guided phone setup",
+      "listener": "Check the listener and chosen LAN address.",
+      "listenerReady": "Listener ready. The PC request reached Flow.",
+      "listenerPending": "This request reached Flow; listener readiness is not yet reported.",
+      "proofHint": "Create a five-minute read-only proof and scan its QR on the phone.",
+      "create": "Create connection proof",
+      "expired": "Proof expired. Create a new one.",
+      "copy": "Copy proof URL",
+      "received": "A request from a different address reached Flow. This does not prove player playback.",
+      "sameClient": "Proof opened from the creator’s address. Open it on the phone too.",
+      "waiting": "Waiting for the phone request.",
+      "access": "Check authentication and recent access rejections from the proven address. Origin grants remain an explicit owner action in Security settings.",
+      "player": "Set the chosen base address in Lampa, then open the selected file with the external player. Search/parser availability is a separate check.",
+      "android": "Android permissions depend on the OS, app and target SDK; a WebView uses its host app’s permission. Check local-network or nearby-device access only where that app exposes it.",
+      "limits": "Flow cannot grant another app’s permission or identify every browser error. The proof stores bounded temporary evidence and grants no management authority.",
+      "AUTH_REQUIRED": "Authentication was rejected.",
+      "AUTH_ACCEPTED": "An authenticated request was accepted.",
+      "MANAGEMENT_ORIGIN_DENIED": "Management origin was rejected:",
+      "MANAGEMENT_HOST_DENIED": "Management hostname was rejected:"
+    }
   },
   "search": {
     "source": "Source",
@@ -947,7 +1032,8 @@
       "PREPARING": "Preparing playback…",
       "PLAYABLE": "Ready — choose a player"
     },
-    "startup": "Startup"
+    "startup": "Startup",
+    "serviceSeparation": "Search/parser results describe that service only. Torrent connectivity: {{state}}. A parser outage does not prove a Flow or player-network failure."
   },
   "settings": {
     "managementOriginsHelp": "Browser management always requires the server origin or an exact origin listed here. Add a trusted web-based Lampa origin explicitly. Native clients without browser headers keep their authentication rules. This does not replace HTTP authentication.",
@@ -1074,7 +1160,8 @@
         "MetadataFallback": "Automatic magnet metadata recovery",
         "PublicMetadataCache": "Use free public metadata caches",
         "FrontierRecovery": "Late-block frontier recovery (experiment)",
-        "AdaptivePeerRequests": "Adaptive peer request budget (experiment)"
+        "AdaptivePeerRequests": "Adaptive peer request budget (experiment)",
+        "IncidentFlightRecorder": "Private incident flight recorder"
       }
     },
     "maintenance": {
@@ -1178,7 +1265,52 @@
     "metadataFallbackHelp": "After 15 seconds, try up to two supplied HTTPS .torrent URLs. Results must match the magnet hash.",
     "publicMetadataCacheHelp": "Sends stalled v1 magnet hashes to Torrage and iTorrents. Free; no account needed. Services may be unavailable. Private status is unknown before metadata arrives.",
     "streamRecoveryHelp": "Requests an urgent late block from an alternate peer within shared duplicate limits. Includes peer-capacity guards. Off by default; improvement depends on available suppliers.",
-    "streamRequestsHelp": "Adjusts peer request credit using measured service time and capacity limits. Includes peer-capacity guards. Off by default; compare startup, seeks and wasted bytes."
+    "streamRequestsHelp": "Adjusts peer request credit using measured service time and capacity limits. Includes peer-capacity guards. Off by default; compare startup, seeks and wasted bytes.",
+    "metadata": {
+      "fallback": "Older server: using the built-in settings constraints.",
+      "restart": "Engine restart; choose when to apply",
+      "live": "Applies without engine restart",
+      "experimental": "Experimental, opt-in",
+      "default": "Default: {{value}}",
+      "interactions": "Cache size is per torrent; the global budget is shared. Required reader/preload/index data may exceed it temporarily. Warm sessions and background work use spare capacity. Connection profiles do not set video quality.",
+      "cachePreview": "Shared eviction budget: {{budget}} MiB; warm sessions: up to {{warm}} MiB. These are cache budgets, not process-RAM limits."
+    },
+    "fieldHints": {
+      "IncidentFlightRecorder": "Default off. Keeps a target 30-second Go trace window (32 MiB size hint), pauses under memory pressure, saves at most two raw captures with a five-minute cooldown and 64 MiB output limit each. Raw traces may contain private process details and are excluded from ordinary support exports."
+    },
+    "storageView": {
+      "title": "Runtime storage",
+      "preview": "Read-only preview. Cache, preparation, diagnostics and backups have separate lifetimes. Nothing is deleted.",
+      "scan": "Inspect runtime storage",
+      "ram": "Resident media cache",
+      "evicting_disk_cache": "Evicting disk cache",
+      "preparation": "Retained preparation data",
+      "diagnostics": "History and private traces",
+      "backups": "Protected recovery copies",
+      "incomplete": "Partial inventory",
+      "developer": "Developer workspace inventory",
+      "developerHint": "Run from the source workspace. Preview is the default. Deletion requires the reviewed manifest and its SHA-256; only unchanged, unlocked generated cache files qualify. Toolchains, installations, settings, credentials, backups, rollback binaries, evidence archives and manifests are protected.",
+      "incidents": "Private incident captures",
+      "raw": "Explicitly show raw downloads. Raw traces may contain private details and are excluded from ordinary support exports.",
+      "noCaptures": "No retained captures",
+      "pressure": "Memory: {{state}}; recovery samples {{samples}}/3",
+      "overcommit": "Required foreground data exceeds the eviction budget and remains protected",
+      "pressureStates": {
+        "normal": "normal",
+        "pressure": "pressure",
+        "recovering": "recovering",
+        "unknown": "unknown"
+      },
+      "incidentStates": {
+        "DISABLED": "Recorder disabled",
+        "PRESSURE_PAUSED": "Paused under memory pressure",
+        "STORAGE_UNAVAILABLE": "Private capture storage unavailable",
+        "RECORDER_UNAVAILABLE": "Recorder unavailable; another trace may be active",
+        "RECORDING": "Rolling window active",
+        "CAPTURE_DISCARDED": "Incomplete, oversized or failed capture discarded",
+        "CAPTURE_SAVED": "Private capture saved"
+      }
+    }
   },
   "runtime": {
     "torrents": "Torrents",

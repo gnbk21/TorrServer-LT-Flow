@@ -6,6 +6,11 @@ export async function upgradeFixture(page: Page, count = 200) {
   await page.route("**/*", (route) => {
     const url = new URL(route.request().url());
     const json = (payload: unknown) => route.fulfill({ json: payload });
+    if (url.pathname === "/settings/metadata/v1")
+      return route.fulfill({
+        status: 404,
+        json: { error: "older fixture server" },
+      });
     if (url.pathname === "/echo")
       return route.fulfill({ body: "MatriX.145.Flow-test" });
     if (url.pathname === "/flow/active") return json({ items: [], sampled_at });
@@ -81,6 +86,15 @@ export async function upgradeFixture(page: Page, count = 200) {
         cert_from_flags: false,
         revision: "fixture",
         cert: { source: "none", trusted: false },
+      });
+    if (url.pathname === "/storage/settings")
+      return json({ settings: "json", viewed: "bbolt", revision: "fixture" });
+    // An omitted fixture API is an older-server response, never permission to
+    // send a read or mutation through Vite's proxy to the owner's Flow process.
+    if (["fetch", "xhr"].includes(route.request().resourceType()))
+      return route.fulfill({
+        status: 404,
+        json: { error: "endpoint omitted by fixture" },
       });
     return route.continue();
   });

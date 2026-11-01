@@ -12,6 +12,7 @@ var remoteURL = regexp.MustCompile(`(?i)(?:https?|wss?|udp|socks(?:4a?|5h?)|magn
 var sensitiveValue = regexp.MustCompile(`(?i)\b((?:probe_key|passkey|password|passwd|api[_-]?key|(?:access|session|client|bot|tg)[_-]?token|token|ss|authorization|secret|capability)["']?\s*[=:]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s&;,"']+)`)
 var authorizationValue = regexp.MustCompile(`(?i)(authorization["']?\s*[=:]\s*)(?:bearer|basic)\s+[^\s&,;"']+`)
 var capabilityPath = regexp.MustCompile(`/flow/play/[^\s/?"']+`)
+var pairingPath = regexp.MustCompile(`/flow/pairing/(?:proof|status)/[^\s/?"']+`)
 
 // RedactSecrets strips all URL paths/queries: tracker secrets may be embedded in
 // arbitrary path components rather than recognizable query parameter names.
@@ -24,6 +25,7 @@ func RedactSecrets(s string) string {
 		return strings.ToLower(u.Scheme) + "://" + u.Host + "/[redacted]"
 	})
 	s = capabilityPath.ReplaceAllString(s, "/flow/play/[redacted]")
+	s = pairingPath.ReplaceAllString(s, "/flow/pairing/[redacted]")
 	s = authorizationValue.ReplaceAllString(s, "${1}[redacted]")
 	return sensitiveValue.ReplaceAllString(s, "${1}[redacted]")
 }

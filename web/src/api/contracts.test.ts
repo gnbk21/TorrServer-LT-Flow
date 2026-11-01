@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { storageSchema } from "./integrations";
+import { settingsMetadataSchema } from "./settingsMetadata";
 import { searchEnvelopeSchema } from "./search";
 import { summariesSchema } from "./sessionHistory";
 import { readFileSync } from "node:fs";
@@ -239,6 +240,7 @@ test.skipIf(!input)(
       sessions: summariesSchema,
       storage: storageSchema,
       settings: settingsSchema,
+      "settings-metadata": settingsMetadataSchema,
       torrent: torrentSchema,
       runtime: runtimeSchema,
       network: networkSchema,
@@ -253,6 +255,7 @@ test.skipIf(!input)(
       sessions: "enabled",
       storage: "settings",
       settings: "CacheSize",
+      "settings-metadata": "schema_version",
       torrent: "hash",
       runtime: "dlna_enabled",
       network: "state",

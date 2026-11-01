@@ -141,6 +141,7 @@ type AllocationStatus struct {
 	WarmCaches             int   `json:"warm_caches"`
 	WarmResidentBytes      int64 `json:"warm_resident_bytes"`
 	ResidentBytes          int64 `json:"resident_bytes"`
+	RAMResidentBytes       int64 `json:"ram_resident_bytes"`
 	ActiveResidentBytes    int64 `json:"active_resident_bytes"`
 	IdleResidentBytes      int64 `json:"idle_resident_bytes"`
 	EffectiveCapacityBytes int64 `json:"effective_capacity_bytes"`
@@ -163,6 +164,9 @@ func (s *Storage) Allocations() AllocationStatus {
 		readers := c.StreamingReaders()
 		out.Caches++
 		out.ResidentBytes += filled
+		if !c.diskBacked() {
+			out.RAMResidentBytes += filled
+		}
 		out.EffectiveCapacityBytes += c.capacity()
 		out.ProtectedBytes += c.streamingReserve()
 		out.ActiveReaders += readers

@@ -163,6 +163,11 @@ func readMetadataHTTP(ctx context.Context, client *http.Client, raw string) ([]b
 		return nil, metadataSourceError{"HTTP_STATUS_OR_SIZE"}
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, metadataSourceBytes+1))
+	// A transport can finish an empty body with EOF as cancellation closes the
+	// stream. Preserve the request's outcome before interpreting its body bytes.
+	if contextErr := ctx.Err(); contextErr != nil {
+		return nil, contextErr
+	}
 	if err != nil {
 		return nil, err
 	}

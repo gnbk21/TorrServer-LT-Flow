@@ -28,11 +28,17 @@ export class ApiError extends Error {
   }
 
   get isStarting() {
-    return this.status === 503;
+    return (
+      this.status === 503 &&
+      this.data !== null &&
+      typeof this.data === "object" &&
+      "code" in this.data &&
+      this.data.code === "ENGINE_STARTING"
+    );
   }
 
   get isUnauthorized() {
-    return this.status === 401 || this.status === 403;
+    return this.status === 401;
   }
 }
 let cooldownUntil = 0;
@@ -70,13 +76,20 @@ export const sessionToken = (() => {
 
 export async function apiClient<T>(
   endpoint: string,
-  options: RequestInit & { timeoutMs?: number } = {},
+  options: RequestInit & { timeoutMs?: number; manual?: boolean } = {},
 ): Promise<T> {
   const url = new URL(endpoint, window.location.origin);
+  const { manual = false, timeoutMs = 30_000, ...requestOptions } = options;
   if (url.origin !== window.location.origin)
     throw new Error("Cross-origin API request rejected");
   const remaining = cooldownUntil - performance.now();
-  if (remaining > 0) throw new ApiError(429, "Retry later", null, remaining);
+  if (remaining > 0 && !manual)
+    throw new ApiError(
+      429,
+      "Retry later",
+      { code: "POLLING_COOLDOWN" },
+      remaining,
+    );
   const headers = new Headers(options.headers || {});
   if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -89,11 +102,11 @@ export async function apiClient<T>(
   const timeout = window.setTimeout(
     () =>
       controller.abort(new DOMException("Request timed out", "TimeoutError")),
-    options.timeoutMs ?? 30_000,
+    timeoutMs,
   );
   try {
     const response = await fetch(url, {
-      ...options,
+      ...requestOptions,
       headers,
       credentials: "same-origin",
       signal: controller.signal,
@@ -145,6 +158,7 @@ export const api = {
     endpoint: string,
     body?: TRequest,
     signal?: AbortSignal,
+    manual = false,
   ) =>
     apiClient<TResponse>(endpoint, {
       method: "POST",
@@ -155,5 +169,6 @@ export const api = {
             ? JSON.stringify(body)
             : undefined,
       signal,
+      manual,
     }),
 };

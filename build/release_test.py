@@ -7,11 +7,12 @@ from release import binary_identity_matches, classify, find_binary, validate_gua
 class ReleaseClassification(unittest.TestCase):
     def test_channels(self):
         self.assertEqual(classify("MatriX.145.Flow-v1.0.0"), "stable")
-        for tag in ("MatriX.145.Flow-preview.1", "MatriX.145.Flow-v0.2.0-preview.1", "MatriX.145.Flow-v1.0.0-rc.2"):
+        self.assertEqual(classify("MatriX.148.Flow-v1.2.0"), "stable")
+        for tag in ("MatriX.148.Flow-v1.2.0-preview.1", "MatriX.148.Flow-v1.2.0-alpha.1", "MatriX.148.Flow-v1.2.0-beta.1", "MatriX.148.Flow-v1.2.0-rc.1", "MatriX.145.Flow-preview.1", "MatriX.145.Flow-v0.2.0-preview.1", "MatriX.145.Flow-v1.0.0-rc.2"):
             self.assertEqual(classify(tag), "preview")
 
     def test_foreign_or_ambiguous_tags_fail_closed(self):
-        for tag in ("latest", "v1.0.0", "MatriX.145", "MatriX.145.Flow-v1.0.0-beta", "MatriX.145.Flow-v1.0.0/../../bad", "MatriX.145.Flow-v١.٠.٠", "MatriX.145.Flow-v1.0.0\n"):
+        for tag in ("MatriX.149.Flow-v1.2.0", "MatriX.148.Flow-v1.2.0\n", "latest", "v1.0.0", "MatriX.145", "MatriX.145.Flow-v1.0.0-beta", "MatriX.145.Flow-v1.0.0/../../bad", "MatriX.145.Flow-v١.٠.٠", "MatriX.145.Flow-v1.0.0\n"):
             with self.assertRaises(ValueError):
                 classify(tag)
 

@@ -1,5 +1,9 @@
 # October security evidence reconciliation
 
+1 November follow-up: the October Go 1.26.10 requirement below is historical.
+Flow 1.2.0 selects Go 1.27.3 and OpenSSL 3.5.9, with fresh native, dependency
+and exact-source release checks. See [the 1.2.0 notes](../../RELEASE_1_2_0_NOTES.md).
+
 Publication follow-up: PR #6 and CI repair PR #7 are merged into stable
 [Flow 1.1.4](../history/RELEASE_1_1_4_VERIFICATION.md). Older development identities and
 pending-publication statements below are historical checkpoints. A passing

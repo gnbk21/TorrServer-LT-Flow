@@ -330,11 +330,14 @@ func (bt *BTServer) alertPump(stop <-chan struct{}, done chan<- struct{}) {
 func (bt *BTServer) expireWatch(stop <-chan struct{}) {
 	tick := time.NewTicker(5 * time.Second)
 	defer tick.Stop()
+	defer diagnostics.Incidents.Configure(settings.Path, false, false)
+	diagnostics.Incidents.Configure(settings.Path, settings.CurrentFlow().IncidentFlightRecorder && !settings.ReadOnly, diagnostics.Memory().Pressure)
 	for {
 		select {
 		case <-stop:
 			return
 		case <-tick.C:
+			diagnostics.Incidents.Configure(settings.Path, settings.CurrentFlow().IncidentFlightRecorder && !settings.ReadOnly, diagnostics.Memory().Pressure)
 			now := time.Now()
 			for _, t := range bt.ListTorrents() {
 				if t == nil || !t.expired(now) {

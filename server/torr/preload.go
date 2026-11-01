@@ -1001,6 +1001,18 @@ func (t *Torrent) probeMediaInfo(index int) {
 		return
 	}
 	result = flow.ProbeResult{BitRate: data.Format.BitRate, Duration: data.Format.DurationSeconds}
+	for _, stream := range data.Streams {
+		if stream == nil || (stream.CodecType != "video" && stream.CodecType != "audio" && stream.CodecType != "subtitle") {
+			continue
+		}
+		if len(result.Tracks) == 32 {
+			result.Truncated = true
+			break
+		}
+		language, _ := stream.TagList.GetString("language")
+		title, _ := stream.TagList.GetString("title")
+		result.Tracks = append(result.Tracks, flow.ProbeTrack{Index: stream.Index, Type: stream.CodecType, Codec: stream.CodecName, Language: language, Title: title})
+	}
 	success = true
 	t.mu.Lock()
 	if settings.CurrentFlow().Enabled && t.flowStartup.FileIndex != 0 && t.flowStartup.FileIndex != index {
