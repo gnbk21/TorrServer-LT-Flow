@@ -10,7 +10,9 @@ import { formatDuration } from "../../lib/format";
 import { Button } from "../common/Button";
 import { Loading, RequestError } from "../common/RequestState";
 import { PlaybackLinks } from "../common/PlaybackLinks";
-import { Modal } from "../common/Modal";
+const Modal = lazy(() =>
+  import("../common/Modal").then((module) => ({ default: module.Modal })),
+);
 const Player = lazy(() => import("./VideoPlayer"));
 export function RecentPlayback() {
   const { t } = useTranslation();
@@ -49,14 +51,15 @@ export function RecentPlayback() {
       setBusy(false);
     }
   };
-  if (recent.error instanceof ApiError && recent.error.status === 404)
-    return null;
+  const unsupported =
+    recent.error instanceof ApiError && recent.error.status === 404;
   return (
-    <section className="panel space-y-4">
+    <section className="panel min-h-52 space-y-4">
       <h2 className="text-xl">{t("recent.title")}</h2>
       <p className="text-sm">{t("recent.hint")}</p>
       {recent.isPending && <Loading />}
-      {recent.error && (
+      {unsupported && <p role="status">{t("recent.unavailable")}</p>}
+      {recent.error && !unsupported && (
         <RequestError error={recent.error} retry={() => recent.refetch()} />
       )}
       {!!error && <RequestError error={error} />}
@@ -166,23 +169,25 @@ export function RecentPlayback() {
         </Button>
       )}
       {confirm && (
-        <Modal
-          isOpen
-          onClose={() => setConfirm(false)}
-          title={t("recent.clear")}
-        >
-          <p>{t("recent.clearHint")}</p>
-          <div className="actions">
-            <Button
-              disabled={busy}
-              variant="danger"
-              onClick={() => void mutate(recentApi.clear)}
-            >
-              {t("recent.clear")}
-            </Button>
-            <Button onClick={() => setConfirm(false)}>{t("Cancel")}</Button>
-          </div>
-        </Modal>
+        <Suspense fallback={<Loading />}>
+          <Modal
+            isOpen
+            onClose={() => setConfirm(false)}
+            title={t("recent.clear")}
+          >
+            <p>{t("recent.clearHint")}</p>
+            <div className="actions">
+              <Button
+                disabled={busy}
+                variant="danger"
+                onClick={() => void mutate(recentApi.clear)}
+              >
+                {t("recent.clear")}
+              </Button>
+              <Button onClick={() => setConfirm(false)}>{t("Cancel")}</Button>
+            </div>
+          </Modal>
+        </Suspense>
       )}
       {player && (
         <Suspense fallback={<Loading />}>

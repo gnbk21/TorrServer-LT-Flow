@@ -151,7 +151,13 @@ export default function Dashboard() {
           </div>
         </section>
       )}
-      <Suspense fallback={<Loading />}>
+      <Suspense
+        fallback={
+          <section className="panel min-h-52">
+            <Loading />
+          </section>
+        }
+      >
         <RecentPlayback />
       </Suspense>
       <section className="panel space-y-4">

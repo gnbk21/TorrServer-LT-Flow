@@ -1532,6 +1532,7 @@
     "monitoringHint": "可选的 /metrics 导出使用现有身份验证。远程采集需要 HTTP 身份验证。建议每 15 秒采集一次。",
     "historyLabel": "共享最近记录",
     "monitoringLabel": "Prometheus 监控",
-    "legacyMark": "旧版本已看标记"
+    "legacyMark": "旧版本已看标记",
+    "unavailable": "此服务器不支持最近播放记录。现有播放功能和已保存的位置仍可使用。"
   }
 }

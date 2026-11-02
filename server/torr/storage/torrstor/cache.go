@@ -66,7 +66,8 @@ const hashGraceSec = 30
 
 // Cache holds every Piece for a single torrent.
 type Cache struct {
-	auxiliary atomic.Pointer[AuxiliaryReader]
+	auxiliary       atomic.Pointer[AuxiliaryReader]
+	auxiliaryClosed atomic.Bool
 	// Recent eviction markers distinguish missing native blocks from a new
 	// download. They contain no media data and are bounded to 2048 entries.
 	evicted            map[int]bool // guarded by mu
@@ -1726,6 +1727,7 @@ const maxTailPinPieces = 6
 // close drops the in-memory state for every piece but leaves on-disk
 // files in place — they're the source of truth for the next resume.
 func (c *Cache) close() {
+	c.auxiliaryClosed.Store(true)
 	c.CancelAuxiliary()
 	c.clearReuse()
 	c.SetWarmupPlaybackRisk(false)

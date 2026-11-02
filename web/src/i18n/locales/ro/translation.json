@@ -1526,6 +1526,7 @@
     "monitoringHint": "Export /metrics opțional cu autentificarea existentă. Accesul de la distanță necesită autentificare HTTP. Interval recomandat: 15 secunde.",
     "historyLabel": "Istoric recent partajat",
     "monitoringLabel": "Monitorizare Prometheus",
-    "legacyMark": "Marcaj dintr-o versiune veche"
+    "legacyMark": "Marcaj dintr-o versiune veche",
+    "unavailable": "Istoricul recent nu este disponibil pe acest server. Redarea și pozițiile salvate rămân disponibile."
   }
 }

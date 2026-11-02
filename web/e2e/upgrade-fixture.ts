@@ -14,6 +14,13 @@ export async function upgradeFixture(page: Page, count = 200) {
     if (url.pathname === "/echo")
       return route.fulfill({ body: "MatriX.145.Flow-test" });
     if (url.pathname === "/flow/active") return json({ items: [], sampled_at });
+    if (url.pathname === "/flow/recent")
+      return json({
+        schema_version: 1,
+        enabled: true,
+        read_only: false,
+        items: [],
+      });
     if (url.pathname === "/flow/library")
       return json({
         items: Array.from({ length: Math.min(50, count) }, (_, i) => ({

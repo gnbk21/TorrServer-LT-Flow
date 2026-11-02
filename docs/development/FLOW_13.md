@@ -81,6 +81,19 @@ and long-duration field acceptance. Missing acceptance is never called passed.
   foreground eviction, Rutor unknown metadata and cold-query batch/fallback
   behavior. All 124 harness/workflow tests passed. Source-bound hosted checks
   remain required; the earlier Full script receipts retain their UI failures.
+- All 150 ordinary browser scenarios passed. The production lab then caught an
+  eager Recent confirmation-dialog import (215,055 gzip bytes) and loading-state
+  layout shift. Dialog code is now lazy and Recent reserves consistent space,
+  including an explicit unsupported-server state. Nine additional three-browser
+  Recent checks pass. The final serial three-run lab records 201,896 gzip bytes,
+  LCP 1,220/1,224/1,244 ms and zero CLS; input, import, diagnostics and settings
+  budgets also pass. A prior slow-start outlier and all earlier failures remain
+  preserved (`lab-startup-outlier`, `lab-layout-shift-failure`,
+  `lab-initial-budget-failures`); no best-run-only claim is made.
+- A native race test also closes the admission/shutdown gap: a reader published
+  after a cache begins closing is rejected/cancelled, rather than waiting for
+  the normal ten-second subtitle deadline. Active engine/cache close cannot
+  retain an auxiliary reservation.
 - The initial 40-trial comparison preserved zero byte failures/timeouts, but
   flagged seek latency/RSS. Review discovered that the old harness's odd-round
   reversal cancelled its two-policy rotation, always placing the baseline first.

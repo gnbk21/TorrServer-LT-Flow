@@ -181,3 +181,28 @@ func TestAuxiliaryCompletionPinAndForegroundEvictionBudget(t *testing.T) {
 		t.Fatal("auxiliary work enlarged eviction capacity", c.Filled(), cfg.CacheSize)
 	}
 }
+
+func TestAuxiliaryAdmissionCannotOutliveConcurrentCacheClose(t *testing.T) {
+	old := settings.BTsets()
+	settings.StoreBTsets(settings.NewDefaultConfig())
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	for attempt := 0; attempt < 32; attempt++ {
+		c := mkCache(t, pieceLen)
+		closed := make(chan struct{})
+		go func() { c.close(); close(closed) }()
+		r, err := c.NewAuxiliaryReader(context.Background(), FileInfo{Length: 1})
+		<-closed
+		if err == nil {
+			if r.ctx.Err() == nil {
+				t.Fatal("closed cache retained an auxiliary reader")
+			}
+			_ = r.Close()
+		}
+		if _, err := c.NewAuxiliaryReader(context.Background(), FileInfo{Length: 1}); !errors.Is(err, ErrAuxiliaryDeferred) {
+			t.Fatal("closed cache admitted new work", err)
+		}
+		if c.auxiliaryReserved() != 0 {
+			t.Fatal("closed cache retained reservation")
+		}
+	}
+}

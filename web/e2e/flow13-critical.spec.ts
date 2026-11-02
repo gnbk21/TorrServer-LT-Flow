@@ -339,3 +339,67 @@ test("progressive files remain searchable and sidecars stay metadata-only", asyn
     }),
   ).toHaveAttribute("href", /track=211&format=original/);
 });
+
+for (const unavailable of [false, true]) {
+  test(`Recent loading keeps layout stable (${unavailable ? "older" : "current"} server)`, async ({
+    page,
+  }) => {
+    await upgradeFixture(page, 1);
+    await page.addInitScript(() => localStorage.setItem("i18nextLng", "en"));
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route("**/flow/recent", async (route) => {
+      await held;
+      await route.fulfill(
+        unavailable
+          ? { status: 404, json: { error: "older server" } }
+          : {
+              json: {
+                schema_version: 1,
+                enabled: true,
+                read_only: false,
+                items: [],
+              },
+            },
+      );
+    });
+    try {
+      await page.goto("/#/");
+      const heading = page.getByRole("heading", {
+        name: "Recently opened",
+        exact: true,
+      });
+      await expect(heading).toBeVisible();
+      await page.locator("#main").evaluate(async (element) => {
+        await Promise.all(
+          element
+            .getAnimations({ subtree: true })
+            .map((animation) => animation.finished.catch(() => {})),
+        );
+      });
+      const below = () =>
+        heading.evaluate(
+          (element) =>
+            element
+              .closest("section")!
+              .nextElementSibling!.getBoundingClientRect().y,
+        );
+      const before = await below();
+      release();
+      await expect(
+        page.getByText(
+          unavailable
+            ? /Recent history is unavailable/
+            : "No recent video deliveries.",
+        ),
+      ).toBeVisible();
+      await expect
+        .poll(async () => Math.abs((await below()) - before))
+        .toBeLessThanOrEqual(1);
+    } finally {
+      release();
+    }
+  });
+}

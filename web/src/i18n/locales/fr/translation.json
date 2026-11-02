@@ -1532,6 +1532,7 @@
     "monitoringHint": "Export /metrics facultatif avec l’authentification existante. L’accès distant exige l’authentification HTTP. Intervalle conseillé : 15 secondes.",
     "historyLabel": "Historique partagé",
     "monitoringLabel": "Surveillance Prometheus",
-    "legacyMark": "Ancienne marque de lecture"
+    "legacyMark": "Ancienne marque de lecture",
+    "unavailable": "L’historique récent est indisponible sur ce serveur. La lecture et les positions enregistrées restent accessibles."
   }
 }

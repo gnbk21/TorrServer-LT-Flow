@@ -120,9 +120,11 @@ for (const repeat of [1, 2, 3])
     );
     const observed = await page.evaluate(() => {
       const data = (
-        window as unknown as { flowLab: { lcp_ms: number; cls: number } }
+        window as unknown as {
+          flowLab: { lcp_ms: number; cls: number; shifts: unknown[] };
+        }
       ).flowLab;
-      return { lcp_ms: data.lcp_ms, cls: data.cls };
+      return { lcp_ms: data.lcp_ms, cls: data.cls, shifts: data.shifts };
     });
     // Local input feedback is measured to its next painted frame, not API search
     // completion or real-phone INP. Preserve the observation and lab conditions.
@@ -205,20 +207,18 @@ for (const repeat of [1, 2, 3])
         { once: true, capture: true },
       );
     });
-    await dialog
-      .getByLabel("Import player JSON report")
-      .setInputFiles({
-        name: "generated-player-report.json",
-        mimeType: "application/json",
-        buffer: Buffer.from(
-          JSON.stringify({
-            schema_version: 1,
-            source: "flow-player-media3",
-            clock: "player-elapsed-and-wall; server-clock-alignment-unknown",
-            samples: playerSamples,
-          }),
-        ),
-      });
+    await dialog.getByLabel("Import player JSON report").setInputFiles({
+      name: "generated-player-report.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(
+        JSON.stringify({
+          schema_version: 1,
+          source: "flow-player-media3",
+          clock: "player-elapsed-and-wall; server-clock-alignment-unknown",
+          samples: playerSamples,
+        }),
+      ),
+    });
     await expect(
       dialog.getByRole("button", {
         name: "Clear imported report",

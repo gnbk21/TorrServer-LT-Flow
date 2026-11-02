@@ -1562,6 +1562,7 @@
     "monitoringHint": "Optional /metrics export, using existing authentication. Remote scraping requires HTTP authentication. Recommended scrape interval: 15 seconds.",
     "historyLabel": "Shared Recent history",
     "monitoringLabel": "Prometheus monitoring",
-    "legacyMark": "Legacy viewed mark"
+    "legacyMark": "Legacy viewed mark",
+    "unavailable": "Recent history is unavailable on this server. Existing playback and saved positions remain available."
   }
 }

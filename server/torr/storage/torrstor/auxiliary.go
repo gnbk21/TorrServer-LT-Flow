@@ -24,7 +24,7 @@ type AuxiliaryReader struct {
 }
 
 func (c *Cache) auxiliaryAllowed() bool {
-	if c.backgroundLimited.Load() || c.flowWaiting.Load() > 0 || c.flowReconnect.Load() || time.Now().UnixMilli() < c.warmupRiskUntil.Load() {
+	if c.auxiliaryClosed.Load() || c.backgroundLimited.Load() || c.flowWaiting.Load() > 0 || c.flowReconnect.Load() || time.Now().UnixMilli() < c.warmupRiskUntil.Load() {
 		return false
 	}
 	c.preloadMu.Lock()
@@ -91,6 +91,12 @@ func (c *Cache) NewAuxiliaryReader(ctx context.Context, file FileInfo) (*Auxilia
 		return nil, ErrAuxiliaryDeferred
 	}
 	context.AfterFunc(ctx, func() { _ = r.Close() })
+	// Close/pressure may have raced the initial check before this owner became
+	// visible to cancellation. Recheck after publication to close that gap.
+	if !c.auxiliaryAllowed() {
+		_ = r.Close()
+		return nil, ErrAuxiliaryDeferred
+	}
 	c.lastApplyMs.Store(0)
 	c.applyStreamPriorities()
 	if r.ctx.Err() != nil {
