@@ -10,6 +10,13 @@ upstream evaluations are organized in the [documentation index](docs/README.md).
 
 ## Run on Windows
 
+Flow 1.3 is under development in this checkout. It adds Material 3 Expressive,
+bounded piece coverage, media compatibility explanations, capability-aware
+search, selected torrent subtitles, shared Recent history and optional Prometheus
+export. These changes are not a published release until the acceptance gates
+pass. See the [implementation ledger](docs/development/FLOW_13.md) and
+[API and privacy details](FLOW.md#flow-13-additions).
+
 1. Open [Flow 1.2.0](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.148.Flow-v1.2.0), download **`TorrServer-Flow-windows-amd64-MatriX.148.Flow-v1.2.0.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
 2. In PowerShell, run the standard executable from the extracted folder, using a separate data directory for Flow:
 
