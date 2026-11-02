@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 )
@@ -48,6 +49,8 @@ const (
 )
 
 type TorrentDetails struct {
+	SeedKnown    *bool `json:",omitempty"`
+	SizeKnown    *bool `json:",omitempty"`
 	Title        string
 	Name         string
 	Names        []string
@@ -69,6 +72,36 @@ type TorrentDetails struct {
 type TorrentFile struct {
 	Name string
 	Size int64
+}
+
+// The Rutor database may omit seed/size observations. Preserve that absence
+// instead of serializing a fabricated zero, without changing the old fields.
+func (d *TorrentDetails) UnmarshalJSON(data []byte) error {
+	type plain TorrentDetails
+	var value plain
+	fields := struct {
+		*plain
+		Seed *int
+		Size *string
+	}{plain: &value}
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	*d = TorrentDetails(value)
+	seedKnown, sizeKnown := fields.Seed != nil && *fields.Seed >= 0, fields.Size != nil && strings.TrimSpace(*fields.Size) != "" && strings.TrimSpace(*fields.Size) != "0"
+	if fields.Seed != nil {
+		d.Seed = *fields.Seed
+	}
+	if fields.Size != nil {
+		d.Size = *fields.Size
+	}
+	if d.SeedKnown == nil {
+		d.SeedKnown = &seedKnown
+	}
+	if d.SizeKnown == nil {
+		d.SizeKnown = &sizeKnown
+	}
+	return nil
 }
 
 func (d TorrentDetails) GetNames() string {

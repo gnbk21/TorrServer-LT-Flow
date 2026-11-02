@@ -33,11 +33,15 @@ func jacredSearch(c *gin.Context) {
 	query := utils.DecodeQueryValue(c.Query("query"))
 	started := time.Now()
 	list, err := jacred.SearchDetailed(c.Request.Context(), query)
+	outcome := searchstatus.Outcome("jacred", -1, len(list), started, err)
+	outcome.QueryMode = "generic"
+	cfg := sets.BTsets()
+	searchstatus.Record(searchstatus.EndpointKey("jacred", cfg.JacRedUrl, cfg.JacRedKey), outcome)
 	if list == nil {
 		list = []*models.TorrentDetails{}
 	}
 	if c.Query("details") == "true" {
-		c.JSON(200, detailedSearchResponse{list, []searchstatus.Status{searchstatus.Outcome("jacred", -1, len(list), started, err)}})
+		c.JSON(200, detailedSearchResponse{1, list, []searchstatus.Status{outcome}})
 		return
 	}
 	c.JSON(200, list)
@@ -55,8 +59,12 @@ func jacredTest(c *gin.Context) {
 		return
 	}
 
-	if err := jacred.Test(c.Request.Context(), req.Host, req.Key); err != nil {
-		outcome := searchstatus.Outcome("jacred", -1, 0, time.Now(), err)
+	started := time.Now()
+	err := jacred.Test(c.Request.Context(), req.Host, req.Key)
+	outcome := searchstatus.Outcome("jacred", -1, 1, started, err)
+	outcome.QueryMode = "caps_test"
+	searchstatus.Record(searchstatus.EndpointKey("jacred", req.Host, req.Key), outcome)
+	if err != nil {
 		c.JSON(200, gin.H{"success": false, "error": errorMessage(err), "state": outcome.State})
 		return
 	}

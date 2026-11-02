@@ -20,6 +20,10 @@ var extraEpisodeCode = regexp.MustCompile(`(?i)(?:e[0-9]+|[0-9]+x[0-9]+)`)
 var excludedEpisode = regexp.MustCompile(`(?i)(?:^|[._ -])(?:sample|trailer|preview)(?:[._ -]|$)`)
 
 func episodeIdentity(name string) (directory, prefix string, season, episode int, ok bool) {
+	return parseEpisodeIdentity(name, false)
+}
+
+func parseEpisodeIdentity(name string, allowSpecials bool) (directory, prefix string, season, episode int, ok bool) {
 	name = strings.ReplaceAll(name, "\\", "/")
 	base := path.Base(name)
 	if excludedEpisode.MatchString(base) {
@@ -50,7 +54,7 @@ func episodeIdentity(name string) (directory, prefix string, season, episode int
 	if m[2] < 0 {
 		season, episode = read(m[6], m[7]), read(m[8], m[9])
 	}
-	if season < 1 || episode < 1 {
+	if season < 0 || season == 0 && !allowSpecials || episode < 1 {
 		return
 	}
 	directory = strings.ToLower(path.Dir(name))

@@ -115,6 +115,7 @@ func GetTorrent(hashHex string) *TorrentDB {
 // RemTorrent removes a torrent record by 40-hex info hash.
 func RemTorrent(hashHex string) {
 	mu.Lock()
-	defer mu.Unlock()
 	tdb.Rem("Torrents", hashHex)
+	mu.Unlock()
+	_ = RemoveRecent(hashHex, -1, false)
 }

@@ -51,6 +51,7 @@ func (c *Counters) bucket(now time.Time) *counterBucket {
 
 func (c *Counters) Hit(n int) {
 	if n > 0 {
+		processTotals.hits.Add(uint64(n))
 		c.hitBytes.Add(int64(n))
 		c.waitsMu.Lock()
 		c.bucket(time.Now()).hit += int64(n)
@@ -59,6 +60,7 @@ func (c *Counters) Hit(n int) {
 }
 func (c *Counters) Miss(n int) {
 	if n > 0 {
+		processTotals.misses.Add(uint64(n))
 		c.missBytes.Add(int64(n))
 		c.waitsMu.Lock()
 		c.bucket(time.Now()).miss += int64(n)
@@ -69,6 +71,7 @@ func (c *Counters) Wait(d time.Duration) {
 	if d < 0 {
 		return
 	}
+	recordReadWait(d)
 	c.waitCount.Add(1)
 	c.waitTotalNs.Add(int64(d))
 	c.waitsMu.Lock()

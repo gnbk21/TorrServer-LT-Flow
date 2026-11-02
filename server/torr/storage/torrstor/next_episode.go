@@ -156,6 +156,7 @@ func (c *Cache) nextEpisodeDemand(blocked bool) []int {
 	if limit := c.resourceBudget.Load(); limit > 0 {
 		budget = min(budget, limit)
 	}
+	budget -= c.auxiliaryPendingBytes()
 	if budget <= 0 || c.Filled()+int64(len(missing))*c.PieceLength > budget {
 		w.Reason = "NO_SPARE_CACHE"
 		return nil

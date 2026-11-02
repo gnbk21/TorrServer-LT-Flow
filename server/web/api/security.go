@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"server/diagnostics"
 	"server/flow"
 	"server/netpolicy"
@@ -133,13 +134,15 @@ func PlaybackPolicy() gin.HandlerFunc {
 }
 
 func playbackLink(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
 	if sets.CurrentFlow().RequirePlaybackToken && c.GetString(gin.AuthUserKey) == "" {
 		c.AbortWithStatus(401)
 		return
 	}
 	var req struct {
-		Hash  string `json:"hash"`
-		Index int    `json:"index"`
+		Hash          string `json:"hash"`
+		Index         int    `json:"index"`
+		SubtitleIndex int    `json:"subtitle_file_index,omitempty"`
 	}
 	if c.ShouldBindJSON(&req) != nil {
 		c.AbortWithStatus(400)
@@ -166,13 +169,30 @@ func playbackLink(c *gin.Context) {
 		return
 	}
 	expires := time.Now().Add(time.Duration(sets.CurrentFlow().PlaybackTokenTTL) * time.Second)
-	token, err := playbackSigner.Mint(flow.PlaybackClaim{Hash: strings.ToLower(req.Hash), Index: req.Index, Expires: expires.Unix()}, time.Now())
+	if req.SubtitleIndex < 0 {
+		c.Status(400)
+		return
+	}
+	if req.SubtitleIndex > 0 {
+		if _, ok := tor.SelectedSubtitle(req.Index, req.SubtitleIndex); !ok {
+			abortWithErrorCode(c, 400, "INVALID_SUBTITLE_SELECTION", flow.ErrSubtitle)
+			return
+		}
+	}
+	token, err := playbackSigner.Mint(flow.PlaybackClaim{Hash: strings.ToLower(req.Hash), Index: req.Index, Expires: expires.Unix(), SubtitleIndex: req.SubtitleIndex}, time.Now())
 	if err != nil {
 		c.AbortWithStatus(400)
 		return
 	}
 	c.Header("Cache-Control", "no-store")
-	c.JSON(200, gin.H{"path": "/flow/play/" + url.PathEscape(token), "expires_at": expires.UTC(), "revoked_on_restart": true})
+	result := gin.H{"schema_version": 1, "path": "/flow/play/" + url.PathEscape(token), "expires_at": expires.UTC(), "revoked_on_restart": true}
+	if req.SubtitleIndex > 0 {
+		candidate, _ := tor.SelectedSubtitle(req.Index, req.SubtitleIndex)
+		base := "/flow/play/" + url.PathEscape(token) + "/media"
+		result["path"] = base + strings.ToLower(path.Ext(tor.SubtitleVideoPath(req.Index)))
+		result["subtitle_path"] = base + "." + candidate.Format
+	}
+	c.JSON(200, result)
 }
 func capabilityPlayback(c *gin.Context) {
 	if playbackSignerError != nil {
@@ -183,6 +203,19 @@ func capabilityPlayback(c *gin.Context) {
 	if err != nil {
 		c.AbortWithStatus(401)
 		return
+	}
+	// Validate named resources against cached metadata before entering the
+	// video playback path. A rejected alias or sidecar must not revive an idle
+	// torrent or extend its lifetime. Sidecars defer until a cache is active.
+	if c.Param("resource") != "" {
+		observed := torr.GetTorrentInfo(claim.Hash)
+		if observed == nil {
+			c.AbortWithStatus(404)
+			return
+		}
+		if capabilityResource(c, observed, claim) {
+			return
+		}
 	}
 	// A capability grants one existing file only; it cannot import torrents,
 	// list a library, mint another token or authorize management endpoints.

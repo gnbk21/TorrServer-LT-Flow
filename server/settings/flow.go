@@ -8,6 +8,8 @@ import (
 // FlowSettings keeps Flow controls independent of upstream settings.
 // A nil Flow field is migrated to these defaults when existing settings load.
 type FlowSettings struct {
+	RecentPlaybackHistory    bool // bounded local recent opens; no decoded-player inference
+	PrometheusEnabled        bool // opt-in protected aggregate exporter
 	SchemaVersion            int
 	Enabled                  bool
 	AdaptiveStartup          bool
@@ -83,8 +85,9 @@ func (f *FlowSettings) UnmarshalJSON(data []byte) error {
 
 func DefaultFlowSettings() *FlowSettings {
 	return &FlowSettings{
-		SchemaVersion: 1,
-		Enabled:       true, AdaptiveStartup: true, BootstrapHeadMB: 16,
+		SchemaVersion:         1,
+		RecentPlaybackHistory: true,
+		Enabled:               true, AdaptiveStartup: true, BootstrapHeadMB: 16,
 		BootstrapTailMode: "upstream-auto", ProbeGraceMs: 1500,
 		StartupBufferSeconds: 6, StartupBufferMinMB: 32,
 		StartupBufferMaxMB: 128, StartupSafetyFactorPct: 130,

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"server/searchstatus"
@@ -72,19 +73,47 @@ func (f *flexStrings) UnmarshalJSON(b []byte) error {
 // item mirrors the JacRed native search response
 // (GET /api/v1.0/torrents), which returns a flat JSON array.
 type item struct {
-	Tracker      string      `json:"tracker"`
-	URL          string      `json:"url"`
-	Title        string      `json:"title"`
-	Size         flexInt     `json:"size"`
-	SizeName     string      `json:"sizeName"`
-	CreateTime   string      `json:"createTime"`
-	SID          flexInt     `json:"sid"`
-	PIR          flexInt     `json:"pir"`
-	Magnet       string      `json:"magnet"`
-	Name         string      `json:"name"`
-	OriginalName string      `json:"originalname"`
-	Relased      flexInt     `json:"relased"`
-	Types        flexStrings `json:"types"`
+	seedKnown, sizeKnown bool
+	Tracker              string      `json:"tracker"`
+	URL                  string      `json:"url"`
+	Title                string      `json:"title"`
+	Size                 flexInt     `json:"size"`
+	SizeName             string      `json:"sizeName"`
+	CreateTime           string      `json:"createTime"`
+	SID                  flexInt     `json:"sid"`
+	PIR                  flexInt     `json:"pir"`
+	Magnet               string      `json:"magnet"`
+	Name                 string      `json:"name"`
+	OriginalName         string      `json:"originalname"`
+	Relased              flexInt     `json:"relased"`
+	Types                flexStrings `json:"types"`
+}
+
+func (value *item) UnmarshalJSON(data []byte) error {
+	type plain item
+	var decoded plain
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	*value = item(decoded)
+	var raw struct {
+		Seed json.RawMessage `json:"sid"`
+		Size json.RawMessage `json:"size"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	known := func(raw json.RawMessage, positive bool) bool {
+		text := strings.Trim(strings.TrimSpace(string(raw)), `"`)
+		if text == "" || text == "null" {
+			return false
+		}
+		n, err := strconv.ParseFloat(text, 64)
+		return err == nil && !math.IsNaN(n) && !math.IsInf(n, 0) && n >= 0 && n == math.Trunc(n) && (!positive || n > 0)
+	}
+	value.seedKnown = known(raw.Seed, false)
+	value.sizeKnown = known(raw.Size, true) || strings.TrimSpace(value.SizeName) != ""
+	return nil
 }
 
 // Search queries the configured JacRed aggregator and maps its results into the
@@ -156,7 +185,7 @@ func SearchDetailed(ctx context.Context, query string) ([]*models.TorrentDetails
 	if json.Unmarshal(body, &probe) != nil || strings.TrimSpace(string(body)) == "null" {
 		return nil, searchstatus.Invalid()
 	}
-	return parseItems(body), nil
+	return mapItems(probe), nil
 }
 
 func parseItems(body []byte) []*models.TorrentDetails {
@@ -165,6 +194,9 @@ func parseItems(body []byte) []*models.TorrentDetails {
 		log.TLogln("Error decoding JacRed response:", err)
 		return nil
 	}
+	return mapItems(items)
+}
+func mapItems(items []item) []*models.TorrentDetails {
 
 	results := make([]*models.TorrentDetails, 0, len(items))
 	for _, it := range items {
@@ -177,7 +209,9 @@ func parseItems(body []byte) []*models.TorrentDetails {
 		}
 
 		title := firstNonEmpty(it.Title, it.Name, it.OriginalName)
+		seedKnown, sizeKnown := it.seedKnown, it.sizeKnown
 		results = append(results, &models.TorrentDetails{
+			SeedKnown: &seedKnown, SizeKnown: &sizeKnown,
 			Title:      title,
 			Name:       firstNonEmpty(it.Name, title),
 			Names:      names(it.Name, it.OriginalName),

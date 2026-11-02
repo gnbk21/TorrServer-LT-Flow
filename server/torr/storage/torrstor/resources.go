@@ -97,6 +97,7 @@ func (s *Storage) reconcileResources(mem diagnostics.MemoryStatus, now time.Time
 	// shares. Immediate reader, preload and required-index pins are untouched.
 	if mem.Pressure {
 		for _, c := range caches {
+			c.CancelAuxiliary()
 			c.backgroundLimited.Store(true)
 			if c.StreamingReaders() == 0 {
 				c.ClearWarmReserve()

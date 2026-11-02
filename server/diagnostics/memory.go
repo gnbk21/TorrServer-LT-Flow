@@ -29,6 +29,14 @@ var memoryMu sync.Mutex
 var memorySample MemoryStatus
 var memoryPressure pressurePolicy
 
+// CachedMemory never performs OS queries or stops the world to sample the heap.
+// A zero SampledAt explicitly means that no ordinary sampler has run yet.
+func CachedMemory() MemoryStatus {
+	memoryMu.Lock()
+	defer memoryMu.Unlock()
+	return memorySample
+}
+
 // Cache the OS query for five seconds. RSS includes native allocations and
 // resident code; subtracting the Go heap does not measure libtorrent's heap.
 func Memory() MemoryStatus {

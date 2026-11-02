@@ -31,6 +31,7 @@ func HTTP(code int) error {
 }
 
 type Status struct {
+	QueryMode string `json:"query_mode,omitempty"`
 	Source    string `json:"source"`
 	Index     int    `json:"index"`
 	State     string `json:"state"`
@@ -57,5 +58,5 @@ func Outcome(source string, index, count int, started time.Time, err error) Stat
 			state = "timeout"
 		}
 	}
-	return Status{source, index, state, time.Since(started).Milliseconds()}
+	return Status{Source: source, Index: index, State: state, ElapsedMS: time.Since(started).Milliseconds()}
 }

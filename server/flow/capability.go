@@ -13,9 +13,10 @@ import (
 )
 
 type PlaybackClaim struct {
-	Hash    string `json:"h"`
-	Index   int    `json:"i"`
-	Expires int64  `json:"e"`
+	SubtitleIndex int    `json:"s,omitempty"`
+	Hash          string `json:"h"`
+	Index         int    `json:"i"`
+	Expires       int64  `json:"e"`
 }
 type CapabilitySigner struct{ key [32]byte }
 
@@ -26,7 +27,7 @@ func NewCapabilitySigner() (*CapabilitySigner, error) {
 }
 func validClaim(c PlaybackClaim) bool {
 	b, err := hex.DecodeString(c.Hash)
-	return err == nil && len(b) == 20 && c.Hash == strings.ToLower(c.Hash) && c.Index > 0
+	return err == nil && (len(b) == 20 || len(b) == 32) && c.Hash == strings.ToLower(c.Hash) && c.Index > 0 && c.SubtitleIndex >= 0 && c.SubtitleIndex != c.Index
 }
 func (s *CapabilitySigner) Mint(c PlaybackClaim, now time.Time) (string, error) {
 	if s == nil || !validClaim(c) || c.Expires <= now.Unix() || c.Expires > now.Add(24*time.Hour).Unix() {

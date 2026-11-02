@@ -134,6 +134,12 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		}
 	}
 	started := time.Now()
+	recentSession := ""
+	if flowSeq == 0 && sets.CurrentFlow().RecentPlaybackHistory && req.Method == http.MethodGet && group != torrstor.ProbeReaderGroup {
+		var finishRecent func()
+		recentSession, finishRecent = t.beginRecentDelivery(fileID, group)
+		defer finishRecent()
+	}
 	var recorder *flow.ResponseRecorder
 	// Own and retire the observer admitted by flowStart even when settings
 	// change between admission and response setup.
@@ -145,6 +151,9 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		recorder.OnFirstByte = func(ttfb time.Duration) {
 			if recorder.Status == http.StatusOK || recorder.Status == http.StatusPartialContent {
 				t.flowFirstByte(fileID, group, flowSeq, started, ttfb)
+				if req.Method == http.MethodGet {
+					t.queueRecentOpen(fileID, group, "")
+				}
 			}
 		}
 		recorder.OnProgress = func(offset int64) {
@@ -162,6 +171,15 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		}()
 	}
 
+	if flowSeq == 0 && sets.CurrentFlow().RecentPlaybackHistory && req.Method == http.MethodGet && group != torrstor.ProbeReaderGroup {
+		observer := flow.NewResponseRecorder(resp)
+		observer.OnFirstByte = func(time.Duration) {
+			if observer.Status == http.StatusOK || observer.Status == http.StatusPartialContent {
+				t.queueRecentOpen(fileID, group, recentSession)
+			}
+		}
+		resp = observer
+	}
 	// Mark file as viewed (so /m3u?fromlast and the snake command
 	// reflect the latest playback position). MarkViewed keeps a timecode a
 	// client already saved for this file: every range request lands here.

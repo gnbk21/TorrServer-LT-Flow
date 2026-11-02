@@ -16,6 +16,7 @@ type ProbeKey struct {
 	Path  string
 }
 type ProbeResult struct {
+	Container string       `json:"container,omitempty"`
 	BitRate   string       `json:"bitrate"`
 	Duration  float64      `json:"duration_seconds"`
 	Tracks    []ProbeTrack `json:"tracks"`
@@ -23,11 +24,19 @@ type ProbeResult struct {
 	ProbedAt  time.Time    `json:"probed_at"`
 }
 type ProbeTrack struct {
-	Index    int    `json:"index"`
-	Type     string `json:"type"`
-	Codec    string `json:"codec"`
-	Language string `json:"language,omitempty"`
-	Title    string `json:"title,omitempty"`
+	Profile     string `json:"profile,omitempty"`
+	Width       int    `json:"width,omitempty"`
+	Height      int    `json:"height,omitempty"`
+	BitDepth    int    `json:"bit_depth,omitempty"`
+	Transfer    string `json:"transfer,omitempty"`
+	HDR         string `json:"hdr,omitempty"`
+	PixelFormat string `json:"pixel_format,omitempty"`
+	Channels    int    `json:"channels,omitempty"`
+	Index       int    `json:"index"`
+	Type        string `json:"type"`
+	Codec       string `json:"codec"`
+	Language    string `json:"language,omitempty"`
+	Title       string `json:"title,omitempty"`
 }
 
 func boundedProbeResult(result ProbeResult) ProbeResult {
@@ -37,9 +46,19 @@ func boundedProbeResult(result ProbeResult) ProbeResult {
 	result.Truncated = result.Truncated || len(result.Tracks) > 32
 	result.Tracks = append([]ProbeTrack{}, result.Tracks[:min(32, len(result.Tracks))]...)
 	bound := func(s string) string { return strings.ToValidUTF8(s[:min(128, len(s))], "") }
+	result.Container = bound(result.Container)
 	for i := range result.Tracks {
 		p := &result.Tracks[i]
 		p.Codec = bound(p.Codec)
+		p.Profile, p.Transfer, p.PixelFormat = bound(p.Profile), bound(p.Transfer), bound(p.PixelFormat)
+		p.HDR = ""
+		switch p.Transfer {
+		case "smpte2084":
+			p.HDR = "PQ"
+		case "arib-std-b67":
+			p.HDR = "HLG"
+		}
+		p.Width, p.Height, p.BitDepth, p.Channels = max(0, min(65536, p.Width)), max(0, min(65536, p.Height)), max(0, min(64, p.BitDepth)), max(0, min(256, p.Channels))
 		p.Language = bound(p.Language)
 		p.Title = bound(p.Title)
 	}

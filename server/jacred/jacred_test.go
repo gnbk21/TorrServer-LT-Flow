@@ -12,6 +12,18 @@ import (
 	"time"
 )
 
+func TestMissingOrMalformedCountsRemainUnknown(t *testing.T) {
+	for _, row := range []struct {
+		body  string
+		known bool
+	}{{`"sid":0,"size":1048576`, true}, {`"sid":"0","size":"1048576"`, true}, {`"sid":null,"size":null`, false}, {`"sid":"NaN","size":"unknown"`, false}, {`"other":0`, false}} {
+		rows := parseItems([]byte(`[{"title":"Fixture","magnet":"magnet:?xt=urn:btih:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",` + row.body + `}]`))
+		if len(rows) != 1 || rows[0].SeedKnown == nil || rows[0].SizeKnown == nil || *rows[0].SeedKnown != row.known || *rows[0].SizeKnown != row.known {
+			t.Fatal(row, rows)
+		}
+	}
+}
+
 func TestEndpointDoesNotBypassUnavailableInterface(t *testing.T) {
 	previous := settings.BTsets()
 	flow := settings.DefaultFlowSettings()

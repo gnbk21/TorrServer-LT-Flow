@@ -3,6 +3,7 @@ package torznab
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -71,6 +72,7 @@ type CapsLimits struct {
 }
 
 type Caps struct {
+	Searching  Searching      `xml:"searching" json:"searching"`
 	XMLName    xml.Name       `xml:"caps"`
 	Limits     CapsLimits     `xml:"limits"`
 	Categories []CapsCategory `xml:"categories>category"`
@@ -118,6 +120,10 @@ func Search(ctx context.Context, query string, index int, cat string, offset, li
 }
 
 func SearchDetailed(ctx context.Context, query string, index int, cat string, offset, limit int) ([]*models.TorrentDetails, []searchstatus.Status) {
+	return SearchDetailedQuery(ctx, Query{Text: query}, index, cat, offset, limit)
+}
+
+func SearchDetailedQuery(ctx context.Context, query Query, index int, cat string, offset, limit int) ([]*models.TorrentDetails, []searchstatus.Status) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -159,12 +165,29 @@ func SearchDetailed(ctx context.Context, query string, index int, cat string, of
 					continue
 				}
 				var err error
-				rows[slot], err = searchOneDetailed(ctx, c.Host, c.Key, query, indexerLabel(c), cat, searchOffset, limit)
+
+				var mode string
+				rows[slot], mode, err = searchPlanned(ctx, c.Host, c.Key, query, indexerLabel(c), cat, searchOffset, limit)
 				statuses[slot] = searchstatus.Outcome("torznab", i, len(rows[slot]), started, err)
+				if errors.Is(err, errUnsupported) {
+					statuses[slot].State = "unsupported_query"
+				}
+				statuses[slot].QueryMode = mode
+				searchstatus.Record(searchstatus.EndpointKey("torznab", c.Host, c.Key), statuses[slot])
 			}
 		}()
 	}
 	workers.Wait()
+	// Cold capability discovery begins only after this batch's foreground
+	// searches have released admission; it cannot occupy their four slots first.
+	if ctx.Err() == nil {
+		for _, i := range indices[:min(128, len(indices))] {
+			c := configs[i]
+			if c.Host != "" && c.Key != "" && PeekCapabilities(c.Host, c.Key) == nil {
+				cachedCapabilities(c.Host, c.Key)
+			}
+		}
+	}
 	all := []*models.TorrentDetails{}
 	for _, part := range rows {
 		all = append(all, part...)
@@ -204,6 +227,10 @@ func searchOne(ctx context.Context, host, key, query, label, cat string, offset,
 }
 
 func searchOneDetailed(ctx context.Context, host, key, query, label, cat string, offset, limit int) ([]*models.TorrentDetails, error) {
+	return searchOneRequest(ctx, host, key, query, label, cat, offset, limit, nil)
+}
+
+func searchOneRequest(ctx context.Context, host, key, query, label, cat string, offset, limit int, planned url.Values) ([]*models.TorrentDetails, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -224,6 +251,11 @@ func searchOneDetailed(ctx context.Context, host, key, query, label, cat string,
 	q.Set("apikey", key)
 	q.Set("t", "search")
 	q.Set("q", query)
+	for key, values := range planned {
+		if len(values) > 0 {
+			q.Set(key, values[0])
+		}
+	}
 	if cat != "" {
 		q.Set("cat", cat)
 	}
@@ -264,6 +296,16 @@ func searchOneDetailed(ctx context.Context, host, key, query, label, cat string,
 		return nil, searchstatus.Invalid()
 	}
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == 429 {
+			if seconds, parseErr := strconv.Atoi(resp.Header.Get("Retry-After")); parseErr == nil && seconds > 0 {
+				searchstatus.SetCooldown(searchstatus.EndpointKey("torznab", host, key), time.Now().Add(time.Duration(min(300, seconds))*time.Second))
+			} else if at, parseErr := http.ParseTime(resp.Header.Get("Retry-After")); parseErr == nil && at.After(time.Now()) {
+				searchstatus.SetCooldown(searchstatus.EndpointKey("torznab", host, key), minTime(at, time.Now().Add(5*time.Minute)))
+			}
+		}
+		if planned != nil && planned.Get("t") != "search" && (resp.StatusCode == 400 || resp.StatusCode == 422) {
+			return nil, errUnsupported
+		}
 		log.TLogln("Torznab returned status:", resp.Status)
 		return nil, searchstatus.HTTP(resp.StatusCode)
 	}
@@ -274,6 +316,9 @@ func searchOneDetailed(ctx context.Context, host, key, query, label, cat string,
 		_ = xml.Unmarshal(body, &failure)
 		if failure.Code == "100" || failure.Code == "101" {
 			return nil, searchstatus.HTTP(401)
+		}
+		if planned != nil && planned.Get("t") != "search" && (failure.Code == "200" || failure.Code == "201" || failure.Code == "202" || failure.Code == "203") {
+			return nil, errUnsupported
 		}
 		return nil, searchstatus.Invalid()
 	}
@@ -306,6 +351,8 @@ func searchOneDetailed(ctx context.Context, host, key, query, label, cat string,
 		}
 
 		var leechers, peers int
+		seedKnown, sizeKnown := false, item.Size > 0 || len(item.Enclosure) > 0 && item.Enclosure[0].Length > 0
+		detail.SeedKnown, detail.SizeKnown = &seedKnown, &sizeKnown
 		var hasLeechers, hasPeers bool
 		for _, attr := range item.Attributes {
 			switch strings.ToLower(attr.Name) {
@@ -315,7 +362,9 @@ func searchOneDetailed(ctx context.Context, host, key, query, label, cat string,
 					detail.Hash = extractHash(detail.Magnet)
 				}
 			case "seeders":
-				detail.Seed, _ = strconv.Atoi(attr.Value)
+				var seedErr error
+				detail.Seed, seedErr = strconv.Atoi(attr.Value)
+				seedKnown = seedErr == nil && detail.Seed >= 0
 			case "leechers":
 				leechers, _ = strconv.Atoi(attr.Value)
 				hasLeechers = true
@@ -345,7 +394,7 @@ func searchOneDetailed(ctx context.Context, host, key, query, label, cat string,
 	return results, nil
 }
 
-func FetchCaps(ctx context.Context, host, key string) (*Caps, error) {
+func fetchCaps(ctx context.Context, host, key string) (*Caps, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}

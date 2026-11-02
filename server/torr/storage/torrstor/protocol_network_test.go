@@ -185,6 +185,15 @@ func TestNativeV2AndHybridNetworkTransferIntoVerifiedStreamingCache(t *testing.T
 					if readErr != nil || !bytes.Equal(got, want) {
 						t.Fatal("verified streaming bytes changed", file.Index, readErr, len(got), len(want))
 					}
+					aux, err := cache.NewAuxiliaryReader(context.Background(), FileInfo{Index: file.Index, Path: file.Path, Offset: file.Offset, Length: file.Size})
+					if err != nil {
+						t.Fatal("verified v2/hybrid sidecar admission", file.Index, err)
+					}
+					auxBytes, auxErr := io.ReadAll(aux)
+					_ = aux.Close()
+					if auxErr != nil || !bytes.Equal(auxBytes, want) || cache.StreamingReaders() != 0 || cache.auxiliaryReserved() != 0 {
+						t.Fatal("auxiliary native transfer changed bytes or retained playback resources", file.Index, auxErr)
+					}
 				}
 				// Both sides disable the other peer protocol; an actual incoming
 				// transport alert additionally guards against an unnoticed TCP fallback.

@@ -1000,7 +1000,7 @@ func (t *Torrent) probeMediaInfo(index int) {
 		log.TLogln("torr.probeMediaInfo: failed after", time.Since(probeStart).Truncate(time.Millisecond).String())
 		return
 	}
-	result = flow.ProbeResult{BitRate: data.Format.BitRate, Duration: data.Format.DurationSeconds}
+	result = flow.ProbeResult{BitRate: data.Format.BitRate, Duration: data.Format.DurationSeconds, Container: data.Format.FormatName}
 	for _, stream := range data.Streams {
 		if stream == nil || (stream.CodecType != "video" && stream.CodecType != "audio" && stream.CodecType != "subtitle") {
 			continue
@@ -1011,7 +1011,8 @@ func (t *Torrent) probeMediaInfo(index int) {
 		}
 		language, _ := stream.TagList.GetString("language")
 		title, _ := stream.TagList.GetString("title")
-		result.Tracks = append(result.Tracks, flow.ProbeTrack{Index: stream.Index, Type: stream.CodecType, Codec: stream.CodecName, Language: language, Title: title})
+		depth, _ := strconv.Atoi(stream.BitsPerRawSample)
+		result.Tracks = append(result.Tracks, flow.ProbeTrack{Index: stream.Index, Type: stream.CodecType, Codec: stream.CodecName, Language: language, Title: title, Profile: stream.Profile, Width: stream.Width, Height: stream.Height, BitDepth: depth, Transfer: stream.ColorTransfer, PixelFormat: stream.PixFmt, Channels: stream.Channels})
 	}
 	success = true
 	t.mu.Lock()

@@ -66,6 +66,7 @@ const hashGraceSec = 30
 
 // Cache holds every Piece for a single torrent.
 type Cache struct {
+	auxiliary atomic.Pointer[AuxiliaryReader]
 	// Recent eviction markers distinguish missing native blocks from a new
 	// download. They contain no media data and are bounded to 2048 entries.
 	evicted            map[int]bool // guarded by mu
@@ -1270,6 +1271,12 @@ func (c *Cache) applyStreamPriorities() {
 		}
 	}
 	// Optional header/index work never receives deadlines or a cache reservation.
+	for _, i := range c.auxiliaryDemand(len(blocked) > 0) {
+		raise(i, 1)
+		if !c.Have(i) && h.HasPiece(i) {
+			refetch[i] = struct{}{}
+		}
+	}
 	for _, i := range c.nextEpisodeDemand(len(blocked) > 0) {
 		raise(i, 1)
 		if !c.Have(i) && h.HasPiece(i) {
@@ -1719,6 +1726,7 @@ const maxTailPinPieces = 6
 // close drops the in-memory state for every piece but leaves on-disk
 // files in place — they're the source of truth for the next resume.
 func (c *Cache) close() {
+	c.CancelAuxiliary()
 	c.clearReuse()
 	c.SetWarmupPlaybackRisk(false)
 	c.ClearNextEpisodeWarmup()
@@ -1741,6 +1749,7 @@ func (c *Cache) close() {
 // on-disk file (if any). Triggered when libtorrent asks us to delete
 // the storage (e.g. RemTorrent with delete=true).
 func (c *Cache) wipe() {
+	c.CancelAuxiliary()
 	c.clearReuse()
 	c.SetWarmupPlaybackRisk(false)
 	c.ClearNextEpisodeWarmup()
@@ -1880,8 +1889,9 @@ func (c *Cache) evictComplete(piece int) bool {
 	if c.preparationRetains(piece) {
 		return false
 	}
-	protect := c.readerProtectRanges()
+	protect := c.foregroundProtectRanges()
 	cap := c.capacityFor(protect)
+	protect = append(protect, c.auxiliaryProtection()...)
 	if cap <= 0 || c.Filled() <= cap || pieceInRanges(piece, protect) {
 		return false
 	}
@@ -1979,12 +1989,16 @@ func (c *Cache) evictPass() (evictedAny bool) {
 	// Build the protect set ONCE and derive capacity from it (capacityFor), instead of
 	// capacity() and readerProtectRanges() each walking the readers + recomputing every
 	// device anchor independently in the same pass.
-	protect := c.readerProtectRanges()
+	protect := c.foregroundProtectRanges()
 	cap := c.capacityFor(protect)
 	if cap <= 0 {
 		return evictedAny
 	}
 	filled := c.Filled()
+	if r := c.auxiliary.Load(); r != nil && r.ctx.Err() == nil && !c.auxiliaryBudgetFits(r.first, r.last) {
+		r.cancel()
+	}
+	protect = append(protect, c.auxiliaryProtection()...)
 	c.mu.Lock()
 	pieces := make([]*Piece, 0, len(c.pieces))
 	for _, p := range c.pieces {
@@ -2127,7 +2141,16 @@ func (c *Cache) evictPass() (evictedAny bool) {
 // connections all map to the same window, so a connection a few pieces ahead
 // doesn't extend the protected set past the cluster and then thrash its edge.
 func (c *Cache) readerProtectRanges() [][2]int {
+	return c.protectionRanges(true)
+}
+func (c *Cache) foregroundProtectRanges() [][2]int {
+	return c.protectionRanges(false)
+}
+func (c *Cache) protectionRanges(includeAuxiliary bool) [][2]int {
 	out := make([][2]int, 0, 8)
+	if includeAuxiliary {
+		out = append(out, c.auxiliaryProtection()...)
+	}
 	behindP, aheadP := c.readerWindowPieces()
 	// One window per device, anchored on its live playhead (no held anchor): the
 	// FULL cache budget [playhead-behind .. playhead+ahead]. The whole window is
@@ -2247,7 +2270,7 @@ func globalCacheSize() int64 {
 // gone (cf. elementum's AdjustMemorySize). No fixed margin is added: doing so
 // kept a single viewer's cache permanently above the configured size.
 func (c *Cache) capacity() int64 {
-	return c.capacityFor(c.readerProtectRanges())
+	return c.capacityFor(c.foregroundProtectRanges())
 }
 
 // capacityFor is capacity() computed from an ALREADY-built protect-range set, so a
@@ -2276,7 +2299,7 @@ func (c *Cache) capacityFor(protect [][2]int) int64 {
 // readerProtectRanges) — merged so overlaps count once. capacity() grows to this
 // when it exceeds the configured budget (e.g. a preload larger than the cache).
 func (c *Cache) streamingReserve() int64 {
-	return c.streamingReserveFor(c.readerProtectRanges())
+	return c.streamingReserveFor(c.foregroundProtectRanges())
 }
 
 // streamingReserveFor is streamingReserve computed from an ALREADY-built protect-range
