@@ -58,6 +58,7 @@ rutor.ls
 /web/lab-results/
 /web/critical*-results/
 /web/critical-report/
+/web/corrected-results/
 /web-legacy/node_modules/
 /web-legacy/build/
 # Python verification outputs

@@ -12,7 +12,7 @@ installation, credentials, settings and reviewed standalone preview are protecte
 | 0 | Source/toolchain/API/settings/assets/screenshots and playback baseline receipts; complete parity inventory | Receipts/screenshots captured; final rotated comparison open |
 | 1 | Generated semantic tokens, three palettes, light/dark/system, density, text scales, prepaint preference recovery | Implemented; token/contrast/bootstrap/unit checks pass |
 | 1 | All four production destinations and existing workflows use expressive components; adaptive navigation and sheets | Integrated; full parity/browser lab verification open |
-| 1 | Command palette, keyboard/focus, motion, reduced motion, forced colors, seven complete locales | Implemented; focused three-browser checks pass; full run open |
+| 1 | Command palette, keyboard/focus, motion, reduced motion, forced colors, seven complete locales | Implemented; all 87 critical Chromium/Firefox/WebKit checks pass |
 | 2 | Versioned bounded cache/native coverage; truthful freshness, verification, supply and index/frontier states | Implemented; actual refined preload/reader index pins reconciled; targeted race checks pass |
 | 2 | Cache-only enriched media; advisory browser compatibility; explicit conversion choices | Implemented; targeted checks pass |
 | 3 | Advertised structured Torznab queries, bounded capability cache, cold generic search and one fallback | Implemented; targeted planner/cache/cancellation checks pass |
@@ -71,6 +71,16 @@ and long-duration field acceptance. Missing acceptance is never called passed.
   command-palette focus teardown were corrected. All six focused large-list and
   command workflows pass across Chromium, Firefox and WebKit. Earlier 81 passing
   critical checks do not replace the final complete rerun.
+- The final critical rerun passed all 87 cases, including automated accessibility
+  audits of Overview, Library, Search/Add and Settings in all six palette/mode
+  combinations, all text scales, seven languages, Unicode/progressive files,
+  focus return, reduced motion, forced colors and truthful Recent handoff.
+  Navigation clearance was corrected for bottom bars versus side rails.
+- The full native package inventory, vet and race runs passed. Subsequent targeted
+  race checks cover actual refined index pins, auxiliary native completion and
+  foreground eviction, Rutor unknown metadata and cold-query batch/fallback
+  behavior. All 124 harness/workflow tests passed. Source-bound hosted checks
+  remain required; the earlier Full script receipts retain their UI failures.
 - The initial 40-trial comparison preserved zero byte failures/timeouts, but
   flagged seek latency/RSS. Review discovered that the old harness's odd-round
   reversal cancelled its two-policy rotation, always placing the baseline first.
