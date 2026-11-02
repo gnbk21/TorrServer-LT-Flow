@@ -7,6 +7,30 @@ import {
   type SearchProgress,
 } from "./search";
 afterEach(() => vi.restoreAllMocks());
+
+test("deduplication retains contributing sources and connects v1/v2 hybrid identities", () => {
+  const v1 = "a".repeat(40),
+    v2 = "b".repeat(64);
+  const one = normalizeSearchItem({
+    Title: "First",
+    Magnet: `magnet:?xt=urn:btih:${v1}`,
+    Tracker: "A",
+  });
+  const two = normalizeSearchItem({
+    Title: "Second",
+    Magnet: `magnet:?xt=urn:btmh:1220${v2}`,
+    Tracker: "B",
+  });
+  const hybrid = {
+    ...one,
+    magnet: `magnet:?xt=urn:btih:${v1}&xt=urn:btmh:1220${v2}`,
+    tracker: "C",
+  };
+  const rows = deduplicateResults([one, two, hybrid]);
+  expect(rows).toHaveLength(1);
+  expect(rows[0]?.sources).toEqual(["A", "C", "B"]);
+  expect(one.sources).toEqual(["A"]);
+});
 test("a successful source appears before a slow one and survives another source's failure", async () => {
   let finish: (rows: unknown) => void = () => {};
   vi.spyOn(api, "get").mockImplementation(async (path) => {

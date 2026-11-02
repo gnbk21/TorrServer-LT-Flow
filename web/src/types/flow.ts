@@ -1,3 +1,4 @@
+import type { PieceCoverageSnapshot } from "../api/coverage";
 import type { Observed } from "../lib/observation";
 export interface FlowRangeTrace {
   timestamp: string;
@@ -238,6 +239,7 @@ export interface FlowTrackerSummary {
   last_at: string;
 }
 export interface FlowStatusResponse extends Observed {
+  coverage?: PieceCoverageSnapshot;
   reuse?: {
     eligible: boolean;
     reason: string;

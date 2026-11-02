@@ -332,6 +332,8 @@ export default function Settings() {
       (
         {
           "Flow.DiagnosticHistory": t("settings.historyHint"),
+          "Flow.RecentPlaybackHistory": t("recent.settingsHint"),
+          "Flow.PrometheusEnabled": t("recent.monitoringHint"),
           "Flow.DHTStatePersistence": t("settings.dhtHint"),
           "Flow.PeerResumeHints": t("settings.peerHintsHelp"),
           "Flow.MetadataFallback": t("settings.metadataFallbackHelp"),
@@ -812,7 +814,10 @@ export default function Settings() {
           })}
         </div>
       </form>
-      <div className="actions sticky bottom-20 lg:bottom-3 panel">
+      <div
+        data-settings-actions
+        className="actions sticky bottom-20 lg:bottom-3 panel"
+      >
         <Button
           type="submit"
           form="flow-settings-form"

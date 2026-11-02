@@ -5,7 +5,7 @@ import {
   useSettings,
   useVisibilityGate,
 } from "../../hooks/queries";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -13,7 +13,14 @@ import {
   deduplicateResults,
   type SearchSource,
   type SearchOutcome,
+  type StructuredSearch,
 } from "../../api/search";
+import { SearchHealth } from "./SearchHealth";
+import {
+  releaseLabels,
+  matchesRelease,
+  type ReleaseLabels,
+} from "../../lib/release";
 import { torrentsApi } from "../../api/torrents";
 import type { Torrent } from "../../types/torrent";
 import type { SearchResultItem } from "../../types/search";
@@ -41,6 +48,10 @@ export function SearchPanel({
   const [error, setError] = useState<unknown>();
   const [retryAction, setRetryAction] = useState<(() => void) | undefined>();
   const [sort, setSort] = useState("seeds");
+  const [specification, setSpecification] = useState<StructuredSearch>({
+    type: "search",
+  });
+  const [filters, setFilters] = useState<Partial<ReleaseLabels>>({});
   const [added, setAdded] = useState<Torrent>();
   const [file, setFile] = useState<number>();
   const [stage, setStage] = useState("");
@@ -119,6 +130,7 @@ export function SearchPanel({
           }
         },
         settings.data?.TorznabUrls?.map((_, index) => index),
+        specification,
       );
       if (!request.signal.aborted) setResults(rows);
     } catch (e) {
@@ -153,6 +165,8 @@ export function SearchPanel({
               deduplicateResults([...previous, ...progress.items]),
             );
         },
+        undefined,
+        specification,
       );
     } catch (e) {
       if (!request.signal.aborted) setError(e);
@@ -223,12 +237,19 @@ export function SearchPanel({
       }
     }
   };
-  const sorted = [...results].sort((a, b) =>
+  const parsedLabels = useMemo(
+    () => new Map(results.map((item) => [item, releaseLabels(item.title)])),
+    [results],
+  );
+  const filtered = results.filter((item) =>
+    matchesRelease(parsedLabels.get(item) ?? {}, filters),
+  );
+  const sorted = [...filtered].sort((a, b) =>
     sort === "title"
       ? a.title.localeCompare(b.title)
       : sort === "peers"
-        ? b.leechers - a.leechers
-        : b.seeders - a.seeders,
+        ? (b.leechers ?? -1) - (a.leechers ?? -1)
+        : (b.seeders ?? -1) - (a.seeders ?? -1),
   );
   return (
     <div className="space-y-4">
@@ -242,7 +263,12 @@ export function SearchPanel({
         <label className="field">
           {t("Search")}
           <input
-            required
+            required={
+              !specification.imdbid &&
+              !specification.tmdbid &&
+              !specification.tvdbid
+            }
+            maxLength={1024}
             value={query}
             onChange={(e) => {
               resetSearch();
@@ -277,7 +303,54 @@ export function SearchPanel({
           </Button>
         </div>
         {!sources.length && <p>{t("search.noSources")}</p>}
+        {!!enabledSources.torznab && (
+          <details>
+            <summary>{t("search.enriched.structured")}</summary>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+              <label className="field">
+                {t("search.enriched.type")}
+                <select
+                  value={specification.type}
+                  onChange={(e) => {
+                    resetSearch();
+                    setSpecification((old) => ({
+                      ...old,
+                      type: e.target.value as StructuredSearch["type"],
+                    }));
+                  }}
+                >
+                  {["search", "movie", "tv"].map((mode) => (
+                    <option key={mode} value={mode}>
+                      {t(
+                        `search.enriched.modes.${mode === "search" ? "generic" : mode}`,
+                      )}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {(
+                ["imdbid", "tmdbid", "tvdbid", "year", "season", "ep"] as const
+              ).map((key) => (
+                <label className="field" key={key}>
+                  {t(`search.enriched.${key}`)}
+                  <input
+                    maxLength={key === "imdbid" ? 14 : 12}
+                    value={specification[key] ?? ""}
+                    onChange={(e) => {
+                      resetSearch();
+                      setSpecification((old) => ({
+                        ...old,
+                        [key]: e.target.value,
+                      }));
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
+          </details>
+        )}
       </form>
+      <SearchHealth />
       <p className="text-sm text-slate-400">
         {t("search.serviceSeparation", {
           state:
@@ -299,6 +372,18 @@ export function SearchPanel({
               {row.source}
               {row.index >= 0 ? ` ${row.index + 1}` : ""}:{" "}
               {t(`reliability.searchStates.${row.state}`)}{" "}
+              {row.elapsed_ms !== undefined && (
+                <span> · {row.elapsed_ms} ms</span>
+              )}
+              {row.query_mode && (
+                <span>
+                  {" "}
+                  ·{" "}
+                  {t(`search.enriched.modes.${row.query_mode}`, {
+                    defaultValue: t("status.unknown"),
+                  })}
+                </span>
+              )}
               {!["pending", "ok", "empty", "cancelled"].includes(row.state) && (
                 <Button
                   disabled={loading}
@@ -382,6 +467,56 @@ export function SearchPanel({
           ))}
         </select>
       </label>
+      {!!results.length && (
+        <section className="panel space-y-3">
+          <p>{t("search.enriched.claims")}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {(
+              [
+                "resolution",
+                "codec",
+                "hdr",
+                "release",
+                "audio",
+                "language",
+              ] as const
+            ).map((key) => (
+              <label className="field" key={key}>
+                {t(`search.enriched.${key}`)}
+                <select
+                  value={filters[key] || ""}
+                  onChange={(e) =>
+                    setFilters((old) => ({ ...old, [key]: e.target.value }))
+                  }
+                >
+                  <option value="">{t("All")}</option>
+                  {[
+                    ...new Set(
+                      results
+                        .map((item) => parsedLabels.get(item)?.[key])
+                        .filter((value): value is string => !!value),
+                    ),
+                  ]
+                    .sort()
+                    .map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            ))}
+          </div>
+          <p role="status">
+            {t("search.enriched.hidden", {
+              count: results.length - filtered.length,
+            })}
+          </p>
+          <Button onClick={() => setFilters({})}>
+            {t("search.enriched.reset")}
+          </Button>
+        </section>
+      )}
       {searched &&
         !loading &&
         !error &&
@@ -395,13 +530,23 @@ export function SearchPanel({
           className="panel space-y-3"
         >
           <h3 className="font-semibold break-words">{item.title}</h3>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(parsedLabels.get(item) ?? {})
+              .filter(([, value]) => value)
+              .map(([key, value]) => (
+                <span key={key} className="flow-chip">
+                  {t(`search.enriched.${key}`)}: {value}
+                </span>
+              ))}
+          </div>
           <p className="text-sm text-slate-400">
-            {item.tracker} ·{" "}
+            {(item.sources || (item.tracker ? [item.tracker] : [])).join(", ")}{" "}
+            ·{" "}
             {typeof item.size === "number"
               ? humanizeBytes(item.size)
-              : item.size}{" "}
-            · {item.seeders} {t("search.sort.seeds")} · {item.leechers}{" "}
-            {t("search.sort.peers")}
+              : item.size || t("status.unknown")}{" "}
+            · {item.seeders ?? t("status.unknown")} {t("search.sort.seeds")} ·{" "}
+            {item.leechers ?? t("status.unknown")} {t("search.sort.peers")}
           </p>
           <Button
             disabled={stage === "ADDING" || stage === "PREPARING"}

@@ -15,6 +15,8 @@ export interface RawSearchItem {
   Categories?: string;
   CreateDate?: string;
   Tracker?: string;
+  SeedKnown?: boolean;
+  SizeKnown?: boolean;
 }
 export function normalizeSearchItem(raw: RawSearchItem): SearchResultItem {
   let magnet = raw.Magnet || "";
@@ -24,9 +26,10 @@ export function normalizeSearchItem(raw: RawSearchItem): SearchResultItem {
     title: raw.Title || raw.Name || raw.Hash || "",
     magnet,
     link: raw.Link,
-    size: raw.Size ?? 0,
-    seeders: raw.Seed ?? 0,
-    leechers: raw.Peer ?? 0,
+    size: raw.SizeKnown === false ? null : (raw.Size ?? null),
+    seeders: raw.SeedKnown === false ? null : (raw.Seed ?? null),
+    leechers: raw.Peer ?? null,
+    sources: raw.Tracker ? [raw.Tracker] : [],
     category: raw.Categories,
     date: raw.CreateDate,
     tracker: raw.Tracker,
@@ -40,8 +43,11 @@ export type SearchState =
   | "auth_required"
   | "unavailable"
   | "invalid_response"
+  | "unsupported_query"
   | "cancelled";
 export interface SearchOutcome {
+  elapsed_ms?: number;
+  query_mode?: string;
   source: SearchSource;
   index: number;
   state: SearchState;
@@ -63,6 +69,8 @@ const rawSearchSchema = z
     Categories: z.string().optional(),
     CreateDate: z.string().optional(),
     Tracker: z.string().optional(),
+    SeedKnown: z.boolean().optional(),
+    SizeKnown: z.boolean().optional(),
   })
   .passthrough()
   .refine((row) =>
@@ -75,6 +83,8 @@ export const searchEnvelopeSchema = z.object({
     z.object({
       source: z.enum(["rutor", "torznab", "jacred"]),
       index: z.number().int(),
+      elapsed_ms: z.number().nonnegative().optional(),
+      query_mode: z.string().max(32).optional(),
       state: z.enum([
         "pending",
         "ok",
@@ -83,6 +93,7 @@ export const searchEnvelopeSchema = z.object({
         "auth_required",
         "unavailable",
         "invalid_response",
+        "unsupported_query",
         "cancelled",
       ]),
     }),
@@ -108,8 +119,18 @@ function canonicalIdentity(xt: string): string {
 export function deduplicateResults(
   rows: SearchResultItem[],
 ): SearchResultItem[] {
-  const seen = new Set<string>();
-  return rows.filter((row) => {
+  const seen = new Map<string, SearchResultItem>();
+  const grouped: SearchResultItem[] = [];
+  for (const original of rows) {
+    const row = {
+      ...original,
+      sources: [
+        ...new Set([
+          ...(original.sources ?? []),
+          ...(original.tracker ? [original.tracker] : []),
+        ]),
+      ],
+    };
     try {
       const ids = new URL(row.magnet).searchParams
         .getAll("xt")
@@ -117,13 +138,47 @@ export function deduplicateResults(
         .filter((v) =>
           /^urn:btih:[a-f0-9]{40}$|^urn:btmh:1220[a-f0-9]{64}$/.test(v),
         );
-      if (ids.some((id) => seen.has(id))) return false;
-      ids.forEach((id) => seen.add(id));
+      const duplicates = [
+        ...new Set(
+          ids
+            .map((id) => seen.get(id))
+            .filter((item): item is SearchResultItem => !!item),
+        ),
+      ];
+      const existing = duplicates[0];
+      if (existing) {
+        existing.sources = [
+          ...new Set([
+            ...(existing.sources ?? []),
+            ...row.sources,
+            ...duplicates.flatMap((item) => item.sources ?? []),
+          ]),
+        ];
+        for (const duplicate of duplicates.slice(1)) {
+          const index = grouped.indexOf(duplicate);
+          if (index >= 0) grouped.splice(index, 1);
+          for (const [id, value] of seen)
+            if (value === duplicate) seen.set(id, existing);
+        }
+        ids.forEach((id) => seen.set(id, existing));
+        continue;
+      }
+      ids.forEach((id) => seen.set(id, row));
     } catch {
       /* Unknown identity must not merge similarly named releases. */
     }
-    return true;
-  });
+    grouped.push(row);
+  }
+  return grouped;
+}
+export interface StructuredSearch {
+  type?: "search" | "movie" | "tv";
+  imdbid?: string;
+  tmdbid?: string;
+  tvdbid?: string;
+  year?: string;
+  season?: string;
+  ep?: string;
 }
 export const searchApi = {
   search: async (
@@ -134,6 +189,7 @@ export const searchApi = {
     enabled: SearchSource[] = [],
     progress?: (value: SearchProgress) => void,
     indices?: number[],
+    specification?: StructuredSearch,
   ): Promise<SearchResultItem[]> => {
     const sources = source === "all" ? enabled : [source];
     if (!sources.length) throw new Error("search.noSources");
@@ -171,6 +227,11 @@ export const searchApi = {
         const slot = next++;
         const job = jobs[slot]!;
         const item = job.source;
+        if (!query.trim() && item !== "torznab") {
+          outcomes[slot] = [{ ...job, state: "unsupported_query" }];
+          publish();
+          continue;
+        }
         try {
           if (controller.signal.aborted) throw controller.signal.reason;
           const params = new URLSearchParams({
@@ -178,6 +239,9 @@ export const searchApi = {
             index: String(job.index),
             details: "true",
           });
+          if (item === "torznab")
+            for (const [key, value] of Object.entries(specification ?? {}))
+              if (value) params.set(key, value);
           const path = item === "rutor" ? "/search/" : `/${item}/search/`;
           const data = await api.get<
             | RawSearchItem[]
@@ -201,7 +265,11 @@ export const searchApi = {
             )
           )
             throw new Error("search.invalidResponse");
-          results[slot] = rows.map(normalizeSearchItem);
+          results[slot] = rows.map((raw) => {
+            const result = normalizeSearchItem(raw);
+            if (!result.sources?.length) result.sources = [item];
+            return result;
+          });
           const reported = !Array.isArray(valid)
             ? valid.sources.filter(
                 (row) =>

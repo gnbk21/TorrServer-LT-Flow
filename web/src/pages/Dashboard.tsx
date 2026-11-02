@@ -1,5 +1,6 @@
 import { redactDiagnostic } from "../lib/redact";
-import { useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   useActive,
@@ -14,6 +15,11 @@ import { Link } from "react-router-dom";
 import { Button } from "../components/common/Button";
 import type { Torrent } from "../types/torrent";
 const SessionCard = lazy(() => import("../components/flow/SessionCard"));
+const RecentPlayback = lazy(() =>
+  import("../components/torrent/RecentPlayback").then((module) => ({
+    default: module.RecentPlayback,
+  })),
+);
 const FlowHealthPanel = lazy(() =>
   import("../components/flow/FlowHealthPanel").then((module) => ({
     default: module.FlowHealthPanel,
@@ -38,6 +44,10 @@ export default function Dashboard() {
   const settings = useSettings();
   const [gstOpen, setGstOpen] = useState(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [params] = useSearchParams();
+  useEffect(() => {
+    if (params.get("diagnostics") === "1") setDiagnosticsOpen(true);
+  }, [params]);
   const items = activity.data?.items || [];
   const active = items.flatMap(({ torrent, status }) =>
     (status.sessions || [])
@@ -141,6 +151,9 @@ export default function Dashboard() {
           </div>
         </section>
       )}
+      <Suspense fallback={<Loading />}>
+        <RecentPlayback />
+      </Suspense>
       <section className="panel space-y-4">
         <h2 className="font-semibold">
           <Button

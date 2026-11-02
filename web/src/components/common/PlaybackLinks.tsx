@@ -11,9 +11,13 @@ import { externalMediaURL } from "../../lib/mediaBase";
 export function PlaybackLinks({
   url: originalURL,
   onInternal,
+  subtitleIndex,
+  startSeconds,
 }: {
   url: string;
   onInternal?: (url: string) => void;
+  subtitleIndex?: number;
+  startSeconds?: number;
 }) {
   const { t } = useTranslation();
   const [message, setMessage] = useState("");
@@ -29,9 +33,10 @@ export function PlaybackLinks({
     Number.isInteger(index) &&
     index > 0;
   const capability = useQuery({
-    queryKey: ["playback-link", originalURL],
-    queryFn: ({ signal }) => flowApi.playbackLink(hash, index, signal),
-    enabled: eligible && (required || secure),
+    queryKey: ["playback-link", originalURL, subtitleIndex],
+    queryFn: ({ signal }) =>
+      flowApi.playbackLink(hash, index, signal, subtitleIndex),
+    enabled: eligible && (required || secure || !!subtitleIndex),
     refetchOnWindowFocus: false,
     retry: false,
     staleTime: 0,
@@ -43,10 +48,12 @@ export function PlaybackLinks({
   if (capabilityURL && input.searchParams.has("ss"))
     capabilityURL.searchParams.set("ss", input.searchParams.get("ss")!);
   const internalURL =
-    capability.data && (secure || required) ? capabilityURL!.href : originalURL;
+    capability.data && (secure || required || subtitleIndex)
+      ? capabilityURL!.href
+      : originalURL;
   const url = externalMediaURL(internalURL, mediaBase.data);
-  const blocked = required && !capability.data;
-  const intents = buildIntentUrls(url);
+  const blocked = (required || !!subtitleIndex) && !capability.data;
+  const intents = buildIntentUrls(url, startSeconds);
   const linkClass =
     "inline-flex items-center min-h-11 px-3 rounded-lg border border-slate-600 text-sm hover:bg-slate-800";
   return (
