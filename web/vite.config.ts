@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { readFileSync } from "node:fs";
@@ -42,29 +42,29 @@ const endpoints = [
   "dav",
   "hls",
 ];
+function installMockAPI(server: Pick<ViteDevServer, "middlewares">) {
+  if (!mockedAPI) return;
+  server.middlewares.use((request, response, next) => {
+    const name = new URL(
+      request.url || "/",
+      "http://fixture.invalid",
+    ).pathname.split("/")[1];
+    if (!name || !endpoints.includes(name)) return next();
+    response.statusCode = 404;
+    response.setHeader("Content-Type", "application/json");
+    response.end(
+      JSON.stringify({ error: "endpoint omitted by isolated browser fixture" }),
+    );
+  });
+}
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
     {
       name: "flow-isolated-browser-fixtures",
-      configureServer(server) {
-        if (!mockedAPI) return;
-        server.middlewares.use((request, response, next) => {
-          const name = new URL(
-            request.url || "/",
-            "http://fixture.invalid",
-          ).pathname.split("/")[1];
-          if (!name || !endpoints.includes(name)) return next();
-          response.statusCode = 404;
-          response.setHeader("Content-Type", "application/json");
-          response.end(
-            JSON.stringify({
-              error: "endpoint omitted by isolated browser fixture",
-            }),
-          );
-        });
-      },
+      configureServer: installMockAPI,
+      configurePreviewServer: installMockAPI,
     },
     {
       name: "flow-prepaint-identity",

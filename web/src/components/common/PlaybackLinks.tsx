@@ -88,13 +88,13 @@ export function PlaybackLinks({
           isLoading={capability.isFetching}
           onClick={() => {
             setSecure(true);
-            if (secure || required) void capability.refetch();
+            if (secure || required || subtitleIndex) void capability.refetch();
           }}
         >
           {t("torrent.expiringLink")}
         </Button>
       )}
-      {capability.data && (secure || required) && (
+      {capability.data && (secure || required || subtitleIndex) && (
         <p role="status" className="text-xs">
           {t("torrent.linkExpires", {
             time: new Date(capability.data.expires_at).toLocaleString(),

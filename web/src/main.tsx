@@ -7,7 +7,6 @@ import {
   useRef,
   Component,
   type ReactNode,
-  type MouseEvent,
 } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
@@ -41,6 +40,7 @@ import { ApiError } from "./api/client";
 import { Button } from "./components/common/Button";
 import { Appearance } from "./components/common/Appearance";
 import { ObservedPlayback } from "./components/flow/ObservedPlayback";
+import { immediateNavigation } from "./lib/navigation";
 import { Loading, RequestError } from "./components/common/RequestState";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Torrents = lazy(() => import("./pages/Torrents"));
@@ -121,24 +121,6 @@ function Shell() {
     };
   }, []);
   const navigate = useNavigate();
-  const navigateImmediately = (
-    event: MouseEvent<HTMLAnchorElement>,
-    to: string,
-  ) => {
-    if (
-      event.defaultPrevented ||
-      event.button !== 0 ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey
-    )
-      return;
-    event.preventDefault();
-    // Commit navigation feedback before a cold lazy route finishes loading.
-    // Native link behavior remains available for modified/new-window clicks.
-    void navigate(to, { flushSync: true });
-  };
   const { t, i18n } = useTranslation();
   const version = useVersion();
   const network = useNetwork();
@@ -242,7 +224,7 @@ function Shell() {
         <nav className="space-y-2">
           {links.map(({ to, key, Icon }) => (
             <NavLink
-              onClick={(event) => navigateImmediately(event, to)}
+              onClick={(event) => immediateNavigation(event, to, navigate)}
               end={to === "/"}
               key={to}
               to={to}
@@ -340,7 +322,7 @@ function Shell() {
       >
         {links.map(({ to, key, Icon }) => (
           <NavLink
-            onClick={(event) => navigateImmediately(event, to)}
+            onClick={(event) => immediateNavigation(event, to, navigate)}
             end={to === "/"}
             key={to}
             to={to}
@@ -372,7 +354,7 @@ function Shell() {
                 id: key,
                 label: t(`nav.${key}`),
                 run: () => {
-                  void navigate(to);
+                  void navigate(to, { flushSync: true });
                 },
               })),
               {
@@ -384,7 +366,7 @@ function Shell() {
                 id: "diagnostics",
                 label: t("flow.diagnostics"),
                 run: () => {
-                  void navigate("/?diagnostics=1");
+                  void navigate("/?diagnostics=1", { flushSync: true });
                 },
               },
               {

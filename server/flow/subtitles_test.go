@@ -60,7 +60,7 @@ func TestSubtitleSpecialEpisodesAndLanguageSuffixes(t *testing.T) {
 }
 func TestSubtitleEncodingsAndMalformedLimits(t *testing.T) {
 	text := "1\n00:00:01,000 --> 00:00:02,000\nПривет\n"
-	for _, encode := range []func([]byte) ([]byte, error){charmap.Windows1251.NewEncoder().Bytes, textunicode.UTF16(textunicode.LittleEndian, textunicode.UseBOM).NewEncoder().Bytes} {
+	for _, encode := range []func([]byte) ([]byte, error){charmap.Windows1251.NewEncoder().Bytes, textunicode.UTF16(textunicode.LittleEndian, textunicode.UseBOM).NewEncoder().Bytes, textunicode.UTF16(textunicode.BigEndian, textunicode.UseBOM).NewEncoder().Bytes, func(data []byte) ([]byte, error) { return append([]byte{0xef, 0xbb, 0xbf}, data...), nil }} {
 		input, err := encode([]byte(text))
 		if err != nil {
 			t.Fatal(err)

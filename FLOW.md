@@ -92,6 +92,12 @@ Insufficient capacity or protection cancellation returns `SUBTITLE_DEFERRED`;
 retry or attach manually. Removal/restart/cancellation release priorities and
 readers.
 
+The global limit remains held through conversion and HTTP response ownership,
+so completed cache reads cannot leave an unbounded set of converted buffers.
+Subtitle response write deadlines are cleared before keep-alive video reuse.
+The download action uses the selected signed subtitle alias, including when
+raw media access requires playback tokens; renewal updates the shared link.
+
 `POST /flow/playback-link` accepts optional `subtitle_file_index` and adds
 `subtitle_path` only when selected. Existing tokens remain video-only. Scoped
 `GET/HEAD /flow/play/:token/*resource` authorizes fixed named video/subtitle

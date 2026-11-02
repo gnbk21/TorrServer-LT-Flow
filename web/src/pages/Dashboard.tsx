@@ -1,6 +1,7 @@
 import { redactDiagnostic } from "../lib/redact";
 import { useState, lazy, Suspense, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { immediateNavigation } from "../lib/navigation";
 import { useTranslation } from "react-i18next";
 import {
   useActive,
@@ -38,6 +39,7 @@ const Files = lazy(() =>
 );
 export default function Dashboard() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const activity = useActive();
   const runtime = useRuntime();
   const network = useNetwork();
@@ -139,12 +141,16 @@ export default function Dashboard() {
             <Link
               className="inline-flex items-center min-h-11 px-4 bg-blue-600 rounded-xl"
               to="/add"
+              onClick={(event) => immediateNavigation(event, "/add", navigate)}
             >
               {t("Add")}
             </Link>
             <Link
               className="inline-flex items-center min-h-11 px-4 border rounded-xl"
               to="/torrents"
+              onClick={(event) =>
+                immediateNavigation(event, "/torrents", navigate)
+              }
             >
               {t("nav.torrents")}
             </Link>

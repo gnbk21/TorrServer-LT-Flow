@@ -24,6 +24,10 @@ def trial(executable, fixture, output, observed, case, seconds):
     text = b'1\n00:00:01,000 --> 00:00:02,000\n' + b'caption '*4096 + b'\n'
     subtitle = output/(fixture.stem+'.en.srt')
     subtitle.write_bytes(text)
+    # Keep the sidecar outside the video's required EOF boundary piece. This
+    # exercises real auxiliary network demand rather than re-reading its index.
+    spacer = output/'auxiliary-separation.bin'
+    spacer.write_bytes(bytes(4*MIB))
     rate = 120_000_000//8
     settings = {'CacheSize':512*MIB, 'Flow':{
         'Enabled':True, 'SwarmProfile':'legacy', 'MetricsEnabled':True,
@@ -39,7 +43,7 @@ def trial(executable, fixture, output, observed, case, seconds):
         report['ready_ms']=server.ready()
         # Include identical metadata/bytes in both modes. Only explicit selected
         # reads and observational requests differ between the paired trials.
-        with LocalSwarm([fixture,subtitle],peers=[PeerPlan(rate=2*rate)],
+        with LocalSwarm([fixture,spacer,subtitle],peers=[PeerPlan(rate=2*rate)],
                         piece_length=4*MIB,high_throughput=True) as swarm:
             info=upload(server,swarm)
             video=next(row for row in info['file_stats'] if Path(row['path']).name==fixture.name)['id']

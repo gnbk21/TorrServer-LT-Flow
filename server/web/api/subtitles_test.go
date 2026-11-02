@@ -6,6 +6,7 @@ import (
 	"server/flow"
 	"server/torr"
 	"testing"
+	"time"
 )
 
 func TestSubtitleAliasesAreScopedAndHeadDoesNotFetch(t *testing.T) {
@@ -26,5 +27,53 @@ func TestSubtitleAliasesAreScopedAndHeadDoesNotFetch(t *testing.T) {
 		if handled != row.handled || w.Code != row.status || w.Body.Len() != 0 || torrent.LTHandle() != nil {
 			t.Fatal(row, handled, w.Code, w.Body.String())
 		}
+	}
+}
+
+func TestSubtitleGlobalAdmissionKeepsHeadMetadataOnly(t *testing.T) {
+	torrent := &torr.Torrent{Data: `{"TorrServer":{"Files":[{"id":1,"path":"video.mkv","length":100},{"id":3,"path":"video.en.srt","length":50}]}}`}
+	subtitleResponses <- struct{}{}
+	subtitleResponses <- struct{}{}
+	defer func() { <-subtitleResponses; <-subtitleResponses }()
+	for _, method := range []string{"HEAD", "GET"} {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(method, "/subs/fixture/1?track=3", nil)
+		serveSelectedSubtitle(c, torrent, 1, 3, "original")
+		c.Writer.WriteHeaderNow()
+		if method == "HEAD" && (w.Code != 200 || w.Body.Len() != 0) {
+			t.Fatal("metadata HEAD consumed read admission", w.Code)
+		}
+		if method == "GET" && (w.Code != 503 || w.Header().Get("Retry-After") != "1") {
+			t.Fatal("global fetch admission bypassed", w.Code)
+		}
+		if torrent.LTHandle() != nil {
+			t.Fatal("admission or HEAD activated torrent")
+		}
+	}
+}
+
+type subtitleDeadlineWriter struct {
+	*httptest.ResponseRecorder
+	deadlines []time.Time
+}
+
+func (w *subtitleDeadlineWriter) SetWriteDeadline(at time.Time) error {
+	w.deadlines = append(w.deadlines, at)
+	return nil
+}
+
+func TestSubtitleDeliveryDeadlineDoesNotLeakToKeepalive(t *testing.T) {
+	w := &subtitleDeadlineWriter{ResponseRecorder: httptest.NewRecorder()}
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/subs/fixture/1?track=3", nil)
+	torrent := &torr.Torrent{Data: `{"TorrServer":{"Files":[{"id":1,"path":"video.mkv","length":100},{"id":3,"path":"video.en.srt","length":50}]}}`}
+	start := time.Now()
+	serveSelectedSubtitle(c, torrent, 1, 3, "original")
+	if len(w.deadlines) != 2 || w.deadlines[0].Before(start.Add(9*time.Second)) || w.deadlines[0].After(start.Add(11*time.Second)) || !w.deadlines[1].IsZero() {
+		t.Fatal("subtitle deadline not bounded/reset", w.deadlines)
+	}
+	if len(subtitleResponses) != 0 {
+		t.Fatal("error retained global response slot")
 	}
 }

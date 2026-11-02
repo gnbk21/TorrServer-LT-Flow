@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { subtitlesApi, subtitlePath } from "../../api/subtitles";
+import { subtitlesApi } from "../../api/subtitles";
+import { torrentsApi } from "../../api/torrents";
 import { flowApi } from "../../api/flow";
 import { ApiError } from "../../api/client";
 import { useVisibilityGate } from "../../hooks/queries";
@@ -38,6 +39,17 @@ export function SubtitlePicker({
   const selected = query.data?.tracks.find(
     (track) => track.file_index === value,
   );
+  // Share the selected-file capability with PlaybackLinks. Raw subtitle URLs
+  // cannot authorize a download when playback-token protection is enabled.
+  const originalURL = torrentsApi.getStreamUrl(hash, index);
+  const download = useQuery({
+    queryKey: ["playback-link", originalURL, value],
+    queryFn: ({ signal }) => flowApi.playbackLink(hash, index, signal, value),
+    enabled: !!selected,
+    refetchOnWindowFocus: false,
+    retry: false,
+    staleTime: 0,
+  });
   const copy = async () => {
     if (!value) return;
     setBusy(true);
@@ -99,17 +111,26 @@ export function SubtitlePicker({
       {query.data?.truncated && <p>{t("torrent.sidecars.truncated")}</p>}
       {selected && (
         <div className="actions mt-2">
-          <a
-            className="inline-flex min-h-11 items-center underline"
-            href={subtitlePath(hash, index, selected.file_index, "original")}
-            download={`subtitle.${selected.format}`}
-          >
-            {t("torrent.sidecars.download")}
-          </a>
+          {download.data?.subtitle_path ? (
+            <a
+              className="inline-flex min-h-11 items-center underline"
+              href={download.data.subtitle_path}
+              download={`subtitle.${selected.format}`}
+            >
+              {t("torrent.sidecars.download")}
+            </a>
+          ) : (
+            <Button disabled isLoading={download.isFetching}>
+              {t("torrent.sidecars.download")}
+            </Button>
+          )}
           <Button isLoading={busy} onClick={() => void copy()}>
             {t("torrent.sidecars.copy")}
           </Button>
         </div>
+      )}
+      {selected && download.error && (
+        <RequestError error={download.error} retry={() => download.refetch()} />
       )}
       {copied && <p role="status">{t("torrent.copied")}</p>}
       {!!error && <RequestError error={error} />}

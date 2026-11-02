@@ -16,6 +16,11 @@ func TestSearchHandlersPreserveQueryValues(t *testing.T) {
 	t.Cleanup(func() { sets.StoreBTsets(old) })
 	seen := make(chan string, 1)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("t") == "caps" {
+			w.Header().Set("Content-Type", "application/xml")
+			_, _ = w.Write([]byte(`<caps><searching><search available="yes" supportedParams="q"/></searching></caps>`))
+			return
+		}
 		if strings.Contains(r.URL.Path, "v1.0") {
 			seen <- r.URL.Query().Get("search")
 			w.Header().Set("Content-Type", "application/json")

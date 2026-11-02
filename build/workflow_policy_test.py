@@ -20,6 +20,15 @@ def job(workflow, name):
 
 
 class WorkflowPolicyTests(unittest.TestCase):
+    def test_all_browser_servers_isolate_unmocked_owner_apis(self):
+        configs=list((ROOT/'web').glob('playwright*.config.ts'))
+        self.assertGreaterEqual(len(configs),3)
+        for config in configs:
+            text=config.read_text(encoding='utf-8')
+            self.assertRegex(text,r'''FLOW_TEST_API_STUB:\s*["']1["']''',config.name)
+            self.assertIn('reuseExistingServer: false',text,config.name)
+        self.assertIn('configurePreviewServer: installMockAPI',(ROOT/'web/vite.config.ts').read_text(encoding='utf-8'))
+
     def test_staged_release_keeps_gates_and_defers_public_container(self):
         classify = job('ts_release.yml', 'classify')
         self.assertIn('stage_before_publish', classify)

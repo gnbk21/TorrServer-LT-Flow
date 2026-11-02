@@ -9,8 +9,6 @@ import (
 	"server/utils"
 )
 
-var subtitleSlots = make(chan struct{}, 2)
-
 func (t *Torrent) SubtitleCandidates(videoID int) ([]flow.SubtitleCandidate, bool) {
 	files := t.subtitleFiles()
 	if utils.GetMimeType(t.SubtitleVideoPath(videoID)) != "video/*" {
@@ -61,12 +59,6 @@ func (t *Torrent) SubtitleBytes(ctx context.Context, videoID, track int) ([]byte
 	}
 	if candidate.Size > flow.SubtitleInputLimit {
 		return nil, candidate, flow.ErrSubtitle
-	}
-	select {
-	case subtitleSlots <- struct{}{}:
-		defer func() { <-subtitleSlots }()
-	default:
-		return nil, candidate, torrstor.ErrAuxiliaryDeferred
 	}
 	if !t.beginStream() {
 		return nil, candidate, torrstor.ErrAuxiliaryDeferred

@@ -3,6 +3,44 @@ import AxeBuilder from "@axe-core/playwright";
 import { upgradeFixture } from "./upgrade-fixture";
 import { readFileSync } from "node:fs";
 
+test("unmocked APIs stay inside the isolated preview", async ({ request }) => {
+  const response = await request.get("/flow/preparation");
+  expect(response.status()).toBe(404);
+  expect(await response.json()).toEqual({
+    error: "endpoint omitted by isolated browser fixture",
+  });
+});
+
+test("dashboard shortcut paints loading before a cold Library finishes", async ({
+  page,
+}) => {
+  await upgradeFixture(page, 1);
+  await page.addInitScript(() => localStorage.setItem("i18nextLng", "en"));
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/assets/Torrents-*.js", async (route) => {
+    await held;
+    await route.continue();
+  });
+  try {
+    await page.goto("/#/");
+    await expect(
+      page.getByRole("heading", { name: "Ready when you are" }),
+    ).toBeVisible();
+    await page
+      .locator("#main")
+      .getByRole("link", { name: "Torrents", exact: true })
+      .click();
+    await expect(page.locator("#main").getByRole("status")).toBeVisible();
+    release();
+    await expect(page.getByRole("article")).toHaveCount(1);
+  } finally {
+    release();
+  }
+});
+
 for (const palette of ["iris", "lagoon", "rose"])
   for (const theme of ["light", "dark"]) {
     test(`expressive contrast and commands ${palette} ${theme}`, async ({
@@ -273,6 +311,7 @@ test("progressive files remain searchable and sidecars stay metadata-only", asyn
   const filename = "Сериал.你好.S03E210.2160p.HDR.mkv";
   let lists = 0;
   let reads = 0;
+  let minted = 0;
   await page.route("**/torrents", (route) =>
     route.fulfill({
       json: {
@@ -291,6 +330,16 @@ test("progressive files remain searchable and sidecars stay metadata-only", asyn
     }),
   );
   await page.route("**/viewed", (route) => route.fulfill({ json: [] }));
+  await page.route("**/flow/playback-link", (route) => {
+    minted++;
+    return route.fulfill({
+      json: {
+        path: "/flow/play/fixture-subtitle-claim/media.mkv",
+        subtitle_path: "/flow/play/fixture-subtitle-claim/media.srt",
+        expires_at: new Date(Date.now() + 300000).toISOString(),
+      },
+    });
+  });
   await page.route(`**/subs/${hash}/210*`, (route) => {
     if (new URL(route.request().url()).searchParams.has("track")) reads++;
     else lists++;
@@ -337,7 +386,13 @@ test("progressive files remain searchable and sidecars stay metadata-only", asyn
       name: "Download original subtitle",
       exact: true,
     }),
-  ).toHaveAttribute("href", /track=211&format=original/);
+  ).toHaveAttribute(
+    "href",
+    /^\/flow\/play\/fixture-subtitle-claim\/media\.srt$/,
+  );
+  await expect.poll(() => minted).toBe(1);
+  await dialog.getByRole("button", { name: /expiring link/i }).click();
+  await expect.poll(() => minted).toBe(2);
 });
 
 for (const unavailable of [false, true]) {

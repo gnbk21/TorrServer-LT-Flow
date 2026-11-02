@@ -94,6 +94,23 @@ and long-duration field acceptance. Missing acceptance is never called passed.
   after a cache begins closing is rejected/cancelled, rather than waiting for
   the normal ten-second subtitle deadline. Active engine/cache close cannot
   retain an auxiliary reservation.
+- Final subtitle admission spans conversion/response buffers, with a bounded
+  write deadline that is reset on keep-alive reuse. Signed download/renewal links
+  share the same selected capability. Metadata HEAD does not acquire fetch
+  admission. Encoding checks include both UTF-16 byte orders and UTF-8 BOM.
+  The query-preservation fixture now handles capability discovery separately.
+  One prior history drain exceeded its existing one-second test budget; the
+  unchanged test passed three isolated repeats, then the affected full packages
+  passed serial race checks. Both original failures remain recorded in
+  `subtitle-final-race.log`; they were not deleted or counted as passing runs.
+- A cold Library shortcut could defer feedback until lazy code arrived (one
+  observed interaction was 2,720 ms). Dashboard shortcuts and command navigation
+  now reuse the navigation bar's immediate commit behavior. A held-module test
+  proves loading appears before that module is released; modified clicks retain
+  browser behavior. All 18 affected workflows pass across three engines and all
+  three unchanged lab-budget runs pass after this correction. Earlier results
+  remain in `lab-cold-shortcut-failure`. Preview as well as development test
+  servers reject unmocked API paths locally; a direct HTTP check proves this.
 - The initial 40-trial comparison preserved zero byte failures/timeouts, but
   flagged seek latency/RSS. Review discovered that the old harness's odd-round
   reversal cancelled its two-policy rotation, always placing the baseline first.

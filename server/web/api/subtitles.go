@@ -15,6 +15,10 @@ import (
 	"time"
 )
 
+// Admission spans read, text conversion and response ownership so fast resident
+// reads cannot release the limit while many converted buffers are still held.
+var subtitleResponses = make(chan struct{}, 2)
+
 func subtitles(c *gin.Context) {
 	video, err := strconv.Atoi(c.Param("id"))
 	if err != nil || video < 1 {
@@ -80,8 +84,22 @@ func serveSelectedSubtitle(c *gin.Context, torrent *torr.Torrent, video, track i
 		c.Status(200)
 		return
 	}
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	select {
+	case subtitleResponses <- struct{}{}:
+		defer func() { <-subtitleResponses }()
+	default:
+		c.Header("Retry-After", "1")
+		abortWithErrorCode(c, 503, "SUBTITLE_DEFERRED", torrstor.ErrAuxiliaryDeferred)
+		return
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	ctx, cancel := context.WithDeadline(c.Request.Context(), deadline)
 	defer cancel()
+	controller := http.NewResponseController(c.Writer)
+	if controller.SetWriteDeadline(deadline) == nil {
+		// Do not leave a subtitle deadline on a reused video connection.
+		defer controller.SetWriteDeadline(time.Time{})
+	}
 	data, _, err := torrent.SubtitleBytes(ctx, video, track)
 	if err == nil && format == "vtt" {
 		data, err = flow.SubtitleWebVTTContext(ctx, data, "."+candidate.Format)
