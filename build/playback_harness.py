@@ -133,7 +133,9 @@ def range_read(server, info_hash, index, source, start, end, cancel=False):
     connection = http.client.HTTPConnection("127.0.0.1", server.port, timeout=120)
     started = time.monotonic()
     try:
-        connection.request("GET", f"/play/{info_hash}/{index}?play&stat=controlled", headers={"Range": f"bytes={start}-{end}"})
+        headers={"Range":f"bytes={start}-{end}"}
+        if server.authorization:headers['Authorization']=server.authorization
+        connection.request("GET", f"/play/{info_hash}/{index}?play&stat=controlled", headers=headers)
         response = connection.getresponse()
         first = response.read(1)
         ttfb = (time.monotonic()-started)*1000
