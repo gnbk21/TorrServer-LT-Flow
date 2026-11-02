@@ -11,6 +11,7 @@ export interface ModalProps {
   maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "4xl";
   showCloseButton?: boolean;
   returnFocus?: HTMLElement | null;
+  onAfterClose?: () => void;
 }
 export function Modal({
   isOpen,
@@ -21,6 +22,7 @@ export function Modal({
   maxWidth = "lg",
   showCloseButton = true,
   returnFocus,
+  onAfterClose,
 }: ModalProps) {
   const { t } = useTranslation();
   const opener = useRef<HTMLElement | null>(null);
@@ -40,7 +42,7 @@ export function Modal({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/75" />
+        <Dialog.Overlay className="flow-scrim fixed inset-0 z-50 bg-black/75" />
         <Dialog.Content
           onOpenAutoFocus={() => {
             // These controlled dialogs have no Radix Trigger. Remember the
@@ -69,8 +71,9 @@ export function Modal({
               // A route change can remove the row that opened the dialog.
               document.getElementById("main")?.focus({ preventScroll: true });
             }
+            onAfterClose?.();
           }}
-          className={`fixed z-50 inset-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-full ${widths[maxWidth]} sm:max-h-[90dvh] flex flex-col bg-slate-900 sm:rounded-2xl border border-slate-700 shadow-xl`}
+          className={`flow-dialog fixed z-50 inset-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-full ${widths[maxWidth]} sm:max-h-[90dvh] flex flex-col bg-slate-900 sm:rounded-2xl border border-slate-700 shadow-xl`}
         >
           <header className="flex justify-between gap-3 p-5 border-b border-slate-700">
             <div className="min-w-0 [overflow-wrap:anywhere]">

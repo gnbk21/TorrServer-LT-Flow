@@ -461,6 +461,39 @@
       "subtitle": "Subtitrare",
       "truncated": "Maximum 32 de piste.",
       "direct": "Playerele externe primesc octeții originali. Conversia GStreamer este separată; transcodarea poate modifica calitatea și solicita CPU-ul."
+    },
+    "moreFiles": "Mai multe fișiere",
+    "compatibility": {
+      "title": "Compatibilitate redare",
+      "container": "Container",
+      "external": "Suportul playerului extern depinde de aplicație, codecuri și dispozitiv; Flow nu îl poate verifica de la distanță.",
+      "direct": "Direct: conținut original fără conversie.",
+      "remux": "Remuxare: schimbă containerul, păstrează fluxul video.",
+      "audio": "Conversia audio poate modifica calitatea și utiliza procesorul.",
+      "video": "Conversia video modifică calitatea și poate solicita mult CPU/GPU.",
+      "advisory": "Evaluarea browserului nu verifică profilul exact, HDR, sunetul ori playerul extern.",
+      "directMode": "Original / direct",
+      "gstMode": "Utilizează conversia GStreamer configurată",
+      "conversionWarning": "Sunt utilizate setările GStreamer. Calitatea audio/video se poate modifica.",
+      "check": "Verifică acest browser",
+      "possible": "Browserul indică suport posibil pentru familia de codecuri.",
+      "unconfirmed": "Browserul nu indică suport pentru această combinație.",
+      "unknown": "Informații insuficiente în cache pentru evaluarea browserului."
+    },
+    "sidecars": {
+      "title": "Subtitrări din torrent",
+      "hint": "Lista utilizează doar metadate. Selectați o pistă; preluarea cedează prioritatea pornirii video și limitelor de resurse.",
+      "select": "Pistă de subtitrări",
+      "exact": "Nume corespunzător",
+      "episode": "Episod corespunzător",
+      "ambiguous": "Ambiguu — verificați alegerea",
+      "forced": "Forțate",
+      "none": "Nu există subtitrări externe potrivite",
+      "download": "Descarcă subtitrarea originală",
+      "copy": "Copiază legătura privată a subtitrării",
+      "fallback": "Detectarea depinde de player. Folosiți legătura sau atașați manual fișierul descărcat. WebVTT simplifică stilurile ASS.",
+      "deferred": "Subtitrările sunt indisponibile ori amânate pentru protejarea redării. Reîncercați sau atașați-le manual.",
+      "truncated": "Sunt afișate doar primele 100 de subtitrări potrivite."
     }
   },
   "runtime": {
@@ -585,7 +618,18 @@
     "system": "Sistem",
     "density": "Densitate",
     "comfortable": "Confortabilă",
-    "compact": "Compactă"
+    "compact": "Compactă",
+    "expressive": {
+      "palette": "Paletă",
+      "iris": "Iris",
+      "lagoon": "Lagună",
+      "rose": "Trandafir",
+      "textScale": "Mărimea textului",
+      "motion": "Animații",
+      "reduced": "Reduse",
+      "commands": "Acțiuni rapide",
+      "noCommands": "Nicio acțiune potrivită"
+    }
   },
   "flow": {
     "title": "Redare Flow",
@@ -1017,7 +1061,30 @@
         "ELIGIBLE": "Metadate eligibile pentru reutilizare verificată"
       }
     },
-    "metadataRecoverySummary": "Recuperare metadate: {{state}}; încercări {{attempts}}"
+    "metadataRecoverySummary": "Recuperare metadate: {{state}}; încercări {{attempts}}",
+    "coverage": {
+      "title": "Acoperirea fragmentelor",
+      "hint": "Cache local și cereri eșantionate, nu memoria playerului.",
+      "verified": "Verificat",
+      "partial": "Parțial / neverificat",
+      "requested": "Solicitat",
+      "missing": "Lipsește din cache",
+      "unknown": "Necunoscut / învechit",
+      "head": "Antet necesar (H)",
+      "index": "Index necesar (I)",
+      "piece": "Fragment",
+      "suppliers": "Surse eșantionate",
+      "requests": "Blocuri solicitate",
+      "receiving": "Octeți în recepție",
+      "frontier": "Limita serverului",
+      "supplyHint": "Disponibilitatea privește doar partenerii conectați eșantionați; lipsa datelor nu dovedește un torrent mort.",
+      "blocker": "Blocaj imediat",
+      "cacheAge": "Instantaneu cache: {{seconds}} s",
+      "supplyAge": "Eșantion de parteneri: {{seconds}} s",
+      "uncovered": "Niciun eșantion actual de parteneri nu acoperă acest fragment.",
+      "empty": "Observațiile memorate nu conțin o fereastră de fragmente.",
+      "truncated": "Acoperirea este limitată la 256 de fragmente și opt frontiere de citire."
+    }
   },
   "search": {
     "source": "Sursă",
@@ -1040,7 +1107,39 @@
       "peers": "Parteneri",
       "title": "Titlu"
     },
-    "serviceSeparation": "Rezultatele descriu doar serviciul de căutare. Conectivitate torrent: {{state}}. O cădere a parserului nu dovedește un defect Flow sau al rețelei playerului."
+    "serviceSeparation": "Rezultatele descriu doar serviciul de căutare. Conectivitate torrent: {{state}}. O cădere a parserului nu dovedește un defect Flow sau al rețelei playerului.",
+    "enriched": {
+      "health": "Istoricul serviciilor de căutare",
+      "aggregate": "Un agregator poate acoperi mai multe trackere. Răspunsul nu confirmă starea fiecăruia.",
+      "setup": "Configurați Jackett/Prowlarr și adresele Torznab în Setări. Adăugarea RuTracker aici nu modifică parserul separat din Lampa.",
+      "lastSuccess": "Ultimul succes",
+      "cooldown": "Reîncercați după",
+      "structured": "Căutare film / episod",
+      "type": "Tip de căutare",
+      "imdbid": "IMDb ID",
+      "tmdbid": "TMDB ID",
+      "tvdbid": "TVDB ID",
+      "year": "An",
+      "season": "Sezon",
+      "ep": "Episod",
+      "resolution": "Rezoluție",
+      "codec": "Codec",
+      "hdr": "HDR",
+      "release": "Tipul versiunii",
+      "audio": "Audio",
+      "language": "Limbă",
+      "claims": "Etichetele provin din nume, nu din analiza verificată. Numărul de surse nu garantează viteza.",
+      "hidden": "Rezultate ascunse de filtre: {{count}}",
+      "reset": "Resetează filtrele",
+      "modes": {
+        "generic": "Căutare text",
+        "movie": "Film",
+        "tv": "Episod TV",
+        "generic_fallback": "Căutare text de rezervă",
+        "cooldown": "În așteptarea reîncercării",
+        "caps_test": "Testarea capabilităților"
+      }
+    }
   },
   "AddTorrent": "Adăugați un torrent nou",
   "Loading": "Se încarcă…",
@@ -1171,7 +1270,9 @@
         "PublicMetadataCache": "Cache-uri publice gratuite de metadate",
         "FrontierRecovery": "Recuperarea blocurilor urgente întârziate (experiment)",
         "AdaptivePeerRequests": "Buget adaptiv de cereri per sursă (experiment)",
-        "IncidentFlightRecorder": "Înregistrator privat de incidente"
+        "IncidentFlightRecorder": "Înregistrator privat de incidente",
+        "RecentPlaybackHistory": "Istoric recent partajat",
+        "PrometheusEnabled": "Monitorizare Prometheus"
       }
     },
     "maintenance": {
@@ -1388,7 +1489,8 @@
       "auth_required": "Autentificare necesară; verificați cheia API",
       "unavailable": "Indisponibil; verificați adresa și conexiunea",
       "invalid_response": "Răspuns nevalid; verificați adresa API",
-      "cancelled": "Anulat"
+      "cancelled": "Anulat",
+      "unsupported_query": "Interogarea necesită identificatori acceptați sau un titlu. Testează indexatorul sau adaugă un titlu."
     },
     "guideSteps": {
       "parser": "Eroare de căutare sau de parser: testați JacRed/Torznab în Integrări. Parserul intervine înainte ca Flow să primească torrentul.",
@@ -1402,5 +1504,28 @@
       "stalls": "Vârf blocaje / așteptare p95",
       "coverage": "Acoperire"
     }
+  },
+  "recent": {
+    "title": "Deschise recent",
+    "hint": "Aici este înregistrată livrarea video reușită. Poziția și finalizarea necesită dovezi separate.",
+    "disabled": "Istoricul recent este dezactivat în setări.",
+    "empty": "Nu există livrări video recente.",
+    "opened": "Ultima deschidere",
+    "position": "Poziție salvată",
+    "legacyPosition": "Poziție dintr-o versiune veche",
+    "resume": "Folosește poziția",
+    "handoff": "Just Player primește această poziție. Lansarea nu raportează poziția ulterioară înapoi la Flow.",
+    "complete": "Marcat explicit ca finalizat",
+    "notComplete": "Marcat explicit ca nefinalizat",
+    "markComplete": "Marchează finalizat",
+    "uncomplete": "Marchează nefinalizat",
+    "clear": "Șterge istoricul recent",
+    "clearHint": "Ștergi toate intrările recente? Marcajele și pozițiile se păstrează.",
+    "positionFailed": "Poziția nu a putut fi salvată. Redarea poate continua.",
+    "settingsHint": "Istoric partajat de maximum 200 de fișiere timp de 30 de zile pe acest server. Nu activează urmărirea poziției.",
+    "monitoringHint": "Export /metrics opțional cu autentificarea existentă. Accesul de la distanță necesită autentificare HTTP. Interval recomandat: 15 secunde.",
+    "historyLabel": "Istoric recent partajat",
+    "monitoringLabel": "Monitorizare Prometheus",
+    "legacyMark": "Marcaj dintr-o versiune veche"
   }
 }

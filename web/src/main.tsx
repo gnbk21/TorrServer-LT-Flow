@@ -54,15 +54,43 @@ const Pairing = lazy(() =>
     default: m.PhonePairingModal,
   })),
 );
+const Commands = lazy(() =>
+  import("./components/common/CommandPalette").then((m) => ({
+    default: m.CommandPalette,
+  })),
+);
 function Shell() {
+  const [commandsOpen, setCommandsOpen] = useState(false);
+  useEffect(() => {
+    const shortcut = (event: KeyboardEvent) => {
+      if (
+        !event.isComposing &&
+        !event.altKey &&
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "k"
+      ) {
+        event.preventDefault();
+        setCommandsOpen((value) => !value);
+      }
+    };
+    window.addEventListener("keydown", shortcut);
+    return () => window.removeEventListener("keydown", shortcut);
+  }, []);
   const header = useRef<HTMLElement>(null);
   const navigation = useRef<HTMLElement>(null);
   useEffect(() => {
     const root = document.documentElement;
     const update = () => {
       const headerHeight = header.current?.getBoundingClientRect().height ?? 0;
+      const navigationBounds = navigation.current?.getBoundingClientRect();
       const navigationHeight =
-        navigation.current?.getBoundingClientRect().height ?? 0;
+        navigationBounds && navigationBounds.width > innerWidth / 2
+          ? navigationBounds.height
+          : 0;
+      root.style.setProperty(
+        "--flow-navigation-clearance",
+        `${navigationHeight}px`,
+      );
       // Enlarged text can make a sticky toolbar consume most of a phone screen.
       // Let it scroll away when it would leave too little usable content space.
       const sticky = headerHeight + navigationHeight < innerHeight / 2;
@@ -89,6 +117,7 @@ function Shell() {
       window.removeEventListener("resize", update);
       root.style.removeProperty("scroll-padding-top");
       root.style.removeProperty("scroll-padding-bottom");
+      root.style.removeProperty("--flow-navigation-clearance");
     };
   }, []);
   const navigate = useNavigate();
@@ -190,7 +219,7 @@ function Shell() {
     { to: "/settings", key: "settings", Icon: SettingsIcon },
   ];
   return (
-    <div className="min-h-dvh">
+    <div className="flow-shell min-h-dvh">
       <a
         href="#main"
         className="sr-only focus:not-sr-only"
@@ -269,6 +298,12 @@ function Shell() {
           </Button>
           <Appearance />
           <Button
+            aria-keyshortcuts="Control+k Meta+k"
+            onClick={() => setCommandsOpen(true)}
+          >
+            {t("app.expressive.commands")}
+          </Button>
+          <Button
             disabled={controlling || !tray.data || !!tray.error}
             onClick={() => void control()}
           >
@@ -324,6 +359,47 @@ function Shell() {
             isOpen
             onClose={() => setPairing(false)}
             serverIps={network.data?.addresses ?? undefined}
+          />
+        </Suspense>
+      )}
+      {commandsOpen && (
+        <Suspense fallback={<Loading />}>
+          <Commands
+            open
+            onClose={() => setCommandsOpen(false)}
+            commands={[
+              ...links.map(({ to, key }) => ({
+                id: key,
+                label: t(`nav.${key}`),
+                run: () => {
+                  void navigate(to);
+                },
+              })),
+              {
+                id: "pair",
+                label: t("pairing.connect"),
+                run: () => setPairing(true),
+              },
+              {
+                id: "diagnostics",
+                label: t("flow.diagnostics"),
+                run: () => {
+                  void navigate("/?diagnostics=1");
+                },
+              },
+              {
+                id: "appearance",
+                label: t("app.appearance"),
+                run: () => {
+                  const summary = document.querySelector<HTMLElement>(
+                    "[data-appearance] summary",
+                  );
+                  const details = summary?.closest("details");
+                  if (details) details.open = true;
+                  summary?.focus();
+                },
+              },
+            ]}
           />
         </Suspense>
       )}

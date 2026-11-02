@@ -885,7 +885,30 @@
         "ELIGIBLE": "Eligible verified reuse metadata"
       }
     },
-    "metadataRecoverySummary": "Metadata recovery: {{state}}; attempts {{attempts}}"
+    "metadataRecoverySummary": "Metadata recovery: {{state}}; attempts {{attempts}}",
+    "coverage": {
+      "title": "Piece coverage",
+      "hint": "Local cache and sampled requests; this is not the player buffer.",
+      "verified": "Verified",
+      "partial": "Partial / unverified",
+      "requested": "Requested",
+      "missing": "Not cached",
+      "unknown": "Unknown / stale",
+      "head": "Required header (H)",
+      "index": "Required index (I)",
+      "piece": "Piece",
+      "suppliers": "Sampled suppliers",
+      "requests": "Requested blocks",
+      "receiving": "Receiving bytes",
+      "frontier": "Server frontier",
+      "supplyHint": "Availability covers sampled connected peers only; missing samples do not prove a dead swarm.",
+      "blocker": "Immediate blocker",
+      "cacheAge": "Cache snapshot: {{seconds}} s",
+      "supplyAge": "Peer sample: {{seconds}} s",
+      "uncovered": "No current peer sample covers this piece.",
+      "empty": "No piece window is available in cached observations.",
+      "truncated": "Coverage is bounded to 256 pieces and eight frontiers."
+    }
   },
   "torrent": {
     "justPlayer": "Play in Just Player",
@@ -961,6 +984,39 @@
       "subtitle": "Subtitle",
       "truncated": "Limited to 32 tracks.",
       "direct": "External players receive original media bytes. Optional GStreamer conversion is separate; video transcoding can change quality and use more CPU."
+    },
+    "moreFiles": "Show more files",
+    "compatibility": {
+      "title": "Playback compatibility",
+      "container": "Container",
+      "external": "External-player support depends on the app, codecs and device; Flow cannot verify it remotely.",
+      "direct": "Direct: original media bytes, no conversion.",
+      "remux": "Remux: change the container while copying the video.",
+      "audio": "Audio conversion: may change audio quality and use CPU.",
+      "video": "Video conversion: changes quality and may require substantial CPU/GPU.",
+      "advisory": "Browser advice does not verify the exact codec profile, HDR, audio or your external player.",
+      "directMode": "Original / direct",
+      "gstMode": "Use configured GStreamer conversion",
+      "conversionWarning": "This explicitly uses your GStreamer settings. Depending on them, audio/video quality may change.",
+      "check": "Check this browser",
+      "possible": "Browser reports possible codec-family support.",
+      "unconfirmed": "This browser does not report support for this combination.",
+      "unknown": "Insufficient cached information for browser advice."
+    },
+    "sidecars": {
+      "title": "Torrent subtitles",
+      "hint": "Listing uses metadata only. Select a track explicitly; fetching yields to video startup and resource pressure.",
+      "select": "Subtitle track",
+      "exact": "Filename match",
+      "episode": "Episode match",
+      "ambiguous": "Ambiguous — select carefully",
+      "forced": "Forced",
+      "none": "No matching sidecar subtitles",
+      "download": "Download original subtitle",
+      "copy": "Copy private subtitle link",
+      "fallback": "Player discovery varies. Use the copied link or attach the downloaded subtitle manually. WebVTT conversion simplifies ASS styling.",
+      "deferred": "Subtitles are unavailable or deferred to protect video playback. Retry or attach them manually.",
+      "truncated": "Only the first 100 matching subtitles are listed."
     }
   },
   "pairing": {
@@ -1033,7 +1089,39 @@
       "PLAYABLE": "Ready — choose a player"
     },
     "startup": "Startup",
-    "serviceSeparation": "Search/parser results describe that service only. Torrent connectivity: {{state}}. A parser outage does not prove a Flow or player-network failure."
+    "serviceSeparation": "Search/parser results describe that service only. Torrent connectivity: {{state}}. A parser outage does not prove a Flow or player-network failure.",
+    "enriched": {
+      "health": "Search endpoint history",
+      "aggregate": "A configured aggregate can cover several trackers. Its response cannot prove each tracker is healthy.",
+      "setup": "Configure Jackett/Prowlarr and its Torznab endpoints in Settings. Adding RuTracker here does not change Lampa’s separate parser.",
+      "lastSuccess": "Last success",
+      "cooldown": "Retry after",
+      "structured": "Movie / episode search",
+      "type": "Search type",
+      "imdbid": "IMDb ID",
+      "tmdbid": "TMDB ID",
+      "tvdbid": "TVDB ID",
+      "year": "Year",
+      "season": "Season",
+      "ep": "Episode",
+      "resolution": "Resolution",
+      "codec": "Codec",
+      "hdr": "HDR",
+      "release": "Release type",
+      "audio": "Audio",
+      "language": "Language",
+      "claims": "Badges are filename claims, not verified probe results. Source-reported seed counts do not guarantee speed.",
+      "hidden": "{{count}} results hidden by filters",
+      "reset": "Reset filters",
+      "modes": {
+        "generic": "Text search",
+        "movie": "Movie",
+        "tv": "TV episode",
+        "generic_fallback": "Text fallback",
+        "cooldown": "Waiting for retry",
+        "caps_test": "Capability test"
+      }
+    }
   },
   "settings": {
     "managementOriginsHelp": "Browser management always requires the server origin or an exact origin listed here. Add a trusted web-based Lampa origin explicitly. Native clients without browser headers keep their authentication rules. This does not replace HTTP authentication.",
@@ -1161,7 +1249,9 @@
         "PublicMetadataCache": "Use free public metadata caches",
         "FrontierRecovery": "Late-block frontier recovery (experiment)",
         "AdaptivePeerRequests": "Adaptive peer request budget (experiment)",
-        "IncidentFlightRecorder": "Private incident flight recorder"
+        "IncidentFlightRecorder": "Private incident flight recorder",
+        "RecentPlaybackHistory": "Shared Recent history",
+        "PrometheusEnabled": "Prometheus monitoring"
       }
     },
     "maintenance": {
@@ -1353,7 +1443,18 @@
     "system": "System",
     "density": "Density",
     "comfortable": "Comfortable",
-    "compact": "Compact"
+    "compact": "Compact",
+    "expressive": {
+      "palette": "Palette",
+      "iris": "Iris",
+      "lagoon": "Lagoon",
+      "rose": "Rose",
+      "textScale": "Text size",
+      "motion": "Motion",
+      "reduced": "Reduced",
+      "commands": "Quick actions",
+      "noCommands": "No matching actions"
+    }
   },
   "Loading": "Loading…",
   "Language": "Language",
@@ -1424,7 +1525,8 @@
       "auth_required": "Authentication required; check API key",
       "unavailable": "Unavailable; check address and connection",
       "invalid_response": "Invalid response; check API endpoint",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "unsupported_query": "This query needs advertised identifier support or a usable title. Test the indexer or add a title."
     },
     "guideSteps": {
       "parser": "Search or parser error: test saved JacRed/Torznab in Integrations. The parser runs before Flow receives the torrent.",
@@ -1438,5 +1540,28 @@
       "stalls": "Peak recent stalls / wait p95",
       "coverage": "Coverage"
     }
+  },
+  "recent": {
+    "title": "Recently opened",
+    "hint": "Successful video delivery is recorded here. Saved position and completion require separate evidence.",
+    "disabled": "Recent history is disabled in settings.",
+    "empty": "No recent video deliveries.",
+    "opened": "Recently opened",
+    "position": "Saved position",
+    "legacyPosition": "Legacy saved position",
+    "resume": "Use saved position",
+    "handoff": "Just Player can receive this position. Launching it does not report its later position back to Flow.",
+    "complete": "Explicitly marked complete",
+    "notComplete": "Explicitly marked incomplete",
+    "markComplete": "Mark complete",
+    "uncomplete": "Mark incomplete",
+    "clear": "Clear Recent history",
+    "clearHint": "Remove all Recent entries? Viewed marks and saved positions are preserved.",
+    "positionFailed": "The saved position could not be updated. Playback can continue.",
+    "settingsHint": "Share up to 200 recently opened files for 30 days on this server. Does not enable position tracking.",
+    "monitoringHint": "Optional /metrics export, using existing authentication. Remote scraping requires HTTP authentication. Recommended scrape interval: 15 seconds.",
+    "historyLabel": "Shared Recent history",
+    "monitoringLabel": "Prometheus monitoring",
+    "legacyMark": "Legacy viewed mark"
   }
 }

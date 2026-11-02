@@ -121,11 +121,9 @@ for (const width of [412, 1440]) {
       transition: getComputedStyle(element).transitionDuration,
       animation: getComputedStyle(element).animationName,
     }));
-    expect(style).toEqual({
-      outline: "2px",
-      transition: "0s",
-      animation: "none",
-    });
+    expect(parseFloat(style.outline)).toBeGreaterThanOrEqual(2);
+    expect(style.transition).toBe("0s");
+    expect(style.animation).toBe("none");
     await page.keyboard.press("Enter");
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();

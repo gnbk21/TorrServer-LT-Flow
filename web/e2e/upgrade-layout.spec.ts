@@ -104,7 +104,9 @@ for (const [width, height] of [
         return (
           !!actionBounds &&
           !!navBounds &&
-          actionBounds.y + actionBounds.height <= navBounds.y
+          (actionBounds.y + actionBounds.height <= navBounds.y ||
+            actionBounds.x >= navBounds.x + navBounds.width ||
+            actionBounds.x + actionBounds.width <= navBounds.x)
         );
       })
       .toBe(true);

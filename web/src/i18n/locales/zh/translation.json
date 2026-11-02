@@ -467,6 +467,39 @@
       "subtitle": "字幕",
       "truncated": "最多显示 32 个轨道。",
       "direct": "外部播放器接收原始字节。GStreamer 转换为独立可选路径，视频转码可能改变画质并增加 CPU 占用。"
+    },
+    "moreFiles": "显示更多文件",
+    "compatibility": {
+      "title": "播放兼容性",
+      "container": "容器",
+      "external": "外部播放器支持取决于应用、编解码器和设备；Flow 无法远程验证。",
+      "direct": "直接播放：原始媒体字节，不进行转换。",
+      "remux": "重新封装：更换容器，复制视频流。",
+      "audio": "音频转换可能改变音质并占用处理器。",
+      "video": "视频转换会改变画质，且可能大量占用 CPU/GPU。",
+      "advisory": "浏览器提示不能验证精确的编码配置、HDR、音频或外部播放器。",
+      "directMode": "原始／直接播放",
+      "gstMode": "使用已配置的 GStreamer 转换",
+      "conversionWarning": "这将明确使用您的 GStreamer 设置，音视频质量可能改变。",
+      "check": "检查此浏览器",
+      "possible": "浏览器报告可能支持此编码系列。",
+      "unconfirmed": "浏览器未报告支持此组合。",
+      "unknown": "缓存信息不足，无法提供浏览器兼容性提示。"
+    },
+    "sidecars": {
+      "title": "种子内字幕",
+      "hint": "列表仅使用元数据。请选择字幕轨道；获取字幕会优先保障视频启动和资源限制。",
+      "select": "字幕轨道",
+      "exact": "文件名匹配",
+      "episode": "剧集匹配",
+      "ambiguous": "匹配不明确，请核实选择",
+      "forced": "强制字幕",
+      "none": "没有匹配的外置字幕",
+      "download": "下载原始字幕",
+      "copy": "复制私密字幕链接",
+      "fallback": "自动发现能力因播放器而异。请使用复制的链接或手动添加已下载的字幕。WebVTT 转换会简化 ASS 样式。",
+      "deferred": "字幕不可用或已为保障视频播放而推迟。请重试或手动添加。",
+      "truncated": "仅列出前 100 个匹配字幕。"
     }
   },
   "runtime": {
@@ -591,7 +624,18 @@
     "system": "跟随系统",
     "density": "密度",
     "comfortable": "舒适",
-    "compact": "紧凑"
+    "compact": "紧凑",
+    "expressive": {
+      "palette": "配色",
+      "iris": "鸢尾",
+      "lagoon": "泻湖",
+      "rose": "玫瑰",
+      "textScale": "文字大小",
+      "motion": "动画",
+      "reduced": "减少",
+      "commands": "快捷操作",
+      "noCommands": "没有匹配的操作"
+    }
   },
   "flow": {
     "title": "Flow 播放",
@@ -1023,7 +1067,30 @@
         "ELIGIBLE": "元数据符合已验证复用条件"
       }
     },
-    "metadataRecoverySummary": "元数据恢复：{{state}}；尝试次数 {{attempts}}"
+    "metadataRecoverySummary": "元数据恢复：{{state}}；尝试次数 {{attempts}}",
+    "coverage": {
+      "title": "分片覆盖",
+      "hint": "本地缓存与采样请求，不代表播放器缓冲。",
+      "verified": "已验证",
+      "partial": "部分／未验证",
+      "requested": "已请求",
+      "missing": "未缓存",
+      "unknown": "未知／过期",
+      "head": "所需头部（H）",
+      "index": "所需索引（I）",
+      "piece": "分片",
+      "suppliers": "采样来源",
+      "requests": "已请求的块",
+      "receiving": "接收中的字节",
+      "frontier": "服务器读取位置",
+      "supplyHint": "可用性仅涵盖已连接的采样节点；缺少数据不代表种群失效。",
+      "blocker": "当前阻塞点",
+      "cacheAge": "缓存快照：{{seconds}} 秒",
+      "supplyAge": "节点采样：{{seconds}} 秒",
+      "uncovered": "当前节点样本未覆盖此分片。",
+      "empty": "缓存观测中没有可用的分片窗口。",
+      "truncated": "覆盖范围最多包含 256 个分片和 8 个读取前沿。"
+    }
   },
   "search": {
     "source": "来源",
@@ -1046,7 +1113,39 @@
       "peers": "节点",
       "title": "标题"
     },
-    "serviceSeparation": "搜索或解析结果仅代表对应服务。种子连接：{{state}}。解析服务故障不能证明 Flow 或播放器网络故障。"
+    "serviceSeparation": "搜索或解析结果仅代表对应服务。种子连接：{{state}}。解析服务故障不能证明 Flow 或播放器网络故障。",
+    "enriched": {
+      "health": "搜索服务历史",
+      "aggregate": "聚合服务可能涵盖多个站点；其响应不能证明每个站点均正常。",
+      "setup": "在设置中配置 Jackett/Prowlarr 及其 Torznab 地址。在此添加 RuTracker 不会更改 Lampa 独立的解析服务。",
+      "lastSuccess": "上次成功",
+      "cooldown": "重试时间",
+      "structured": "电影／剧集搜索",
+      "type": "搜索类型",
+      "imdbid": "IMDb ID",
+      "tmdbid": "TMDB ID",
+      "tvdbid": "TVDB ID",
+      "year": "年份",
+      "season": "季",
+      "ep": "集",
+      "resolution": "分辨率",
+      "codec": "编码",
+      "hdr": "HDR",
+      "release": "发布类型",
+      "audio": "音频",
+      "language": "语言",
+      "claims": "标签来自文件名，未经媒体探测验证。服务报告的做种数不保证速度。",
+      "hidden": "筛选隐藏了 {{count}} 个结果",
+      "reset": "重置筛选",
+      "modes": {
+        "generic": "文本搜索",
+        "movie": "电影",
+        "tv": "电视剧集",
+        "generic_fallback": "回退文本搜索",
+        "cooldown": "等待重试",
+        "caps_test": "能力测试"
+      }
+    }
   },
   "AddTorrent": "添加新种子",
   "Loading": "正在加载…",
@@ -1177,7 +1276,9 @@
         "PublicMetadataCache": "免费的公共元数据缓存",
         "FrontierRecovery": "紧急延迟块恢复（实验）",
         "AdaptivePeerRequests": "自适应节点请求预算（实验）",
-        "IncidentFlightRecorder": "私有故障飞行记录器"
+        "IncidentFlightRecorder": "私有故障飞行记录器",
+        "RecentPlaybackHistory": "共享最近记录",
+        "PrometheusEnabled": "Prometheus 监控"
       }
     },
     "maintenance": {
@@ -1394,7 +1495,8 @@
       "auth_required": "需要认证，请检查 API 密钥",
       "unavailable": "不可用，请检查地址和连接",
       "invalid_response": "响应无效，请检查 API 地址",
-      "cancelled": "已取消"
+      "cancelled": "已取消",
+      "unsupported_query": "此查询需要索引器声明支持该标识符，或提供片名。请测试索引器或填写片名。"
     },
     "guideSteps": {
       "parser": "搜索或解析器报错：请在集成设置中测试已保存的 JacRed/Torznab。解析器在 Flow 收到种子之前运行。",
@@ -1408,5 +1510,28 @@
       "stalls": "近期停顿峰值 / 等待 p95",
       "coverage": "覆盖情况"
     }
+  },
+  "recent": {
+    "title": "最近打开",
+    "hint": "此处记录成功的视频传输。保存位置和完成状态需要独立依据。",
+    "disabled": "最近记录已在设置中关闭。",
+    "empty": "没有最近的视频传输。",
+    "opened": "最近打开时间",
+    "position": "保存的位置",
+    "legacyPosition": "旧版本保存的位置",
+    "resume": "使用保存的位置",
+    "handoff": "Just Player 可以接收此位置。启动它不会将之后的播放位置回传给 Flow。",
+    "complete": "已手动标记完成",
+    "notComplete": "已手动标记未完成",
+    "markComplete": "标记完成",
+    "uncomplete": "标记未完成",
+    "clear": "清空最近记录",
+    "clearHint": "删除所有最近记录？已看标记和保存的位置会保留。",
+    "positionFailed": "无法更新保存的位置。可以继续播放。",
+    "settingsHint": "在此服务器共享最近 30 天内最多 200 个文件的打开记录。不会开启位置跟踪。",
+    "monitoringHint": "可选的 /metrics 导出使用现有身份验证。远程采集需要 HTTP 身份验证。建议每 15 秒采集一次。",
+    "historyLabel": "共享最近记录",
+    "monitoringLabel": "Prometheus 监控",
+    "legacyMark": "旧版本已看标记"
   }
 }

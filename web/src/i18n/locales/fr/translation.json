@@ -467,6 +467,39 @@
       "subtitle": "Sous-titre",
       "truncated": "Limité à 32 pistes.",
       "direct": "Les lecteurs externes reçoivent les octets d’origine. La conversion GStreamer est distincte ; le transcodage peut modifier la qualité et charger le processeur."
+    },
+    "moreFiles": "Afficher plus de fichiers",
+    "compatibility": {
+      "title": "Compatibilité de lecture",
+      "container": "Conteneur",
+      "external": "La prise en charge dépend du lecteur externe, des codecs et de l’appareil ; Flow ne peut pas la vérifier à distance.",
+      "direct": "Direct : média original sans conversion.",
+      "remux": "Remuxage : changer de conteneur en copiant la vidéo.",
+      "audio": "La conversion audio peut modifier la qualité et solliciter le processeur.",
+      "video": "La conversion vidéo modifie la qualité et peut solliciter fortement le CPU/GPU.",
+      "advisory": "L’avis du navigateur ne vérifie ni le profil exact, ni le HDR, l’audio ou le lecteur externe.",
+      "directMode": "Original / direct",
+      "gstMode": "Utiliser la conversion GStreamer configurée",
+      "conversionWarning": "Vos réglages GStreamer seront utilisés. La qualité audio/vidéo peut changer.",
+      "check": "Vérifier ce navigateur",
+      "possible": "Le navigateur indique une prise en charge possible de cette famille de codecs.",
+      "unconfirmed": "Ce navigateur ne signale pas de prise en charge de cette combinaison.",
+      "unknown": "Informations en cache insuffisantes pour évaluer ce navigateur."
+    },
+    "sidecars": {
+      "title": "Sous-titres du torrent",
+      "hint": "La liste utilise uniquement les métadonnées. Choisissez une piste ; sa récupération cède la priorité au démarrage vidéo et aux ressources.",
+      "select": "Piste de sous-titres",
+      "exact": "Nom correspondant",
+      "episode": "Épisode correspondant",
+      "ambiguous": "Ambigu — vérifiez votre choix",
+      "forced": "Forcés",
+      "none": "Aucun fichier de sous-titres correspondant",
+      "download": "Télécharger le sous-titre original",
+      "copy": "Copier le lien privé du sous-titre",
+      "fallback": "La détection dépend du lecteur. Utilisez le lien ou joignez le fichier téléchargé. La conversion WebVTT simplifie le style ASS.",
+      "deferred": "Sous-titres indisponibles ou différés pour préserver la lecture. Réessayez ou joignez-les manuellement.",
+      "truncated": "Seuls les 100 premiers sous-titres correspondants sont affichés."
     }
   },
   "runtime": {
@@ -591,7 +624,18 @@
     "system": "Système",
     "density": "Densité",
     "comfortable": "Confortable",
-    "compact": "Compacte"
+    "compact": "Compacte",
+    "expressive": {
+      "palette": "Palette",
+      "iris": "Iris",
+      "lagoon": "Lagon",
+      "rose": "Rose",
+      "textScale": "Taille du texte",
+      "motion": "Animations",
+      "reduced": "Réduites",
+      "commands": "Actions rapides",
+      "noCommands": "Aucune action correspondante"
+    }
   },
   "flow": {
     "title": "Lecture Flow",
@@ -1023,7 +1067,30 @@
         "ELIGIBLE": "Métadonnées admissibles à la réutilisation vérifiée"
       }
     },
-    "metadataRecoverySummary": "Récupération : {{state}} ; tentatives {{attempts}}"
+    "metadataRecoverySummary": "Récupération : {{state}} ; tentatives {{attempts}}",
+    "coverage": {
+      "title": "Couverture des pièces",
+      "hint": "Cache local et requêtes échantillonnées, pas le tampon du lecteur.",
+      "verified": "Vérifié",
+      "partial": "Partiel / non vérifié",
+      "requested": "Demandé",
+      "missing": "Absent du cache",
+      "unknown": "Inconnu / périmé",
+      "head": "En-tête requis (H)",
+      "index": "Index requis (I)",
+      "piece": "Pièce",
+      "suppliers": "Fournisseurs échantillonnés",
+      "requests": "Blocs demandés",
+      "receiving": "Octets en réception",
+      "frontier": "Frontière du serveur",
+      "supplyHint": "La disponibilité concerne uniquement les pairs connectés échantillonnés ; une absence de données ne prouve pas un torrent mort.",
+      "blocker": "Blocage immédiat",
+      "cacheAge": "Instantané du cache : {{seconds}} s",
+      "supplyAge": "Échantillon de pairs : {{seconds}} s",
+      "uncovered": "Aucun échantillon actuel de pairs ne couvre ce fragment.",
+      "empty": "Aucune fenêtre de fragments dans les observations en cache.",
+      "truncated": "La couverture est limitée à 256 fragments et huit points de lecture."
+    }
   },
   "search": {
     "source": "Source",
@@ -1046,7 +1113,39 @@
       "peers": "Pairs",
       "title": "Titre"
     },
-    "serviceSeparation": "Les résultats décrivent uniquement le service de recherche. Connectivité torrent : {{state}}. Une panne du parseur ne prouve pas un défaut Flow ou réseau du lecteur."
+    "serviceSeparation": "Les résultats décrivent uniquement le service de recherche. Connectivité torrent : {{state}}. Une panne du parseur ne prouve pas un défaut Flow ou réseau du lecteur.",
+    "enriched": {
+      "health": "Historique des services de recherche",
+      "aggregate": "Un agrégateur peut couvrir plusieurs trackers. Sa réponse ne prouve pas leur disponibilité individuelle.",
+      "setup": "Configurez Jackett/Prowlarr et ses adresses Torznab dans les réglages. Ajouter RuTracker ici ne change pas le parseur distinct de Lampa.",
+      "lastSuccess": "Dernier succès",
+      "cooldown": "Réessayer après",
+      "structured": "Recherche de film / épisode",
+      "type": "Type de recherche",
+      "imdbid": "IMDb ID",
+      "tmdbid": "TMDB ID",
+      "tvdbid": "TVDB ID",
+      "year": "Année",
+      "season": "Saison",
+      "ep": "Épisode",
+      "resolution": "Résolution",
+      "codec": "Codec",
+      "hdr": "HDR",
+      "release": "Type de version",
+      "audio": "Audio",
+      "language": "Langue",
+      "claims": "Les badges proviennent du nom, pas d’une analyse vérifiée. Le nombre de sources ne garantit pas le débit.",
+      "hidden": "Résultats masqués par les filtres : {{count}}",
+      "reset": "Réinitialiser les filtres",
+      "modes": {
+        "generic": "Recherche textuelle",
+        "movie": "Film",
+        "tv": "Épisode TV",
+        "generic_fallback": "Repli textuel",
+        "cooldown": "En attente de nouvel essai",
+        "caps_test": "Test des capacités"
+      }
+    }
   },
   "AddTorrent": "Ajouter un nouveau torrent",
   "Loading": "Chargement…",
@@ -1177,7 +1276,9 @@
         "PublicMetadataCache": "Caches publics gratuits de métadonnées",
         "FrontierRecovery": "Reprise des blocs urgents en retard (expérience)",
         "AdaptivePeerRequests": "Quota adaptatif de requêtes par pair (expérience)",
-        "IncidentFlightRecorder": "Enregistreur privé d’incidents"
+        "IncidentFlightRecorder": "Enregistreur privé d’incidents",
+        "RecentPlaybackHistory": "Historique partagé",
+        "PrometheusEnabled": "Surveillance Prometheus"
       }
     },
     "maintenance": {
@@ -1394,7 +1495,8 @@
       "auth_required": "Authentification requise ; vérifiez la clé API",
       "unavailable": "Indisponible ; vérifiez l’adresse et la connexion",
       "invalid_response": "Réponse invalide ; vérifiez le point d’accès API",
-      "cancelled": "Annulé"
+      "cancelled": "Annulé",
+      "unsupported_query": "Cette requête exige un identifiant pris en charge ou un titre. Testez l’indexeur ou ajoutez un titre."
     },
     "guideSteps": {
       "parser": "Erreur de recherche ou du parseur : testez JacRed/Torznab dans Intégrations. Le parseur intervient avant la réception du torrent par Flow.",
@@ -1408,5 +1510,28 @@
       "stalls": "Pic de blocages / attente p95",
       "coverage": "Couverture"
     }
+  },
+  "recent": {
+    "title": "Ouvertures récentes",
+    "hint": "Une diffusion vidéo réussie est enregistrée ici. La position et la fin nécessitent des preuves distinctes.",
+    "disabled": "L’historique récent est désactivé dans les paramètres.",
+    "empty": "Aucune diffusion vidéo récente.",
+    "opened": "Dernière ouverture",
+    "position": "Position enregistrée",
+    "legacyPosition": "Position d’une ancienne version",
+    "resume": "Utiliser la position",
+    "handoff": "Just Player reçoit cette position. Son lancement ne renvoie pas la position suivante à Flow.",
+    "complete": "Marqué terminé explicitement",
+    "notComplete": "Marqué non terminé explicitement",
+    "markComplete": "Marquer terminé",
+    "uncomplete": "Marquer non terminé",
+    "clear": "Effacer les ouvertures récentes",
+    "clearHint": "Supprimer toutes les entrées récentes ? Les marques et positions sont conservées.",
+    "positionFailed": "La position n’a pas pu être enregistrée. La lecture peut continuer.",
+    "settingsHint": "Historique partagé de 200 fichiers au maximum pendant 30 jours sur ce serveur. N’active pas le suivi de position.",
+    "monitoringHint": "Export /metrics facultatif avec l’authentification existante. L’accès distant exige l’authentification HTTP. Intervalle conseillé : 15 secondes.",
+    "historyLabel": "Historique partagé",
+    "monitoringLabel": "Surveillance Prometheus",
+    "legacyMark": "Ancienne marque de lecture"
   }
 }
