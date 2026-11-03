@@ -12,7 +12,7 @@ func recent(c *gin.Context) {
 	c.Header("Cache-Control", "private, no-store")
 	rows, err := config.ListRecent()
 	if err != nil {
-		abortWithErrorCode(c, 500, "RECENT_HISTORY_UNAVAILABLE", err)
+		abortWithErrorCode(c, 500, "RECENT_HISTORY_UNAVAILABLE", err, 1)
 		return
 	}
 	items := []gin.H{}
@@ -44,15 +44,15 @@ func recentControl(c *gin.Context) {
 		Index  int    `json:"file_index"`
 	}
 	if c.ShouldBindJSON(&request) != nil || request.Action != "clear" && request.Action != "remove" || request.Action == "remove" && (request.Hash == "" || request.Index < 1) {
-		abortWithErrorCode(c, 400, "INVALID_RECENT_ACTION", errors.New("invalid history action"))
+		abortWithErrorCode(c, 400, "INVALID_RECENT_ACTION", errors.New("invalid history action"), 1)
 		return
 	}
 	if config.ReadOnly {
-		abortWithErrorCode(c, 403, "READ_ONLY", errors.New("database is read-only"))
+		abortWithErrorCode(c, 403, "READ_ONLY", errors.New("database is read-only"), 1)
 		return
 	}
 	if err := config.RemoveRecent(request.Hash, request.Index, request.Action == "clear"); err != nil {
-		abortWithErrorCode(c, 500, "RECENT_HISTORY_UNAVAILABLE", err)
+		abortWithErrorCode(c, 500, "RECENT_HISTORY_UNAVAILABLE", err, 1)
 		return
 	}
 	c.JSON(200, gin.H{"schema_version": 1, "ok": true})

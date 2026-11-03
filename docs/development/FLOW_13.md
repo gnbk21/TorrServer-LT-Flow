@@ -182,6 +182,17 @@ and long-duration field acceptance. Missing acceptance is never called passed.
   executable's failed reproduction is preserved in `player-probe-reproduction`;
   targeted Flow/torrent/API race checks and all 128 harness checks pass. Final
   integration and measured comparison of this correction remain required.
+- rc.3's combined integration now proves player header/index probes stay out of
+  Recent while actual delivery of all five media fixtures is retained. Four
+  instrumented smoke trials also pass verified cold-read and byte checks. Their
+  two rotations validate the measurement method, not final performance
+  acceptance. The cache snapshots distinguish the last warm header re-read from
+  earlier nonresident seeks. Final five-rotation flags remain subject to review.
+- New subtitle, Recent and monitoring failures now include schema version 1 and
+  no-store headers through the existing error mechanism. Legacy error maps stay
+  string-only; status/code/text are preserved. HEAD failures remain body-free.
+  Full API race checks and focused version/authentication/alias/admission tests
+  pass. The combined integration additionally checks failure-envelope versions.
 - The initial 40-trial comparison preserved zero byte failures/timeouts, but
   flagged seek latency/RSS. Review discovered that the old harness's odd-round
   reversal cancelled its two-policy rotation, always placing the baseline first.

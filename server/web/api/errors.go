@@ -16,8 +16,20 @@ func abortWithJSONError(c *gin.Context, code int, err error) {
 
 // Machine-readable codes are additive; legacy clients still receive error text
 // and the original HTTP status. Starting requires explicit engine-state evidence.
-func abortWithErrorCode(c *gin.Context, status int, code string, err error) {
-	c.AbortWithStatusJSON(status, gin.H{"error": errorMessage(err), "code": code})
+func abortWithErrorCode(c *gin.Context, status int, code string, err error, schemaVersion ...int) {
+	body := gin.H{"error": errorMessage(err), "code": code}
+	// New versioned interfaces opt in; legacy error maps retain string-only
+	// values for old clients. Status, code and redacted text stay unchanged.
+	if len(schemaVersion) > 0 {
+		body["schema_version"] = schemaVersion[0]
+		c.Header("Cache-Control", "private, no-store")
+		if c.Request != nil && c.Request.Method == http.MethodHead {
+			c.Header("Content-Type", "application/json; charset=utf-8")
+			c.AbortWithStatus(status)
+			return
+		}
+	}
+	c.AbortWithStatusJSON(status, body)
 }
 
 func httpErrorCode(status int) string {

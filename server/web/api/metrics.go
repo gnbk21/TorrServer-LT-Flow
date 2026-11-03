@@ -80,18 +80,18 @@ func (flowCollector) Collect(ch chan<- prometheus.Metric) {
 }
 func metrics(c *gin.Context) {
 	if !config.CurrentFlow().PrometheusEnabled {
-		c.Status(http.StatusNotFound)
+		abortWithErrorCode(c, http.StatusNotFound, "NOT_FOUND", errors.New("not found"), 1)
 		return
 	}
 	host, _, err := net.SplitHostPort(c.Request.RemoteAddr)
 	ip := net.ParseIP(host)
 	if err != nil || ip == nil {
-		abortWithErrorCode(c, 403, "METRICS_PEER_REQUIRED", errors.New("connecting peer is unavailable"))
+		abortWithErrorCode(c, 403, "METRICS_PEER_REQUIRED", errors.New("connecting peer is unavailable"), 1)
 		return
 	}
 	_, authenticated := c.Get(gin.AuthUserKey)
 	if !ip.IsLoopback() && (!config.HttpAuth || !authenticated) {
-		abortWithErrorCode(c, 403, "METRICS_AUTH_REQUIRED", errors.New("remote monitoring requires enabled HTTP authentication and valid credentials"))
+		abortWithErrorCode(c, 403, "METRICS_AUTH_REQUIRED", errors.New("remote monitoring requires enabled HTTP authentication and valid credentials"), 1)
 		return
 	}
 	metricsOnce.Do(func() {

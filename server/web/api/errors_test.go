@@ -4,11 +4,40 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"unicode/utf8"
 )
+
+func TestVersionedFlowErrorsKeepLegacyFieldsAndHeadSemantics(t *testing.T) {
+	for _, method := range []string{http.MethodGet, http.MethodHead} {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(method, "/flow/recent", nil)
+		abortWithErrorCode(c, 503, "SERVICE_UNAVAILABLE", errors.New("existing error text"), 1)
+		if w.Code != 503 || w.Header().Get("Cache-Control") != "private, no-store" {
+			t.Fatal(w.Code)
+		}
+		if method == http.MethodHead {
+			if w.Body.Len() != 0 {
+				t.Fatal("HEAD error returned a body")
+			}
+			continue
+		}
+		var body struct {
+			SchemaVersion int `json:"schema_version"`
+			Error, Code   string
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		if body.SchemaVersion != 1 || body.Error != "existing error text" || body.Code != "SERVICE_UNAVAILABLE" {
+			t.Fatal(body)
+		}
+	}
+}
 
 func TestStructuredErrorsKeepLegacyTextAndNeverInferStarting(t *testing.T) {
 	for _, status := range []int{401, 403, 429, 503} {

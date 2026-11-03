@@ -95,6 +95,9 @@ readers.
 The global limit remains held through conversion and HTTP response ownership,
 so completed cache reads cannot leave an unbounded set of converted buffers.
 Subtitle response write deadlines are cleared before keep-alive video reuse.
+New subtitle, Recent and monitoring errors use the versioned structured envelope
+(`schema_version: 1`, `error`, `code`), with private/no-store responses and empty
+HEAD bodies. Legacy error payloads keep their existing string-only shape.
 The download action uses the selected signed subtitle alias, including when
 raw media access requires playback tokens; renewal updates the shared link.
 

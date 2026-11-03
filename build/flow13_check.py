@@ -57,6 +57,7 @@ def check(executable, output, fixtures=None):
                     return response.read(), dict(response.headers)
             except urllib.error.HTTPError as error:
                 body = error.read().decode('utf-8', errors='replace')
+                assert json.loads(body).get('schema_version') == 1, 'Unversioned subtitle failure'
                 report['observations'].append({'read_status':error.code,'error_body':body})
                 if error.code != 503 or time.monotonic() >= deadline:
                     raise
