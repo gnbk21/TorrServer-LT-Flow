@@ -44,6 +44,10 @@ func TestMetricsDisabledAndSocketPeerPolicy(t *testing.T) {
 		{"127.0.0.1:1000", false, false, "", 200}, {"[::1]:1000", false, false, "", 200},
 		{"192.0.2.1:1000", false, false, "127.0.0.1", 403}, {"192.0.2.1:1000", true, false, "", 401},
 		{"192.0.2.1:1000", true, true, "", 200}, {"127.0.0.1:1000", true, false, "", 401}, {"invalid", false, false, "", 403},
+		{"[fe80::1%en0]:1000", true, true, "", 200},
+		{"[fe80::1%en0]:1000", false, false, "127.0.0.1", 403},
+		{"[fe80::1%en0]:1000", true, false, "", 401},
+		{"[::ffff:127.0.0.1]:1000", false, false, "", 200},
 	} {
 		if got := request(row.peer, row.auth, row.credentials, row.xff); got != row.want {
 			t.Fatal(row, got)

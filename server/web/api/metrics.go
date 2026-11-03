@@ -7,6 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net"
 	"net/http"
+	"net/netip"
 	"server/diagnostics"
 	"server/flow"
 	"server/searchstatus"
@@ -84,13 +85,13 @@ func metrics(c *gin.Context) {
 		return
 	}
 	host, _, err := net.SplitHostPort(c.Request.RemoteAddr)
-	ip := net.ParseIP(host)
-	if err != nil || ip == nil {
+	ip, addressErr := netip.ParseAddr(host)
+	if err != nil || addressErr != nil {
 		abortWithErrorCode(c, 403, "METRICS_PEER_REQUIRED", errors.New("connecting peer is unavailable"), 1)
 		return
 	}
 	_, authenticated := c.Get(gin.AuthUserKey)
-	if !ip.IsLoopback() && (!config.HttpAuth || !authenticated) {
+	if !ip.Unmap().IsLoopback() && (!config.HttpAuth || !authenticated) {
 		abortWithErrorCode(c, 403, "METRICS_AUTH_REQUIRED", errors.New("remote monitoring requires enabled HTTP authentication and valid credentials"), 1)
 		return
 	}

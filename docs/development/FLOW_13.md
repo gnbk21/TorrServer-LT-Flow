@@ -9,7 +9,7 @@ installation, credentials, settings and reviewed standalone preview are protecte
 
 | Stage | Concrete acceptance requirements | Status |
 |---|---|---|
-| 0 | Source/toolchain/API/settings/assets/screenshots and playback baseline receipts; complete parity inventory | Receipts/screenshots captured; final rotated comparison open |
+| 0 | Source/toolchain/API/settings/assets/screenshots and playback baseline receipts; complete parity inventory | Receipts/screenshots captured; complete 80-trial comparison retained |
 | 1 | Generated semantic tokens, three palettes, light/dark/system, density, text scales, prepaint preference recovery | Implemented; token/contrast/bootstrap/unit checks pass |
 | 1 | All four production destinations and existing workflows use expressive components; adaptive navigation and sheets | Integrated; 154 existing browser scenarios and all three lab repeats pass |
 | 1 | Command palette, keyboard/focus, motion, reduced motion, forced colors, seven complete locales | Implemented; all 102 critical Chromium/Firefox/WebKit checks pass |
@@ -24,7 +24,7 @@ installation, credentials, settings and reviewed standalone preview are protecte
 | 5 | Bounded shared Recent history, disable/remove/clear, compatible Viewed metadata and truthful provenance | Implemented; persistence/provenance/integration checks pass |
 | 5 | Real internal-player position reporting, explicit saved-position handoff and existing episode/warmup reuse | Implemented; component/intent checks pass; physical handoff acceptance unavailable |
 | 6 | Default-off protected Prometheus endpoint, fixed-label monotonic aggregates and cache-only scrapes | Implemented; authentication/privacy/monotonicity/integration checks pass |
-| 7 | Regression/security/native/browser/locale/performance/distribution checks and complete documentation | In progress; performance flags not yet accepted |
+| 7 | Regression/security/native/browser/locale/performance/distribution checks and complete documentation | Source checks recorded with a documented RSS limitation; corrected Mac source validation pending |
 | 7 | Isolated candidate package, rollback compatibility, final scope reconciliation and qualified release | Not published; required gates remain open |
 
 ## Production parity inventory
@@ -257,6 +257,29 @@ and long-duration field acceptance. Missing acceptance is never called passed.
   `macosx-version-min=15.0` property. The compiler-driver minimum remains
   explicit; the unsupported Boost property is removed. That failed attempt is
   preserved, and corrected native builds must pass before release approval.
+- PR #14 merged as `182b3ac2`. The source six-platform build (41626944421)
+  passes after its diagnosed fixture retry, including all ten high-bitrate,
+  eight parallel-streaming and eight controlled-integration roles. The original
+  failed attempt remains retained. Corrected release source `614f5066` passes
+  CodeQL run 41675442575 (Actions, JavaScript/TypeScript, Windows guard, Go and
+  real C++ bridge), with no open findings on that branch. This does not claim
+  vulnerability-free software or waive existing documented limitations.
+- Published 1.2.0 Intel and ARM binaries were downloaded independently, matched
+  against their immutable BUILDINFO checksums, and both report macOS 15.0 in
+  their load commands (`published-mac-minimum/receipt.json`). The deployment
+  flags therefore preserve the actual published minimum. Corrected Mac run
+  41675283140 still needs native success: GitHub again failed to allocate its
+  ARM runner and explicitly annotated capacity constraints. That is not a
+  completed ARM test. The owner chose to finish all source checks before
+  changing release approval or starting the tagged build; approval remains off.
+- Final metrics-policy review reproduced rejection of an authenticated socket
+  peer with a scoped IPv6 address (`[fe80::1%en0]:port`). The peer parser now
+  accepts standard scoped addresses and normalizes IPv4-mapped loopback;
+  remote authentication, configured authentication on loopback, and rejection
+  of forwarded-address spoofing remain enforced. The failing reproduction and
+  three passing race-detector repeats are retained. This changes only the
+  monitoring peer parser, not streaming, scheduling, cache allocation or UI.
+  The corrected source still requires source security/platform validation.
 - The initial 40-trial comparison preserved zero byte failures/timeouts, but
   flagged seek latency/RSS. Review discovered that the old harness's odd-round
   reversal cancelled its two-policy rotation, always placing the baseline first.
