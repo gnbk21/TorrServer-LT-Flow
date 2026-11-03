@@ -245,3 +245,33 @@ it("does not silently enable position reporting", async () => {
   view.unmount();
   expect(viewedApi.report).not.toHaveBeenCalled();
 });
+
+it("retains the latest pause/close position behind a slow report without replaying it", async () => {
+  preferences.tracking = true;
+  let finish: () => void = () => {};
+  vi.mocked(viewedApi.report).mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const view = render(
+    <QueryClientProvider client={new QueryClient()}>
+      <VideoPlayer {...props} />
+    </QueryClientProvider>,
+  );
+  const video = document.querySelector("video")!;
+  Object.defineProperty(video, "readyState", { value: 1, configurable: true });
+  video.currentTime = 42;
+  fireEvent.pause(video);
+  video.currentTime = 46;
+  fireEvent.pause(video);
+  video.currentTime = 47;
+  view.unmount();
+  expect(viewedApi.report).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    finish();
+  });
+  expect(viewedApi.report).toHaveBeenCalledTimes(2);
+  expect(viewedApi.report).toHaveBeenLastCalledWith(props.hash, 2, 47, true);
+});

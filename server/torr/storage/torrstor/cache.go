@@ -1271,9 +1271,13 @@ func (c *Cache) applyStreamPriorities() {
 			refetch[i] = struct{}{}
 		}
 	}
-	// Optional header/index work never receives deadlines or a cache reservation.
-	for _, i := range c.auxiliaryDemand(len(blocked) > 0) {
+	// Explicit sidecars use the existing reconciler, after the immediate video
+	// lead (0..1500 ms). Pure priority-1 demand starves behind a large deadlined
+	// read-ahead window even with spare supply. The auxiliary owner is bounded
+	// to 4 MiB/10 seconds and is cancelled on missing pins, waits or pressure.
+	for order, i := range c.auxiliaryDemand(len(blocked) > 0) {
 		raise(i, 1)
+		desired[i] = 5000 + min(order*100, 4000)
 		if !c.Have(i) && h.HasPiece(i) {
 			refetch[i] = struct{}{}
 		}

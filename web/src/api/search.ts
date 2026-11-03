@@ -221,6 +221,28 @@ export const searchApi = {
           sources: outcomes.flat().map((row) => ({ ...row })),
         });
     };
+    // Older servers ignore structured identifiers. Never turn an ID-only
+    // request into their unrestricted empty-text search. Title searches remain
+    // immediate; this presence check is shared only by ID-only endpoint jobs.
+    let structuredSupport: Promise<boolean> | undefined;
+    const supportsStructuredSearch = () =>
+      (structuredSupport ??= api
+        .get<unknown>("/flow/search-status", controller.signal)
+        .then((data) => {
+          if (
+            !data ||
+            typeof data !== "object" ||
+            !("schema_version" in data) ||
+            data.schema_version !== 1
+          )
+            throw new Error("search.invalidResponse");
+          return true;
+        })
+        .catch((error: unknown) => {
+          if (error instanceof ApiError && [404, 405].includes(error.status))
+            return false;
+          throw error;
+        }));
     let next = 0;
     const worker = async () => {
       while (next < jobs.length) {
@@ -234,6 +256,11 @@ export const searchApi = {
         }
         try {
           if (controller.signal.aborted) throw controller.signal.reason;
+          if (!query.trim() && !(await supportsStructuredSearch())) {
+            outcomes[slot] = [{ ...job, state: "unsupported_query" }];
+            publish();
+            continue;
+          }
           const params = new URLSearchParams({
             query,
             index: String(job.index),

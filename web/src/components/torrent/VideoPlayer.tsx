@@ -60,19 +60,16 @@ export default function VideoPlayer({
     if (!video || !settings.data?.TrackTimecode) return;
     let pending = false,
       stopped = false;
-    const report = (closing = false) => {
+    let queued: { position: number; closing: boolean } | undefined;
+    const send = (sample: { position: number; closing: boolean }) => {
       if (
-        pending ||
         queryClient.getQueryData<{ TrackTimecode?: boolean }>(["settings"])
-          ?.TrackTimecode === false ||
-        video.readyState < 1 ||
-        !Number.isFinite(video.currentTime) ||
-        video.currentTime < 0
+          ?.TrackTimecode === false
       )
         return;
       pending = true;
       void viewedApi
-        .report(hash, index, video.currentTime, closing)
+        .report(hash, index, sample.position, sample.closing)
         .then(() => {
           if (!stopped) setPositionError(false);
         })
@@ -81,7 +78,29 @@ export default function VideoPlayer({
         })
         .finally(() => {
           pending = false;
+          const next = queued;
+          queued = undefined;
+          if (next && (!stopped || next.closing)) send(next);
         });
+    };
+    const report = (closing = false) => {
+      if (
+        queryClient.getQueryData<{ TrackTimecode?: boolean }>(["settings"])
+          ?.TrackTimecode === false ||
+        video.readyState < 1 ||
+        !Number.isFinite(video.currentTime) ||
+        video.currentTime < 0
+      )
+        return;
+      const sample = {
+        position: video.currentTime,
+        closing: closing || queued?.closing === true,
+      };
+      // Coalesce newly observed positions behind the one in flight. This is
+      // not a retry: each explicit pause/close keeps its latest actual position,
+      // and an old response cannot overwrite the final report out of order.
+      if (pending) queued = sample;
+      else send(sample);
     };
     const timer = setInterval(() => {
       if (!video.paused) report();

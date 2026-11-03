@@ -50,7 +50,9 @@ try {
     Invoke-FlowVerificationStep 'harness-tests' $flowPython @('-X','utf8','-m','unittest','discover','-s','build','-p','*_test.py')
     Invoke-FlowVerificationStep 'web-lint' $flowNode @('node_modules/eslint/bin/eslint.js','src') $flowWeb
     Invoke-FlowVerificationStep 'web-tooling-contract' $flowNode @('--test','scripts/linter-glob-compat.test.mjs') $flowWeb
-    Invoke-FlowVerificationStep 'web-tests' $flowNode @('node_modules/vitest/vitest.mjs','run') $flowWeb
+    # Bound local worker creation so a busy desktop does not turn worker-start
+    # timeouts into misleading component failures. All test files still run.
+    Invoke-FlowVerificationStep 'web-tests' $flowNode @('node_modules/vitest/vitest.mjs','run','--pool=threads','--maxWorkers=1') $flowWeb
     Invoke-FlowVerificationStep 'web-typecheck' $flowNode @('node_modules/typescript/bin/tsc','--noEmit') $flowWeb
     Invoke-FlowVerificationStep 'web-theme-sync' $flowNode @('scripts/theme.mjs','--check') $flowWeb
     Invoke-FlowVerificationStep 'web-prepaint' $flowNode @('--test','scripts/appearance.test.mjs') $flowWeb

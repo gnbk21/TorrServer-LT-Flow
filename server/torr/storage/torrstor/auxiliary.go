@@ -23,7 +23,7 @@ type AuxiliaryReader struct {
 	once        sync.Once
 }
 
-func (c *Cache) auxiliaryAllowed() bool {
+func (c *Cache) auxiliaryForegroundReady() bool {
 	if c.auxiliaryClosed.Load() || c.backgroundLimited.Load() || c.flowWaiting.Load() > 0 || c.flowReconnect.Load() || time.Now().UnixMilli() < c.warmupRiskUntil.Load() {
 		return false
 	}
@@ -33,6 +33,27 @@ func (c *Cache) auxiliaryAllowed() bool {
 	if preloading {
 		return false
 	}
+	c.readersMu.Lock()
+	defer c.readersMu.Unlock()
+	for reader := range c.readers {
+		if reader.internal {
+			continue
+		}
+		for _, r := range [][2]int{reader.headReserve(), reader.tailReserve()} {
+			for piece := r[0]; piece <= r[1]; piece++ {
+				if !c.Have(piece) {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
+func (c *Cache) auxiliaryAllowed() bool {
+	if !c.auxiliaryForegroundReady() {
+		return false
+	}
 	if r := c.auxiliary.Load(); r != nil && r.ctx.Err() == nil && !c.auxiliaryBudgetFits(r.first, r.last) {
 		return false
 	}
@@ -40,7 +61,7 @@ func (c *Cache) auxiliaryAllowed() bool {
 		c.storage.mu.RLock()
 		defer c.storage.mu.RUnlock()
 		for _, other := range c.storage.caches {
-			if other.backgroundLimited.Load() || other.flowWaiting.Load() > 0 || other.flowReconnect.Load() {
+			if other != c && !other.auxiliaryForegroundReady() {
 				return false
 			}
 		}

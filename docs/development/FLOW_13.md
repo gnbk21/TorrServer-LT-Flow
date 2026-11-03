@@ -111,6 +111,30 @@ and long-duration field acceptance. Missing acceptance is never called passed.
   three unchanged lab-budget runs pass after this correction. Earlier results
   remain in `lab-cold-shortcut-failure`. Preview as well as development test
   servers reject unmocked API paths locally; a direct HTTP check proves this.
+- Combined observer trials reproduced auxiliary starvation: four healthy runs
+  delivered every video byte correctly, but both observed runs deferred every
+  selected sidecar. Explicit sidecars now receive bounded 5–9-second deadlines
+  in the existing reconciler, behind urgent video demand, and admission checks
+  verified required pins across active caches. Missing pins, waits and pressure
+  still cancel/defer auxiliary work. Both corrected healthy observed runs fetch
+  subtitles during playback; the interrupted burst trial and original failures
+  are retained. The complete final observer comparison remains required.
+- ID-only searches now check versioned structured-search support once per search
+  before contacting older Torznab routes; absent support cannot become an empty
+  broad query. Title searches retain their immediate path. Authentication and
+  service failures keep their own explanations. Internal-player position reports
+  coalesce the latest pause/close behind an in-flight report instead of losing
+  that observation or replaying the earlier mutation. All 172 web unit tests,
+  type/lint/build checks and 125 harness checks pass. Cache/torrent/API race
+  checks pass. The local entry point bounds worker creation; earlier sandbox
+  permission/worker-start failures remain separate, preserved evidence.
+- Hosted checks of `4b8e98ca` passed CodeQL, all 99 critical browser cases, the
+  web lab, native builds and most controlled suites. Linux's combined observer
+  gate reproduced the same sidecar starvation. A mixed-peer trial failed before
+  torrent upload when libtorrent bound the next port after successful preflight;
+  it is retained as listener-admission evidence, not waived as streaming success.
+  macOS Intel built successfully; the ARM job never received a runner. These
+  earlier results do not replace final exact-source platform gates.
 - The initial 40-trial comparison preserved zero byte failures/timeouts, but
   flagged seek latency/RSS. Review discovered that the old harness's odd-round
   reversal cancelled its two-policy rotation, always placing the baseline first.

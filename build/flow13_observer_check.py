@@ -65,6 +65,7 @@ def trial(executable, fixture, output, observed, case, seconds):
                     if observed:
                         coverage=server.json(f'/flow/status/{identity}?coverage=true')
                         assert len(coverage['coverage']['pieces'])<=256
+                        report['samples'][-1]['playback']={key:coverage.get(key) for key in ('risk','confidence','startup','buffer','read_wait','coverage')}
                         if elapsed>=next_scrape:
                             with server.request('/metrics') as response:
                                 assert b'flow_read_wait_seconds_total' in response.read()
@@ -93,10 +94,10 @@ def trial(executable, fixture, output, observed, case, seconds):
                     except urllib.error.HTTPError as error:
                         assert error.code==503
                         report['subtitles'].append({'status':503,'after_video':True})
-            if observed:
-                assert any(row['status']==200 and not row.get('after_video') for row in report['subtitles']), 'Every active subtitle fetch was deferred'
             report['peak_rss_bytes']=max(row['memory'].get('rss_bytes',0) for row in report['samples'])
             report['peer']=swarm.status()
+            if observed:
+                assert any(row['status']==200 and not row.get('after_video') for row in report['subtitles']), 'Every active subtitle fetch was deferred'
             report['passed']=True
     except Exception as error:
         report['error']=f'{type(error).__name__}: {error}'

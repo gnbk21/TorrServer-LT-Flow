@@ -131,6 +131,14 @@ func TestAuxiliaryDoesNotGrowCapacityForUnfilledForegroundWindow(t *testing.T) {
 	defer c.close()
 	foreground := NewReader(c, nil, FileInfo{Index: 0, Offset: 0, Length: 32 << 20})
 	defer foreground.Close()
+	for _, r := range [][2]int{foreground.headReserve(), foreground.tailReserve()} {
+		for piece := r[0]; piece <= r[1]; piece++ {
+			if _, err := c.writePiece(piece, 0, make([]byte, int(pieceLen))); err != nil {
+				t.Fatal(err)
+			}
+			c.SignalPieceComplete(piece)
+		}
+	}
 	before := c.capacity()
 	r, err := c.NewAuxiliaryReader(context.Background(), FileInfo{Index: 1, Offset: 63 << 20, Length: 1})
 	if err != nil {
@@ -147,6 +155,19 @@ func TestAuxiliaryDoesNotGrowCapacityForUnfilledForegroundWindow(t *testing.T) {
 	c.auxiliaryDemand(false)
 	if r.ctx.Err() == nil {
 		t.Fatal("pressure did not cancel sidecar")
+	}
+}
+
+func TestAuxiliaryYieldsToMissingRequiredPins(t *testing.T) {
+	old := settings.BTsets()
+	settings.StoreBTsets(settings.NewDefaultConfig())
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	c := mkCache(t, 100*pieceLen)
+	defer c.close()
+	foreground := NewReader(c, nil, FileInfo{Offset: 0, Length: 50 * pieceLen})
+	defer foreground.Close()
+	if _, err := c.NewAuxiliaryReader(context.Background(), FileInfo{Offset: 99 * pieceLen, Length: 1}); !errors.Is(err, ErrAuxiliaryDeferred) {
+		t.Fatal("competed with unverified required header/index", err)
 	}
 }
 
