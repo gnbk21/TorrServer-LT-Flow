@@ -53,11 +53,13 @@ jobs:
       matrix:
         include:
           - arch: arm64
-            runner: macos-15
+            runner: macos-26
             artifact: TorrServer-LT-darwin-arm64
           - arch: amd64
             runner: macos-15-intel
             artifact: TorrServer-LT-darwin-amd64
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '15.0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -124,6 +126,23 @@ jobs:
         run: |
           _out/${{ matrix.artifact }} --version
           _out/${{ matrix.artifact }}-gst --version
+          python3 - <<'PY'
+          import struct
+          from pathlib import Path
+          for binary in Path('_out').glob('${{ matrix.artifact }}*'):
+              data=binary.read_bytes()
+              magic,_,_,_,commands,_,_,_=struct.unpack_from('<8I',data)
+              assert magic==0xfeedfacf, 'Expected native 64-bit Mach-O'
+              offset=32; minimum=None
+              for _ in range(commands):
+                  command,size=struct.unpack_from('<II',data,offset)
+                  assert size>=8 and offset+size<=len(data), 'Invalid Mach-O command'
+                  if command==0x32:
+                      minimum=struct.unpack_from('<I',data,offset+12)[0]
+                  offset+=size
+              assert minimum is not None and minimum<=15<<16, 'macOS minimum increased'
+              print(binary.name, 'retains macOS 15 minimum or earlier')
+          PY
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

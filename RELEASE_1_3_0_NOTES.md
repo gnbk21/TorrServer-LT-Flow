@@ -1,8 +1,9 @@
-# Flow 1.3.0 candidate
+# Flow 1.3.0
 
-This is the candidate's release description. Publication remains gated by the
-[implementation and acceptance ledger](docs/development/FLOW_13.md). Flow 1.2.0
-remains the immutable published baseline until a qualified successor is released.
+Playback clarity, smarter search and a complete Material 3 Expressive interface.
+Flow retains the PC → Lampa → external-player workflow and original media quality.
+The [implementation and acceptance ledger](docs/development/FLOW_13.md) records
+the controlled checks, performance findings and unavailable field checks.
 
 ## Changes
 
@@ -40,11 +41,18 @@ See [limits, settings and API contracts](FLOW.md#flow-13-additions).
 
 ## Acceptance and upgrade notes
 
-Final exact-source native/security/platform/packaging/provenance gates and the
-corrected repeated comparison are still pending. Earlier mixed timing/RSS results
-are preserved and are not evidence of a speed improvement. The initial harness's
-two-policy ordering defect is fixed; no favorable run is selected to hide a
-failure. The candidate is not yet an accepted performance replacement.
+The release requires full native, security, browser, platform, packaging and
+provenance gates. The pinned comparison baseline is published Flow 1.2.0; its
+tag, source and assets remain unchanged. Individual failures and latency flags
+are retained in the ledger rather than hidden by a favorable run. This upgrade
+does not claim a general streaming-speed improvement or additional peer supply.
+
+The final controlled comparison completed 80 rotated trials against 1.2.0 with
+exact bytes, no timeouts and no startup/seek-latency flags. One outage workload
+used about 144 MiB more median peak RAM (16.3%) despite remaining within its
+resident-cache budget. That measured resource cost remains documented; it is
+not a claimed memory improvement or proof of a leak. Longer resource and real
+swarm behavior still need field validation.
 
 Physical Android/Lampa/Just Player launch, selected subtitles, saved-position
 handoff, seeks, pause/resume and Wi-Fi reconnection have not been verified for

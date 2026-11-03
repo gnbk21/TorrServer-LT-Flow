@@ -28,6 +28,18 @@ func TestQualifiedDelivery(t *testing.T) {
 		t.Fatal("seek retained samples")
 	}
 }
+
+func TestVerifiedDeliveryAcrossSecondBoundary(t *testing.T) {
+	var m DeliveryMeter
+	start := time.Unix(1000, int64(999*time.Millisecond))
+	m.ObserveDemand(start, "DEMAND", 1024)
+	m.AddVerified(MiB, start.Add(2*time.Millisecond))
+	e := m.Snapshot(start.Add(1002 * time.Millisecond))
+	if e.Samples != 2 || e.LongRate*float64(e.Samples) != float64(MiB) {
+		t.Fatal("boundary changed total verified bytes", e)
+	}
+}
+
 func TestRiskRequiresQualifiedEvidence(t *testing.T) {
 	unknown := BufferRisk(0, 1000, 900, nil, DeliveryEvidence{Confidence: "unknown"}, 45, 180)
 	if unknown.Level != "UNKNOWN" || unknown.ExhaustionSeconds != nil {

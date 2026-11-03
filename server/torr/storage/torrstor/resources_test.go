@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"math"
 	"server/diagnostics"
 	"server/flow"
 	"server/settings"
@@ -213,7 +214,10 @@ func TestVerifiedDeliveryCountsOnceAndResetsForReconnect(t *testing.T) {
 	c.flowMu.Lock()
 	e := c.flowGroups["phone"].delivery.Snapshot(time.Now().Add(time.Second))
 	c.flowMu.Unlock()
-	if e.LongRate != float64(flow.MiB) || e.Samples != 1 {
+	// Demand classification and verification may straddle a second boundary.
+	// The meter then correctly includes an empty interval in its average;
+	// exactly-once accounting concerns total bytes, not the interval count.
+	if e.Samples < 1 || math.Abs(e.LongRate*float64(e.Samples)-float64(flow.MiB)) > 0.001 {
 		t.Fatal("completion not counted exactly once", e)
 	}
 	s.InvalidateNetworkEvidence()

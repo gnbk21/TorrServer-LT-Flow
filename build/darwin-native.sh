@@ -32,25 +32,29 @@ esac
 
 TARGET="darwin-$ARCH"
 GOOS=darwin GOARCH="$ARCH"
-CC="clang $ARCHFLAG"
-CXX="clang++ $ARCHFLAG"
+# Preserve the existing binaries' macOS 15 deployment minimum even when the
+# hosted ARM image moves to macOS 26. The compiler arguments and recipe are
+# included in the native dependency-cache receipt.
+MACOSX_DEPLOYMENT_TARGET=15.0
+CC="clang $ARCHFLAG -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
+CXX="clang++ $ARCHFLAG -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
 # Boost.Build's `darwin` toolset: correct Mach-O archiving (libtool -static)
 # and the <framework> feature libtorrent's Jamfile uses — all native here, no
 # archiver override needed.
 B2_COMPILER=darwin
 B2_VARIANT="native_$ARCH"
-B2_TOOLSET_CXX="clang++ $ARCHFLAG"
-B2_FLAGS="target-os=darwin address-model=64 architecture=$B2_ARCH"
+B2_TOOLSET_CXX="$CXX"
+B2_FLAGS="target-os=darwin address-model=64 architecture=$B2_ARCH macosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
 # libtorrent's ip_notifier needs SystemConfiguration (its .pc doesn't say so).
-EXTRA_CGO_LDFLAGS="-framework SystemConfiguration -framework CoreFoundation"
+EXTRA_CGO_LDFLAGS="-mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET -framework SystemConfiguration -framework CoreFoundation"
 # webrtc deps: cmake can't take "clang -arch ..." as CMAKE_C_COMPILER; pass a
 # bare clang + the arch via CMAKE_OSX_ARCHITECTURES instead. (OpenSSL's
 # darwin64-*-cc Configure targets carry the -arch flag themselves.)
 OSXARCH=$([[ "$ARCH" == amd64 ]] && echo x86_64 || echo arm64)
-CMAKE_CROSS_ARGS="-DCMAKE_C_COMPILER=clang -DCMAKE_OSX_ARCHITECTURES=$OSXARCH"
+CMAKE_CROSS_ARGS="-DCMAKE_C_COMPILER=clang -DCMAKE_OSX_ARCHITECTURES=$OSXARCH -DCMAKE_OSX_DEPLOYMENT_TARGET=$MACOSX_DEPLOYMENT_TARGET"
 
 export TARGET GOOS GOARCH CC CXX B2_COMPILER B2_VARIANT B2_TOOLSET_CXX B2_FLAGS \
-       EXTRA_CGO_LDFLAGS CMAKE_CROSS_ARGS
+       EXTRA_CGO_LDFLAGS CMAKE_CROSS_ARGS MACOSX_DEPLOYMENT_TARGET
 
 # shellcheck source=_deps.sh
 . "$(dirname "$0")/_deps.sh"

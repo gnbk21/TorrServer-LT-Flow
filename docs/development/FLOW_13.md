@@ -218,6 +218,41 @@ and long-duration field acceptance. Missing acceptance is never called passed.
   both outage windows, retaining all five rotated pairs per profile/scenario
   (80 trials overall). The earlier 60-second workflow and its raw results are
   preserved; shorter feedback does not remove platform/security gates.
+- The final source-bound comparison, run 41628583946 at `09c0b9c4`, completed
+  all 80 rotated trials: 50.4 billion exact video bytes, 320 peer-request-verified
+  cold reads, zero native failed bytes, zero timeouts and no latency threshold
+  flags. All eight reports retain cache-turnover and resource observations.
+  This is the complete comparison, not selection of the best trial. Earlier
+  mixed seek flags remain preserved: their fixed offsets mixed warm/cache-race
+  states with network fetches. The separate cold-read proof removes that
+  ambiguity; it does not retroactively erase those earlier measurements.
+- One final workload retains a resource flag: outage/Legacy median peak RSS
+  increased from 929,497,088 to 1,080,672,256 bytes (about 144 MiB, 16.3%). Both
+  versions kept resident cache within the configured 512 MiB allowance. Peak
+  samples show allocated Go heap persisting through cache turnover/cold seeks,
+  including after resident data contracts; the baseline also exhibits this
+  pattern in individual trials. The longer 60-second comparison had no RSS
+  flag. These observations do not establish a leak or prove a GC root cause.
+  The higher peak is retained as a measured resource limitation, not called
+  fixed or advertised as a memory improvement. No pressure episode occurred in
+  this comparison, so it cannot establish live-pressure recovery performance.
+- The source Linux race gate exposed a pre-existing wall-clock test assumption:
+  demand and verification can straddle a second, yielding two averaging bins
+  with one MiB total delivery. The failed result was 524,288 bytes/s over two
+  samples, not duplicate bytes. The assertion now verifies total delivery and
+  still rejects double accounting. A deterministic boundary test and both
+  affected tests pass 100 race-detector repeats. The original CI failure is
+  retained in `linux-validation-09c0b9c4.log`; the correction changes tests only.
+- GitHub cancelled the source ARM Mac job without allocating a runner, with
+  explicit hosted-capacity annotations. Release preparation uses the supported
+  `macos-26` ARM image while retaining the Intel image. Previously verified ARM
+  binaries report a macOS 15.0 minimum in their Mach-O load commands; compiler,
+  Boost, CMake and final-link deployment flags now preserve that minimum.
+  Native receipt identity includes those compiler/recipe changes, and the Mac
+  gate checks both produced binaries' minimum OS versions before upload.
+  Native ARM unit tests and execution probes remain mandatory. The alternative
+  image is [generally available](https://github.blog/changelog/2026-02-26-macos-26-is-now-generally-available-for-github-hosted-runners/);
+  this is not permission to omit the ARM platform or reuse an older binary.
 - The initial 40-trial comparison preserved zero byte failures/timeouts, but
   flagged seek latency/RSS. Review discovered that the old harness's odd-round
   reversal cancelled its two-policy rotation, always placing the baseline first.

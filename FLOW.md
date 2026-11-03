@@ -5,12 +5,12 @@ This checkout tracks `trinity-aml/TorrServer-LT` on the `upstream` remote and
 
 ## Current release
 
-Stable Flow 1.2.0 adds unified playback diagnosis and a read-only adviser, guided phone proof, backend settings metadata/cache previews, pressure-recovery hysteresis, optional private flight recording and bounded storage views. It includes the reviewed MatriX.147.2/148 maintenance fixes and updated Go/web/native dependencies. Legacy and existing experiments retain their defaults; no quality reduction or mandatory full download is introduced. [Notes](RELEASE_1_2_0_NOTES.md), [verification](RELEASE_1_2_0_VERIFICATION.md).
+Flow 1.3.0 adds Material 3 Expressive, bounded playback coverage and compatibility facts, capability-aware search, selected torrent subtitles, shared Recent history and optional Prometheus monitoring. It retains 1.2.0's diagnosis, guided setup, settings metadata, pressure recovery and private incident recording. Legacy and existing experiments retain their defaults; no quality reduction or mandatory full download is introduced. [Notes](RELEASE_1_3_0_NOTES.md), [acceptance ledger](docs/development/FLOW_13.md).
 
 ## Flow 1.3 additions
 
-These additive interfaces are in development; the published comparison baseline
-remains immutable Flow 1.2.0. New JSON envelopes include `schema_version: 1`.
+The published comparison baseline remains immutable Flow 1.2.0.
+New JSON envelopes include `schema_version: 1`.
 Existing statuses, error text, arrays and settings remain compatible. Management
 routes retain authentication, trusted-origin enforcement and rate limits.
 Read-only observations do not activate torrents, extend warm sessions, download

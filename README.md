@@ -2,7 +2,7 @@
 
 TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps the libtorrent engine, existing media cache and HTTP API, and adds a modern embedded web interface.
 
-> **Flow 1.2.0:** unified playback diagnosis, guided phone setup, clearer settings and storage views, steadier pressure recovery and optional private incident recording. Built with Go 1.27.3 and OpenSSL 3.5.9. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.148.Flow-v1.2.0), [notes](RELEASE_1_2_0_NOTES.md). Legacy remains the default; streaming experiments remain opt-in.
+> **Flow 1.3.0:** Material 3 Expressive, clearer playback evidence, smarter search, selected torrent subtitles, shared Recent history and optional Prometheus monitoring. Built with Go 1.27.3 and OpenSSL 3.5.9. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.148.Flow-v1.3.0), [notes](RELEASE_1_3_0_NOTES.md). Legacy remains the default; streaming experiments remain opt-in.
 
 Use the maintained **1.2.0 release or newer** for current dependency fixes and the security protections described in
 [our security policy](SECURITY.md). Historical plans, release measurements and
@@ -10,14 +10,12 @@ upstream evaluations are organized in the [documentation index](docs/README.md).
 
 ## Run on Windows
 
-Flow 1.3 is under development in this checkout. It adds Material 3 Expressive,
-bounded piece coverage, media compatibility explanations, capability-aware
-search, selected torrent subtitles, shared Recent history and optional Prometheus
-export. These changes are not a published release until the acceptance gates
-pass. See the [implementation ledger](docs/development/FLOW_13.md) and
+Flow preserves original media quality and existing settings. Subtitles require
+explicit selection; Prometheus and conversion are disabled by default. See the
+[acceptance ledger and field-testing limits](docs/development/FLOW_13.md) and
 [API and privacy details](FLOW.md#flow-13-additions).
 
-1. Open [Flow 1.2.0](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.148.Flow-v1.2.0), download **`TorrServer-Flow-windows-amd64-MatriX.148.Flow-v1.2.0.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
+1. Open [Flow 1.3.0](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.148.Flow-v1.3.0), download **`TorrServer-Flow-windows-amd64-MatriX.148.Flow-v1.3.0.zip`**, and extract it. This contains the modern interface, tray and managed install/update scripts. The standard Windows executable is also available separately.
 2. In PowerShell, run the standard executable from the extracted folder, using a separate data directory for Flow:
 
    ```powershell
