@@ -12,6 +12,7 @@ import (
 )
 
 type FlowStatusResponse struct {
+	Coverage          *flow.Coverage               `json:"coverage,omitempty"`
 	Reuse             *torrstor.ReuseStatus        `json:"reuse,omitempty"`
 	Hash              string                       `json:"hash"`
 	Integrity         *flow.IntegritySnapshot      `json:"integrity,omitempty"`
@@ -40,7 +41,12 @@ func flowStatus(c *gin.Context) {
 	warmup := t.NextEpisodeWarmupStatus()
 	integrity := t.FlowIntegrity()
 	reuse := torrstor.Global().CacheByHash(t.StorageHash()).ReuseStatus()
-	c.JSON(http.StatusOK, FlowStatusResponse{Reuse: &reuse, Hash: c.Param("hash"), Integrity: &integrity, Startup: t.FlowStartup(), Sessions: t.FlowStatusWithTraces(c.Query("traces") != "false"), Trackers: t.FlowTrackers(), Network: torr.NetworkStatusSnapshot(), Sparse: t.SparseStatus(), StorageIO: lt.StorageIOStats(), Timeline: &timeline, SampledAt: time.Now().UTC().Format(time.RFC3339Nano), NextEpisodeWarmup: &warmup})
+	sessions, startup := t.FlowStatusWithTraces(c.Query("traces") != "false"), t.FlowStartup()
+	var coverage *flow.Coverage
+	if c.Query("coverage") == "true" {
+		coverage = t.FlowCoverage(sessions, startup)
+	}
+	c.JSON(http.StatusOK, FlowStatusResponse{Coverage: coverage, Reuse: &reuse, Hash: c.Param("hash"), Integrity: &integrity, Startup: startup, Sessions: sessions, Trackers: t.FlowTrackers(), Network: torr.NetworkStatusSnapshot(), Sparse: t.SparseStatus(), StorageIO: lt.StorageIOStats(), Timeline: &timeline, SampledAt: time.Now().UTC().Format(time.RFC3339Nano), NextEpisodeWarmup: &warmup})
 }
 
 func nextEpisodeWarmup(c *gin.Context) {

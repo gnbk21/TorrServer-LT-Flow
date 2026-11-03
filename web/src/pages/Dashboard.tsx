@@ -1,5 +1,7 @@
 import { redactDiagnostic } from "../lib/redact";
-import { useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { immediateNavigation } from "../lib/navigation";
 import { useTranslation } from "react-i18next";
 import {
   useActive,
@@ -14,6 +16,11 @@ import { Link } from "react-router-dom";
 import { Button } from "../components/common/Button";
 import type { Torrent } from "../types/torrent";
 const SessionCard = lazy(() => import("../components/flow/SessionCard"));
+const RecentPlayback = lazy(() =>
+  import("../components/torrent/RecentPlayback").then((module) => ({
+    default: module.RecentPlayback,
+  })),
+);
 const FlowHealthPanel = lazy(() =>
   import("../components/flow/FlowHealthPanel").then((module) => ({
     default: module.FlowHealthPanel,
@@ -32,12 +39,17 @@ const Files = lazy(() =>
 );
 export default function Dashboard() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const activity = useActive();
   const runtime = useRuntime();
   const network = useNetwork();
   const settings = useSettings();
   const [gstOpen, setGstOpen] = useState(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [params] = useSearchParams();
+  useEffect(() => {
+    if (params.get("diagnostics") === "1") setDiagnosticsOpen(true);
+  }, [params]);
   const items = activity.data?.items || [];
   const active = items.flatMap(({ torrent, status }) =>
     (status.sessions || [])
@@ -129,18 +141,31 @@ export default function Dashboard() {
             <Link
               className="inline-flex items-center min-h-11 px-4 bg-blue-600 rounded-xl"
               to="/add"
+              onClick={(event) => immediateNavigation(event, "/add", navigate)}
             >
               {t("Add")}
             </Link>
             <Link
               className="inline-flex items-center min-h-11 px-4 border rounded-xl"
               to="/torrents"
+              onClick={(event) =>
+                immediateNavigation(event, "/torrents", navigate)
+              }
             >
               {t("nav.torrents")}
             </Link>
           </div>
         </section>
       )}
+      <Suspense
+        fallback={
+          <section className="panel min-h-52">
+            <Loading />
+          </section>
+        }
+      >
+        <RecentPlayback />
+      </Suspense>
       <section className="panel space-y-4">
         <h2 className="font-semibold">
           <Button

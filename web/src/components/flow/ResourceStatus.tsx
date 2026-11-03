@@ -6,6 +6,10 @@ export function ResourceStatus({ status }: { status?: RuntimeStatus }) {
   const { t } = useTranslation();
   if (!status) return null;
   const resources = status.resources;
+  const sampleTime = Date.parse(resources?.sampled_at ?? "");
+  const hasResourceSample = Number.isFinite(sampleTime) && sampleTime > 0;
+  const resourceBytes = (value: number) =>
+    hasResourceSample ? humanizeBytes(value) : t("status.unknown");
   const exposure = status.exposure;
   return (
     <div className="space-y-3">
@@ -13,10 +17,10 @@ export function ResourceStatus({ status }: { status?: RuntimeStatus }) {
         <>
           <dl className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
             {[
-              ["ramBudget", humanizeBytes(resources.budget_bytes)],
-              ["warmBudget", humanizeBytes(resources.warm_budget_bytes)],
-              ["ramCache", humanizeBytes(resources.ram_resident_bytes)],
-              ["diskCache", humanizeBytes(resources.disk_cache_bytes)],
+              ["ramBudget", resourceBytes(resources.budget_bytes)],
+              ["warmBudget", resourceBytes(resources.warm_budget_bytes)],
+              ["ramCache", resourceBytes(resources.ram_resident_bytes)],
+              ["diskCache", resourceBytes(resources.disk_cache_bytes)],
               [
                 "systemFree",
                 status.memory?.system_available
@@ -31,10 +35,10 @@ export function ResourceStatus({ status }: { status?: RuntimeStatus }) {
             ))}
           </dl>
           <p className="text-xs text-slate-400">{t("runtime.budgetHint")}</p>
-          {resources.background_limited && (
+          {hasResourceSample && resources.background_limited && (
             <p role="status">{t("runtime.backgroundLimited")}</p>
           )}
-          {resources.protected_overcommit && (
+          {hasResourceSample && resources.protected_overcommit && (
             <p role="status">{t("runtime.overcommit")}</p>
           )}
         </>

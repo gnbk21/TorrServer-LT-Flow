@@ -7,6 +7,165 @@ This checkout tracks `trinity-aml/TorrServer-LT` on the `upstream` remote and
 
 Stable Flow 1.2.0 adds unified playback diagnosis and a read-only adviser, guided phone proof, backend settings metadata/cache previews, pressure-recovery hysteresis, optional private flight recording and bounded storage views. It includes the reviewed MatriX.147.2/148 maintenance fixes and updated Go/web/native dependencies. Legacy and existing experiments retain their defaults; no quality reduction or mandatory full download is introduced. [Notes](RELEASE_1_2_0_NOTES.md), [verification](RELEASE_1_2_0_VERIFICATION.md).
 
+## Flow 1.3 additions
+
+These additive interfaces are in development; the published comparison baseline
+remains immutable Flow 1.2.0. New JSON envelopes include `schema_version: 1`.
+Existing statuses, error text, arrays and settings remain compatible. Management
+routes retain authentication, trusted-origin enforcement and rate limits.
+Read-only observations do not activate torrents, extend warm sessions, download
+media or launch optional probes.
+
+### Appearance and playback evidence
+
+Generated Material 3 semantic tokens provide Iris, Lagoon and Rose palettes,
+light/dark/system appearance, comfortable/compact density and 100/125/150/200%
+text. New installations follow the system. A local bootstrap applies validated
+saved preferences before React starts; unavailable storage falls back safely.
+No font service is required. Reduced motion, keyboard focus, forced colors and
+mobile navigation are supported. Ctrl/Cmd+K invokes existing navigation, pairing,
+diagnostics and appearance actions, preserving authorization and confirmations.
+
+`GET /flow/status/:hash?coverage=true` adds a versioned `coverage` snapshot;
+ordinary polling omits the projection. It joins cached native evidence with at
+most 256 pieces and eight frontiers, retaining the existing eight-window/512-peer
+sampling limits. Resident/verified bytes, requests and sampled supplier counts
+are separate. Receiving blocks are not verified bytes. Native evidence older
+than five seconds does not establish current availability or queue state.
+Truncation and unknowns remain visible. No sampled supplier means only none
+observed among sampled connected peers, not global torrent unavailability.
+
+`GET /flow/media/:hash/:index` reads the bounded probe cache. Container,
+dimensions, codec profile, bit depth, transfer/HDR and track data are optional;
+missing facts remain unknown. Browser checks advise only the internal player,
+not Just Player. Direct playback is the initial path. GStreamer requires explicit
+selection: remuxing changes the container; audio/video conversion re-encodes the
+selected media and can consume substantial CPU or change quality. Opening the
+card starts no probe or conversion.
+
+### Search planning and source health
+
+`GET /torznab/caps` preserves categories/limits and adds advertised generic,
+movie and TV search types and parameters. The search route accepts optional
+`type`, `year`, `imdbid`, `tmdbid`, `tvdbid`, `season` and `ep` alongside text
+`query`. Only advertised structured parameters are sent. Cold-cache title searches
+start generically while bounded capability discovery runs separately. Capabilities
+expire after 15 minutes, with at most 128 endpoint/credential identities. A
+structured query has at most one generic fallback when a usable title exists.
+The global four-request limit, deadline, cancellation and partial results remain.
+Unsupported ID-only searches report `unsupported_query`, not an empty broad
+query. Legacy clients retain arrays; detailed responses add timing/query mode.
+
+`GET /flow/search-status` is protected and cache-only. At most 128 endpoints
+retain their latest 20 outcomes in memory until restart: last attempt/success,
+elapsed time, authentication state, cooldown and actual query mode. Query text,
+keys and credential-bearing URLs are excluded. An aggregate Jackett/Prowlarr
+endpoint does not establish the health of every tracker behind it. Add trackers
+in that service and configure Torznab in Flow; this does not change Lampa's
+separate parser. See [RuTracker guidance](LAMPA_RUTRACKER.md).
+
+Release badges are bounded filename interpretations, separate from verified
+probe facts. Unknown seeds/sizes remain unknown. Only proven matching torrent
+identities are grouped, retaining contributing sources. Filters/stable sorting
+explain their effect and offer Reset; all qualities are initially visible. Search
+does not probe every result or automatically choose another release.
+
+### Selected torrent subtitles
+
+`GET /subs/:hash/:id` lists metadata only for a one-based video ID. It returns
+at most 100 SRT/ASS/SSA/VTT candidates and a truncation flag. Matching uses a
+normalized basename or episode identity in the same folder or its direct
+`subs`/`subtitles` folder. Ambiguous matches require selection; nothing attaches
+automatically.
+
+`GET /subs/:hash/:id?track=<file-id>&format=original|vtt` retrieves one selected
+sidecar: 4 MiB maximum input, 8 MiB converted output, UTF-8/BOM, UTF-16 BOM and
+Windows-1251 fallback. Escaped WebVTT simplifies ASS/SSA styling. Original mode
+validates supported text grammar and preserves bytes. Binary/malformed input is
+rejected. HEAD reads metadata only. No arbitrary path or external URL is accepted.
+
+Auxiliary readers allow two fetches globally and one per torrent, with a
+ten-second deadline and full boundary-piece accounting. They create no playback
+session, saved position or Recent entry, and never enlarge foreground capacity.
+Startup/index work, immediate readers and pressure recovery take precedence.
+Insufficient capacity or protection cancellation returns `SUBTITLE_DEFERRED`;
+retry or attach manually. Removal/restart/cancellation release priorities and
+readers.
+
+The global limit remains held through conversion and HTTP response ownership,
+so completed cache reads cannot leave an unbounded set of converted buffers.
+Subtitle response write deadlines are cleared before keep-alive video reuse.
+New subtitle, Recent and monitoring errors use the versioned structured envelope
+(`schema_version: 1`, `error`, `code`), with private/no-store responses and empty
+HEAD bodies. Legacy error payloads keep their existing string-only shape.
+The download action uses the selected signed subtitle alias, including when
+raw media access requires playback tokens; renewal updates the shared link.
+
+`POST /flow/playback-link` accepts optional `subtitle_file_index` and adds
+`subtitle_path` only when selected. Existing tokens remain video-only. Scoped
+`GET/HEAD /flow/play/:token/*resource` authorizes fixed named video/subtitle
+aliases such as `media.mkv` and `media.srt`, plus an optional language alias.
+Claim/current metadata checks precede activation. Just Player can discover HTTP
+sibling subtitles; copy/download and manual attachment remain fallbacks. Browser
+fetching begins only after selection and never gates video startup. Responses
+are private/no-store, and subtitle bytes stay outside ordinary support exports.
+When playback tokens are required, raw fetching additionally requires HTTP auth.
+
+### Recent history and saved positions
+
+`Flow.RecentPlaybackHistory` defaults to true and applies live. A separate local
+store retains at most 200 files for 30 days without changing legacy Viewed
+records. Successful non-probe video delivery records one open per logical
+session, debounced across Range requests. Subtitles, preparation, warmup, probes
+and failed launches do not count. Removed torrents are omitted/purged. Periodic
+maintenance expires records even while collection is disabled.
+
+`GET /flow/recent` returns `enabled`, `read_only` and `items`, with current
+library titles/paths, `last_opened_at` and optional Viewed metadata.
+`POST /flow/recent` accepts `{ "action": "remove", "hash": "…", "file_index": 1 }`
+or `{ "action": "clear" }`. The interface offers disable, remove and confirmed
+clear. Clearing Recent preserves positions/completion. This is shared local
+history, not a per-user decoded watch log.
+
+`/viewed` preserves marks/timecodes and adds optional `position_source` and
+explicit `completed`. Older positions are labelled legacy saved positions;
+zero-timecode marks or transferred bytes never establish completion.
+`TrackTimecode` remains unchanged. The internal player reports actual position
+every five seconds and on pause/close only when enabled. Resume is explicit;
+Just Player receives its integer-millisecond position extra, without implying
+return-position telemetry. Original filenames and ambiguous episode selection
+remain available. Release, quality and warmup settings do not change.
+
+### Optional Prometheus monitoring
+
+`Flow.PrometheusEnabled` defaults to false and applies live. `/metrics` uses the
+existing listener, WAF and access controls, without another port. Loopback is
+subject to configured authentication. Other socket peers additionally require
+enabled HTTP authentication and valid credentials; forwarded headers do not
+establish peer identity. Reverse proxies must enforce their own access policy.
+
+Use a **15-second scrape interval** in your separately installed Prometheus:
+
+```yaml
+scrape_configs:
+  - job_name: flow
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['127.0.0.1:8090']
+    # Configure basic_auth with private credentials when Flow requires it.
+```
+
+The pinned official client exports cached process/resource state, active server
+requests, cache budgets/pressure/overcommit, startup outcomes, read waits, seek
+recoveries and search outcomes. Units are bytes/seconds with fixed enum labels.
+Filenames, hashes, addresses, tokens, queries and passkeys are excluded. Counters
+accumulate until process exit, including across torrent removal. Sampled/rolling
+state uses gauges; session percentiles are not averaged into a global percentile.
+Scrapes trigger no probe, native scan, history-file read or download.
+`flow_observations_enabled` explains absent new streaming measurements when
+ordinary Flow metrics are disabled; export enables no unrelated diagnostics.
+Prometheus and Grafana remain optional installations.
+
 ## Settings metadata
 
 `GET /settings/metadata/v1` uses the existing management authentication and origin

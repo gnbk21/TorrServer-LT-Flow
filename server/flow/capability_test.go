@@ -13,7 +13,7 @@ func TestPlaybackCapabilityScopeTamperingAndExpiry(t *testing.T) {
 	}
 	other, _ := NewCapabilitySigner()
 	now := time.Unix(1000, 0)
-	claim := PlaybackClaim{strings.Repeat("a", 40), 7, 1060}
+	claim := PlaybackClaim{Hash: strings.Repeat("a", 40), Index: 7, Expires: 1060}
 	token, err := s.Mint(claim, now)
 	if err != nil {
 		t.Fatal(err)
@@ -55,5 +55,36 @@ func TestManagementLimiterBoundsAndRefill(t *testing.T) {
 	}
 	if !l.Allow("after-expiry", 1, now.Add(3*time.Minute)) {
 		t.Fatal("expired clients were not reclaimed")
+	}
+}
+
+func TestSubtitleCapabilityIsAdditiveAndV2Scoped(t *testing.T) {
+	s, _ := NewCapabilitySigner()
+	now := time.Now()
+	for _, hash := range []string{strings.Repeat("a", 40), strings.Repeat("b", 64)} {
+		old := PlaybackClaim{Hash: hash, Index: 1, Expires: now.Add(time.Minute).Unix()}
+		token, err := s.Mint(old, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := s.Verify(token, now)
+		if err != nil || got.SubtitleIndex != 0 {
+			t.Fatal("old authority expanded", got, err)
+		}
+		old.SubtitleIndex = 2
+		token, err = s.Mint(old, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err = s.Verify(token, now)
+		if err != nil || got != old {
+			t.Fatal("selected scope lost", got, err)
+		}
+		for _, bad := range []int{-1, 1} {
+			old.SubtitleIndex = bad
+			if _, err = s.Mint(old, now); err == nil {
+				t.Fatal("invalid subtitle scope", bad)
+			}
+		}
 	}
 }

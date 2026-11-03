@@ -14,6 +14,13 @@ export async function upgradeFixture(page: Page, count = 200) {
     if (url.pathname === "/echo")
       return route.fulfill({ body: "MatriX.145.Flow-test" });
     if (url.pathname === "/flow/active") return json({ items: [], sampled_at });
+    if (url.pathname === "/flow/recent")
+      return json({
+        schema_version: 1,
+        enabled: true,
+        read_only: false,
+        items: [],
+      });
     if (url.pathname === "/flow/library")
       return json({
         items: Array.from({ length: Math.min(50, count) }, (_, i) => ({
@@ -91,7 +98,12 @@ export async function upgradeFixture(page: Page, count = 200) {
       return json({ settings: "json", viewed: "bbolt", revision: "fixture" });
     // An omitted fixture API is an older-server response, never permission to
     // send a read or mutation through Vite's proxy to the owner's Flow process.
-    if (["fetch", "xhr"].includes(route.request().resourceType()))
+    if (
+      ["fetch", "xhr"].includes(route.request().resourceType()) ||
+      /^\/(?:stream|play|subs|metrics|flow|gst|torrents?|settings|runtime|torznab|jacred|viewed|playlist|cache|waf|tmdb|storage|download|ffp|stat|dav|hls)(?:\/|$)/.test(
+        url.pathname,
+      )
+    )
       return route.fulfill({
         status: 404,
         json: { error: "endpoint omitted by fixture" },

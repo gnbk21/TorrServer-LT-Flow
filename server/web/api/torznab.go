@@ -31,8 +31,9 @@ import (
 //	@Success		200	{array}	models.TorrentDetails	"Torznab torrent search result(s)"
 //	@Router			/torznab/search [get]
 type detailedSearchResponse struct {
-	Items   []*models.TorrentDetails `json:"items"`
-	Sources []searchstatus.Status    `json:"sources"`
+	SchemaVersion int                      `json:"schema_version"`
+	Items         []*models.TorrentDetails `json:"items"`
+	Sources       []searchstatus.Status    `json:"sources"`
 }
 
 func torznabSearch(c *gin.Context) {
@@ -41,6 +42,11 @@ func torznabSearch(c *gin.Context) {
 		return
 	}
 	query := utils.DecodeQueryValue(c.Query("query"))
+	specification := torznab.Query{Text: query, Type: c.Query("type"), IMDb: c.Query("imdbid"), TMDB: c.Query("tmdbid"), TVDB: c.Query("tvdbid"), Year: c.Query("year"), Season: c.Query("season"), Episode: c.Query("ep")}
+	if err := specification.Validate(); err != nil {
+		abortWithErrorCode(c, 400, "INVALID_SEARCH_QUERY", err)
+		return
+	}
 	indexStr := c.DefaultQuery("index", "-1")
 	index := -1
 	if i, err := strconv.Atoi(indexStr); err == nil {
@@ -62,12 +68,12 @@ func torznabSearch(c *gin.Context) {
 		limit = 250
 	}
 
-	list, outcomes := torznab.SearchDetailed(c.Request.Context(), query, index, cat, offset, limit)
+	list, outcomes := torznab.SearchDetailedQuery(c.Request.Context(), specification, index, cat, offset, limit)
 	if list == nil {
 		list = []*models.TorrentDetails{}
 	}
 	if c.Query("details") == "true" {
-		c.JSON(200, detailedSearchResponse{list, outcomes})
+		c.JSON(200, detailedSearchResponse{1, list, outcomes})
 		return
 	}
 	c.JSON(200, list)
@@ -80,7 +86,9 @@ type torznabCapsCategory struct {
 }
 
 type torznabCapsResponse struct {
-	Limits struct {
+	SchemaVersion int               `json:"schema_version"`
+	Searching     torznab.Searching `json:"searching"`
+	Limits        struct {
 		Max     int `json:"max"`
 		Default int `json:"default"`
 	} `json:"limits"`
@@ -139,7 +147,7 @@ func torznabCaps(c *gin.Context) {
 		return
 	}
 
-	resp := torznabCapsResponse{}
+	resp := torznabCapsResponse{SchemaVersion: 1, Searching: caps.Searching}
 	resp.Limits.Max = caps.Limits.Max
 	resp.Limits.Default = caps.Limits.Default
 	for _, cat := range caps.Categories {
@@ -160,7 +168,12 @@ func torznabTest(c *gin.Context) {
 		return
 	}
 
-	if err := torznab.Test(c.Request.Context(), req.Host, req.Key); err != nil {
+	started := time.Now()
+	testErr := torznab.Test(c.Request.Context(), req.Host, req.Key)
+	observation := searchstatus.Outcome("torznab", 0, 1, started, testErr)
+	observation.QueryMode = "caps_test"
+	searchstatus.Record(searchstatus.EndpointKey("torznab", req.Host, req.Key), observation)
+	if err := testErr; err != nil {
 		outcome := searchstatus.Outcome("torznab", 0, 0, time.Now(), err)
 		c.JSON(200, gin.H{"success": false, "error": errorMessage(err), "state": outcome.State})
 		return

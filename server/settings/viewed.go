@@ -2,6 +2,7 @@ package settings
 
 import (
 	"encoding/json"
+	"time"
 
 	"server/log"
 )
@@ -9,9 +10,12 @@ import (
 // Viewed marks one torrent file as watched. TimeCode is the playback position
 // in seconds; it is stored only while BTSets.TrackTimecode is on (otherwise 0).
 type Viewed struct {
-	Hash      string  `json:"hash"`
-	FileIndex int     `json:"file_index"`
-	TimeCode  float64 `json:"timecode"`
+	PositionSource    string     `json:"position_source,omitempty"`
+	PositionUpdatedAt *time.Time `json:"position_updated_at,omitempty"`
+	Completed         *bool      `json:"completed,omitempty"`
+	Hash              string     `json:"hash"`
+	FileIndex         int        `json:"file_index"`
+	TimeCode          float64    `json:"timecode"`
 }
 
 // readIndexes decodes a torrent's viewed record: file index -> timecode. It
@@ -41,11 +45,16 @@ func SetViewed(vv *Viewed) {
 	dbMigrationLock.RLock()
 	defer dbMigrationLock.RUnlock()
 	val := vv.TimeCode
-	if !trackTimecode() {
+	m := readIndexes(tdb.Get("Viewed", vv.Hash))
+	// Explicit completion edits do not manufacture or erase a saved position.
+	if vv.Completed != nil && vv.PositionSource == "" && val == 0 {
+		val = m[vv.FileIndex]
+	}
+	updateViewedMetadataLocked(vv, trackTimecode() && (vv.TimeCode > 0 || vv.PositionSource != ""))
+	if !trackTimecode() && !(vv.Completed != nil && vv.PositionSource == "" && vv.TimeCode == 0) {
 		val = 0
 	}
 
-	m := readIndexes(tdb.Get("Viewed", vv.Hash))
 	m[vv.FileIndex] = val
 	buf, err := json.Marshal(m)
 	if err == nil {
@@ -77,6 +86,7 @@ func MarkViewed(hash string, fileIndex int) {
 func RemViewed(vv *Viewed) {
 	dbMigrationLock.RLock()
 	defer dbMigrationLock.RUnlock()
+	removeViewedMetadataLocked(vv.Hash, vv.FileIndex)
 	if vv.FileIndex == -1 {
 		tdb.Rem("Viewed", vv.Hash)
 		return
@@ -98,6 +108,24 @@ func RemViewed(vv *Viewed) {
 func ListViewed(hash string) []*Viewed {
 	dbMigrationLock.RLock()
 	defer dbMigrationLock.RUnlock()
+	recentMu.Lock()
+	metadata := viewedMetadataLocked()
+	recentMu.Unlock()
+	makeViewed := func(hash string, index int, tc float64) *Viewed {
+		v := &Viewed{Hash: hash, FileIndex: index, TimeCode: tc}
+		for _, row := range metadata.Items {
+			if row.Hash == hash && row.FileIndex == index {
+				v.PositionSource = row.PositionSource
+				v.PositionUpdatedAt = row.PositionUpdatedAt
+				v.Completed = row.Completed
+				break
+			}
+		}
+		if tc > 0 && v.PositionSource == "" {
+			v.PositionSource = "legacy_saved"
+		}
+		return v
+	}
 	if hash != "" {
 		buf := tdb.Get("Viewed", hash)
 		if len(buf) == 0 {
@@ -105,7 +133,7 @@ func ListViewed(hash string) []*Viewed {
 		}
 		var ret []*Viewed
 		for i, tc := range readIndexes(buf) {
-			ret = append(ret, &Viewed{Hash: hash, FileIndex: i, TimeCode: tc})
+			ret = append(ret, makeViewed(hash, i, tc))
 		}
 		return ret
 	}
@@ -117,7 +145,7 @@ func ListViewed(hash string) []*Viewed {
 			continue
 		}
 		for i, tc := range readIndexes(buf) {
-			ret = append(ret, &Viewed{Hash: key, FileIndex: i, TimeCode: tc})
+			ret = append(ret, makeViewed(key, i, tc))
 		}
 	}
 	return ret

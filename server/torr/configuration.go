@@ -265,6 +265,7 @@ func StartConfigurationWorker(integration func(*settings.BTSets)) {
 			ticker := time.NewTicker(2 * time.Second)
 			defer ticker.Stop()
 			for range ticker.C {
+				settings.PruneRecent(time.Now())
 				applyPendingConfiguration()
 			}
 		}()

@@ -23,16 +23,30 @@ export function safeStreamUrl(value: string): URL {
 export function buildAndroidIntent(
   streamUrl: string,
   player: "just" | "vlc" = "just",
+  startSeconds?: number,
 ): string {
   const url = safeStreamUrl(streamUrl);
   const data = url.href.slice(url.protocol.length + 2).replace(/;/g, "%3B");
-  return `intent://${data}#Intent;scheme=${url.protocol.slice(0, -1)};package=${player === "just" ? "com.brouken.player" : "org.videolan.vlc"};type=video/*;S.browser_fallback_url=${encodeURIComponent(url.href)};end`;
+  const position =
+    player === "just" &&
+    startSeconds !== undefined &&
+    Number.isFinite(startSeconds) &&
+    startSeconds > 0 &&
+    startSeconds * 1000 <= 2147483647
+      ? `i.position=${Math.floor(startSeconds * 1000)};`
+      : "";
+  return `intent://${data}#Intent;scheme=${url.protocol.slice(0, -1)};package=${player === "just" ? "com.brouken.player" : "org.videolan.vlc"};type=video/*;${position}S.browser_fallback_url=${encodeURIComponent(url.href)};end`;
 }
-export function buildIntentUrls(streamUrl: string): IntentUrls {
+export function buildIntentUrls(
+  streamUrl: string,
+  startSeconds?: number,
+): IntentUrls {
   const url = safeStreamUrl(streamUrl).href;
   return {
     webStreamUrl: url,
-    justPlayerIntent: isAndroidDevice() ? buildAndroidIntent(url) : undefined,
+    justPlayerIntent: isAndroidDevice()
+      ? buildAndroidIntent(url, "just", startSeconds)
+      : undefined,
     vlcIntent: isAndroidDevice() ? buildAndroidIntent(url, "vlc") : undefined,
   };
 }

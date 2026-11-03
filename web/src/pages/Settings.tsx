@@ -110,6 +110,31 @@ const groups: Record<string, string[]> = {
   ],
 };
 export default function Settings() {
+  const actionsRef = useCallback((element: HTMLDivElement | null) => {
+    if (!element) return;
+    const navigation = document.querySelector(".flow-shell > nav");
+    const update = () => {
+      const bounds = navigation?.getBoundingClientRect();
+      const clearance =
+        bounds && bounds.width > innerWidth / 2 ? bounds.height : 0;
+      // Match the top toolbar's space rule. In a short/high-zoom viewport,
+      // fixed actions must not cover the form that the user is editing.
+      element.style.position =
+        element.getBoundingClientRect().height + clearance < innerHeight / 2
+          ? "sticky"
+          : "static";
+    };
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    if (navigation) observer.observe(navigation);
+    window.addEventListener("resize", update);
+    update();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+      element.style.removeProperty("position");
+    };
+  }, []);
   const { t } = useTranslation();
   const query = useSettings();
   const runtime = useRuntime();
@@ -332,6 +357,8 @@ export default function Settings() {
       (
         {
           "Flow.DiagnosticHistory": t("settings.historyHint"),
+          "Flow.RecentPlaybackHistory": t("recent.settingsHint"),
+          "Flow.PrometheusEnabled": t("recent.monitoringHint"),
           "Flow.DHTStatePersistence": t("settings.dhtHint"),
           "Flow.PeerResumeHints": t("settings.peerHintsHelp"),
           "Flow.MetadataFallback": t("settings.metadataFallbackHelp"),
@@ -812,7 +839,11 @@ export default function Settings() {
           })}
         </div>
       </form>
-      <div className="actions sticky bottom-20 lg:bottom-3 panel">
+      <div
+        ref={actionsRef}
+        data-settings-actions
+        className="actions sticky bottom-20 lg:bottom-3 panel"
+      >
         <Button
           type="submit"
           form="flow-settings-form"

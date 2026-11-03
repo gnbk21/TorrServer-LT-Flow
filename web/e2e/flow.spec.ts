@@ -1265,7 +1265,10 @@ test("file view retains raw name, watched timecode and browser fallback", async 
   await expect(
     page.getByText("Season 01/Show.S01E01.mkv", { exact: false }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: /In progress/ })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Saved position/ }),
+  ).toBeVisible();
+  await expect(page.getByText(/Legacy saved position/)).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Open stream", exact: true }),
   ).toHaveAttribute("href", /index=1.*ss=/);

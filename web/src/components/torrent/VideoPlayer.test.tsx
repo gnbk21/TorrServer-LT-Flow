@@ -1,9 +1,24 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, it, expect, vi } from "vitest";
-import { render, waitFor, cleanup, fireEvent } from "@testing-library/react";
+import {
+  render,
+  waitFor,
+  cleanup,
+  fireEvent,
+  act,
+} from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import VideoPlayer from "./VideoPlayer";
 import { integrationsApi } from "../../api/integrations";
 import { api } from "../../api/client";
+import { viewedApi } from "../../api/viewed";
+const preferences = vi.hoisted(() => ({ tracking: false }));
+vi.mock("../../hooks/queries", () => ({
+  useSettings: () => ({ data: { TrackTimecode: preferences.tracking } }),
+}));
+vi.mock("../../api/viewed", () => ({
+  viewedApi: { report: vi.fn().mockResolvedValue(undefined) },
+}));
 const engine = vi.hoisted(() => ({
   loadSource: vi.fn(),
   attachMedia: vi.fn(),
@@ -51,6 +66,7 @@ const props = {
   onClose: vi.fn(),
 };
 beforeEach(() => {
+  preferences.tracking = false;
   vi.clearAllMocks();
   vi.mocked(integrationsApi.getGstProbe).mockResolvedValue({ Tracks: [] });
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
@@ -73,6 +89,9 @@ it("waits for cold discovery and cancels it when the player closes", async () =>
     <QueryClientProvider client={new QueryClient()}>
       <VideoPlayer {...props} />
     </QueryClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "torrent.compatibility.gstMode" }),
   );
   await waitFor(() =>
     expect(integrationsApi.getGstProbe).toHaveBeenCalledOnce(),
@@ -100,6 +119,9 @@ it("uses GST for MKV with the server audio preference and destroys HLS on close"
       <VideoPlayer {...props} />
     </QueryClientProvider>,
   );
+  fireEvent.click(
+    screen.getByRole("button", { name: "torrent.compatibility.gstMode" }),
+  );
   await waitFor(() =>
     expect(engine.loadSource).toHaveBeenCalledWith(
       expect.stringContaining("/gst/abc/master.m3u8?index=2&audio=-1"),
@@ -120,6 +142,7 @@ it("retains direct playback when the executable has no GST", async () => {
     expect(document.querySelector("video")).toHaveAttribute("src", props.url),
   );
   expect(engine.loadSource).not.toHaveBeenCalled();
+  expect(integrationsApi.getGst).not.toHaveBeenCalled();
 });
 it("closing before GST discovery finishes cannot start a late player or heartbeat", async () => {
   let resolve!: (value: { built_in: boolean }) => void;
@@ -133,6 +156,9 @@ it("closing before GST discovery finishes cannot start a late player or heartbea
     <QueryClientProvider client={new QueryClient()}>
       <VideoPlayer {...props} />
     </QueryClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "torrent.compatibility.gstMode" }),
   );
   view.unmount();
   resolve({ built_in: true });
@@ -175,4 +201,77 @@ it("uses an owned VTT blob for subtitles and revokes it when closed", async () =
   );
   view.unmount();
   expect(revoke).toHaveBeenCalledWith("blob:http://localhost/owned-subtitle");
+});
+
+it("reports actual position every five seconds and on pause/close only with tracking enabled", async () => {
+  preferences.tracking = true;
+  vi.useFakeTimers();
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const view = render(
+    <QueryClientProvider client={client}>
+      <VideoPlayer {...props} />
+    </QueryClientProvider>,
+  );
+  const video = document.querySelector("video")!;
+  Object.defineProperty(video, "readyState", { value: 1, configurable: true });
+  Object.defineProperty(video, "paused", { value: false, configurable: true });
+  video.currentTime = 42;
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(5000);
+  });
+  expect(viewedApi.report).toHaveBeenCalledWith(props.hash, 2, 42, false);
+  video.currentTime = 46;
+  await act(async () => {
+    fireEvent.pause(video);
+    await Promise.resolve();
+  });
+  expect(viewedApi.report).toHaveBeenCalledWith(props.hash, 2, 46, false);
+  video.currentTime = 47;
+  view.unmount();
+  expect(viewedApi.report).toHaveBeenCalledWith(props.hash, 2, 47, true);
+});
+it("does not silently enable position reporting", async () => {
+  const view = render(
+    <QueryClientProvider client={new QueryClient()}>
+      <VideoPlayer {...props} />
+    </QueryClientProvider>,
+  );
+  const video = document.querySelector("video")!;
+  Object.defineProperty(video, "readyState", { value: 1, configurable: true });
+  video.currentTime = 60;
+  fireEvent.pause(video);
+  view.unmount();
+  expect(viewedApi.report).not.toHaveBeenCalled();
+});
+
+it("retains the latest pause/close position behind a slow report without replaying it", async () => {
+  preferences.tracking = true;
+  let finish: () => void = () => {};
+  vi.mocked(viewedApi.report).mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const view = render(
+    <QueryClientProvider client={new QueryClient()}>
+      <VideoPlayer {...props} />
+    </QueryClientProvider>,
+  );
+  const video = document.querySelector("video")!;
+  Object.defineProperty(video, "readyState", { value: 1, configurable: true });
+  video.currentTime = 42;
+  fireEvent.pause(video);
+  video.currentTime = 46;
+  fireEvent.pause(video);
+  video.currentTime = 47;
+  view.unmount();
+  expect(viewedApi.report).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    finish();
+  });
+  expect(viewedApi.report).toHaveBeenCalledTimes(2);
+  expect(viewedApi.report).toHaveBeenLastCalledWith(props.hash, 2, 47, true);
 });

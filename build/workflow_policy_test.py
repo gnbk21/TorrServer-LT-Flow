@@ -20,6 +20,15 @@ def job(workflow, name):
 
 
 class WorkflowPolicyTests(unittest.TestCase):
+    def test_all_browser_servers_isolate_unmocked_owner_apis(self):
+        configs=list((ROOT/'web').glob('playwright*.config.ts'))
+        self.assertGreaterEqual(len(configs),3)
+        for config in configs:
+            text=config.read_text(encoding='utf-8')
+            self.assertRegex(text,r'''FLOW_TEST_API_STUB:\s*["']1["']''',config.name)
+            self.assertIn('reuseExistingServer: false',text,config.name)
+        self.assertIn('configurePreviewServer: installMockAPI',(ROOT/'web/vite.config.ts').read_text(encoding='utf-8'))
+
     def test_staged_release_keeps_gates_and_defers_public_container(self):
         classify = job('ts_release.yml', 'classify')
         self.assertIn('stage_before_publish', classify)
@@ -45,10 +54,10 @@ class WorkflowPolicyTests(unittest.TestCase):
         for workflow, name in [('build.yml', 'high-bitrate-comparison'),
                                ('upgrade-benchmarks.yml', 'compare')]:
             text = job(workflow, name)
-            self.assertIn('gh release download MatriX.145.Flow-v1.1.7 ', text)
-            self.assertIn('6317ea5556bb6e70b7f31a024c6bcd9da2cf592789b67ab825fe0f3dc4c44bcf', text)
-            self.assertIn('--source-digest 87d1632e47d64adcfd98d7d916d80aebedbc4e8c', text)
-            self.assertIn('--source-ref refs/tags/MatriX.145.Flow-v1.1.7', text)
+            self.assertIn('gh release download MatriX.148.Flow-v1.2.0 ', text)
+            self.assertIn('f234d9d6934543480b41f4f11810499dc66bd5d7d8a7540b28416eceba7371c2', text)
+            self.assertIn('--source-digest aaf2bc583d196d376751dccf265242273eaad89d', text)
+            self.assertIn('--source-ref refs/tags/MatriX.148.Flow-v1.2.0', text)
             self.assertIn('--deny-self-hosted-runners', text)
             self.assertNotIn('gh release download MatriX.145.Flow-v1.0.1 ', text)
             self.assertNotIn('gh release download MatriX.145.Flow-v1.1.3 ', text)

@@ -1,5 +1,5 @@
 import { pollingDelay } from "../../api/client";
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useState, lazy, Suspense, useDeferredValue } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Modal } from "../common/Modal";
@@ -8,6 +8,7 @@ import { PlaybackLinks } from "../common/PlaybackLinks";
 import { PrepareEpisode } from "./PrepareEpisode";
 import { WebSeeds } from "./WebSeeds";
 import { MediaInformation } from "./MediaInformation";
+import { SubtitlePicker } from "./SubtitlePicker";
 import { RequestError, Loading } from "../common/RequestState";
 import { torrentsApi } from "../../api/torrents";
 import { viewedApi } from "../../api/viewed";
@@ -39,9 +40,20 @@ export function TorrentFilesDialog({
     hash: string;
     index: number;
     path: string;
+    subtitleIndex?: number;
+    startSeconds?: number;
   }>();
   const [error, setError] = useState<unknown>();
   const [busy, setBusy] = useState(false);
+  const [fileFilter, setFileFilter] = useState("");
+  const deferredFilter = useDeferredValue(fileFilter)
+    .normalize("NFKC")
+    .toLocaleLowerCase();
+  const [resumeFile, setResumeFile] = useState<number>();
+  const [visibleLimit, setVisibleLimit] = useState(100);
+  const [subtitles, setSubtitles] = useState<
+    Record<number, number | undefined>
+  >({});
   const info = useQuery({
     queryKey: ["torrent", torrent.hash],
     queryFn: ({ signal }) => torrentsApi.get(torrent.hash, signal),
@@ -59,10 +71,17 @@ export function TorrentFilesDialog({
   useEffect(() => {
     setError(undefined);
     setPlayer(undefined);
+    setFileFilter("");
+    setVisibleLimit(100);
+    setSubtitles({});
+    setResumeFile(undefined);
   }, [torrent.hash]);
   const files = info.data?.file_stats || torrent.file_stats || [];
+  const matches = files.filter((file) =>
+    file.path.normalize("NFKC").toLocaleLowerCase().includes(deferredFilter),
+  );
   const groups = new Map<string, TorrentFile[]>();
-  for (const file of files) {
+  for (const file of matches.slice(0, visibleLimit)) {
     const directory = file.path.split(/[\\/]/).slice(0, -1).join("/") || "/";
     groups.set(directory, [...(groups.get(directory) || []), file]);
   }
@@ -101,6 +120,19 @@ export function TorrentFilesDialog({
         )}{" "}
         {!!error && <RequestError error={error} />}
         {!!files.length && <WebSeeds hash={torrent.hash} />}
+        {!!files.length && (
+          <label className="field">
+            {t("Search")}
+            <input
+              maxLength={1024}
+              value={fileFilter}
+              onChange={(e) => {
+                setFileFilter(e.target.value);
+                setVisibleLimit(100);
+              }}
+            />
+          </label>
+        )}
         {!info.isPending && !files.length && <p>{t("torrent.waitMetadata")}</p>}
         {[...groups].map(([directory, items]) => (
           <section key={directory} className="space-y-2">
@@ -128,19 +160,50 @@ export function TorrentFilesDialog({
                       onClick={() => toggle(file.id, !!mark)}
                     >
                       {t(
-                        mark?.timecode
-                          ? "torrent.inProgress"
-                          : mark
-                            ? "Viewed"
-                            : "torrent.unwatched",
+                        mark?.completed
+                          ? "recent.complete"
+                          : mark?.timecode
+                            ? "recent.position"
+                            : mark
+                              ? "recent.legacyMark"
+                              : "torrent.unwatched",
                       )}
                       {mark?.timecode
                         ? ` · ${formatDuration(mark.timecode)}`
                         : ""}
                     </Button>
                   </div>
+                  {!!mark?.timecode && (
+                    <label className="field">
+                      <span>
+                        {t(
+                          mark.position_source === "legacy_saved" ||
+                            !mark.position_source
+                            ? "recent.legacyPosition"
+                            : "recent.position",
+                        )}{" "}
+                        · {formatDuration(mark.timecode)}
+                      </span>
+                      <span>
+                        <input
+                          type="checkbox"
+                          checked={resumeFile === file.id}
+                          onChange={(e) =>
+                            setResumeFile(
+                              e.target.checked ? file.id : undefined,
+                            )
+                          }
+                        />{" "}
+                        {t("recent.resume")}
+                      </span>
+                    </label>
+                  )}
                   <PlaybackLinks
                     url={url}
+                    startSeconds={
+                      resumeFile === file.id ? mark?.timecode : undefined
+                    }
+                    subtitleIndex={subtitles[file.id]}
                     onInternal={(playbackURL) =>
                       setPlayer({
                         url: playbackURL,
@@ -148,16 +211,32 @@ export function TorrentFilesDialog({
                         hash: torrent.hash,
                         index: file.id,
                         path: file.path,
+                        subtitleIndex: subtitles[file.id],
+                        startSeconds:
+                          resumeFile === file.id ? mark?.timecode : undefined,
                       })
                     }
                   />
                   <PrepareEpisode hash={torrent.hash} index={file.id} />
                   <MediaInformation hash={torrent.hash} index={file.id} />
+                  <SubtitlePicker
+                    hash={torrent.hash}
+                    index={file.id}
+                    value={subtitles[file.id]}
+                    onChange={(value) =>
+                      setSubtitles((old) => ({ ...old, [file.id]: value }))
+                    }
+                  />
                 </article>
               );
             })}
           </section>
         ))}
+        {matches.length > visibleLimit && (
+          <Button onClick={() => setVisibleLimit((count) => count + 100)}>
+            {t("torrent.moreFiles")} ({matches.length - visibleLimit})
+          </Button>
+        )}
         <details onToggle={(e) => setCacheOpen(e.currentTarget.open)}>
           <summary>{t("Cache")}</summary>
           {cacheOpen && (

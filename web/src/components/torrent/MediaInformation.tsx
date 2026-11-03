@@ -4,12 +4,16 @@ import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { api } from "../../api/client";
 import { RequestError } from "../common/RequestState";
+import { browserAdvice, type BrowserAdvice } from "../../lib/compatibility";
+import { Button } from "../common/Button";
+import { useVisibilityGate } from "../../hooks/queries";
 
 const schema = z.object({
   schema_version: z.literal(1),
   known: z.boolean(),
   source: z.literal("existing_bounded_probe"),
   media: z.object({
+    container: z.string().max(128).optional(),
     bitrate: z.string().max(32),
     duration_seconds: z.number().nonnegative(),
     tracks: z
@@ -20,6 +24,14 @@ const schema = z.object({
           codec: z.string().max(128),
           language: z.string().max(128).optional(),
           title: z.string().max(128).optional(),
+          profile: z.string().max(128).optional(),
+          width: z.number().nonnegative().optional(),
+          height: z.number().nonnegative().optional(),
+          bit_depth: z.number().nonnegative().optional(),
+          channels: z.number().nonnegative().optional(),
+          transfer: z.string().max(128).optional(),
+          hdr: z.string().max(128).optional(),
+          pixel_format: z.string().max(128).optional(),
         }),
       )
       .max(32)
@@ -37,6 +49,8 @@ export function MediaInformation({
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [advice, setAdvice] = useState<BrowserAdvice>();
+  const enabled = useVisibilityGate(["cached-media", hash, index], open);
   const query = useQuery({
     queryKey: ["cached-media", hash, index],
     queryFn: async ({ signal }) =>
@@ -46,7 +60,7 @@ export function MediaInformation({
           signal,
         ),
       ),
-    enabled: open,
+    enabled,
     retry: false,
     staleTime: 10000,
   });
@@ -67,6 +81,10 @@ export function MediaInformation({
       ) : (
         <>
           <p>
+            {t("torrent.compatibility.container")}:{" "}
+            {media?.container || t("status.unknown")}
+          </p>
+          <p>
             {t("torrent.media.bitrate")}:{" "}
             {Number.isFinite(bitrate) && bitrate > 0
               ? `${(bitrate / 1e6).toFixed(2)} Mbps · ${(bitrate / 8e6).toFixed(2)} MB/s`
@@ -78,6 +96,17 @@ export function MediaInformation({
                 {t(`torrent.media.${track.type}`)} {track.index}:{" "}
                 {track.codec || t("status.unknown")} · {track.language || "—"}{" "}
                 {track.title || ""}
+                {track.profile ? ` · ${track.profile}` : ""}
+                {track.width && track.height
+                  ? ` · ${track.width} × ${track.height}`
+                  : ""}
+                {track.bit_depth ? ` · ${track.bit_depth} bit` : ""}
+                {track.transfer ? ` · ${track.transfer}` : ""}
+                {track.type === "video" && (
+                  <span> · HDR: {track.hdr || t("status.unknown")}</span>
+                )}
+                {track.pixel_format ? ` · ${track.pixel_format}` : ""}
+                {track.channels ? ` · ${track.channels} ch` : ""}
               </li>
             ))}
           </ul>
@@ -85,6 +114,31 @@ export function MediaInformation({
         </>
       )}
       <p className="text-slate-400">{t("torrent.media.direct")}</p>
+      <section className="space-y-2">
+        <h4>{t("torrent.compatibility.title")}</h4>
+        <p>{t("torrent.compatibility.external")}</p>
+        <ul className="list-disc pl-5">
+          <li>{t("torrent.compatibility.direct")}</li>
+          <li>{t("torrent.compatibility.remux")}</li>
+          <li>{t("torrent.compatibility.audio")}</li>
+          <li>{t("torrent.compatibility.video")}</li>
+        </ul>
+        <Button
+          onClick={() =>
+            setAdvice(
+              browserAdvice(
+                media?.container,
+                media?.tracks?.find((track) => track.type === "video")?.codec,
+                (mime) => document.createElement("video").canPlayType(mime),
+              ),
+            )
+          }
+        >
+          {t("torrent.compatibility.check")}
+        </Button>
+        {advice && <p role="status">{t(`torrent.compatibility.${advice}`)}</p>}
+        <p>{t("torrent.compatibility.advisory")}</p>
+      </section>
     </details>
   );
 }

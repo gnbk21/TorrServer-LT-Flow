@@ -37,6 +37,10 @@ try {
         throw "Use Node $flowNodeVersion from .node-version; found $flowActualNodeVersion. See build/README.md."
     }
     $env:PATH = (Split-Path -Parent $flowNode) + ';' + $env:PATH
+    $flowLocalBrowsers = Join-Path $flowVerifyRoot '.tools/playwright-browsers'
+    if (!$env:PLAYWRIGHT_BROWSERS_PATH -and (Test-Path -LiteralPath $flowLocalBrowsers)) {
+        $env:PLAYWRIGHT_BROWSERS_PATH = $flowLocalBrowsers
+    }
     $flowVerifyReceipt.node_version = $flowActualNodeVersion
     $flowPython = if (Test-Path -LiteralPath 'C:/Python314/python.exe') { 'C:/Python314/python.exe' } else { (Get-Command python.exe -ErrorAction Stop).Source }
     $flowGo = (Get-Command go.exe -ErrorAction Stop).Source
@@ -46,8 +50,12 @@ try {
     Invoke-FlowVerificationStep 'harness-tests' $flowPython @('-X','utf8','-m','unittest','discover','-s','build','-p','*_test.py')
     Invoke-FlowVerificationStep 'web-lint' $flowNode @('node_modules/eslint/bin/eslint.js','src') $flowWeb
     Invoke-FlowVerificationStep 'web-tooling-contract' $flowNode @('--test','scripts/linter-glob-compat.test.mjs') $flowWeb
-    Invoke-FlowVerificationStep 'web-tests' $flowNode @('node_modules/vitest/vitest.mjs','run') $flowWeb
+    # Bound local worker creation so a busy desktop does not turn worker-start
+    # timeouts into misleading component failures. All test files still run.
+    Invoke-FlowVerificationStep 'web-tests' $flowNode @('node_modules/vitest/vitest.mjs','run','--pool=threads','--maxWorkers=1') $flowWeb
     Invoke-FlowVerificationStep 'web-typecheck' $flowNode @('node_modules/typescript/bin/tsc','--noEmit') $flowWeb
+    Invoke-FlowVerificationStep 'web-theme-sync' $flowNode @('scripts/theme.mjs','--check') $flowWeb
+    Invoke-FlowVerificationStep 'web-prepaint' $flowNode @('--test','scripts/appearance.test.mjs') $flowWeb
     Invoke-FlowVerificationStep 'web-build' $flowNode @('node_modules/vite/bin/vite.js','build') $flowWeb
     Invoke-FlowVerificationStep 'web-notices' $flowNode @('scripts/notices.mjs') $flowWeb
     Invoke-FlowVerificationStep 'embedding-tests' $flowGo @('test','gen_web.go','gen_web_test.go')
@@ -66,6 +74,7 @@ try {
         try {
             $env:CI = '1' # Never reuse another project's listener for acceptance.
             Invoke-FlowVerificationStep 'browser' $flowNode @('node_modules/@playwright/test/cli.js','test') $flowWeb
+            Invoke-FlowVerificationStep 'cross-browser' $flowNode @('node_modules/@playwright/test/cli.js','test','--config','playwright.critical.config.ts') $flowWeb
             Invoke-FlowVerificationStep 'interface-lab' $flowNode @('node_modules/@playwright/test/cli.js','test','--config','playwright.lab.config.ts') $flowWeb
         } finally { $env:CI = $flowPreviousCI }
     }

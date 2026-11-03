@@ -22,14 +22,33 @@ export const flowApi = {
       signal,
       true,
     ),
-  playbackLink: async (hash: string, index: number, signal?: AbortSignal) => {
-    const data = await api.post<object, { path: string; expires_at: string }>(
+  playbackLink: async (
+    hash: string,
+    index: number,
+    signal?: AbortSignal,
+    subtitleIndex?: number,
+  ) => {
+    const data = await api.post<
+      object,
+      { path: string; expires_at: string; subtitle_path?: string }
+    >(
       "/flow/playback-link",
-      { hash, index },
+      {
+        hash,
+        index,
+        ...(subtitleIndex ? { subtitle_file_index: subtitleIndex } : {}),
+      },
       signal,
     );
     if (
-      !/^\/flow\/play\/[A-Za-z0-9_.-]+$/.test(data.path) ||
+      !/^\/flow\/play\/[A-Za-z0-9_.-]+(?:\/media\.[a-z0-9]{1,8})?$/.test(
+        data.path,
+      ) ||
+      (subtitleIndex &&
+        (!data.subtitle_path ||
+          !/^\/flow\/play\/[A-Za-z0-9_.-]+\/media\.(?:srt|ass|ssa|vtt)$/.test(
+            data.subtitle_path,
+          ))) ||
       !Number.isFinite(Date.parse(data.expires_at))
     )
       throw new Error("Invalid playback capability response");
@@ -42,7 +61,7 @@ export const flowApi = {
   ) => {
     const started = performance.now();
     const data = await api.get<unknown>(
-      `/flow/status/${encodeURIComponent(hash)}${includeTraces ? "" : "?traces=false"}`,
+      `/flow/status/${encodeURIComponent(hash)}${includeTraces ? "?coverage=true" : "?traces=false"}`,
       signal,
     );
     return observeFlow(

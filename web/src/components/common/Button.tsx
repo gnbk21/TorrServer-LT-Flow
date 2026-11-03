@@ -20,7 +20,7 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseStyles =
-    "inline-flex min-w-0 max-w-full [overflow-wrap:anywhere] items-center justify-center font-medium rounded-xl transition-all duration-150 select-none active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none disabled:active:scale-100 min-h-[44px]";
+    "flow-button inline-flex min-w-0 max-w-full [overflow-wrap:anywhere] items-center justify-center font-medium select-none disabled:opacity-50 disabled:pointer-events-none min-h-[44px]";
 
   const sizeStyles = {
     sm: "text-xs px-3 py-1.5 gap-1.5 min-h-[44px]",
@@ -29,18 +29,12 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   const variantStyles = {
-    primary:
-      "bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 active:bg-blue-700",
-    emerald:
-      "bg-emerald-700 hover:bg-emerald-800 text-white shadow-lg shadow-emerald-600/20 active:bg-emerald-800",
-    secondary:
-      "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 active:bg-slate-800",
-    outline:
-      "bg-transparent hover:bg-slate-800/80 text-slate-300 border border-slate-700 active:bg-slate-800",
-    danger:
-      "bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/20 active:bg-rose-700",
-    ghost:
-      "bg-transparent hover:bg-slate-800/60 text-slate-300 active:bg-slate-800",
+    primary: "flow-button-primary",
+    emerald: "flow-button-success",
+    secondary: "flow-button-tonal",
+    outline: "flow-button-outline",
+    danger: "flow-button-danger",
+    ghost: "flow-button-ghost",
   };
 
   return (

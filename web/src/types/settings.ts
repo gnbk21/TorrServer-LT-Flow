@@ -8,6 +8,8 @@ export interface FlowSwarmCustom {
 }
 
 export interface FlowSettings {
+  RecentPlaybackHistory?: boolean;
+  PrometheusEnabled?: boolean;
   SchemaVersion?: number;
   GlobalCacheBudgetMB?: number;
   WarmCacheBudgetMB?: number;

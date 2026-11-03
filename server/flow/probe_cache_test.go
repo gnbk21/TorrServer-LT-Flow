@@ -61,6 +61,17 @@ func TestExpiredProbeCannotOverwriteReplacement(t *testing.T) {
 	}
 }
 
+func TestProbeCompatibilityFactsRemainBoundedAndUnknownWhenUnsupported(t *testing.T) {
+	result := boundedProbeResult(ProbeResult{Tracks: []ProbeTrack{
+		{Type: "video", Transfer: "smpte2084", HDR: "invented", Width: 100000, BitDepth: 100},
+		{Type: "video", Transfer: "arib-std-b67"},
+		{Type: "video", HDR: "Dolby Vision"},
+	}})
+	if result.Tracks[0].HDR != "PQ" || result.Tracks[1].HDR != "HLG" || result.Tracks[2].HDR != "" || result.Tracks[0].Width != 65536 || result.Tracks[0].BitDepth != 64 {
+		t.Fatal(result)
+	}
+}
+
 func TestProbeTrackMetadataIsBoundedAndCopied(t *testing.T) {
 	var c ProbeCache
 	now := time.Now()

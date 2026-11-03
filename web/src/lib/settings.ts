@@ -38,6 +38,7 @@ export const commonSettings = new Set([
   "RemoveCacheOnDrop",
   "FriendlyName",
   "TrackTimecode",
+  "Flow.RecentPlaybackHistory",
   "MergeAllM3U",
   "ForceEncrypt",
   "EnableIPv6",

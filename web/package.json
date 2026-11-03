@@ -1,18 +1,20 @@
 {
   "name": "torrserver-flow-web",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && node scripts/notices.mjs",
+    "build": "node scripts/theme.mjs --check && tsc && vite build && node scripts/notices.mjs",
     "preview": "vite preview",
     "test": "vitest run",
-    "lint": "eslint src && node --test scripts/linter-glob-compat.test.mjs",
+    "lint": "eslint src && node --test scripts/linter-glob-compat.test.mjs && node --test scripts/appearance.test.mjs",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
     "test:lab": "playwright test --config playwright.lab.config.ts",
-    "format": "prettier --write src e2e *.ts *.json"
+    "format": "prettier --write src e2e *.ts *.json",
+    "theme:check": "node scripts/theme.mjs --check",
+    "test:critical": "playwright test --config playwright.critical.config.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.0",
@@ -33,6 +35,7 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@eslint/js": "^9.0.0",
     "@playwright/test": "^1.58.0",
     "@tailwindcss/vite": "^4.0.0",

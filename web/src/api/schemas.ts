@@ -29,6 +29,8 @@ export const settingsSchema = z
     Flow: z
       .object({
         Enabled: z.boolean(),
+        RecentPlaybackHistory: z.boolean().optional(),
+        PrometheusEnabled: z.boolean().optional(),
         SwarmProfile: z.string(),
         RateAwareDeadlines: z.boolean().optional(),
         CapacityAwareRequests: z.boolean().optional(),
@@ -161,8 +163,10 @@ export const flowSessionSchema = z
     buffer_warning: z.boolean(),
   })
   .passthrough();
+import { coverageSchema } from "./coverage";
 export const flowSchema = z
   .object({
+    coverage: coverageSchema.optional(),
     reuse: z
       .object({
         eligible: z.boolean(),

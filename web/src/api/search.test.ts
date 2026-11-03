@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { api } from "./client";
+import { api, ApiError } from "./client";
 import {
   searchApi,
   deduplicateResults,
@@ -7,6 +7,115 @@ import {
   type SearchProgress,
 } from "./search";
 afterEach(() => vi.restoreAllMocks());
+
+test("ID-only searches do not become empty text searches on older servers", async () => {
+  const get = vi
+    .spyOn(api, "get")
+    .mockRejectedValue(new ApiError(404, "Not Found", {}));
+  const seen: SearchProgress[] = [];
+  expect(
+    await searchApi.search(
+      "",
+      "torznab",
+      undefined,
+      undefined,
+      [],
+      (s) => seen.push(s),
+      [0, 1],
+      { imdbid: "1234" },
+    ),
+  ).toEqual([]);
+  expect(get).toHaveBeenCalledTimes(1);
+  expect(get.mock.calls[0]?.[0]).toBe("/flow/search-status");
+  expect(seen.at(-1)?.sources.map((s) => s.state)).toEqual([
+    "unsupported_query",
+    "unsupported_query",
+  ]);
+});
+
+test("ID-only jobs share one version check and retain structured values", async () => {
+  const get = vi.spyOn(api, "get").mockImplementation(async (path) => {
+    if (path === "/flow/search-status") return { schema_version: 1 } as never;
+    expect(path).toContain("imdbid=1234");
+    return [] as never;
+  });
+  await searchApi.search(
+    "",
+    "torznab",
+    undefined,
+    undefined,
+    [],
+    undefined,
+    [0, 1],
+    { imdbid: "1234" },
+  );
+  expect(get).toHaveBeenCalledTimes(3);
+});
+
+test.each([401, 403, 429, 503])(
+  "ID-only support check retains HTTP %i failures",
+  async (status) => {
+    const get = vi
+      .spyOn(api, "get")
+      .mockRejectedValue(new ApiError(status, "fixture", {}));
+    const seen: SearchProgress[] = [];
+    await searchApi.search(
+      "",
+      "torznab",
+      undefined,
+      undefined,
+      [],
+      (s) => seen.push(s),
+      [0],
+      { tmdbid: "123" },
+    );
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(seen.at(-1)?.sources[0]?.state).toBe(
+      status === 401 || status === 403 ? "auth_required" : "unavailable",
+    );
+  },
+);
+
+test("malformed structured capability evidence is not accepted", async () => {
+  const get = vi.spyOn(api, "get").mockResolvedValue({ schema_version: 9 });
+  const seen: SearchProgress[] = [];
+  await searchApi.search(
+    "",
+    "torznab",
+    undefined,
+    undefined,
+    [],
+    (s) => seen.push(s),
+    [0],
+    { tvdbid: "123" },
+  );
+  expect(get).toHaveBeenCalledTimes(1);
+  expect(seen.at(-1)?.sources[0]?.state).toBe("invalid_response");
+});
+
+test("deduplication retains contributing sources and connects v1/v2 hybrid identities", () => {
+  const v1 = "a".repeat(40),
+    v2 = "b".repeat(64);
+  const one = normalizeSearchItem({
+    Title: "First",
+    Magnet: `magnet:?xt=urn:btih:${v1}`,
+    Tracker: "A",
+  });
+  const two = normalizeSearchItem({
+    Title: "Second",
+    Magnet: `magnet:?xt=urn:btmh:1220${v2}`,
+    Tracker: "B",
+  });
+  const hybrid = {
+    ...one,
+    magnet: `magnet:?xt=urn:btih:${v1}&xt=urn:btmh:1220${v2}`,
+    tracker: "C",
+  };
+  const rows = deduplicateResults([one, two, hybrid]);
+  expect(rows).toHaveLength(1);
+  expect(rows[0]?.sources).toEqual(["A", "C", "B"]);
+  expect(one.sources).toEqual(["A"]);
+});
 test("a successful source appears before a slow one and survives another source's failure", async () => {
   let finish: (rows: unknown) => void = () => {};
   vi.spyOn(api, "get").mockImplementation(async (path) => {

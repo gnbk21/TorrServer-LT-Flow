@@ -25,11 +25,14 @@ import (
 // handle with the metadata (title/poster/category) the rest of the
 // project decorates torrents with.
 type Torrent struct {
-	webSeedFailures map[string]WebSeedFailure // guarded by trackerMu
-	Title           string
-	Category        string
-	Poster          string
-	Data            string
+	recentOpen       atomic.Pointer[recentOpenQueue]
+	recentDeliveryMu sync.Mutex
+	recentDeliveries map[[32]byte]*recentDelivery
+	webSeedFailures  map[string]WebSeedFailure // guarded by trackerMu
+	Title            string
+	Category         string
+	Poster           string
+	Data             string
 	*TorrentSpec
 
 	Stat      state.TorrentStat
@@ -624,6 +627,7 @@ func (t *Torrent) watch() {
 }
 
 func (t *Torrent) progressTick() {
+	t.flushRecentOpen()
 	handle := t.LTHandle()
 	if handle == nil {
 		return
@@ -769,6 +773,10 @@ func (t *Torrent) Close() bool {
 }
 
 func (t *Torrent) markClosed() {
+	t.flushRecentOpen()
+	if cache := torrstor.Global().CacheByHash(t.StorageHash()); cache != nil {
+		cache.CancelAuxiliary()
+	}
 	t.mu.Lock()
 	cancel := t.metadataRecoveryCancel
 	t.mu.Unlock()

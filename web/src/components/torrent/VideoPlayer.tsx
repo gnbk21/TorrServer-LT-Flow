@@ -2,8 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type Hls from "hls.js";
-import { integrationsApi } from "../../api/integrations";
+import { integrationsApi, type GstSettings } from "../../api/integrations";
 import { Modal } from "../common/Modal";
+import { Button } from "../common/Button";
+import { subtitlesApi } from "../../api/subtitles";
+import { viewedApi } from "../../api/viewed";
+import { useSettings } from "../../hooks/queries";
 
 export default function VideoPlayer({
   url,
@@ -12,6 +16,8 @@ export default function VideoPlayer({
   index,
   path,
   onClose,
+  startSeconds = 0,
+  subtitleIndex,
 }: {
   url: string;
   title: string;
@@ -19,9 +25,12 @@ export default function VideoPlayer({
   index: number;
   path: string;
   onClose: () => void;
+  startSeconds?: number;
+  subtitleIndex?: number;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const settings = useSettings();
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [error, setError] = useState(false);
@@ -29,8 +38,10 @@ export default function VideoPlayer({
   const [tracks, setTracks] = useState<{ id: number; name: string }[]>([]);
   const [selected, setSelected] = useState(-1);
   const [gstEnabled, setGstEnabled] = useState(false);
+  const [gstConfig, setGstConfig] = useState<GstSettings["config"]>();
   const [audio, setAudio] = useState(-1);
-  const resumeTime = useRef(0);
+  const resumeTime = useRef(startSeconds);
+  const [mode, setMode] = useState<"direct" | "gst">("direct");
   const probe = useQuery({
     queryKey: ["gst-probe", hash, index],
     queryFn: ({ signal }) => integrationsApi.getGstProbe(hash, index, signal),
@@ -42,6 +53,88 @@ export default function VideoPlayer({
   });
   const audioTracks =
     probe.data?.Tracks?.filter((track) => track.Type === "audio") || [];
+  const [subtitleError, setSubtitleError] = useState<unknown>();
+  const [subtitleAttempt, setSubtitleAttempt] = useState(0);
+  const [positionError, setPositionError] = useState(false);
+  useEffect(() => {
+    if (!video || !settings.data?.TrackTimecode) return;
+    let pending = false,
+      stopped = false;
+    let queued: { position: number; closing: boolean } | undefined;
+    const send = (sample: { position: number; closing: boolean }) => {
+      if (
+        queryClient.getQueryData<{ TrackTimecode?: boolean }>(["settings"])
+          ?.TrackTimecode === false
+      )
+        return;
+      pending = true;
+      void viewedApi
+        .report(hash, index, sample.position, sample.closing)
+        .then(() => {
+          if (!stopped) setPositionError(false);
+        })
+        .catch(() => {
+          if (!stopped) setPositionError(true);
+        })
+        .finally(() => {
+          pending = false;
+          const next = queued;
+          queued = undefined;
+          if (next && (!stopped || next.closing)) send(next);
+        });
+    };
+    const report = (closing = false) => {
+      if (
+        queryClient.getQueryData<{ TrackTimecode?: boolean }>(["settings"])
+          ?.TrackTimecode === false ||
+        video.readyState < 1 ||
+        !Number.isFinite(video.currentTime) ||
+        video.currentTime < 0
+      )
+        return;
+      const sample = {
+        position: video.currentTime,
+        closing: closing || queued?.closing === true,
+      };
+      // Coalesce newly observed positions behind the one in flight. This is
+      // not a retry: each explicit pause/close keeps its latest actual position,
+      // and an old response cannot overwrite the final report out of order.
+      if (pending) queued = sample;
+      else send(sample);
+    };
+    const timer = setInterval(() => {
+      if (!video.paused) report();
+    }, 5000);
+    const pause = () => report();
+    const close = () => report(true);
+    video.addEventListener("pause", pause);
+    window.addEventListener("pagehide", close);
+    return () => {
+      clearInterval(timer);
+      video.removeEventListener("pause", pause);
+      window.removeEventListener("pagehide", close);
+      report(true);
+      stopped = true;
+    };
+  }, [video, hash, index, settings.data?.TrackTimecode, queryClient]);
+  useEffect(() => {
+    setSubtitle(undefined);
+    if (!subtitleIndex) return;
+    const controller = new AbortController();
+    setSubtitleError(undefined);
+    void subtitlesApi
+      .text(hash, index, subtitleIndex, controller.signal)
+      .then((text) => {
+        if (!controller.signal.aborted)
+          setSubtitle(
+            URL.createObjectURL(new Blob([text], { type: "text/vtt" })),
+          );
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) setSubtitleError(error);
+      });
+    return () => controller.abort();
+  }, [hash, index, subtitleIndex, subtitleAttempt]);
   useEffect(() => {
     const controller = new AbortController();
     let stopped = false;
@@ -49,39 +142,41 @@ export default function VideoPlayer({
     let heartbeat: ReturnType<typeof setInterval> | undefined;
     if (!video) return;
     setError(false);
+    setGstEnabled(false);
     setTracks([]);
     setSelected(-1);
     const start = async () => {
       let source = url;
       try {
-        const gst = await integrationsApi.getGst(controller.signal);
-        if (stopped) return;
-        if (
-          gst.built_in &&
-          (/\.(mkv|mk3d|webm)$/i.test(path) ||
-            (/\.avi$/i.test(path) && gst.config?.TranscodeAVI === true))
-        ) {
-          await queryClient.fetchQuery({
-            queryKey: ["gst-probe", hash, index],
-            queryFn: ({ signal }) =>
-              integrationsApi.getGstProbe(hash, index, signal),
-            staleTime: Infinity,
-            retry: false,
-          });
+        if (mode === "gst") {
+          const gst = await integrationsApi.getGst(controller.signal);
           if (stopped) return;
-          setGstEnabled(true);
-          source = integrationsApi.getGstMasterUrl(hash, index, audio);
-          let heartbeatPending = false;
-          heartbeat = setInterval(() => {
-            if (heartbeatPending) return;
-            heartbeatPending = true;
-            void integrationsApi
-              .getGstHeartbeat(hash, controller.signal)
-              .catch(() => {})
-              .finally(() => {
-                heartbeatPending = false;
-              });
-          }, 30000);
+          if (gst.built_in) {
+            setGstConfig(gst.config);
+            await queryClient.fetchQuery({
+              queryKey: ["gst-probe", hash, index],
+              queryFn: ({ signal }) =>
+                integrationsApi.getGstProbe(hash, index, signal),
+              staleTime: Infinity,
+              retry: false,
+            });
+            if (stopped) return;
+            setGstEnabled(true);
+            source = integrationsApi.getGstMasterUrl(hash, index, audio);
+            let heartbeatPending = false;
+            heartbeat = setInterval(() => {
+              if (heartbeatPending) return;
+              heartbeatPending = true;
+              void integrationsApi
+                .getGstHeartbeat(hash, controller.signal)
+                .catch(() => {})
+                .finally(() => {
+                  heartbeatPending = false;
+                });
+            }, 30000);
+          } else {
+            setError(true);
+          }
         }
       } catch {
         if (stopped)
@@ -173,7 +268,7 @@ export default function VideoPlayer({
       video.removeAttribute("src");
       video.load();
     };
-  }, [url, hash, index, path, video, audio, queryClient]);
+  }, [url, hash, index, path, video, audio, queryClient, mode]);
   useEffect(
     () => () => {
       if (subtitle) URL.revokeObjectURL(subtitle);
@@ -182,6 +277,63 @@ export default function VideoPlayer({
   );
   return (
     <Modal isOpen onClose={onClose} title={title} maxWidth="4xl">
+      <p className="mb-3 text-sm">{t("torrent.compatibility.direct")}</p>
+      <div className="actions mb-3">
+        <Button
+          variant={mode === "direct" ? "primary" : "outline"}
+          onClick={() => {
+            resumeTime.current = video?.currentTime || 0;
+            setMode("direct");
+          }}
+        >
+          {t("torrent.compatibility.directMode")}
+        </Button>
+        <Button
+          variant={mode === "gst" ? "primary" : "outline"}
+          onClick={() => {
+            resumeTime.current = video?.currentTime || 0;
+            setMode("gst");
+          }}
+        >
+          {t("torrent.compatibility.gstMode")}
+        </Button>
+      </div>
+      {mode === "gst" && (
+        <p className="mb-3 text-sm">
+          {t("torrent.compatibility.conversionWarning")}
+        </p>
+      )}
+      {mode === "gst" && gstConfig && (
+        <details className="mb-3">
+          <summary>{t("GStreamer.Settings")}</summary>
+          <dl>
+            {[
+              "AACBitrateKbps",
+              "AACChannels",
+              "TranscodeH264",
+              "TranscodeH265",
+              "TranscodeAV1",
+              "TranscodeVP9",
+              "TranscodeVP8",
+              "TranscodeAVI",
+              "HDRToSDR",
+              "HardwareAcceleration",
+              "VideoBitrate",
+            ]
+              .filter((key) => gstConfig[key] !== undefined)
+              .map((key) => (
+                <div key={key}>
+                  <dt>{t(`GStreamer.${key}`, { defaultValue: key })}</dt>
+                  <dd>
+                    {typeof gstConfig[key] === "boolean"
+                      ? t(gstConfig[key] ? "status.enabled" : "status.disabled")
+                      : String(gstConfig[key])}
+                  </dd>
+                </div>
+              ))}
+          </dl>
+        </details>
+      )}
       <video
         ref={setVideo}
         controls
@@ -205,6 +357,15 @@ export default function VideoPlayer({
         )}
       </video>
       {error && <p role="alert">{t("torrent.codecFallback")}</p>}
+      {!!subtitleError && (
+        <div role="alert">
+          <p>{t("torrent.sidecars.deferred")}</p>
+          <Button onClick={() => setSubtitleAttempt((value) => value + 1)}>
+            {t("WAF.Retry")}
+          </Button>
+        </div>
+      )}
+      {positionError && <p role="status">{t("recent.positionFailed")}</p>}
       {audioTracks.length > 1 && (
         <label className="field">
           {t("GStreamer.AudioTrack")}

@@ -33,19 +33,20 @@ type FlowRangeTrace struct {
 var diagnosticSequence atomic.Uint64
 
 type FlowStartupStatus struct {
-	Reserve            *flow.ReservePlan    `json:"reserve,omitempty"`
-	Phases             []flow.StartupPhase  `json:"phases,omitempty"`
-	MetadataRecovery   *MetadataRecovery    `json:"metadata_recovery,omitempty"`
-	WaitBudgetMs       int64                `json:"wait_budget_ms"`
-	WaitExtended       bool                 `json:"wait_extended"`
-	Progress           *flow.StartupHistory `json:"progress,omitempty"`
-	WaitReason         string               `json:"wait_reason"`
-	StageStartedMs     int64                `json:"stage_started_ms"`
-	ElapsedMs          int64                `json:"elapsed_ms"`
-	FirstDHTPeerMs     int64                `json:"first_dht_peer_ms"`
-	MetadataReadyMs    int64                `json:"metadata_ready_ms"`
-	FirstPeerMs        int64                `json:"first_peer_ms"`
-	FirstUsefulBlockMs int64                `json:"first_useful_block_ms"`
+	metricsOutcomeRecorded bool
+	Reserve                *flow.ReservePlan    `json:"reserve,omitempty"`
+	Phases                 []flow.StartupPhase  `json:"phases,omitempty"`
+	MetadataRecovery       *MetadataRecovery    `json:"metadata_recovery,omitempty"`
+	WaitBudgetMs           int64                `json:"wait_budget_ms"`
+	WaitExtended           bool                 `json:"wait_extended"`
+	Progress               *flow.StartupHistory `json:"progress,omitempty"`
+	WaitReason             string               `json:"wait_reason"`
+	StageStartedMs         int64                `json:"stage_started_ms"`
+	ElapsedMs              int64                `json:"elapsed_ms"`
+	FirstDHTPeerMs         int64                `json:"first_dht_peer_ms"`
+	MetadataReadyMs        int64                `json:"metadata_ready_ms"`
+	FirstPeerMs            int64                `json:"first_peer_ms"`
+	FirstUsefulBlockMs     int64                `json:"first_useful_block_ms"`
 
 	FileIndex                int    `json:"file_index"`
 	State                    string `json:"state"`
@@ -149,6 +150,10 @@ func (t *Torrent) startupStage(stage string) {
 		return
 	}
 	t.flowStartup.WaitReason = stage
+	if settings.CurrentFlow().MetricsEnabled && !t.flowStartup.metricsOutcomeRecorded && (stage == "READY" || stage == "FAILED" || stage == "TIMEOUT" || stage == "CANCELLED") {
+		flow.RecordStartupOutcome(stage)
+		t.flowStartup.metricsOutcomeRecorded = true
+	}
 	elapsed := int64(0)
 	if !t.flowStartupStarted.IsZero() {
 		elapsed = time.Since(t.flowStartupStarted).Milliseconds()
@@ -467,6 +472,7 @@ func (t *Torrent) flowFirstByte(fileID int, group string, seq uint64, started ti
 		}
 		if seq == s.lastSeekSeq {
 			s.SeekRecoveryMs = ttfb.Milliseconds()
+			flow.RecordRecovery()
 			t.historyEvent(flow.HistoryEvent{Type: "recovery", File: fileID, OperationMeasured: true, ElapsedMs: ttfb.Milliseconds()})
 		}
 		if seq == s.lastWarmSeq {

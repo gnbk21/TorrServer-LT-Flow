@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"math"
 	"net/http"
 
 	sets "server/settings"
@@ -51,6 +52,10 @@ func viewed(c *gin.Context) {
 	switch req.Action {
 	case "set":
 		{
+			if req.FileIndex < 1 || math.IsNaN(req.TimeCode) || math.IsInf(req.TimeCode, 0) || req.TimeCode < 0 {
+				abortWithErrorCode(c, 400, "INVALID_PLAYBACK_POSITION", errors.New("invalid file index or playback position"))
+				return
+			}
 			if req.Hash == "" {
 				abortWithJSONError(c, http.StatusBadRequest, errEmptyHash)
 				return

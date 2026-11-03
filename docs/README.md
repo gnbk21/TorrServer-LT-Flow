@@ -25,6 +25,7 @@ Current user guides stay at the repository root. Historical plans and measuremen
 
 ## Development and field validation
 
+- [Flow 1.3 implementation and acceptance ledger](development/FLOW_13.md)
 - [MatriX.148 evaluation and integration](development/UPSTREAM_MATRIX148_REVIEW.md)
 - [Adaptive reliability and access controls](development/ADAPTIVE_RELIABILITY.md)
 - [High bitrate streaming implementation](development/HIGH_BITRATE_IMPLEMENTATION.md)

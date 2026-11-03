@@ -1,9 +1,10 @@
 export interface SearchResultItem {
   title: string;
   name?: string;
-  size: number | string;
-  seeders: number;
-  leechers: number;
+  size: number | string | null;
+  seeders: number | null;
+  leechers: number | null;
+  sources?: string[];
   magnet: string;
   link?: string;
   category?: string;

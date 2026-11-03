@@ -1,5 +1,13 @@
 # Diagnosing startup and delivery delays
 
+Flow 1.3's optional piece view separates resident/verified cache data, outstanding
+requests and sampled connected-peer supply. Receiving blocks are not verified
+playable bytes. Stale, truncated and uncovered observations remain unknown; a
+zero supplier count is not a global availability test. Coverage and media cards
+read cached observations only while open. Media compatibility is a separate
+question from torrent delivery, and browser capability checks do not establish
+external-player support. See the [interface contracts](FLOW.md#flow-13-additions).
+
 Flow's web diagnostics show live server observations. Enable **Diagnostic
 history** in Flow settings to retain evidence after playback ends. Detailed Range
 tracing is independent and is not required for the periodic history below.

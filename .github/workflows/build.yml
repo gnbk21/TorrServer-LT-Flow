@@ -670,6 +670,35 @@ jobs:
           path: server/**/testdata/fuzz/**
           if-no-files-found: ignore
 
+      - name: Flow 1.3 subtitle, history, coverage and monitoring integration
+        timeout-minutes: 5
+        run: |
+          python3 build/flow13_check.py --executable _out/TorrServer-LT-linux-amd64 --output _out/flow13-integration
+      - name: Retain Flow 1.3 integration evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: flow13-integration-evidence
+          path: |
+            _out/flow13-integration/report.json
+            _out/flow13-integration/state/server-output.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Rotated high-bitrate diagnostic and subtitle overhead
+        timeout-minutes: 10
+        run: |
+          python3 -c 'import sys; from pathlib import Path; sys.path.insert(0,"build"); from high_bitrate_check import generate; generate(Path("_out/flow13-observer-fixture/generated.ts"),50)'
+          python3 build/flow13_observer_check.py --executable _out/TorrServer-LT-linux-amd64 --fixture _out/flow13-observer-fixture/generated.ts --output _out/flow13-observers --seconds 30 --rotations 2
+      - name: Retain observer overhead evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: flow13-observer-evidence
+          path: |
+            _out/flow13-observers/**/report.json
+            _out/flow13-observers/**/server-output.log
+          if-no-files-found: warn
+          retention-days: 14
       - name: Short isolated loss, jitter and outage regression
         timeout-minutes: 5
         run: |
@@ -842,11 +871,11 @@ jobs:
         if: matrix.case == 'stragglers'
         env:
           GH_TOKEN: ${{ github.token }}
-          BASELINE_SHA256: 6317ea5556bb6e70b7f31a024c6bcd9da2cf592789b67ab825fe0f3dc4c44bcf
+          BASELINE_SHA256: f234d9d6934543480b41f4f11810499dc66bd5d7d8a7540b28416eceba7371c2
         run: |
-          gh release download MatriX.145.Flow-v1.1.7 --repo "$GITHUB_REPOSITORY" --pattern TorrServer-LT-linux-amd64 --dir _baseline
+          gh release download MatriX.148.Flow-v1.2.0 --repo "$GITHUB_REPOSITORY" --pattern TorrServer-LT-linux-amd64 --dir _baseline
           python3 -c 'import hashlib,os,pathlib; p=pathlib.Path("_baseline/TorrServer-LT-linux-amd64"); assert hashlib.file_digest(p.open("rb"),"sha256").hexdigest()==os.environ["BASELINE_SHA256"], "Stable baseline digest mismatch"'
-          gh attestation verify _baseline/TorrServer-LT-linux-amd64 --repo "$GITHUB_REPOSITORY" --source-digest 87d1632e47d64adcfd98d7d916d80aebedbc4e8c --source-ref refs/tags/MatriX.145.Flow-v1.1.7 --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/ts_release.yml" --deny-self-hosted-runners
+          gh attestation verify _baseline/TorrServer-LT-linux-amd64 --repo "$GITHUB_REPOSITORY" --source-digest aaf2bc583d196d376751dccf265242273eaad89d --source-ref refs/tags/MatriX.148.Flow-v1.2.0 --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/ts_release.yml" --deny-self-hosted-runners
           chmod +x _baseline/TorrServer-LT-linux-amd64
           _baseline/TorrServer-LT-linux-amd64 --version
       - name: Rotated original-quality byte transport comparisons

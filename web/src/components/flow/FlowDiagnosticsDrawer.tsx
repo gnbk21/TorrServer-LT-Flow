@@ -11,6 +11,7 @@ import { NextEpisodeWarmup } from "./NextEpisodeWarmup";
 import { StartupEvidence } from "./StartupEvidence";
 import { StreamEvidence } from "./StreamEvidence";
 import { PlaybackOverview } from "./PlaybackOverview";
+import { PieceCoverage } from "./PieceCoverage";
 export interface FlowDiagnosticsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -56,6 +57,9 @@ export function FlowDiagnosticsDrawer({
       ) : (
         <div className="space-y-5">
           <PlaybackOverview status={status} now={now} />
+          {status.coverage && (
+            <PieceCoverage coverage={status.coverage} now={now} />
+          )}
           <IncidentTimeline status={status} />
           {status.startup && <StartupEvidence startup={status.startup} />}
           <StreamEvidence
