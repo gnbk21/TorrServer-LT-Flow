@@ -75,7 +75,7 @@ jobs:
           bash build/ci-apt.sh ffmpeg
           options=()
           case "$MODE" in
-            profiles) options+=(--baseline _out/stable/TorrServer-LT-linux-amd64) ;;
+            profiles) options+=(--baseline _out/stable/TorrServer-LT-linux-amd64 --verify-cold-seeks) ;;
             transport) options+=(--transport-comparison) ;;
             experiments) options+=(--experiments) ;;
           esac

@@ -134,8 +134,9 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		}
 	}
 	started := time.Now()
+	recentEligible := recentPlaybackRequest(req.Method, group, hint, file.Length)
 	recentSession := ""
-	if flowSeq == 0 && sets.CurrentFlow().RecentPlaybackHistory && req.Method == http.MethodGet && group != torrstor.ProbeReaderGroup {
+	if flowSeq == 0 && sets.CurrentFlow().RecentPlaybackHistory && recentEligible {
 		var finishRecent func()
 		recentSession, finishRecent = t.beginRecentDelivery(fileID, group)
 		defer finishRecent()
@@ -151,7 +152,7 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		recorder.OnFirstByte = func(ttfb time.Duration) {
 			if recorder.Status == http.StatusOK || recorder.Status == http.StatusPartialContent {
 				t.flowFirstByte(fileID, group, flowSeq, started, ttfb)
-				if req.Method == http.MethodGet {
+				if recentEligible {
 					t.queueRecentOpen(fileID, group, "")
 				}
 			}
@@ -171,7 +172,7 @@ func (t *Torrent) Stream(fileID int, req *http.Request, resp http.ResponseWriter
 		}()
 	}
 
-	if flowSeq == 0 && sets.CurrentFlow().RecentPlaybackHistory && req.Method == http.MethodGet && group != torrstor.ProbeReaderGroup {
+	if flowSeq == 0 && sets.CurrentFlow().RecentPlaybackHistory && recentEligible {
 		observer := flow.NewResponseRecorder(resp)
 		observer.OnFirstByte = func(time.Duration) {
 			if observer.Status == http.StatusOK || observer.Status == http.StatusPartialContent {

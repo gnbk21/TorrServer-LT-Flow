@@ -1,12 +1,40 @@
 package torr
 
 import (
+	"net/http"
+	"server/flow"
 	"server/lt"
 	"server/settings"
 	"server/torr/storage/torrstor"
 	"testing"
 	"time"
 )
+
+func TestRecentPurposeExcludesHeaderIndexAndInternalProbesWithoutMetrics(t *testing.T) {
+	old := settings.BTsets()
+	cfg := settings.NewDefaultConfig()
+	cfg.Flow.MetricsEnabled = false
+	cfg.Flow.RangeClassification = false
+	settings.StoreBTsets(cfg)
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+	for _, tc := range []struct {
+		method, group, header string
+		size                  int64
+		want                  bool
+	}{
+		{http.MethodGet, "client", "bytes=0-1023", 100 << 20, false},
+		{http.MethodGet, "client", "bytes=-65536", 100 << 20, false},
+		{http.MethodHead, "client", "", 100 << 20, false},
+		{http.MethodGet, torrstor.ProbeReaderGroup, "bytes=0-", 100 << 20, false},
+		{http.MethodGet, "client", "bytes=0-", 100 << 20, true},
+		{http.MethodGet, "client", "bytes=0-9999999", 1 << 20, true},
+		{http.MethodGet, "client", "", 100 << 20, true},
+	} {
+		if got := recentPlaybackRequest(tc.method, tc.group, flow.ParseRangeHint(tc.header, tc.size), tc.size); got != tc.want {
+			t.Fatalf("%+v: %v", tc, got)
+		}
+	}
+}
 
 func TestRecentQueueKeepsConcurrentFilesAndExcludesProbes(t *testing.T) {
 	old := settings.BTsets()

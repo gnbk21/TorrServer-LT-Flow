@@ -83,6 +83,16 @@ def check(executable, output, fixtures=None):
             assert subtitle in matches and files['tail.ru.srt']['id'] not in matches
             assert listing['schema_version'] == 1 and not listing['truncated']
             report['metadata_only_observation'] = True
+            # Player/container probes deliver bytes but are not episode opens.
+            # Keep their existing legacy Viewed marks independent from Recent.
+            report['ranges'].append(range_read(server,identity,video,videos[0].read_bytes(),0,1023))
+            index_source=next(path for path in videos if path.name=='variable.mp4')
+            index_bytes=index_source.read_bytes()
+            assert len(index_bytes)>8*MIB
+            report['ranges'].append(range_read(server,identity,files[index_source.name]['id'],index_bytes,len(index_bytes)-65536,len(index_bytes)-1))
+            time.sleep(3)  # allow the ordinary history worker to expose false opens
+            assert not server.json('/flow/recent')['items'],'Header/index probes fabricated Recent openings'
+            report['probes_excluded_from_recent']=True
             # Existing head/tail-index, VBR, seek, overlapping-reader and cancel
             # fixtures run with detailed coverage and metrics being observed.
             for path in videos:

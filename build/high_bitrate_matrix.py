@@ -73,6 +73,7 @@ def compare(args):
                   mbps=args.mbps, seconds=args.seconds, cache_mb=args.cache_mb,
                   startup_reserve_mb=32, piece_mb=args.piece_mb, disk=args.disk,
                   synthetic_transport_only=True, promoted=False,
+                  verified_cold_seeks=getattr(args, 'verify_cold_seeks', False),
                   rotations=args.rotations, matched_stable_baseline=baseline_hash in PINNED_BASELINE_HASHES,
                   baseline=dict(sha256=baseline_hash,kind='published-Flow-1.2.0' if baseline_hash in PINNED_BASELINE_HASHES else 'custom-reference'),
                   acceptance_repeats_met=False,
@@ -88,7 +89,8 @@ def compare(args):
                 print(f'{case} / repeat {repeat+1} / {name}', flush=True)
                 result = run(exe, args.output/f'{case}-{repeat}-{name}', fixture,
                     profile, case, rate, args.seconds, args.cache_mb, True,
-                    disk=args.disk, piece_mb=args.piece_mb, startup_mb=32, **options)
+                    disk=args.disk, piece_mb=args.piece_mb, startup_mb=32,
+                    verify_cold_seeks=getattr(args, 'verify_cold_seeks', False), **options)
                 report['runs'].append(dict(policy=name, repeat=repeat, order_index=order_index, **result))
                 write_report(args.output, report)
                 gc.collect()
@@ -134,6 +136,7 @@ if __name__ == '__main__':
     parser.add_argument('--profiles', nargs='+', choices=('legacy','adaptive'), default=['legacy','adaptive'],
                         help='Matched profiles to measure; defaults retain both existing policies')
     parser.add_argument('--transport-comparison', action='store_true', help='Compare direct/64/256/1024 KiB candidate transports separately')
+    parser.add_argument('--verify-cold-seeks', action='store_true', help='Record mixed-seek cache evidence and require four verified uncached recovery reads')
     parser.add_argument('--cache-mb', type=int, choices=(512,2048), default=512)
     parser.add_argument('--piece-mb', type=int, choices=(1,4,8,16), default=4)
     parser.add_argument('--disk', action='store_true')

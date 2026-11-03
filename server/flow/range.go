@@ -60,10 +60,10 @@ func Classify(method string, internal bool, hint RangeHint, size, previous int64
 	if !hint.Valid {
 		return "UNKNOWN"
 	}
-	if hint.Start == 0 && hint.End >= 0 && hint.End < 2*MiB {
+	if hint.Start == 0 && hint.End >= 0 && hint.End < 2*MiB && (size <= 0 || hint.End < size-1) {
 		return "HEAD_PROBE"
 	}
-	if size > 0 && hint.Start >= size-8*MiB {
+	if size > 8*MiB && hint.Start >= size-8*MiB {
 		return "TAIL_INDEX"
 	}
 	if hadPrevious && previous > 0 && (hint.Start-previous > 16*MiB || previous-hint.Start > 16*MiB) {

@@ -3,6 +3,8 @@ package torr
 import (
 	"crypto/sha256"
 	"fmt"
+	"net/http"
+	"server/flow"
 	"server/settings"
 	"server/torr/storage/torrstor"
 	"server/utils"
@@ -24,6 +26,16 @@ type recentDelivery struct {
 }
 
 var recentSequence atomic.Uint64
+
+// Reuse the server's request-purpose evidence even when metrics/classification
+// presentation is disabled. A header/index fetch alone is not a Recent opening.
+func recentPlaybackRequest(method, group string, hint flow.RangeHint, size int64) bool {
+	if method != http.MethodGet || group == torrstor.ProbeReaderGroup {
+		return false
+	}
+	purpose := flow.Classify(method, false, hint, size, 0, false)
+	return purpose != "HEAD_PROBE" && purpose != "TAIL_INDEX"
+}
 
 // Minimal session grouping when ordinary Flow measurements are disabled.
 // This uses the existing reader group and warm timeout; it collects no rates,

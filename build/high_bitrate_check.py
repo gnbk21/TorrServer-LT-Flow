@@ -217,6 +217,23 @@ def piece_request_count(swarm, piece):
     return sum(p['requested_piece_counts'].get(piece, 0) for p in peers)
 
 
+def range_cache_evidence(snapshot, source_bytes, piece_bytes, start, end):
+    """Classify cached verification at admission, not inferred from a fast read."""
+    count = (source_bytes + piece_bytes - 1) // piece_bytes
+    pieces = snapshot.get('Pieces')
+    if (snapshot.get('PiecesLength') != piece_bytes or snapshot.get('PiecesCount') != count
+            or not isinstance(pieces, dict)):
+        return {'state': 'unknown', 'pieces': []}
+    states = []
+    for index in range(start//piece_bytes, end//piece_bytes+1):
+        row = pieces.get(str(index)) or {}
+        length = min(piece_bytes, source_bytes-index*piece_bytes)
+        states.append({'piece': index, 'resident_bytes': row.get('Size', 0),
+                       'verified': row.get('Completed') is True and row.get('Size', 0) >= length})
+    return {'state': 'verified_resident' if all(p['verified'] for p in states) else 'not_verified_resident',
+            'pieces': states}
+
+
 def measure_cold_seeks(server, swarm, info_hash, index, piece_bytes, records, resources):
     used, previous = set(), None
     for attempt in range(4):
@@ -240,7 +257,7 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
         *, reqq=512, strict=False, latency_ms=0, piece_mb=4, disk=False,
         capacity_aware=False, urgent_horizon=False, burst_hints=False, startup_mb=32, transport_kib=1024,
         capture_go=False, capture_native=None, perfetto_tools=None,
-        frontier_recovery=False, adaptive_peer_requests=False):
+        frontier_recovery=False, adaptive_peer_requests=False, verify_cold_seeks=False):
     report = {'profile': profile, 'case': case, 'cache_mb': cache_mb,
               'nominal_demand_mbps': rate*8/1_000_000,
               'piece_bytes': piece_mb*MIB, 'requested_seconds': seconds,
@@ -397,6 +414,11 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                 report['request_age_probes'] = []
             for start, cancel in ((len(swarm.data)//2, False), (0, False),
                                   (len(swarm.data)-65536, False), (len(swarm.data)//3, True), (0, False)):
+                evidence = None
+                if verify_cold_seeks:
+                    snapshot = server.json('/cache', {'action': 'get', 'hash': info_hash})
+                    evidence = range_cache_evidence(snapshot, len(swarm.data), piece_mb*MIB,
+                                                    start, min(len(swarm.data)-1, start+65535))
                 if strict and latency_ms and capacity_aware:
                     # Urgent diagnostics describe active reader windows; the
                     # detached preload has no such window. Sample an uncached
@@ -418,6 +440,8 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                 else:
                     report['ranges'].append(range_read(server, info_hash, index,
                         swarm.data, start, min(len(swarm.data)-1, start+65535), cancel))
+                if evidence is not None:
+                    report['ranges'][-1]['cache_before'] = evidence
             deadline = time.monotonic()+5
             while True:
                 status = server.json('/flow/status/'+info_hash)
@@ -432,7 +456,7 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
             seeks = sorted(item['ttfb_ms'] for item in report['ranges'] if not item.get('cancelled'))
             report['seek_ttfb_p95_ms'] = seeks[min(len(seeks)-1, int(len(seeks)*.95))]
             report['seek_ttfb_p99_ms'] = seeks[min(len(seeks)-1, int(len(seeks)*.99))]
-            if case == 'stragglers':
+            if case == 'stragglers' or verify_cold_seeks:
                 stage = 'cold_range_validation'
                 report['cold_ranges'] = []
                 report['cold_resource_samples'] = []

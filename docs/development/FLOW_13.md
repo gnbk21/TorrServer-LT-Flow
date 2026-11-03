@@ -164,6 +164,24 @@ and long-duration field acceptance. Missing acceptance is never called passed.
   3 November ("nevermind"). No personal installation/state was changed or copied.
   The separately staged candidate uses isolated state; the existing installer's
   verified state-snapshot/rollback path remains required before any real update.
+- The first correctly rotated Linux comparison completed all 80 trials with
+  exact bytes and no timeouts. It flagged mixed seek p95 in healthy/Legacy
+  (46.1 to 879.6 ms) and mixed-peer/Adaptive (623.8 to 1,139.8 ms). No RSS flag
+  occurred. Raw fixed-offset seeks include both header/index re-reads and remote
+  positions; warm versus evicted state was not recorded. Those flags are open,
+  not waived. The harness now records verified cache residency before each
+  mixed seek and the matched workflow additionally requires four independently
+  byte/request-verified cold recoveries per trial. Original mixed results and
+  their flags remain visible; cold results do not overwrite them.
+- A deeper acceptance check reproduced a separate Recent defect in rc.2:
+  explicit player header/index probes could create history entries. Recent now
+  reuses request-purpose evidence even when metrics/classification presentation
+  is disabled. Whole short clips are classified as video rather than an entire
+  file falling inside the eight-MiB tail window; partial headers and long-file
+  indexes stay probes. HTTP Range/status/media bytes are unchanged. The old
+  executable's failed reproduction is preserved in `player-probe-reproduction`;
+  targeted Flow/torrent/API race checks and all 128 harness checks pass. Final
+  integration and measured comparison of this correction remain required.
 - The initial 40-trial comparison preserved zero byte failures/timeouts, but
   flagged seek latency/RSS. Review discovered that the old harness's odd-round
   reversal cancelled its two-policy rotation, always placing the baseline first.
