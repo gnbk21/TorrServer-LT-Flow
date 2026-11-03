@@ -234,6 +234,52 @@ def range_cache_evidence(snapshot, source_bytes, piece_bytes, start, end):
             'pieces': states}
 
 
+def compact_cache_sample(snapshot, source_bytes, piece_bytes):
+    count = (source_bytes+piece_bytes-1)//piece_bytes
+    if (count > 8192 or snapshot.get('PiecesLength') != piece_bytes
+            or snapshot.get('PiecesCount') != count or not isinstance(snapshot.get('Pieces'), dict)):
+        return {'known': False, 'verified_pieces': []}
+    verified = []
+    for key, state in snapshot['Pieces'].items():
+        try:
+            index = int(key)
+        except (ValueError, TypeError):
+            return {'known': False, 'verified_pieces': []}
+        size = state.get('Size')
+        if not 0 <= index < count or type(size) is not int or size < 0:
+            return {'known': False, 'verified_pieces': []}
+        extent = min(piece_bytes, source_bytes-index*piece_bytes)
+        if state.get('Completed') is True and size >= extent:
+            verified.append([index, extent])
+    return {'known': True, 'verified_pieces': sorted(verified)}
+
+
+def observed_cache_turnover(samples):
+    """A sampling lower bound, never an invented exact native eviction count."""
+    last, seen, observations, missing = None, set(), 0, 0
+    evicted, refilled = 0, 0
+    for sample in samples:
+        if not sample or not sample.get('known'):
+            missing += 1
+            continue
+        current = dict(sample['verified_pieces'])
+        if last is not None:
+            evicted += sum(size for piece,size in last.items() if piece not in current)
+            refilled += sum(size for piece,size in current.items() if piece not in last and piece in seen)
+        seen.update(current)
+        last = current
+        observations += 1
+    return {'known': observations >= 2, 'observations': observations, 'missing_samples': missing,
+            'method': 'sampled_verified_resident_turnover_lower_bound',
+            'evicted_verified_bytes': evicted if observations >= 2 else None,
+            'reappeared_verified_bytes': refilled if observations >= 2 else None}
+
+
+def observed_rss_bytes(samples):
+    return [s['memory']['rss_bytes'] for s in samples
+            if s.get('memory', {}).get('rss_available')]
+
+
 def measure_cold_seeks(server, swarm, info_hash, index, piece_bytes, records, resources):
     used, previous = set(), None
     for attempt in range(4):
@@ -248,7 +294,9 @@ def measure_cold_seeks(server, swarm, info_hash, index, piece_bytes, records, re
         if not result['cold_verified']:
             raise AssertionError('Uncached target did not require a new peer request; cold-seek proof failed')
         runtime = server.json('/runtime/status')
-        resources.append({'memory': runtime['memory'], 'allocation': runtime.get('cache_allocation')})
+        resources.append({'memory': runtime['memory'], 'allocation': runtime.get('cache_allocation'),
+                          'resources': runtime.get('resources'),
+                          'cache_snapshot': compact_cache_sample(server.json('/cache', {'action':'get','hash':info_hash}),len(swarm.data),piece_bytes)})
         used.add(piece)
         previous = piece
 
@@ -262,6 +310,10 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
               'nominal_demand_mbps': rate*8/1_000_000,
               'piece_bytes': piece_mb*MIB, 'requested_seconds': seconds,
               'preload': preload, 'http_delivery_only': True, 'samples': []}
+    if verify_cold_seeks:
+        report['measurement_observers'] = {'flow_status_interval_seconds':1,
+            'runtime_interval_seconds':1,'cache_snapshot_interval_seconds':1,
+            'maximum_cache_pieces':8192,'cache_turnover_is_lower_bound':True}
     # Native time-critical work can exceed desired_queue_size. Advertise a
     # realistic capacity, with bounded fixture headroom for in-flight cancels.
     plans = [PeerPlan(rate=int(2*rate), request_queue=reqq, strict_request_queue=strict, request_latency_ms=latency_ms)]
@@ -376,11 +428,18 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                         'sessions': sessions,
                         'storage_io': status.get('storage_io'),
                         'stream_control': status.get('sparse', {}).get('stream'),
+                        'native_sample_known': status.get('sparse', {}).get('known', False),
+                        'failed_bytes': status.get('sparse', {}).get('failed_bytes'),
                         'redundant_bytes': status.get('sparse', {}).get('redundant_bytes'),
                         'urgent': status.get('sparse', {}).get('urgent'),
                         'urgent_truncated': status.get('sparse', {}).get('urgent_truncated')})
-                    if len(report['samples']) % 5 == 1:
-                        report['samples'][-1]['memory'] = server.json('/runtime/status')['memory']
+                    if verify_cold_seeks or len(report['samples']) % 5 == 1:
+                        runtime = server.json('/runtime/status')
+                        report['samples'][-1]['memory'] = runtime['memory']
+                        report['samples'][-1]['resources'] = runtime.get('resources')
+                        report['samples'][-1]['allocation'] = runtime.get('cache_allocation')
+                    if verify_cold_seeks:
+                        report['samples'][-1]['cache_snapshot'] = compact_cache_sample(server.json('/cache', {'action':'get','hash':info_hash}),len(swarm.data),piece_mb*MIB)
                     time.sleep(1)
                 report['delivery'] = pending.result()
                 if capture_go:
@@ -396,7 +455,9 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
             cpu_end = cpu_seconds(server.process)
             report['cpu_seconds'] = cpu_end-cpu_start if cpu_start is not None and cpu_end is not None else None
             report['playback_wall_seconds'] = time.monotonic()-playback_start
-            report['peak_observed_rss_bytes'] = max((s.get('memory', {}).get('rss_bytes', 0) for s in report['samples']), default=0)
+            rss = observed_rss_bytes(report['samples'])
+            report['peak_observed_rss_bytes'] = max(rss) if rss else None
+            report['rss_observations_available'] = len(rss)
             report['peak_observed_cache_bytes'] = max(s['cache_used'] for s in report['samples'])
             report['qualified_consumption_observed'] = any(
                 session.get('observed_confidence') == 'stable'
@@ -453,6 +514,7 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                 time.sleep(.2)
             report['active_readers_after_cancellation'] = active
             report['native_redundant_bytes'] = status.get('sparse', {}).get('redundant_bytes')
+            report['native_failed_bytes'] = status.get('sparse', {}).get('failed_bytes') if status.get('sparse', {}).get('known') else None
             seeks = sorted(item['ttfb_ms'] for item in report['ranges'] if not item.get('cancelled'))
             report['seek_ttfb_p95_ms'] = seeks[min(len(seeks)-1, int(len(seeks)*.95))]
             report['seek_ttfb_p99_ms'] = seeks[min(len(seeks)-1, int(len(seeks)*.99))]
@@ -476,12 +538,26 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                     time.sleep(.1)
                 report['active_readers_after_cold_seeks'] = active
                 report['native_redundant_bytes'] = status.get('sparse', {}).get('redundant_bytes')
-                report['peak_observed_rss_bytes'] = max(report['peak_observed_rss_bytes'],
-                    max(s['memory'].get('rss_bytes', 0) for s in report['cold_resource_samples']))
+                report['native_failed_bytes'] = status.get('sparse', {}).get('failed_bytes') if status.get('sparse', {}).get('known') else None
+                rss += observed_rss_bytes(report['cold_resource_samples'])
+                report['peak_observed_rss_bytes'] = max(rss) if rss else None
+                report['rss_observations_available'] = len(rss)
                 report['peak_observed_cache_bytes'] = max(report['peak_observed_cache_bytes'],
                     max((s['allocation'] or {}).get('resident_bytes', 0) for s in report['cold_resource_samples']))
                 if report['peak_observed_cache_bytes'] > (cache_mb+2*piece_mb)*MIB:
                     raise AssertionError('Cold recovery exceeded cache budget plus two-piece allowance')
+            if verify_cold_seeks:
+                cache_samples = [s.get('cache_snapshot') for s in report['samples']+report.get('cold_resource_samples',[])]
+                report['cache_turnover'] = observed_cache_turnover(cache_samples)
+                report['cache_observed_evicted_bytes'] = report['cache_turnover']['evicted_verified_bytes']
+                report['cache_observed_refilled_bytes'] = report['cache_turnover']['reappeared_verified_bytes']
+                report['resource_recovery_evidence'] = {
+                    'sampled_states': [dict(elapsed_s=s['elapsed_s'], **s['resources']) for s in report['samples'] if s.get('resources')],
+                    'pressure_observed': any((s.get('resources') or {}).get('memory_pressure',False) for s in report['samples']),
+                    'no_pressure_recovery_claim_without_pressure': True}
+                stage = 'measurement_validation'
+                if not rss or not report['cache_turnover']['known'] or report['native_failed_bytes'] is None or not report['resource_recovery_evidence']['sampled_states']:
+                    raise AssertionError('Required RSS/cache/native/resource observations are unavailable')
             report['runtime'] = server.json('/runtime/status')
             report['swarm'] = swarm.status()
             report['passed'] = True
@@ -501,9 +577,9 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
             report.setdefault('playback_wall_seconds', time.monotonic()-playback_start)
         if report['samples']:
             cold_resources = report.get('cold_resource_samples', [])
-            report['peak_observed_rss_bytes'] = max(
-                [s.get('memory', {}).get('rss_bytes', 0) for s in report['samples']]
-                + [s['memory'].get('rss_bytes', 0) for s in cold_resources])
+            rss = observed_rss_bytes(report['samples'] + cold_resources)
+            report['peak_observed_rss_bytes'] = max(rss) if rss else None
+            report['rss_observations_available'] = len(rss)
             report['peak_observed_cache_bytes'] = max(
                 [s['cache_used'] for s in report['samples']]
                 + [(s['allocation'] or {}).get('resident_bytes', 0) for s in cold_resources])

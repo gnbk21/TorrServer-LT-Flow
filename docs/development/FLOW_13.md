@@ -12,7 +12,7 @@ installation, credentials, settings and reviewed standalone preview are protecte
 | 0 | Source/toolchain/API/settings/assets/screenshots and playback baseline receipts; complete parity inventory | Receipts/screenshots captured; final rotated comparison open |
 | 1 | Generated semantic tokens, three palettes, light/dark/system, density, text scales, prepaint preference recovery | Implemented; token/contrast/bootstrap/unit checks pass |
 | 1 | All four production destinations and existing workflows use expressive components; adaptive navigation and sheets | Integrated; 154 existing browser scenarios and all three lab repeats pass |
-| 1 | Command palette, keyboard/focus, motion, reduced motion, forced colors, seven complete locales | Implemented; all 99 critical Chromium/Firefox/WebKit checks pass |
+| 1 | Command palette, keyboard/focus, motion, reduced motion, forced colors, seven complete locales | Implemented; all 102 critical Chromium/Firefox/WebKit checks pass |
 | 2 | Versioned bounded cache/native coverage; truthful freshness, verification, supply and index/frontier states | Implemented; actual refined preload/reader index pins reconciled; targeted race checks pass |
 | 2 | Cache-only enriched media; advisory browser compatibility; explicit conversion choices | Implemented; targeted checks pass |
 | 3 | Advertised structured Torznab queries, bounded capability cache, cold generic search and one fallback | Implemented; targeted planner/cache/cancellation checks pass |
@@ -193,6 +193,31 @@ and long-duration field acceptance. Missing acceptance is never called passed.
   string-only; status/code/text are preserved. HEAD failures remain body-free.
   Full API race checks and focused version/authentication/alias/admission tests
   pass. The combined integration additionally checks failure-envelope versions.
+- Source `6cdc1d6f` passed hosted build run 41619859190, macOS run 41619859206,
+  branch checks 41619859459, CodeQL 41619859453 and optional-player checks
+  41619859188. Later UI/harness changes still require their own source-bound
+  gates; these completed runs do not qualify an unbuilt later revision.
+- Actual Chromium tab zoom at 100/200/400 percent exposed Settings actions
+  obscuring the form at a 316-by-201 CSS-pixel viewport. The action bar now
+  becomes static when it and compact navigation consume half the viewport.
+  Twelve real tab-zoom checks pass, followed by all 102 critical cases across
+  three browser engines. All 177 web unit tests pass (one existing skip), as do
+  type/lint/build and three production lab repeats. Initial JS is 201,978 gzip
+  bytes, below 204,800; LCP is 1,104/1,072/1,080 ms and CLS is zero in those
+  controlled lab runs. Raw evidence is retained in `zoom-evidence-20261103` and
+  `native-zoom-corrected`; earlier zoom failures remain intact.
+- Comparison capture now retains native failed bytes, verified resident cache
+  turnover, RSS availability and resource/pressure states. Cache turnover is an
+  observed lower bound, not a claimed exact eviction count. Unavailable RSS is
+  unknown rather than zero; no pressure recovery is claimed without a pressure
+  observation. All 133 harness checks pass. Four collector smoke trials retain
+  exact bytes, zero native failed bytes and complete resource measurements, but
+  flag cold-seek p95 (two-run medians 314.9 to 642.7 ms). This remains open for
+  repeated diagnosis, not accepted or hidden as a passing performance result.
+  The workflow shards profiles and uses 40-second measured playback including
+  both outage windows, retaining all five rotated pairs per profile/scenario
+  (80 trials overall). The earlier 60-second workflow and its raw results are
+  preserved; shorter feedback does not remove platform/security gates.
 - The initial 40-trial comparison preserved zero byte failures/timeouts, but
   flagged seek latency/RSS. Review discovered that the old harness's odd-round
   reversal cancelled its two-policy rotation, always placing the baseline first.

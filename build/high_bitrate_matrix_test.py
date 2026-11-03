@@ -16,3 +16,9 @@ class ComparisonTests(unittest.TestCase):
                                'healthy/legacy':summary(400,120*MIB)})
         self.assertEqual(len(rows),2)
         self.assertTrue(all(row['requires_diagnosis'] for row in rows))
+
+    def test_rejected_fixture_bytes_always_require_review(self):
+        rows=regression_flags({'healthy/previous-legacy':{},'healthy/legacy':{'native_failed_bytes':{'maximum':16384}}})
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]['metric'],'native_failed_bytes')
+        self.assertTrue(rows[0]['requires_diagnosis'])

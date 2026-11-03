@@ -31,6 +31,7 @@ jobs:
       fail-fast: false
       matrix:
         scenario: [healthy, outages, mixed-peers, bursts]
+        profile: ${{ fromJSON(inputs.comparison == 'profiles' && '["legacy","adaptive"]' || '["all"]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Validate immutable candidate build identity
@@ -70,21 +71,25 @@ jobs:
         env:
           MODE: ${{ inputs.comparison }}
           SCENARIO: ${{ matrix.scenario }}
+          PROFILE: ${{ matrix.profile }}
         run: |
           chmod +x _out/candidate/TorrServer-LT-linux-amd64 _out/stable/TorrServer-LT-linux-amd64
           bash build/ci-apt.sh ffmpeg
           options=()
+          duration=60
           case "$MODE" in
-            profiles) options+=(--baseline _out/stable/TorrServer-LT-linux-amd64 --verify-cold-seeks) ;;
+            # Both outage windows (16–19s and 32–35s) remain inside every run.
+            # Shard profiles to keep five complete rotated pairs per profile.
+            profiles) options+=(--baseline _out/stable/TorrServer-LT-linux-amd64 --verify-cold-seeks --profiles "$PROFILE"); duration=40 ;;
             transport) options+=(--transport-comparison) ;;
             experiments) options+=(--experiments) ;;
           esac
-          python3 build/high_bitrate_matrix.py --executable _out/candidate/TorrServer-LT-linux-amd64 --output _out/measurements --mbps 120 --seconds 60 --rotations 5 --cases "$SCENARIO" "${options[@]}"
+          python3 build/high_bitrate_matrix.py --executable _out/candidate/TorrServer-LT-linux-amd64 --output _out/measurements --mbps 120 --seconds "$duration" --rotations 5 --cases "$SCENARIO" "${options[@]}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           retention-days: 14
-          name: upgrade-${{ inputs.comparison }}-${{ matrix.scenario }}
+          name: upgrade-${{ inputs.comparison }}-${{ matrix.scenario }}-${{ matrix.profile }}
           path: |
             _out/measurements/**/report.json
             _out/measurements/**/server-output.log

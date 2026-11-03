@@ -11,6 +11,31 @@ test("unmocked APIs stay inside the isolated preview", async ({ request }) => {
   });
 });
 
+test("short zoom-equivalent viewports keep all main headings unobscured", async ({
+  page,
+}) => {
+  await upgradeFixture(page, 2);
+  await page.setViewportSize({ width: 320, height: 201 });
+  for (const route of ["/", "/torrents", "/add", "/settings"]) {
+    await page.goto(`/#${route}`);
+    const heading = page.locator("#main h1");
+    await expect(heading).toBeVisible();
+    await heading.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() =>
+        heading.evaluate((element) => {
+          const r = element.getBoundingClientRect();
+          const at = document.elementFromPoint(
+            r.x + r.width / 2,
+            r.y + r.height / 2,
+          );
+          return at === element || element.contains(at);
+        }),
+      )
+      .toBe(true);
+  }
+});
+
 test("dashboard shortcut paints loading before a cold Library finishes", async ({
   page,
 }) => {
