@@ -253,6 +253,10 @@ and long-duration field acceptance. Missing acceptance is never called passed.
   Native ARM unit tests and execution probes remain mandatory. The alternative
   image is [generally available](https://github.blog/changelog/2026-02-26-macos-26-is-now-generally-available-for-github-hosted-runners/);
   this is not permission to omit the ARM platform or reuse an older binary.
+  The first alternate Intel attempt rejected Boost 1.85's unsupported
+  `macosx-version-min=15.0` property. The compiler-driver minimum remains
+  explicit; the unsupported Boost property is removed. That failed attempt is
+  preserved, and corrected native builds must pass before release approval.
 - The initial 40-trial comparison preserved zero byte failures/timeouts, but
   flagged seek latency/RSS. Review discovered that the old harness's odd-round
   reversal cancelled its two-policy rotation, always placing the baseline first.

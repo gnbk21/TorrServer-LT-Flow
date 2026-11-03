@@ -44,7 +44,7 @@ CXX="clang++ $ARCHFLAG -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
 B2_COMPILER=darwin
 B2_VARIANT="native_$ARCH"
 B2_TOOLSET_CXX="$CXX"
-B2_FLAGS="target-os=darwin address-model=64 architecture=$B2_ARCH macosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
+B2_FLAGS="target-os=darwin address-model=64 architecture=$B2_ARCH"
 # libtorrent's ip_notifier needs SystemConfiguration (its .pc doesn't say so).
 EXTRA_CGO_LDFLAGS="-mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET -framework SystemConfiguration -framework CoreFoundation"
 # webrtc deps: cmake can't take "clang -arch ..." as CMAKE_C_COMPILER; pass a
