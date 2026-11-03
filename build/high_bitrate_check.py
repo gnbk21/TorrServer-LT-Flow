@@ -280,25 +280,34 @@ def observed_rss_bytes(samples):
             if s.get('memory', {}).get('rss_available')]
 
 
-def measure_cold_seeks(server, swarm, info_hash, index, piece_bytes, records, resources):
+def measure_cold_seeks(server, swarm, info_hash, index, piece_bytes, records, resources, admissions):
     used, previous = set(), None
-    for attempt in range(4):
+    # A cache snapshot is not atomic with native arrivals. Data requested before
+    # that snapshot can arrive during the read without another peer request.
+    # Retain that byte-checked observation, but do not call it a cold recovery.
+    # Require four actual proofs, with bounded distinct-target admission; never
+    # retry a timeout, byte mismatch or any other delivery failure.
+    for attempt in range(12):
         snapshot = server.json('/cache', {'action': 'get', 'hash': info_hash})
-        piece = select_cold_piece(snapshot, len(swarm.data), piece_bytes, attempt % 2 == 1, used, previous)
+        piece = select_cold_piece(snapshot, len(swarm.data), piece_bytes, len(records) % 2 == 1, used, previous)
         before = piece_request_count(swarm, piece)
         result = range_read(server, info_hash, index, swarm.data, piece * piece_bytes, piece * piece_bytes + 65535)
         after = piece_request_count(swarm, piece)
         result.update(piece=piece, resident_bytes_before=0, peer_requests_before=before,
-                      peer_requests_after=after, cold_verified=after > before)
-        records.append(result)
-        if not result['cold_verified']:
-            raise AssertionError('Uncached target did not require a new peer request; cold-seek proof failed')
+                      peer_requests_after=after, cold_verified=after > before,
+                      admission='verified_cold' if after > before else 'unproven_inflight_or_cache_race')
+        admissions.append(result)
+        if result['cold_verified']:
+            records.append(result)
         runtime = server.json('/runtime/status')
         resources.append({'memory': runtime['memory'], 'allocation': runtime.get('cache_allocation'),
                           'resources': runtime.get('resources'),
                           'cache_snapshot': compact_cache_sample(server.json('/cache', {'action':'get','hash':info_hash}),len(swarm.data),piece_bytes)})
         used.add(piece)
         previous = piece
+        if len(records) == 4:
+            return
+    raise AssertionError('Could not admit four verified cold seeks within twelve distinct byte-checked observations')
 
 
 def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, preload=False,
@@ -522,7 +531,8 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                 stage = 'cold_range_validation'
                 report['cold_ranges'] = []
                 report['cold_resource_samples'] = []
-                measure_cold_seeks(server, swarm, info_hash, index, piece_mb*MIB, report['cold_ranges'], report['cold_resource_samples'])
+                report['cold_seek_admissions'] = []
+                measure_cold_seeks(server, swarm, info_hash, index, piece_mb*MIB, report['cold_ranges'], report['cold_resource_samples'], report['cold_seek_admissions'])
                 cold = sorted(item['ttfb_ms'] for item in report['cold_ranges'])
                 report['cold_seek_ttfb_p95_ms'] = cold[min(len(cold)-1, int(len(cold)*.95))]
                 report['cold_seek_ttfb_p99_ms'] = cold[min(len(cold)-1, int(len(cold)*.99))]

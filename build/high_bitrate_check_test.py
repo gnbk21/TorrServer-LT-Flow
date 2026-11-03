@@ -1,6 +1,7 @@
 """Reject cached or unknown data as evidence of a cold streaming seek."""
 import unittest
-from high_bitrate_check import select_cold_piece, range_cache_evidence, compact_cache_sample, observed_cache_turnover, observed_rss_bytes, MIB
+from unittest.mock import Mock, patch
+from high_bitrate_check import select_cold_piece, range_cache_evidence, compact_cache_sample, observed_cache_turnover, observed_rss_bytes, measure_cold_seeks, MIB
 
 
 class ColdSeekEvidenceTests(unittest.TestCase):
@@ -73,6 +74,47 @@ class ColdSeekEvidenceTests(unittest.TestCase):
         self.assertNotIn(0,dict(result['verified_pieces']))
         self.assertNotIn(1,dict(result['verified_pieces']))
         self.assertFalse(compact_cache_sample({},128*MIB,8*MIB)['known'])
+
+    def cold_fixture(self):
+        server = Mock()
+        snapshot = {'PiecesLength': MIB, 'PiecesCount': 64, 'Pieces': {}}
+        server.json.side_effect = lambda path, *args: snapshot if path == '/cache' else {'memory': {}}
+        swarm = Mock(data=bytes(64*MIB))
+        return server, swarm
+
+    def test_inflight_arrival_is_retained_but_not_counted_as_a_cold_proof(self):
+        server, swarm = self.cold_fixture()
+        records, resources, admissions = [], [], []
+        with patch('high_bitrate_check.piece_request_count', side_effect=[256,256]+[0,1]*4), \
+                patch('high_bitrate_check.range_read', side_effect=lambda *args: {'ttfb_ms': 20}):
+            measure_cold_seeks(server,swarm,'hash',1,MIB,records,resources,admissions)
+        self.assertEqual(len(records),4)
+        self.assertTrue(all(row['cold_verified'] for row in records))
+        self.assertEqual(len(admissions),5)
+        self.assertFalse(admissions[0]['cold_verified'])
+        self.assertEqual(admissions[0]['admission'],'unproven_inflight_or_cache_race')
+        self.assertNotIn(admissions[0]['piece'],[row['piece'] for row in records])
+        self.assertEqual(len(resources),5)
+
+    def test_cold_proof_admission_is_bounded_and_cannot_succeed_without_four_proofs(self):
+        server, swarm = self.cold_fixture()
+        records, resources, admissions = [], [], []
+        with patch('high_bitrate_check.piece_request_count',return_value=256), \
+                patch('high_bitrate_check.range_read',return_value={'ttfb_ms': 20}):
+            with self.assertRaisesRegex(AssertionError,'four verified cold'):
+                measure_cold_seeks(server,swarm,'hash',1,MIB,records,resources,admissions)
+        self.assertEqual(records,[])
+        self.assertEqual(len(admissions),12)
+
+    def test_delivery_timeout_or_integrity_failure_is_never_retried(self):
+        for error in (TimeoutError('read timeout'), AssertionError('byte mismatch')):
+            with self.subTest(error=type(error).__name__):
+                server, swarm = self.cold_fixture()
+                with patch('high_bitrate_check.piece_request_count',return_value=0), \
+                        patch('high_bitrate_check.range_read',side_effect=error) as read:
+                    with self.assertRaises(type(error)):
+                        measure_cold_seeks(server,swarm,'hash',1,MIB,[],[],[])
+                self.assertEqual(read.call_count,1)
 
 
 if __name__ == '__main__':

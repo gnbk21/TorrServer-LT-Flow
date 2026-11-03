@@ -24,7 +24,7 @@ installation, credentials, settings and reviewed standalone preview are protecte
 | 5 | Bounded shared Recent history, disable/remove/clear, compatible Viewed metadata and truthful provenance | Implemented; persistence/provenance/integration checks pass |
 | 5 | Real internal-player position reporting, explicit saved-position handoff and existing episode/warmup reuse | Implemented; component/intent checks pass; physical handoff acceptance unavailable |
 | 6 | Default-off protected Prometheus endpoint, fixed-label monotonic aggregates and cache-only scrapes | Implemented; authentication/privacy/monotonicity/integration checks pass |
-| 7 | Regression/security/native/browser/locale/performance/distribution checks and complete documentation | Source checks recorded with a documented RSS limitation; corrected Mac source validation pending |
+| 7 | Regression/security/native/browser/locale/performance/distribution checks and complete documentation | All eight native targets and source security pass; corrected cold-measurement admission requires a new bound comparison; RSS limitation documented |
 | 7 | Isolated candidate package, rollback compatibility, final scope reconciliation and qualified release | Not published; required gates remain open |
 
 ## Production parity inventory
@@ -268,9 +268,11 @@ and long-duration field acceptance. Missing acceptance is never called passed.
   against their immutable BUILDINFO checksums, and both report macOS 15.0 in
   their load commands (`published-mac-minimum/receipt.json`). The deployment
   flags therefore preserve the actual published minimum. Corrected Mac run
-  41675283140 still needs native success: GitHub again failed to allocate its
-  ARM runner and explicitly annotated capacity constraints. That is not a
-  completed ARM test. The owner chose to finish all source checks before
+  41675283140 subsequently passed both native architectures, including ARM unit
+  tests and both version probes, after its initial runner-admission failure.
+  The later final-source run 41685516612 still awaits ARM runner admission;
+  its Intel build passed. That pending attempt is not a completed ARM test.
+  The owner chose to finish all source checks before
   changing release approval or starting the tagged build; approval remains off.
 - Final metrics-policy review reproduced rejection of an authenticated socket
   peer with a scoped IPv6 address (`[fe80::1%en0]:port`). The peer parser now
@@ -279,7 +281,9 @@ and long-duration field acceptance. Missing acceptance is never called passed.
   of forwarded-address spoofing remain enforced. The failing reproduction and
   three passing race-detector repeats are retained. This changes only the
   monitoring peer parser, not streaming, scheduling, cache allocation or UI.
-  The corrected source still requires source security/platform validation.
+  Corrected source `d10da975` passes full six-platform build run 41686038062
+  and CodeQL run 41685509654. Its full local API race run and isolated rc.5
+  combined integration also pass. Final-source macOS ARM remains pending.
 - The initial 40-trial comparison preserved zero byte failures/timeouts, but
   flagged seek latency/RSS. Review discovered that the old harness's odd-round
   reversal cancelled its two-policy rotation, always placing the baseline first.
@@ -287,11 +291,59 @@ and long-duration field acceptance. Missing acceptance is never called passed.
   `comparison-default-r2`; it does not establish performance acceptance. A custom
   same-toolchain baseline build is diagnostic only and cannot replace the pinned
   published baseline. No speed or memory improvement is claimed.
-- Full local verification, final repeated performance review, hosted platform/
-  security/distribution/provenance gates, visual parity and candidate packaging
+- Final-source hosted integration and all eight observer trials pass. Observer
+  healthy median peak RSS is 893,550,592 versus 874,717,184 bytes for control;
+  burst is 840,990,720 versus 909,625,344. These are bounded overhead observations,
+  not evidence of a general memory or speed improvement. The final-source
+  five-rotation comparison is run 41722823135. All 80 media deliveries were
+  byte-correct, but one candidate's measurement failed cold-admission proof:
+  the piece had zero resident bytes in a non-atomic cache snapshot, then arrived
+  without a new peer request. That run is not counted as accepted. Its ordinary
+  mixed-seek flag (1.46 versus 323.35 ms median p95) again mixes verified-resident
+  and nonresident offsets; the explicit cache states are retained, rather than
+  interpreting it as a matched cold-seek regression.
+- Both macOS architectures now pass final-runtime run 41685516612, including
+  ARM unit tests and standard/GStreamer execution probes. GitHub assigned the
+  ARM runner on its fourth attempt after three capacity-admission failures;
+  every attempt and provider annotation remains preserved.
+- The cold-measurement harness now admits at most twelve distinct byte-checked
+  observations to establish four actual peer-request-proven cold reads. An
+  unproven in-flight/cache arrival is retained separately, never promoted to a
+  cold proof or included in its latency percentiles. Resource samples include
+  those observations. A timeout, integrity error, missing geometry or exhausted
+  admission still fails immediately; delivery failures are never retried. Three
+  deterministic policy regressions and all 136 harness tests pass. No runtime,
+  scheduler, profile, cache or web source changed. The corrected bound comparison
+  and corresponding source gates remain required.
+- Full local verification and visual parity have passed at the explicitly
+  identified sources above. The corrected final-source comparison,
+  exact-tag distribution/provenance gates and downloaded-package verification
   remain open. No default two-hour test has been introduced. Real Android/Lampa/
   Just Player subtitles, resume, reconnection and a manual screen-reader smoke
   check are not established by controlled browser/native tests.
+
+## Final scope reconciliation
+
+This is a reconciliation against the complete owner specification, not a new
+scope. Implementation and controlled acceptance are distinct from publication.
+
+| Requirement group | Production integration and verification |
+|---|---|
+| Baseline and parity | Immutable published 1.2.0 source/assets; receipts, screenshot and toolchain records; the production parity inventory above includes advanced integrations, storage, pairing, backups, preparation, reuse and diagnostics. No preview sample data or scripting is shipped. |
+| Expressive interface | Generated semantic tokens and local prepaint bootstrap; all four destinations, adaptive navigation, sheets, command palette, preferences, progressive file search and lazy panels. Token/unit/component checks, 154 ordinary browser scenarios, 102 critical three-engine cases, actual 100/200/400% tab zoom and three lab repeats are recorded above. Initial JS remains within 200 KiB gzip. Physical screen-reader acceptance remains unavailable. |
+| Playback observations | Existing asynchronous native sampling and bounded cache projection, eight windows/256 pieces/512 peers; cached verification, requests, supply, required index and frontiers remain separate. Storage and coverage tests reject promotion of unverified blocks. Metadata-only integration checks establish no probe/download/session extension. Cached compatibility facts, internal browser advice and explicit conversion retain direct playback as the first choice. |
+| Search and release cards | Advertised identifiers/year/episode planning, 15-minute/128-entry capability cache, immediate cold text query, one fallback and existing global admission/cancellation. Bounded redacted endpoint history distinguishes aggregate sources. Planner/cancellation/privacy tests and browser workflows cover manual filters, unknown values, filename-derived claims and identity-only source grouping. |
+| Subtitles and handoff | Metadata-only exact/episode matching and ambiguity, at most 100 candidates; 4 MiB input/8 MiB output, two global/one per-torrent fetches, ten-second deadline, full-piece auxiliary admission and foreground/pressure cancellation. Encoding, malformed-input, cancellation and response ownership tests pass. Signed selected aliases preserve old video-only tokens; original-byte, HEAD, scope, v2/hybrid and one-based ID checks are included. Physical sibling discovery remains a disclosed field check. |
+| Recent and positions | Separate bounded database metadata (200 files/30 days), disable/remove/clear, real non-probe delivery, session debounce and removed/expired cleanup. Legacy Viewed and TrackTimecode retain compatibility; provenance, explicit completion and actual internal-player reports are tested. Saved-position intents use integer milliseconds without claiming external return telemetry. Probe, auxiliary, warmup and preparation work do not become playback history. |
+| Monitoring and security | Official pinned Prometheus client, disabled by default, existing listener/authentication/WAF and direct socket-peer policy. Fixed-label cached aggregates, monotonic counters and units are tested, including scoped IPv6 and spoofed forwarded headers. No identity labels, new listener, native scans, downloads or unrelated diagnostic enablement. New JSON/error contracts are additive/versioned; old clients/configuration and optional-field fallback are retained. |
+| Release and measurements | Five rotated runs per profile/scenario, exact media/index/cancellation/multi-reader fixtures and observer/metrics/subtitle trials; every raw failure/flag retained. The measured outage RSS limitation is disclosed, with no universal performance claim. All eight runtime targets pass; the corrected bound comparison remains pending. Exact-tag full platform/security/package/provenance checks and isolated downloaded-package runtime verification remain mandatory before public publication. |
+
+No profile, experimental default, metadata-cache consent, authentication,
+trusted origin, media quality, torrent identity or position-tracking preference
+was changed. No new engine, paid provider, companion app, automatic replacement,
+compulsory preparation or default two-hour test was added. The owner declined
+further private-installation backup investigation; that installation is untouched.
+The controlled rollback fixture passed, but it is not a backup of private state.
 
 ## Security and compatibility review
 
