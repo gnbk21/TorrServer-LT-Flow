@@ -53,6 +53,7 @@ export interface RuntimeStatus {
     modified: boolean;
   };
   resources?: {
+    sampled_at?: string;
     budget_bytes: number;
     warm_budget_bytes: number;
     memory_pressure: boolean;

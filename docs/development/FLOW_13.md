@@ -11,8 +11,8 @@ installation, credentials, settings and reviewed standalone preview are protecte
 |---|---|---|
 | 0 | Source/toolchain/API/settings/assets/screenshots and playback baseline receipts; complete parity inventory | Receipts/screenshots captured; final rotated comparison open |
 | 1 | Generated semantic tokens, three palettes, light/dark/system, density, text scales, prepaint preference recovery | Implemented; token/contrast/bootstrap/unit checks pass |
-| 1 | All four production destinations and existing workflows use expressive components; adaptive navigation and sheets | Integrated; full parity/browser lab verification open |
-| 1 | Command palette, keyboard/focus, motion, reduced motion, forced colors, seven complete locales | Implemented; all 87 critical Chromium/Firefox/WebKit checks pass |
+| 1 | All four production destinations and existing workflows use expressive components; adaptive navigation and sheets | Integrated; 154 existing browser scenarios and all three lab repeats pass |
+| 1 | Command palette, keyboard/focus, motion, reduced motion, forced colors, seven complete locales | Implemented; all 99 critical Chromium/Firefox/WebKit checks pass |
 | 2 | Versioned bounded cache/native coverage; truthful freshness, verification, supply and index/frontier states | Implemented; actual refined preload/reader index pins reconciled; targeted race checks pass |
 | 2 | Cache-only enriched media; advisory browser compatibility; explicit conversion choices | Implemented; targeted checks pass |
 | 3 | Advertised structured Torznab queries, bounded capability cache, cold generic search and one fallback | Implemented; targeted planner/cache/cancellation checks pass |
@@ -135,6 +135,35 @@ and long-duration field acceptance. Missing acceptance is never called passed.
   it is retained as listener-admission evidence, not waived as streaming success.
   macOS Intel built successfully; the ARM job never received a runner. These
   earlier results do not replace final exact-source platform gates.
+- Full local verification of clean source `14596076` passed all 19 steps
+  (`_out/verification/20261103T092307448/receipt.json`): native build, package
+  inventory, unit/vet/race, harness tests, 154 ordinary browser cases, 99 critical
+  three-browser cases and all three production lab repeats. This supersedes,
+  without deleting, the earlier incomplete Full receipts.
+- All eight corrected combined high-bitrate trials passed with 450,000,000
+  byte-checked video bytes each, zero delivery behind schedule and successful
+  subtitle retrieval in every observed trial (13 successful active fetches).
+  Healthy observer/control median peak RSS was 865,370,112 / 831,248,384 bytes;
+  burst RSS was 861,009,920 / 839,315,456 bytes. These bounded observer costs do
+  not cross both RSS regression thresholds. The two repeats per mode are an
+  overhead check, not a speed claim or a replacement for the five-rotation
+  immutable-baseline comparison (`observers-accepted-source/report.json`).
+- The final Windows combined integration and isolated rollback check passed.
+  Published 1.2.0 read the candidate's legacy 42.5-second saved position and
+  settings without modifying the source fixture backup. An earlier invocation
+  referenced a nonexistent fixture directory and failed before starting Flow;
+  that invocation remains recorded separately. Actual candidate desktop/mobile
+  screenshots and timing receipts are in `candidate/ui`. Review corrected two
+  presentation defects: an unsampled resource snapshot appeared as a zero cache
+  budget, and a QR placeholder could be white on white in light mode. Resource
+  samples now distinguish unknown from measured zero; QR generation separates
+  loading/failure and preserves black-on-white fallback text. The presentation
+  changes pass 177 unit tests, all 99 critical browser cases and three lab runs.
+  They change no backend scheduling, HTTP media or observation execution path.
+- The owner declined further personal-settings backup investigation on
+  3 November ("nevermind"). No personal installation/state was changed or copied.
+  The separately staged candidate uses isolated state; the existing installer's
+  verified state-snapshot/rollback path remains required before any real update.
 - The initial 40-trial comparison preserved zero byte failures/timeouts, but
   flagged seek latency/RSS. Review discovered that the old harness's odd-round
   reversal cancelled its two-policy rotation, always placing the baseline first.

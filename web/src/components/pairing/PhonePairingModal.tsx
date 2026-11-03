@@ -33,6 +33,7 @@ export function PhonePairingModal({
   const [selected, setSelected] = useState("");
   const [manualSelection, setManualSelection] = useState(false);
   const [qr, setQr] = useState("");
+  const [qrPending, setQrPending] = useState(false);
   const [message, setMessage] = useState("");
   const initial = addresses.find((a) => !a.isLoopback)?.url || "";
   useEffect(() => {
@@ -67,6 +68,7 @@ export function PhonePairingModal({
   useEffect(() => {
     let disposed = false;
     setQr("");
+    setQrPending(!!safe && isOpen && visible);
     if (safe && isOpen && visible)
       generateQrSvg(safe)
         .then((svg) => {
@@ -74,6 +76,9 @@ export function PhonePairingModal({
         })
         .catch(() => {
           if (!disposed) setQr("");
+        })
+        .finally(() => {
+          if (!disposed) setQrPending(false);
         });
     return () => {
       disposed = true;
@@ -153,7 +158,9 @@ export function PhonePairingModal({
               {qr ? (
                 <div dangerouslySetInnerHTML={{ __html: qr }} />
               ) : (
-                <p className="text-slate-900">{t("pairing.qrUnavailable")}</p>
+                <p className="text-black" role="status">
+                  {t(qrPending ? "Loading" : "pairing.qrUnavailable")}
+                </p>
               )}
             </div>
             <p className="break-all font-mono text-sm">{safe}</p>

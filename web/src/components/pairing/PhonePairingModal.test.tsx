@@ -85,3 +85,28 @@ test("closing pairing cancels its certificate request and stops QR work", async 
   expect(mocks.qr).toHaveBeenCalledOnce();
   expect(screen.queryByText("pairing.httpsTrust")).toBeNull();
 });
+test("a failed QR keeps the manual address usable and separates loading from failure", async () => {
+  let fail!: (error: Error) => void;
+  mocks.qr.mockImplementation(
+    () =>
+      new Promise((_resolve, reject) => {
+        fail = reject;
+      }),
+  );
+  render(
+    view(
+      true,
+      new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+    ),
+  );
+  await waitFor(() => expect(mocks.qr).toHaveBeenCalledOnce());
+  expect(screen.getByText("Loading")).toBeVisible();
+  expect(screen.queryByText("pairing.qrUnavailable")).not.toBeInTheDocument();
+  await act(async () => {
+    fail(new Error("owned QR failure"));
+  });
+  expect(screen.getByText("pairing.qrUnavailable")).toBeVisible();
+  expect(
+    screen.getByText("http://192.168.1.2:8090", { selector: "p" }),
+  ).toBeVisible();
+});
