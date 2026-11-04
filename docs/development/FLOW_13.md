@@ -390,6 +390,20 @@ final 1.3 release**. That approval is now recorded. Staging is temporary;
 publication as stable Latest remains required after the mandatory gates pass.
 Exact-tag acceptance and public publication remain false until verified.
 
+The initial tagged attempt 41791260374 and exact-source security attempt
+41791246460 stopped before platform builds: the browser job moved to Ubuntu
+26.04.1 and restored the distribution-agnostic browser cache. WebKit then
+failed to launch because its cached binary required `libicudata.so.74`, while
+that image installed ICU 78. All 33 WebKit cases failed at browser launch;
+69 Chromium/Firefox cases passed. Both complete logs remain retained. The
+shared browser job is now pinned to the source-qualified Ubuntu 24.04 image,
+and its cache key includes that distribution to prevent cross-distribution
+reuse. All browser suites remain mandatory. Only CI policy and this record
+change; application, native and web source remain identical to qualified
+`a70d15f0`. The failed tag has no release or public assets; any correction of
+that unpublished tag must use its exact old-object lease and retain the failed
+source/run evidence. Published 1.2.0 remains untouched.
+
 ## Final scope reconciliation
 
 This is a reconciliation against the complete owner specification, not a new

@@ -20,6 +20,15 @@ def job(workflow, name):
 
 
 class WorkflowPolicyTests(unittest.TestCase):
+    def test_browser_cache_identity_includes_qualified_distribution(self):
+        text = job('build-web.yml', 'web')
+        host = re.search(r'^    runs-on: (ubuntu-\d+\.\d+)$', text, re.M)
+        self.assertIsNotNone(host)
+        self.assertIn('key: playwright-'+host.group(1)+'-', text)
+        self.assertNotIn('restore-keys:', text)
+        self.assertIn('yarn playwright install --with-deps chromium firefox webkit', text)
+        self.assertIn('yarn test:critical', text)
+
     def test_all_browser_servers_isolate_unmocked_owner_apis(self):
         configs=list((ROOT/'web').glob('playwright*.config.ts'))
         self.assertGreaterEqual(len(configs),3)

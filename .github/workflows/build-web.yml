@@ -20,7 +20,9 @@ permissions:
 
 jobs:
   web:
-    runs-on: ubuntu-latest
+    # Keep browser binaries and native libraries on the qualified distribution.
+    # ubuntu-latest migration must not restore an incompatible WebKit cache.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       FLOW_WEB_BUILD: ${{ inputs.reuse-artifact == '' && (github.event_name != 'pull_request' || inputs.artifact-name == 'flow-web-pr') && '1' || '0' }}
@@ -82,7 +84,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('web/yarn.lock') }}
+          key: playwright-ubuntu-24.04-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('web/yarn.lock') }}
       - name: Install browser runtime
         if: env.FLOW_WEB_BUILD == '1'
         timeout-minutes: 10
