@@ -48,10 +48,16 @@ are retained in the ledger rather than hidden by a favorable run. This upgrade
 does not claim a general streaming-speed improvement or additional peer supply.
 
 The final controlled comparison completed 80 rotated trials against 1.2.0 with
-exact bytes, no timeouts and no startup/seek-latency flags. One outage workload
-used about 144 MiB more median peak RAM (16.3%) despite remaining within its
-resident-cache budget. That measured resource cost remains documented; it is
-not a claimed memory improvement or proof of a leak. Longer resource and real
+50.4 billion exact video bytes, 320 proven cold reads and no timeouts. Three
+workloads flagged median per-trial cold-seek p95 increases of about 0.32–0.55
+seconds. The separate 90 Mbps straggler gate also flagged a 0.56-second increase
+in Legacy's median per-trial cold-seek p95. One outage workload used about
+152 MiB more median peak RAM (16.6%)
+despite remaining within its 512 MiB resident-cache budget. Earlier comparisons,
+their different flags and one rejected cold-admission observation remain recorded.
+These measured costs are not claimed fixed, and their precise runtime cause is
+not established. Controlled continuous delivery passed; that does not guarantee
+phone playback or a general speed/memory improvement. Longer resource and real
 swarm behavior still need field validation.
 
 Physical Android/Lampa/Just Player launch, selected subtitles, saved-position

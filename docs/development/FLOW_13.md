@@ -24,7 +24,7 @@ installation, credentials, settings and reviewed standalone preview are protecte
 | 5 | Bounded shared Recent history, disable/remove/clear, compatible Viewed metadata and truthful provenance | Implemented; persistence/provenance/integration checks pass |
 | 5 | Real internal-player position reporting, explicit saved-position handoff and existing episode/warmup reuse | Implemented; component/intent checks pass; physical handoff acceptance unavailable |
 | 6 | Default-off protected Prometheus endpoint, fixed-label monotonic aggregates and cache-only scrapes | Implemented; authentication/privacy/monotonicity/integration checks pass |
-| 7 | Regression/security/native/browser/locale/performance/distribution checks and complete documentation | All eight native targets and source security pass; corrected cold-measurement admission requires a new bound comparison; RSS limitation documented |
+| 7 | Regression/security/native/browser/locale/performance/distribution checks and complete documentation | All 58 required source jobs pass, including the corrected 80-trial comparison and native macOS ARM; measured latency/RSS costs disclosed; exact-tag gates remain mandatory |
 | 7 | Isolated candidate package, rollback compatibility, final scope reconciliation and qualified release | Not published; required gates remain open |
 
 ## Production parity inventory
@@ -315,12 +315,80 @@ and long-duration field acceptance. Missing acceptance is never called passed.
   deterministic policy regressions and all 136 harness tests pass. No runtime,
   scheduler, profile, cache or web source changed. The corrected bound comparison
   and corresponding source gates remain required.
+- Corrected comparison 41727237439 at `a70d15f0` passed all 80 trials, with
+  50.4 billion exact video bytes, 320 proven cold reads, no unproven admissions,
+  zero native failed bytes and no timeouts. All eight reports and their hashes
+  are retained in `comparison-a70d15f0` and
+  `final-comparison-a70d15f0-receipt.json`. The failed earlier cohort remains
+  retained; it is not promoted to acceptance by this successful run.
+- Performance review retains four final flags. Median per-trial cold-seek p95
+  is 548.38 versus 871.02 ms for healthy/Adaptive, 1,174.21 versus 1,529.64 ms
+  for mixed-peer/Legacy, and 435.86 versus 984.82 ms for outage/Adaptive.
+  Outage/Adaptive median peak RSS is 959,315,968 versus 1,118,392,320 bytes
+  (about 152 MiB, 16.6%). Both resident caches stay within 512 MiB; pressure
+  remains normal. The outage candidate also retains more allocated Go heap
+  and greater sampled cache turnover; healthy CPU medians are nearly identical
+  (18.49 versus 18.46 seconds). These observations do not establish causation
+  or a leak. First-piece cold waits and mixed-peer tail waits vary between
+  individual runs; native source/patches are unchanged from 1.2.0. The earlier
+  complete cohort had no latency flags, whereas this cohort does. Accordingly,
+  these are disclosed measured performance costs, not called fixed, erased by
+  the earlier favorable cohort, or presented as a universal speed improvement.
+  Integrity and continuous delivery meet their gates; long-duration/phone
+  acceptance and precise attribution remain separate limitations.
+- Source build 41725497765 passes all 42 required jobs at `a70d15f0`: six
+  platforms, Linux unit/vet/race/vulnerability checks, inventory/service tests,
+  eight integration groups, ten high-bitrate cases, eight parallel-streaming
+  cases and two native capture jobs. All 122 high-bitrate trials and all eight
+  combined observer trials are byte-correct. CodeQL run 41725498614 passes all
+  five jobs, with no open branch findings returned. The separate 90 Mbps
+  straggler/Legacy cohort retains another cold-seek p95 flag (335.33 versus
+  895.91 ms median per trial); preload medians remain approximately 6.01 seconds
+  and native failed bytes remain zero in both versions. Individual cold tails
+  vary up to 1.45 versus 2.45 seconds. This is another disclosed measured cost,
+  not an experiment promotion, a timeout, or a claimed fixed regression.
+  Final-source macOS ARM is the remaining source gate; failed runner-admission
+  attempts remain preserved. Release approval remains off until it passes.
 - Full local verification and visual parity have passed at the explicitly
   identified sources above. The corrected final-source comparison,
   exact-tag distribution/provenance gates and downloaded-package verification
   remain open. No default two-hour test has been introduced. Real Android/Lampa/
   Just Player subtitles, resume, reconnection and a manual screen-reader smoke
   check are not established by controlled browser/native tests.
+
+## Source qualification and release staging
+
+On 4 November, all **58 of 58 required source jobs** at `a70d15f0` passed:
+build 41725497765 (42 jobs), macOS 41725497443 (three), CodeQL 41725498614
+(five), and corrected comparison 41727237439 (eight). The final macOS ARM
+attempt executed native unit tests and standard/GStreamer version probes; it
+was not accepted merely for receiving a runner. The source receipt is
+`_out/flow13/source-qualification-a70d15f0.json`. Performance flags above remain
+disclosed measured costs, and physical field checks remain unverified.
+
+The owner's condition to wait for all source checks is satisfied. Automatic
+approval review nevertheless rejected the subsequent legacy approval change:
+
+> The command sets stable_approved=true and clears remaining while exact-tag,
+> packaging, provenance, and runtime gates are still pending, recreating the
+> previously rejected misleading release state and potentially enabling
+> premature publication.
+
+The rejected command did not change approval or create a tag/release. No
+alternate tag, workflow, flag or indirect path was used to bypass that decision.
+
+The concrete proposed action was to set the existing `stable_approved` flag and
+clear the completed source-preflight list solely to start the private staged
+1.3 build, while explicitly recording exact-tag acceptance as **false**. The
+current workflow requires this flag before it can run the tagged gates. Its
+full scope, exact-tag draft policy and mandatory native/platform/security/
+packaging/provenance gates would remain unchanged. Public Latest promotion
+would still require all those gates and independent downloaded-package runtime
+verification. On 4 November, the owner explicitly answered **"Approve private
+draft build"**, then clarified that the final deliverable must be a **public
+final 1.3 release**. That approval is now recorded. Staging is temporary;
+publication as stable Latest remains required after the mandatory gates pass.
+Exact-tag acceptance and public publication remain false until verified.
 
 ## Final scope reconciliation
 
@@ -336,7 +404,7 @@ scope. Implementation and controlled acceptance are distinct from publication.
 | Subtitles and handoff | Metadata-only exact/episode matching and ambiguity, at most 100 candidates; 4 MiB input/8 MiB output, two global/one per-torrent fetches, ten-second deadline, full-piece auxiliary admission and foreground/pressure cancellation. Encoding, malformed-input, cancellation and response ownership tests pass. Signed selected aliases preserve old video-only tokens; original-byte, HEAD, scope, v2/hybrid and one-based ID checks are included. Physical sibling discovery remains a disclosed field check. |
 | Recent and positions | Separate bounded database metadata (200 files/30 days), disable/remove/clear, real non-probe delivery, session debounce and removed/expired cleanup. Legacy Viewed and TrackTimecode retain compatibility; provenance, explicit completion and actual internal-player reports are tested. Saved-position intents use integer milliseconds without claiming external return telemetry. Probe, auxiliary, warmup and preparation work do not become playback history. |
 | Monitoring and security | Official pinned Prometheus client, disabled by default, existing listener/authentication/WAF and direct socket-peer policy. Fixed-label cached aggregates, monotonic counters and units are tested, including scoped IPv6 and spoofed forwarded headers. No identity labels, new listener, native scans, downloads or unrelated diagnostic enablement. New JSON/error contracts are additive/versioned; old clients/configuration and optional-field fallback are retained. |
-| Release and measurements | Five rotated runs per profile/scenario, exact media/index/cancellation/multi-reader fixtures and observer/metrics/subtitle trials; every raw failure/flag retained. The measured outage RSS limitation is disclosed, with no universal performance claim. All eight runtime targets pass; the corrected bound comparison remains pending. Exact-tag full platform/security/package/provenance checks and isolated downloaded-package runtime verification remain mandatory before public publication. |
+| Release and measurements | Five rotated runs per profile/scenario, exact media/index/cancellation/multi-reader fixtures and observer/metrics/subtitle trials; every raw failure/flag retained. Measured latency/RSS costs are disclosed, with no universal performance claim. All eight runtime targets and the corrected 80-trial comparison pass. Exact-tag full platform/security/package/provenance checks and isolated downloaded-package runtime verification remain mandatory before public publication. |
 
 No profile, experimental default, metadata-cache consent, authentication,
 trusted origin, media quality, torrent identity or position-tracking preference

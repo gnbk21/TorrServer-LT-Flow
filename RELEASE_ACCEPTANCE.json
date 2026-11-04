@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "stable_approved": false,
+  "stable_approved": true,
   "evidence": [
     {
       "date": "2026-10-09",
@@ -574,14 +574,34 @@
       "field_acceptance_passed": false,
       "accepted_security_dispositions_are_not_fixes": true,
       "verification_record": "RELEASE_1_2_0_VERIFICATION.md"
+    },
+    {
+      "date": "2026-11-04",
+      "scope": "Flow 1.3 source preflight completed before temporary staged tagged build; not tagged acceptance or publication",
+      "source_commit": "a70d15f0bc856774b5ed6219ca763d8e82d07557",
+      "result": "passed",
+      "required_source_jobs": 58,
+      "build_run": 41725497765,
+      "macos_run": 41725497443,
+      "codeql_run": 41725498614,
+      "matched_comparison_run": 41727237439,
+      "source_receipt_sha256": "fe4f851123f200d31eeaed877825fb5172eeaf4f87256e30ed854103831b0741",
+      "matched_trials": 80,
+      "cold_proofs": 320,
+      "integrity_failures": 0,
+      "new_timeouts": 0,
+      "source_high_bitrate_trials": 122,
+      "observer_trials": 8,
+      "retained_final_comparison_flags": 4,
+      "retained_additional_straggler_flag": 1,
+      "performance_flags_fixed": false,
+      "performance_review": "Measured cold-seek and RSS costs disclosed in RELEASE_1_3_0_NOTES.md and docs/development/FLOW_13.md; precise cause not established; no universal speed/memory claim.",
+      "field_acceptance_passed": false,
+      "personal_configuration_uploaded": false,
+      "tagged_acceptance_passed": false
     }
   ],
-  "remaining": [
-    "Flow 1.3 final local regression and interface checks",
-    "Corrected five-rotation comparison against pinned Flow 1.2.0 and flagged-result diagnosis",
-    "Exact-source hosted native/security/platform/distribution/provenance gates",
-    "Separately installed candidate package and final requirement reconciliation"
-  ],
+  "remaining": [],
   "publication_policy": {
     "owner_authorized": true,
     "authorization": "Yes, publish with that note (Recommended)",
@@ -610,7 +630,7 @@
   "release_qualification": {
     "tag": "MatriX.148.Flow-v1.3.0",
     "scope": "full",
-    "status": "in_progress_not_accepted",
+    "status": "source_qualified_tagged_gates_pending",
     "baseline_tag": "MatriX.148.Flow-v1.2.0",
     "baseline_source": "aaf2bc583d196d376751dccf265242273eaad89d",
     "release_notes": "RELEASE_1_3_0_NOTES.md",
@@ -623,6 +643,25 @@
       "exact-tag full release roles",
       "asset checksums and provenance",
       "isolated packaged runtime validation"
+    ],
+    "source_qualified_commit": "a70d15f0bc856774b5ed6219ca763d8e82d07557",
+    "all_source_checks_completed_before_approval": true,
+    "exact_tag_acceptance_passed": false,
+    "public_publication_completed": false,
+    "source_receipt_sha256": "fe4f851123f200d31eeaed877825fb5172eeaf4f87256e30ed854103831b0741",
+    "known_performance_costs_disclosed": true,
+    "owner_build_approval": {
+      "date": "2026-11-04",
+      "answer": "Approve private draft build",
+      "final_deliverable": "Final public release of 1.3 marked Latest",
+      "scope": "Temporary staging only; no waiver of mandatory checks"
+    },
+    "mandatory_tagged_checks_pending": [
+      "Exact-tag full release workflow: all eight platforms and every required native/security/distribution role",
+      "All asset checksums, SBOM, reproducible packaging and hosted provenance",
+      "Independent downloaded Windows package runtime and scoped-feature integration",
+      "Public Latest promotion after these checks pass"
     ]
-  }
+  },
+  "stable_approval_scope": "Owner explicitly approved the temporary private draft build after all 58 source jobs passed. Final deliverable is public stable 1.3 marked Latest, only after all mandatory tagged and downloaded-package gates pass."
 }
