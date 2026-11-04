@@ -4,6 +4,8 @@ Playback clarity, smarter search and a complete Material 3 Expressive interface.
 Flow retains the PC → Lampa → external-player workflow and original media quality.
 The [implementation and acceptance ledger](docs/development/FLOW_13.md) records
 the controlled checks, performance findings and unavailable field checks.
+The [publication verification](RELEASE_1_3_0_VERIFICATION.md) records the exact
+public binaries, signatures, downloaded-package checks and container digest.
 
 ## Changes
 
@@ -47,18 +49,18 @@ tag, source and assets remain unchanged. Individual failures and latency flags
 are retained in the ledger rather than hidden by a favorable run. This upgrade
 does not claim a general streaming-speed improvement or additional peer supply.
 
-The final controlled comparison completed 80 rotated trials against 1.2.0 with
-50.4 billion exact video bytes, 320 proven cold reads and no timeouts. Three
-workloads flagged median per-trial cold-seek p95 increases of about 0.32–0.55
-seconds. The separate 90 Mbps straggler gate also flagged a 0.56-second increase
-in Legacy's median per-trial cold-seek p95. One outage workload used about
-152 MiB more median peak RAM (16.6%)
-despite remaining within its 512 MiB resident-cache budget. Earlier comparisons,
-their different flags and one rejected cold-admission observation remain recorded.
-These measured costs are not claimed fixed, and their precise runtime cause is
-not established. Controlled continuous delivery passed; that does not guarantee
-phone playback or a general speed/memory improvement. Longer resource and real
-swarm behavior still need field validation.
+The exact tagged binary completed 80 rotated trials against immutable 1.2.0:
+50.4 billion verified video bytes, 320 proven cold reads, zero native failed
+bytes and no new timeouts. Two workloads flagged median per-trial cold-seek p95
+increases of about 0.45 and 0.96 seconds; ordinary-seek flags also remain recorded.
+Forced-outage cases recorded delivery deficits in both versions; these are
+server-delivery observations, not decoded-player measurements.
+
+Earlier cohorts retained other latency flags and about 152 MiB more median peak
+RAM in one workload. The final tagged cohort had no RSS threshold flag, which
+does not erase those earlier observations. All results are retained in the
+ledger. These costs are not claimed fixed, their precise cause is not established,
+and no general streaming-speed or memory improvement is claimed.
 
 Physical Android/Lampa/Just Player launch, selected subtitles, saved-position
 handoff, seeks, pause/resume and Wi-Fi reconnection have not been verified for

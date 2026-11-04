@@ -5,8 +5,8 @@ describe the revisions tested at those dates and do not override this table.
 
 | Area | Current state | Remaining gate |
 | --- | --- | --- |
-| Flow 1.3 qualification | PR #14 is merged; all 58 required source jobs pass, including eight native targets, security and the corrected comparison. Measured cold-seek/RSS costs are disclosed. The owner approved temporary staging for the final public release; [ledger](docs/development/FLOW_13.md#source-qualification-and-release-staging) | Exact-tag full platform/security/package/provenance and downloaded runtime checks remain mandatory before stable Latest publication |
-| Public distribution | Stable **Flow 1.2.0** is public and **Latest** for all eight platforms, immutable source `aaf2bc58`. Full tagged native/security/distribution and three container architectures passed. [Verification](RELEASE_1_2_0_VERIFICATION.md) | Phone/public-swarm, physical recovery and endurance limits remain; documented security dispositions are accepted risks |
+| Flow 1.3 qualification | PR #14 is merged. All required source and exact-tag native/platform/security/distribution gates passed; downloaded packages, provenance and actual runtime/UI were verified. [Final reconciliation](docs/development/FLOW_13.md#final-scope-reconciliation) | Measured cold-seek/RSS costs remain disclosed; physical phone/player, screen-reader and broader field acceptance remain separate |
+| Public distribution | Stable **Flow 1.3.0** is public and **Latest**: eight platforms, 35 assets, immutable source `dd7640ad`; all three container architectures verified anonymously. Published 1.2.0 remains immutable. [Verification](RELEASE_1_3_0_VERIFICATION.md) | Phone/public-swarm, physical recovery and endurance limits remain; documented security dispositions are accepted risks |
 | Reliability and compatible streaming controls | [PR #9](https://github.com/gnbk21/TorrServer-LT-Flow/pull/9) is merged and included in 1.1.6: scoped update recovery, transactional storage, partial search, session diagnostics/log rotation, bounded frontier recovery and adaptive peer request credit. Full accepted source comparisons passed; new controls stay off. [Reconciliation](docs/history/PARALLEL_STREAMING_CHECKLIST.md) | Mixed performance tradeoffs prevent default promotion; broader field acceptance remains separate. Owner installation/configuration are preserved |
 | October upgrade | PR #6 is merged into stable 1.1.4. PR #7 repairs slow CI dependency downloads and parallelizes validation. [Checklist](docs/history/OCTOBER_UPGRADE_CHECKLIST.md), [pipeline](CI_PIPELINE.md) | Legacy/defaults and opt-in experiments remain unchanged; field checks remain disclosed |
 | Published upgrade | PR #5 merged; corrected poster timeout and mobile settings action-panel defects; exact tagged and downloaded checks passed. Earlier five-repeat profile/transport comparisons remain recorded. Legacy/1024 KiB/PGO-off defaults retained | Eight-hour run interrupted after 965 cycles; physical checks, optional decoder rebuild, shared OS DNS protection and complete profiling attribution remain unverified |
@@ -31,27 +31,27 @@ describe the revisions tested at those dates and do not override this table.
 
 ## Current stable release
 
-Flow 1.2.0 (`MatriX.148.Flow-v1.2.0`, immutable binary source `aaf2bc58`) is public and Latest for all eight platforms. PR #13 is merged. It adds unified diagnosis, guided phone setup, settings metadata/previews, smoother resource recovery, optional private incident capture and storage views; includes MatriX.147.2/148 fixes; and uses Go 1.27.3, Node 26.13.0 for web builds and OpenSSL 3.5.9. [Notes](RELEASE_1_2_0_NOTES.md), [verification](RELEASE_1_2_0_VERIFICATION.md).
+Flow 1.3.0 (`MatriX.148.Flow-v1.3.0`, immutable binary source `dd7640ad`) is public and Latest for all eight platforms. PR #14 is merged. It adds the production Material 3 Expressive interface, bounded playback coverage and compatibility explanations, capability-aware search and release cards, explicitly selected torrent subtitles, shared Recent history and default-off Prometheus monitoring. It retains the 1.2.0 diagnosis/setup/resource improvements, MatriX.148 fixes, Go 1.27.3, Node 26.13.0 for web builds and OpenSSL 3.5.9. [Notes](RELEASE_1_3_0_NOTES.md), [verification](RELEASE_1_3_0_VERIFICATION.md).
 
 Legacy and experimental defaults remain unchanged. Existing 145-only Windows update helpers need the new package/helper once; preserve the existing state directory. The owner installation and private settings were not changed or uploaded. Earlier public 1.1.7–1.1.9 releases and historical evidence remain; releases older than 1.1.7 were withdrawn as previously documented.
 
 ## Previous stable release: 1.1.6
 
-Flow 1.1.6 remains available for all eight platforms. It introduced the streaming
+Flow 1.1.6 was published for all eight platforms; its public downloads were subsequently withdrawn under the security cleanup policy. It introduced the streaming
 controls and reliability changes; 1.1.7 adds security boundary fixes.
 [Notes](docs/history/RELEASE_1_1_6_NOTES.md), [verification](docs/history/RELEASE_1_1_6_VERIFICATION.md).
 
 ## Previous stable release: 1.1.5
 
-Flow 1.1.5 remains available for Windows, Linux and Android. Its owner-approved
+Flow 1.1.5 was published for Windows, Linux and Android; its public downloads were subsequently withdrawn under the security cleanup policy. Its owner-approved
 Mac omission and runner incident are historical; both Mac architectures are
 included in 1.1.6. [Notes](docs/history/RELEASE_1_1_5_NOTES.md),
 [verification](docs/history/RELEASE_1_1_5_VERIFICATION.md), [incident](docs/history/MACOS_RUNNER_INCIDENT.md).
 
 ## Previous stable release: 1.1.4
 
-Flow 1.1.4, source `1b1a92e0`, remains available for all original platforms,
-including macOS. [Notes](docs/history/RELEASE_1_1_4_NOTES.md) and
+Flow 1.1.4, source `1b1a92e0`, was published for all original platforms,
+including macOS; its public downloads were subsequently withdrawn under the security cleanup policy. [Notes](docs/history/RELEASE_1_1_4_NOTES.md) and
 [verification](docs/history/RELEASE_1_1_4_VERIFICATION.md).
 
 ## Previous stable release: 1.1.3

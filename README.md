@@ -2,7 +2,7 @@
 
 TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/TorrServer-LT) focused on streaming torrents from a Windows PC to an Android player over a local network. Its primary use case is direct playback in Just Player, including playback launched through Lampa. It keeps the libtorrent engine, existing media cache and HTTP API, and adds a modern embedded web interface.
 
-> **Flow 1.3.0:** Material 3 Expressive, clearer playback evidence, smarter search, selected torrent subtitles, shared Recent history and optional Prometheus monitoring. Built with Go 1.27.3 and OpenSSL 3.5.9. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.148.Flow-v1.3.0), [notes](RELEASE_1_3_0_NOTES.md). Legacy remains the default; streaming experiments remain opt-in.
+> **Flow 1.3.0:** Material 3 Expressive, clearer playback evidence, smarter search, selected torrent subtitles, shared Recent history and optional Prometheus monitoring. Built with Go 1.27.3 and OpenSSL 3.5.9. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.148.Flow-v1.3.0), [notes](RELEASE_1_3_0_NOTES.md), [verification](RELEASE_1_3_0_VERIFICATION.md). Legacy remains the default; streaming experiments remain opt-in.
 
 Use the maintained **1.2.0 release or newer** for current dependency fixes and the security protections described in
 [our security policy](SECURITY.md). Historical plans, release measurements and

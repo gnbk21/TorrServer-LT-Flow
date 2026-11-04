@@ -24,8 +24,8 @@ installation, credentials, settings and reviewed standalone preview are protecte
 | 5 | Bounded shared Recent history, disable/remove/clear, compatible Viewed metadata and truthful provenance | Implemented; persistence/provenance/integration checks pass |
 | 5 | Real internal-player position reporting, explicit saved-position handoff and existing episode/warmup reuse | Implemented; component/intent checks pass; physical handoff acceptance unavailable |
 | 6 | Default-off protected Prometheus endpoint, fixed-label monotonic aggregates and cache-only scrapes | Implemented; authentication/privacy/monotonicity/integration checks pass |
-| 7 | Regression/security/native/browser/locale/performance/distribution checks and complete documentation | All 58 required source jobs pass, including the corrected 80-trial comparison and native macOS ARM; measured latency/RSS costs disclosed; exact-tag gates remain mandatory |
-| 7 | Isolated candidate package, rollback compatibility, final scope reconciliation and qualified release | Not published; required gates remain open |
+| 7 | Regression/security/native/browser/locale/performance/distribution checks and complete documentation | All 58 required source jobs pass, including the corrected 80-trial comparison and native macOS ARM; measured latency/RSS costs disclosed; all exact-tag and downloaded-package gates passed |
+| 7 | Isolated candidate package, rollback compatibility, final scope reconciliation and qualified release | Public stable Latest on 4 November 2026; eight platforms/35 assets and three container architectures verified; field limitations disclosed |
 
 ## Production parity inventory
 
@@ -388,7 +388,7 @@ verification. On 4 November, the owner explicitly answered **"Approve private
 draft build"**, then clarified that the final deliverable must be a **public
 final 1.3 release**. That approval is now recorded. Staging is temporary;
 publication as stable Latest remains required after the mandatory gates pass.
-Exact-tag acceptance and public publication remain false until verified.
+Exact-tag acceptance and public publication were kept false until independently verified. Both are now complete, as recorded below.
 
 The initial tagged attempt 41791260374 and exact-source security attempt
 41791246460 stopped before platform builds: the browser job moved to Ubuntu
@@ -400,9 +400,33 @@ shared browser job is now pinned to the source-qualified Ubuntu 24.04 image,
 and its cache key includes that distribution to prevent cross-distribution
 reuse. All browser suites remain mandatory. Only CI policy and this record
 change; application, native and web source remain identical to qualified
-`a70d15f0`. The failed tag has no release or public assets; any correction of
-that unpublished tag must use its exact old-object lease and retain the failed
-source/run evidence. Published 1.2.0 remains untouched.
+`a70d15f0`. At correction time the failed tag had no release or public assets. It was corrected using its exact old-object lease, retaining the failed source/run evidence. The resulting published 1.3 tag is immutable. Published 1.2.0 remains untouched.
+
+## Final public publication: 4 November 2026
+
+[Flow 1.3.0](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.148.Flow-v1.3.0)
+is public, stable and Latest, with immutable binary source
+`dd7640ad6b59adcc4bfafd811bfd63e9f75dfd06`. All eight platforms and 35
+assets are published. Exact-source CodeQL, every required tagged native and
+distribution role, all 34 signed payload digests, eight ZIP contents and 13 Go
+binary identities were independently checked. The downloaded Windows package
+passed 27 byte-checked ranges and combined subtitle/Recent/monitoring/lifetime
+integration, plus desktop/mobile embedded-UI checks in separate disposable state.
+The [publication record](../../RELEASE_1_3_0_VERIFICATION.md) links actual runs,
+checksums, limitations and the anonymously verified three-architecture container
+index. No private installation/configuration was replaced or uploaded.
+
+The actual tagged Linux artifact was compared with immutable 1.2.0 after the
+native runner migration: 80 trials, 50.4 billion verified video bytes, 320 proven
+cold reads, zero native failed bytes and no new timeouts. Four reviewed flags
+remain: ordinary-seek p95 in mixed-peer/Adaptive and outage/Legacy, and median
+per-trial cold-seek p95 increases of 448.46 ms and 962.58 ms respectively.
+Forced-outage delivery deficits occurred in both versions. The final cohort had
+no RSS threshold flag; earlier cohorts' approximately 152 MiB/16.6% extra median
+peak RSS and other latency flags remain retained. Their exact causes are not
+established or called fixed. All 122 tagged high-bitrate trials pass; both
+five-repeat straggler matrices have no additional threshold flag. No universal
+performance improvement or decoded-player smoothness is claimed.
 
 ## Final scope reconciliation
 
@@ -418,7 +442,7 @@ scope. Implementation and controlled acceptance are distinct from publication.
 | Subtitles and handoff | Metadata-only exact/episode matching and ambiguity, at most 100 candidates; 4 MiB input/8 MiB output, two global/one per-torrent fetches, ten-second deadline, full-piece auxiliary admission and foreground/pressure cancellation. Encoding, malformed-input, cancellation and response ownership tests pass. Signed selected aliases preserve old video-only tokens; original-byte, HEAD, scope, v2/hybrid and one-based ID checks are included. Physical sibling discovery remains a disclosed field check. |
 | Recent and positions | Separate bounded database metadata (200 files/30 days), disable/remove/clear, real non-probe delivery, session debounce and removed/expired cleanup. Legacy Viewed and TrackTimecode retain compatibility; provenance, explicit completion and actual internal-player reports are tested. Saved-position intents use integer milliseconds without claiming external return telemetry. Probe, auxiliary, warmup and preparation work do not become playback history. |
 | Monitoring and security | Official pinned Prometheus client, disabled by default, existing listener/authentication/WAF and direct socket-peer policy. Fixed-label cached aggregates, monotonic counters and units are tested, including scoped IPv6 and spoofed forwarded headers. No identity labels, new listener, native scans, downloads or unrelated diagnostic enablement. New JSON/error contracts are additive/versioned; old clients/configuration and optional-field fallback are retained. |
-| Release and measurements | Five rotated runs per profile/scenario, exact media/index/cancellation/multi-reader fixtures and observer/metrics/subtitle trials; every raw failure/flag retained. Measured latency/RSS costs are disclosed, with no universal performance claim. All eight runtime targets and the corrected 80-trial comparison pass. Exact-tag full platform/security/package/provenance checks and isolated downloaded-package runtime verification remain mandatory before public publication. |
+| Release and measurements | Five rotated runs per profile/scenario, exact media/index/cancellation/multi-reader fixtures and observer/metrics/subtitle trials; every raw failure/flag retained. Measured latency/RSS costs are disclosed, with no universal performance claim. All eight runtime targets and the corrected 80-trial comparison pass. Exact tagged source `dd7640ad` passed full platform/security/package/provenance gates and isolated downloaded-package runtime/UI verification before public publication. The actual tagged-binary 80-trial comparison and all 122 high-bitrate trials pass; four reviewed latency flags remain disclosed. |
 
 No profile, experimental default, metadata-cache consent, authentication,
 trusted origin, media quality, torrent identity or position-tracking preference

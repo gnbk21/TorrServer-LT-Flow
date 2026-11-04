@@ -599,6 +599,37 @@
       "field_acceptance_passed": false,
       "personal_configuration_uploaded": false,
       "tagged_acceptance_passed": false
+    },
+    {
+      "date": "2026-11-04",
+      "scope": "Exact tagged source, public stable Latest assets and three container architectures",
+      "source_commit": "dd7640ad6b59adcc4bfafd811bfd63e9f75dfd06",
+      "tag": "MatriX.148.Flow-v1.3.0",
+      "result": "passed",
+      "release_id": 433672332,
+      "release_run": 41792926890,
+      "codeql_run": 41792850772,
+      "comparison_run": 41795245168,
+      "container_run": 41801952139,
+      "asset_count": 35,
+      "signed_payload_subjects": 34,
+      "verified_zip_count": 8,
+      "verified_go_binaries": 13,
+      "matched_trials": 80,
+      "cold_proofs": 320,
+      "integrity_failures": 0,
+      "new_timeouts": 0,
+      "tagged_high_bitrate_trials": 122,
+      "packaged_byte_checked_ranges": 27,
+      "retained_final_comparison_flags": 4,
+      "performance_flags_fixed": false,
+      "container_index_digest": "sha256:895398eae9d56347f43426d65c9bf4adfbd1c7d6f12702c4ec8937b521dc63a3",
+      "anonymous_container_receipt_sha256": "e7ccf64ff95cd7d83e1ef8de50861d2e3a7877c224411502527ed7dadb03e2cd",
+      "public_release_response_sha256": "ac3aca497d6957a000121e99b0ee13dbe797511def31cbbca9c901953a08519a",
+      "field_acceptance_passed": false,
+      "personal_configuration_uploaded": false,
+      "owner_installation_replaced": false,
+      "verification_record": "RELEASE_1_3_0_VERIFICATION.md"
     }
   ],
   "remaining": [],
@@ -625,12 +656,12 @@
     "Manual screen-reader smoke check"
   ],
   "release_target": "MatriX.148.Flow-v1.3.0",
-  "published_tag": "MatriX.148.Flow-v1.2.0",
-  "published_source_commit": "aaf2bc583d196d376751dccf265242273eaad89d",
+  "published_tag": "MatriX.148.Flow-v1.3.0",
+  "published_source_commit": "dd7640ad6b59adcc4bfafd811bfd63e9f75dfd06",
   "release_qualification": {
     "tag": "MatriX.148.Flow-v1.3.0",
     "scope": "full",
-    "status": "source_qualified_tagged_gates_pending",
+    "status": "published_latest_verified",
     "baseline_tag": "MatriX.148.Flow-v1.2.0",
     "baseline_source": "aaf2bc583d196d376751dccf265242273eaad89d",
     "release_notes": "RELEASE_1_3_0_NOTES.md",
@@ -646,8 +677,8 @@
     ],
     "source_qualified_commit": "a70d15f0bc856774b5ed6219ca763d8e82d07557",
     "all_source_checks_completed_before_approval": true,
-    "exact_tag_acceptance_passed": false,
-    "public_publication_completed": false,
+    "exact_tag_acceptance_passed": true,
+    "public_publication_completed": true,
     "source_receipt_sha256": "fe4f851123f200d31eeaed877825fb5172eeaf4f87256e30ed854103831b0741",
     "known_performance_costs_disclosed": true,
     "owner_build_approval": {
@@ -656,12 +687,16 @@
       "final_deliverable": "Final public release of 1.3 marked Latest",
       "scope": "Temporary staging only; no waiver of mandatory checks"
     },
-    "mandatory_tagged_checks_pending": [
-      "Exact-tag full release workflow: all eight platforms and every required native/security/distribution role",
-      "All asset checksums, SBOM, reproducible packaging and hosted provenance",
-      "Independent downloaded Windows package runtime and scoped-feature integration",
-      "Public Latest promotion after these checks pass"
-    ]
+    "mandatory_tagged_checks_pending": [],
+    "tagged_source_commit": "dd7640ad6b59adcc4bfafd811bfd63e9f75dfd06",
+    "tagged_release_run": 41792926890,
+    "exact_source_security_run": 41792850772,
+    "exact_tag_comparison_run": 41795245168,
+    "prepublication_receipt_sha256": "4aa9c8f8d6074f322f0128d23d30cbbf2a1f98e484d7417e2d2011dac1b62829",
+    "pending_post_publication": [],
+    "verification_record": "RELEASE_1_3_0_VERIFICATION.md",
+    "container_run": 41801952139,
+    "container_index_digest": "sha256:895398eae9d56347f43426d65c9bf4adfbd1c7d6f12702c4ec8937b521dc63a3"
   },
   "stable_approval_scope": "Owner explicitly approved the temporary private draft build after all 58 source jobs passed. Final deliverable is public stable 1.3 marked Latest, only after all mandatory tagged and downloaded-package gates pass."
 }
