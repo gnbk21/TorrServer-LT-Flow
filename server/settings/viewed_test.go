@@ -1,8 +1,12 @@
 package settings
 
 import (
+	"path/filepath"
 	"sort"
+	"sync"
 	"testing"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 // memDB is an in-memory TorrServerDB for tests.
@@ -77,6 +81,50 @@ func TestMarkViewedKeepsSavedTimecode(t *testing.T) {
 	}
 	if tc, ok := got[3]; !ok || tc != 0 {
 		t.Fatalf("MarkViewed did not add file 3: %v", got)
+	}
+}
+
+func TestConcurrentViewedUpdatesKeepEveryFile(t *testing.T) {
+	db, err := bolt.Open(filepath.Join(t.TempDir(), "config.db"), 0o600, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	withViewedDB(t, true)
+	tdb = &TDB{db: db}
+
+	const files = 24
+	for file := 1; file <= files; file++ {
+		MarkViewed("h", files+file)
+	}
+
+	var writers sync.WaitGroup
+	start := make(chan struct{})
+	for file := 1; file <= files; file++ {
+		writers.Go(func() {
+			<-start
+			MarkViewed("h", file)
+		})
+		writers.Go(func() {
+			<-start
+			SetViewed(&Viewed{Hash: "h", FileIndex: file, TimeCode: float64(file)})
+		})
+		writers.Go(func() {
+			<-start
+			RemViewed(&Viewed{Hash: "h", FileIndex: files + file})
+		})
+	}
+	close(start)
+	writers.Wait()
+
+	got := timecodes("h")
+	if len(got) != files {
+		t.Errorf("viewed records = %d, want %d", len(got), files)
+	}
+	for file := 1; file <= files; file++ {
+		if got[file] != float64(file) {
+			t.Errorf("file %d timecode = %v, want %d", file, got[file], file)
+		}
 	}
 }
 
