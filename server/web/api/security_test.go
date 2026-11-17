@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	sets "server/settings"
+	"server/web/auth"
 	"sync/atomic"
 	"testing"
 
@@ -125,5 +126,44 @@ func TestManagementOriginRateAndPlaybackCompatibility(t *testing.T) {
 	sets.StoreBTsets(&sets.BTSets{Flow: &f2})
 	if got := request(http.MethodGet, "/stream?stat=ffprobe", "", "127.0.0.1:9"); got != 401 {
 		t.Fatal("public probe marker bypassed access", got)
+	}
+}
+
+func TestHLSRoutesFollowPlaybackPolicy(t *testing.T) {
+	old := sets.BTsets()
+	t.Cleanup(func() { sets.StoreBTsets(old) })
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(auth.BasicAuth(gin.Accounts{"fixture": "test-only"}), PlaybackPolicy())
+	handler := func(c *gin.Context) { c.Status(http.StatusNoContent) }
+	r.GET("/gst/:hash/master.m3u8", handler)
+	r.GET("/gst/:hash/seg/*segment", handler)
+	r.GET("/gst/echo", handler)
+
+	for _, tc := range []struct {
+		name, path                string
+		restricted, authenticated bool
+		want                      int
+	}{
+		{"compatible HLS", "/gst/fixture/master.m3u8", false, false, http.StatusNoContent},
+		{"protected HLS manifest", "/gst/fixture/master.m3u8", true, false, http.StatusUnauthorized},
+		{"protected HLS segment", "/gst/fixture/seg/example.m4s", true, false, http.StatusUnauthorized},
+		{"authenticated HLS", "/gst/fixture/master.m3u8", true, true, http.StatusNoContent},
+		{"public health probe", "/gst/echo", true, false, http.StatusNoContent},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := sets.DefaultFlowSettings()
+			f.RequirePlaybackToken = tc.restricted
+			sets.StoreBTsets(&sets.BTSets{Flow: f})
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			if tc.authenticated {
+				req.SetBasicAuth("fixture", "test-only")
+			}
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			if w.Code != tc.want {
+				t.Fatalf("status = %d, want %d", w.Code, tc.want)
+			}
+		})
 	}
 }
