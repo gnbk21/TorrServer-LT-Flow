@@ -124,7 +124,8 @@ func browserManagementHost(host, origins string) bool {
 func PlaybackPolicy() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		p := c.Request.URL.Path
-		legacy := strings.HasPrefix(p, "/stream") || strings.HasPrefix(p, "/play/") || strings.HasPrefix(p, "/playlist")
+		legacy := strings.HasPrefix(p, "/stream") || strings.HasPrefix(p, "/play/") || strings.HasPrefix(p, "/playlist") ||
+			strings.HasPrefix(c.FullPath(), "/gst/:hash/")
 		if legacy && sets.CurrentFlow().RequirePlaybackToken && c.GetString(gin.AuthUserKey) == "" && !torr.IsInternalProbe(c.Request) {
 			c.AbortWithStatusJSON(401, gin.H{"error": "a playback capability or authentication is required"})
 			return
