@@ -195,8 +195,9 @@ also returned by the existing `POST /settings` API. Existing settings files
 without a `Flow` object receive the documented defaults. An older web client
 that omits `Flow` when saving settings preserves the current Flow values.
 
-The authenticated `GET /flow/status/{hash}` endpoint reports the current startup
-stage and per-session playback, cache and Range diagnostics. It does not create
+The `GET /flow/status/{hash}` endpoint reports the current startup stage and
+per-session playback, cache and Range diagnostics. It follows the
+`--httpauth` management setting. The endpoint does not create
 a new cache. Range traces are disabled by default; set
 `BitTorr.Flow.RangeTraceEnabled` to `true` to keep the latest 128 requests per
 logical session in the diagnostic response. `DebugFlow` additionally emits JSON
