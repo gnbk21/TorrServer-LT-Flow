@@ -4,9 +4,9 @@ TorrServer-Flow is a fork of [TorrServer-LT](https://github.com/trinity-aml/Torr
 
 > **Flow 1.3.0:** Material 3 Expressive, clearer playback evidence, smarter search, selected torrent subtitles, shared Recent history and optional Prometheus monitoring. Built with Go 1.27.3 and OpenSSL 3.5.9. [Downloads](https://github.com/gnbk21/TorrServer-LT-Flow/releases/tag/MatriX.148.Flow-v1.3.0), [notes](RELEASE_1_3_0_NOTES.md), [verification](RELEASE_1_3_0_VERIFICATION.md). Legacy remains the default; streaming experiments remain opt-in.
 
-Use the maintained **1.2.0 release or newer** for current dependency fixes and the security protections described in
-[our security policy](SECURITY.md). Historical plans, release measurements and
-upstream evaluations are organized in the [documentation index](docs/README.md).
+Check the [security policy](SECURITY.md) and release notes for the update status of
+your installed build. The [documentation index](docs/README.md) links to
+historical plans, release measurements and upstream evaluations.
 
 ## Run on Windows
 
@@ -25,6 +25,13 @@ explicit selection; Prometheus and conversion are disabled by default. See the
 3. On the PC, open <http://127.0.0.1:8090>. On a phone on the same local network, use `http://<PC-LAN-IP>:8090` as the TorrServer address in your client (for example, Lampa), then play with Just Player. Allow the server through Windows Firewall on private networks if prompted.
 
 Keep Flow and another TorrServer instance on **different ports and data directories**. Do not start them concurrently against the same `config.db`. The server listens on all interfaces by default. Keep it on a trusted private LAN or VPN. HTTP authentication (`--httpauth`, with an `accs.db` account file) protects management endpoints, but inherited playback routes can serve an existing torrent without credentials when its hash is known. Do not expose it directly to the Internet.
+
+To limit listening to interfaces you use, pass `--ip 127.0.0.1 --ip <PC-LAN-IP>`.
+Reserve the LAN address in your router if you use a fixed listener. Keep the
+Windows Firewall rule scoped to the Private profile and local subnet. Basic
+authentication travels unencrypted over HTTP. Use HTTPS for management where
+clients can trust the certificate, and use the HTTP media option only on a
+trusted network when an external player requires it.
 
 Browser management always enforces the hostname and allowed-origin checks.
 Use Management origins, authentication and playback-token controls to configure

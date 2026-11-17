@@ -66,6 +66,11 @@ digests. The ZIPs use sorted inputs and fixed archive timestamps. This makes
 packaging reproducible from identical CI inputs; native compilation is not
 claimed to be bit-for-bit reproducible across different toolchains.
 
+The root `installTorrServerLinux.sh` and `installTorrServerMac.sh` are
+TorrServer-LT installers. They select upstream release binaries for both
+install and update. For Flow on Linux or macOS, use this fork's platform ZIP or
+build this checkout using [the native build guide](build/README.md).
+
 GitHub build attestations bind artifact digests to the build workflow. Verify
 with `gh attestation verify <downloaded-file> --repo gnbk21/TorrServer-LT-Flow`.
 These attestations are separate from Windows Authenticode publisher signing.
