@@ -1,7 +1,7 @@
 # Local native and cross-builds (no Docker)
 
-These scripts build **TorrServer-LT** for every supported target straight on a
-Linux host — no Docker, no QEMU. Each one builds a static OpenSSL, the WebRTC
+These scripts build **TorrServer-Flow** for supported targets on a Linux host
+without Docker or QEMU. Each one builds a static OpenSSL, the WebRTC
 deps (usrsctp/libjuice, via cmake) and libtorrent (plus `boost_system` straight
 from the Boost source tree, via Boost.Build/`b2`) into `_deps/<target>/`, then
 links the Go binary against it through pkg-config. Final binaries land in
@@ -13,7 +13,8 @@ binary plus the GStreamer HLS transcoding feature (pure Go; GStreamer is
 
 Native Windows development is supported through the MSYS2 UCRT64 setup below.
 
-The 1.2 release uses Go 1.27.3 from `server/go.mod`. OpenSSL 3.5.9 is pinned
+Use the Go version in `server/go.mod` for development builds. Released binaries
+retain the version in their `BUILDINFO.json`. OpenSSL 3.5.9 is pinned
 together with its archive SHA-256. A custom `OPENSSL_VERSION` must also supply
 its independently reviewed `OPENSSL_SHA256`; extraction refuses a mismatch.
 
