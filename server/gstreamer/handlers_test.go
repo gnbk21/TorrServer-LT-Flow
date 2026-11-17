@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"server/settings"
+	"server/web/auth"
 	"strings"
 	"testing"
 	"time"
@@ -67,6 +69,35 @@ func TestSetupRouteDoesNotConflict(t *testing.T) {
 	} {
 		if !registered["GET "+path] {
 			t.Fatalf("route for %s was not registered", path)
+		}
+	}
+}
+
+func TestRemoveRouteRequiresConfiguredManagementAuth(t *testing.T) {
+	old := settings.HttpAuth
+	settings.HttpAuth = true
+	t.Cleanup(func() { settings.HttpAuth = old })
+
+	router := gin.New()
+	router.Use(auth.BasicAuth(gin.Accounts{"fixture": "test-only"}))
+	service := NewService(Config{})
+	t.Cleanup(service.Dispose)
+	service.SetupRoute(router)
+	for _, tc := range []struct {
+		authenticated bool
+		want          int
+	}{
+		{false, http.StatusUnauthorized},
+		{true, http.StatusBadRequest}, // Authorized, but missing a task identifier.
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/gst/remove", nil)
+		if tc.authenticated {
+			req.SetBasicAuth("fixture", "test-only")
+		}
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != tc.want {
+			t.Errorf("authenticated=%v: status = %d, want %d", tc.authenticated, w.Code, tc.want)
 		}
 	}
 }
