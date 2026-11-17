@@ -2,10 +2,15 @@ package settings
 
 import (
 	"encoding/json"
+	"sync"
 	"time"
 
 	"server/log"
 )
+
+// Keep each Viewed read-modify-write intact across playback and /viewed calls.
+// Take this lock after dbMigrationLock, which protects the storage backend.
+var viewedMu sync.RWMutex
 
 // Viewed marks one torrent file as watched. TimeCode is the playback position
 // in seconds; it is stored only while BTSets.TrackTimecode is on (otherwise 0).
@@ -44,6 +49,8 @@ func trackTimecode() bool {
 func SetViewed(vv *Viewed) {
 	dbMigrationLock.RLock()
 	defer dbMigrationLock.RUnlock()
+	viewedMu.Lock()
+	defer viewedMu.Unlock()
 	val := vv.TimeCode
 	m := readIndexes(tdb.Get("Viewed", vv.Hash))
 	// Explicit completion edits do not manufacture or erase a saved position.
@@ -70,6 +77,8 @@ func SetViewed(vv *Viewed) {
 func MarkViewed(hash string, fileIndex int) {
 	dbMigrationLock.RLock()
 	defer dbMigrationLock.RUnlock()
+	viewedMu.Lock()
+	defer viewedMu.Unlock()
 	m := readIndexes(tdb.Get("Viewed", hash))
 	if _, ok := m[fileIndex]; ok {
 		return
@@ -86,6 +95,8 @@ func MarkViewed(hash string, fileIndex int) {
 func RemViewed(vv *Viewed) {
 	dbMigrationLock.RLock()
 	defer dbMigrationLock.RUnlock()
+	viewedMu.Lock()
+	defer viewedMu.Unlock()
 	removeViewedMetadataLocked(vv.Hash, vv.FileIndex)
 	if vv.FileIndex == -1 {
 		tdb.Rem("Viewed", vv.Hash)
@@ -108,6 +119,8 @@ func RemViewed(vv *Viewed) {
 func ListViewed(hash string) []*Viewed {
 	dbMigrationLock.RLock()
 	defer dbMigrationLock.RUnlock()
+	viewedMu.RLock()
+	defer viewedMu.RUnlock()
 	recentMu.Lock()
 	metadata := viewedMetadataLocked()
 	recentMu.Unlock()
