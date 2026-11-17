@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"server/log"
-
 	"server/torrfs"
+	"server/web/auth"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/net/webdav"
@@ -32,7 +32,7 @@ func MountWebDAV(r *gin.Engine) {
 		LockSystem: webdav.NewMemLS(),
 	}
 
-	grp := r.Group("/dav")
+	grp := r.Group("/dav", auth.CheckAuth())
 
 	handler := func(c *gin.Context) {
 		h.ServeHTTP(c.Writer, c.Request)
