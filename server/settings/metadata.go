@@ -29,6 +29,7 @@ var settingRules = map[string]settingRule{
 	"Flow.WarmCacheBudgetMB":               {Min: 0, Max: 65536, RejectInvalid: true},
 	"Flow.PreparationConcurrency":          {Min: 1, Max: 16, RejectInvalid: true, LegacyZero: true},
 	"Flow.ManagementRateLimit":             {Min: 0, Max: 60000, RejectInvalid: true},
+	"Flow.MaxGStreamerProbes":              {Min: 0, Max: 32, RejectInvalid: true},
 	"Flow.PlaybackTokenTTL":                {Min: 30, Max: 86400, RejectInvalid: true, LegacyZero: true},
 	"Flow.BootstrapHeadMB":                 {Min: 1, Max: 128},
 	"Flow.ProbeGraceMs":                    {Min: 0, Max: 10000},

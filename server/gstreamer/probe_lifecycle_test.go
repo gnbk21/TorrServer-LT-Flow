@@ -146,6 +146,58 @@ func TestDisposeCancelsInFlightDiscovery(t *testing.T) {
 	}
 }
 
+func TestProbeCapacityReleasesAfterLastCallerCancels(t *testing.T) {
+	conf, root := discovererFixture(t, "wait")
+	previous := settings.BTsets()
+	t.Cleanup(func() { settings.StoreBTsets(previous) })
+	cfg := settings.NewDefaultConfig()
+	cfg.Flow.MaxGStreamerProbes = 1
+	settings.StoreBTsets(cfg)
+
+	service := NewService(conf)
+	defer service.Dispose()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	first, shared := make(chan error, 1), make(chan error, 1)
+	go func() { _, err := service.ProbeContext(ctx, "first", "1"); first <- err }()
+	waitProbeCondition(t, func() bool { _, err := os.Stat(filepath.Join(root, "calls")); return err == nil })
+	go func() { _, err := service.ProbeContext(ctx, "first", "1"); shared <- err }()
+	waitProbeCondition(t, func() bool {
+		service.probeMu.Lock()
+		defer service.probeMu.Unlock()
+		return service.probeRuns[probeCacheKey("first", "1")].waiters == 2
+	})
+	if _, err := service.Probe("second", "1"); !errors.Is(err, ErrProbeBusy) {
+		t.Fatalf("distinct probe while saturated = %v, want capacity error", err)
+	}
+	cancel()
+	for _, result := range []chan error{first, shared} {
+		select {
+		case err := <-result:
+			if !errors.Is(err, context.Canceled) {
+				t.Fatal(err)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("canceled caller remained blocked")
+		}
+	}
+	waitProbeCondition(t, func() bool {
+		service.probeMu.Lock()
+		defer service.probeMu.Unlock()
+		return service.probeActive == 0
+	})
+	if err := os.WriteFile(filepath.Join(root, "release"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Probe("second", "1"); err != nil {
+		t.Fatal("capacity was not reusable:", err)
+	}
+	calls, err := os.ReadFile(filepath.Join(root, "calls"))
+	if err != nil || string(calls) != "call\ncall\n" {
+		t.Fatalf("discovery invocations %q, error %v", calls, err)
+	}
+}
+
 func TestColdProbeWarmsOnceAndRetries(t *testing.T) {
 	conf, root := discovererFixture(t, "cold")
 	var requests atomic.Int32

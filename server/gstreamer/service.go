@@ -26,6 +26,7 @@ var (
 	ErrUnsupportedVideo        = errors.New("unsupported video codec")
 	ErrUnsupportedHDRTransfer  = errors.New("HDR tone mapping requires a PQ or HLG base layer")
 	ErrProbeUnavailable        = errors.New("gst-discoverer returned no stream info")
+	ErrProbeBusy               = errors.New("gstreamer probe capacity reached, retry shortly")
 	ErrPipelineUnavailable     = errors.New("gstreamer runtime is unavailable")
 	ErrSegmentNotReady         = errors.New("segment is not ready")
 	ErrTaskNotFound            = errors.New("gstreamer task not found")
@@ -45,8 +46,8 @@ type Service struct {
 
 	probeMu      sync.Mutex
 	probeCache   map[string]probeCacheEntry
-	probeCalls   singleflight.Group
 	probeRuns    map[string]*probeRun
+	probeActive  int // includes canceled workers until their subprocesses exit
 	probeWorkers sync.WaitGroup
 	taskCalls    singleflight.Group
 
@@ -60,6 +61,9 @@ const probeCacheTTL = time.Hour
 type probeRun struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
+	done    chan struct{}
+	result  ProbeInfo
+	err     error
 	waiters int
 }
 
@@ -287,6 +291,7 @@ func (s *Service) ProbeContext(ctx context.Context, hash string, fileID string) 
 	}
 
 	key := probeCacheKey(hash, fileID)
+	limit := settings.CurrentFlow().MaxGStreamerProbes
 	s.probeMu.Lock()
 	if s.disposed.Load() {
 		s.probeMu.Unlock()
@@ -297,45 +302,18 @@ func (s *Service) ProbeContext(ctx context.Context, hash string, fileID string) 
 	}
 	run := s.probeRuns[key]
 	if run == nil {
+		if limit > 0 && s.probeActive >= limit {
+			s.probeMu.Unlock()
+			return ProbeInfo{}, ErrProbeBusy
+		}
 		owner, cancel := context.WithTimeout(context.Background(), 2*(gstProbeTimeout+3*time.Second)+probeWarmupTimeout)
-		run = &probeRun{ctx: owner, cancel: cancel}
+		run = &probeRun{ctx: owner, cancel: cancel, done: make(chan struct{})}
 		s.probeRuns[key] = run
+		s.probeActive++
+		s.probeWorkers.Add(1)
+		go s.runProbe(run, hash, fileID)
 	}
 	run.waiters++
-	resultChannel := s.probeCalls.DoChan(key, func() (any, error) {
-		s.probeMu.Lock()
-		if s.disposed.Load() {
-			s.probeMu.Unlock()
-			return ProbeInfo{}, ErrServiceClosed
-		}
-		s.probeWorkers.Add(1)
-		s.probeMu.Unlock()
-		defer s.probeWorkers.Done()
-		if cached, found, err := s.cachedProbe(hash, fileID); found {
-			return cached, err
-		}
-		conf := s.currentConfig()
-		src := sourceURL(conf, hash, fileID)
-		result, err := probeSourceContext(run.ctx, src, conf)
-		if err != nil && probeRetryableError(err) && run.ctx.Err() == nil && warmProbeSource(run.ctx, src, torrentFileSize(hash, fileID)) {
-			result, err = probeSourceContext(run.ctx, src, conf)
-		}
-		if err != nil {
-			return ProbeInfo{}, err
-		}
-		result = refreshProbeFileSize(result, hash, fileID)
-		if err := validateProbe(result, conf); err != nil {
-			return ProbeInfo{}, err
-		}
-		if s.disposed.Load() {
-			return ProbeInfo{}, ErrServiceClosed
-		}
-		if err := run.ctx.Err(); err != nil {
-			return ProbeInfo{}, err
-		}
-		s.setCachedProbe(hash, fileID, result)
-		return result, nil
-	})
 	s.probeMu.Unlock()
 	defer func() {
 		s.probeMu.Lock()
@@ -343,11 +321,9 @@ func (s *Service) ProbeContext(ctx context.Context, hash string, fileID string) 
 		run.waiters--
 		if run.waiters == 0 && s.probeRuns[key] == run {
 			run.cancel()
-			s.probeCalls.Forget(key)
 			delete(s.probeRuns, key)
 		}
 	}()
-	var result singleflight.Result
 	select {
 	case <-ctx.Done():
 		return ProbeInfo{}, ctx.Err()
@@ -356,20 +332,61 @@ func (s *Service) ProbeContext(ctx context.Context, hash string, fileID string) 
 			return ProbeInfo{}, ErrServiceClosed
 		}
 		return ProbeInfo{}, run.ctx.Err()
-	case result = <-resultChannel:
+	case <-run.done:
 	}
-	if result.Err != nil {
-		return ProbeInfo{}, result.Err
+	if run.err != nil {
+		return ProbeInfo{}, run.err
 	}
 	if s.disposed.Load() {
 		return ProbeInfo{}, ErrServiceClosed
 	}
-	probe := refreshProbeFileSize(result.Val.(ProbeInfo), hash, fileID)
+	probe := refreshProbeFileSize(run.result, hash, fileID)
 	if err := validateProbe(probe, s.currentConfig()); err != nil {
 		return ProbeInfo{}, err
 	}
 	s.setCachedProbe(hash, fileID, probe)
 	return probe, nil
+}
+
+func (s *Service) runProbe(run *probeRun, hash string, fileID string) {
+	defer s.probeWorkers.Done()
+	defer close(run.done)
+	defer func() {
+		s.probeMu.Lock()
+		s.probeActive--
+		s.probeMu.Unlock()
+	}()
+	run.result, run.err = s.probeUncached(run.ctx, hash, fileID)
+}
+
+func (s *Service) probeUncached(ctx context.Context, hash string, fileID string) (ProbeInfo, error) {
+	if s.disposed.Load() {
+		return ProbeInfo{}, ErrServiceClosed
+	}
+	if cached, found, err := s.cachedProbe(hash, fileID); found {
+		return cached, err
+	}
+	conf := s.currentConfig()
+	src := sourceURL(conf, hash, fileID)
+	result, err := probeSourceContext(ctx, src, conf)
+	if err != nil && probeRetryableError(err) && ctx.Err() == nil && warmProbeSource(ctx, src, torrentFileSize(hash, fileID)) {
+		result, err = probeSourceContext(ctx, src, conf)
+	}
+	if err != nil {
+		return ProbeInfo{}, err
+	}
+	result = refreshProbeFileSize(result, hash, fileID)
+	if err := validateProbe(result, conf); err != nil {
+		return ProbeInfo{}, err
+	}
+	if s.disposed.Load() {
+		return ProbeInfo{}, ErrServiceClosed
+	}
+	if err := ctx.Err(); err != nil {
+		return ProbeInfo{}, err
+	}
+	s.setCachedProbe(hash, fileID, result)
+	return result, nil
 }
 
 func (s *Service) cachedProbe(hash string, fileID string) (ProbeInfo, bool, error) {

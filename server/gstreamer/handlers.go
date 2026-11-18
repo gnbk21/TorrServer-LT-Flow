@@ -580,6 +580,10 @@ func startSegmentIndex(seconds int, segmentSeconds int, count int) int {
 }
 
 func abortWithSourceError(c *gin.Context, err error) {
+	if errors.Is(err, ErrProbeBusy) {
+		c.String(http.StatusServiceUnavailable, err.Error())
+		return
+	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		c.String(http.StatusGatewayTimeout, err.Error())
 		return
