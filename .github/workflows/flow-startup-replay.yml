@@ -1,0 +1,122 @@
+name: Flow startup Linux replay
+
+on:
+  push:
+    branches: [audit/startup-linux-replay-20261118]
+
+permissions:
+  actions: read
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the original Go draft supplied the native SDK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/44164535051" --jq '.head_sha + " " + (.path | split("@")[0])' |
+            grep -Fx '372bbb731f0cf9c48c0e7823c9e4b06cc800b5d0 .github/workflows/build.yml'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: flow-linux-native-deps
+          run-id: 44164535051
+          github-token: ${{ github.token }}
+          path: _out
+      - name: Extract the shared native SDK and matching trees
+        run: |
+          tar -xzf _out/linux-native-deps.tar.gz
+          sha256sum _deps/linux-amd64/lib/libtorrent-rasterbar.a _out/linux-native-deps.tar.gz > _out/sdk.sha256
+          git worktree add --detach "$RUNNER_TEMP/pinned" d03d2fe1892811bdad651eed8af81188675b89a3
+          git worktree add --detach "$RUNNER_TEMP/go-only" 372bbb731f0cf9c48c0e7823c9e4b06cc800b5d0
+          if ! command -v ffmpeg >/dev/null; then bash build/ci-apt.sh ffmpeg; fi
+          python3 build/fixtures.py --output _out/fixtures
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Compile pinned develop
+        env:
+          CGO_ENABLED: '1'
+          CGO_CXXFLAGS: -DTSL_HAVE_LT_INTERNALS
+          FLOW_REQUIRE_CACHE_EXTENSION: '1'
+          PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
+        run: |
+          export GOTOOLCHAIN=local
+          cd "$RUNNER_TEMP/pinned/server"
+          go build -pgo=off -o "$GITHUB_WORKSPACE/_out/pinned" ./cmd
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.27.4'
+          cache-dependency-path: server/go.sum
+      - name: Compile original and repaired Go drafts
+        env:
+          CGO_ENABLED: '1'
+          CGO_CXXFLAGS: -DTSL_HAVE_LT_INTERNALS
+          FLOW_REQUIRE_CACHE_EXTENSION: '1'
+          PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
+        run: |
+          export GOTOOLCHAIN=local
+          (cd "$RUNNER_TEMP/go-only/server" && go build -pgo=off -o "$GITHUB_WORKSPACE/_out/go-only" ./cmd)
+          (cd server && go build -pgo=off -o ../_out/fixed ./cmd)
+          go version -m _out/{pinned,go-only,fixed} > _out/go-build-info.txt
+      - name: Run five isolated trials per revision and profile
+        run: |
+          fixed_failures=0
+          for revision in pinned go-only fixed; do
+            for profile in legacy custom; do
+              for trial in 1 2 3 4 5; do
+                tag="$revision-$profile-$trial"
+                status=0
+                python3 build/startup_harness.py --executable "_out/$revision" --fixtures _out/fixtures --output "_out/$tag" --profile "$profile" --assert-fast > "_out/$tag.log" 2>&1 || status=$?
+                printf '%s %s\n' "$tag" "$status" | tee -a _out/trials.txt
+                if [[ "$revision" == fixed && "$status" != 0 ]]; then
+                  fixed_failures=$((fixed_failures+1))
+                fi
+              done
+            done
+          done
+          test "$fixed_failures" = 0
+      - name: Scan both shipping Go configurations
+        if: always() && !cancelled()
+        working-directory: server
+        env:
+          CGO_ENABLED: '1'
+          CGO_CXXFLAGS: -DTSL_HAVE_LT_INTERNALS
+          FLOW_REQUIRE_CACHE_EXTENSION: '1'
+          PKG_CONFIG_PATH: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          PKG_CONFIG_LIBDIR: ${{ github.workspace }}/_deps/linux-amd64/lib/pkgconfig
+          CGO_LDFLAGS: -L${{ github.workspace }}/_deps/linux-amd64/lib
+        run: |
+          test "$(go env GOVERSION)" = go1.27.4
+          go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+          rc=0
+          govulncheck ./... 2>&1 | tee ../_out/govulncheck-standard.log || rc=1
+          govulncheck -tags gst ./... 2>&1 | tee ../_out/govulncheck-gst.log || rc=1
+          exit "$rc"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: flow-linux-startup-replay
+          retention-days: 14
+          path: |
+            _out/*.txt
+            _out/*.sha256
+            _out/*.log
+            _out/**/report.json
+            _out/**/fixtures.json
+            _out/**/server-output.log
