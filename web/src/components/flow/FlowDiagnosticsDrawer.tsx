@@ -2,7 +2,8 @@ import { redactDiagnostic } from "../../lib/redact";
 import { useTranslation } from "react-i18next";
 import { Modal } from "../common/Modal";
 import type { FlowStatusResponse } from "../../types/flow";
-import { useFlowDiagnostics } from "../../hooks/queries";
+import { useFlowDiagnostics, useSettings } from "../../hooks/queries";
+import { playbackWaitExport } from "../../lib/playbackOverview";
 import { useObservationTime } from "../../hooks/observationTime";
 import { RequestError } from "../common/RequestState";
 import { IncidentTimeline } from "./IncidentTimeline";
@@ -12,6 +13,7 @@ import { StartupEvidence } from "./StartupEvidence";
 import { StreamEvidence } from "./StreamEvidence";
 import { PlaybackOverview } from "./PlaybackOverview";
 import { PieceCoverage } from "./PieceCoverage";
+import { Button } from "../common/Button";
 export interface FlowDiagnosticsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,6 +28,8 @@ export function FlowDiagnosticsDrawer({
 }: FlowDiagnosticsDrawerProps) {
   const { t } = useTranslation();
   const diagnostics = useFlowDiagnostics(summary?.hash, isOpen);
+  const waitDiagnostics =
+    useSettings(isOpen).data?.Flow?.PlaybackWaitDiagnostics;
   const status = diagnostics.data ?? summary;
   const sampledAt = status?.sampled_at ? Date.parse(status.sampled_at) : NaN;
   const now = useObservationTime(
@@ -37,6 +41,20 @@ export function FlowDiagnosticsDrawer({
   const sampleAge = now - sampledAt;
   const fresh =
     Number.isFinite(sampleAge) && sampleAge >= 0 && sampleAge < 10_000;
+  const waitSummary =
+    waitDiagnostics && status ? playbackWaitExport(status, now) : undefined;
+  const downloadWaitSummary = () => {
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(waitSummary, null, 2)], {
+        type: "application/json",
+      }),
+    );
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "flow-playback-wait.json";
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
   return (
     <Modal
       isOpen={isOpen}
@@ -56,6 +74,16 @@ export function FlowDiagnosticsDrawer({
         <p>{t("flow.noMetrics")}</p>
       ) : (
         <div className="space-y-5">
+          {waitSummary && (
+            <div className="panel actions">
+              <p role="status">
+                {t(`flow.sessionWait.${waitSummary.wait_reason}`)}
+              </p>
+              <Button onClick={downloadWaitSummary}>
+                {t("flow.sessionWait.export")}
+              </Button>
+            </div>
+          )}
           <PlaybackOverview status={status} now={now} />
           {status.coverage && (
             <PieceCoverage coverage={status.coverage} now={now} />

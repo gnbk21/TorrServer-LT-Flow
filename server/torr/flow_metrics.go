@@ -150,7 +150,11 @@ func (t *Torrent) startupStage(stage string) {
 		return
 	}
 	t.flowStartup.WaitReason = stage
-	if settings.CurrentFlow().MetricsEnabled && !t.flowStartup.metricsOutcomeRecorded && (stage == "READY" || stage == "FAILED" || stage == "TIMEOUT" || stage == "CANCELLED") {
+	config := settings.CurrentFlow()
+	if config.MetricsEnabled && config.PlaybackWaitDiagnostics {
+		flow.RecordStartupWait(stage)
+	}
+	if config.MetricsEnabled && !t.flowStartup.metricsOutcomeRecorded && (stage == "READY" || stage == "FAILED" || stage == "TIMEOUT" || stage == "CANCELLED") {
 		flow.RecordStartupOutcome(stage)
 		t.flowStartup.metricsOutcomeRecorded = true
 	}

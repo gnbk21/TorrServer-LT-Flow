@@ -22,6 +22,7 @@ export interface FlowSettings {
   TorrentInterface?: string;
   RequireTorrentInterface?: boolean;
   MSXAllowLAN?: boolean;
+  PlaybackWaitDiagnostics?: boolean;
   Enabled: boolean;
   AdaptiveStartup: boolean;
   BootstrapHeadMB: number;

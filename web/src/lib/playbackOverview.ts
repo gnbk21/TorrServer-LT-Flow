@@ -125,3 +125,59 @@ export function playbackOverview(status: FlowStatusResponse, now: number) {
     steps,
   };
 }
+
+export function playbackWaitExport(status: FlowStatusResponse, now: number) {
+  const view = playbackOverview(status, now);
+  const session = view.session;
+  const nativeAge = now - (status.sparse?.sampled_at_ms ?? NaN);
+  const nativeFresh =
+    status.sparse?.known === true && nativeAge >= 0 && nativeAge < 5000;
+  let reason = "unknown";
+  if (view.cause === "stale") reason = "stale";
+  else if (view.cause === "metadata") reason = "metadata";
+  else if (
+    view.cause === "discovery" ||
+    status.startup?.wait_reason === "PEERS"
+  )
+    reason = "peerDiscovery";
+  else if (
+    nativeFresh &&
+    (view.cause === "missing" || session?.wait_reason === "MISSING_CONNECTED")
+  )
+    reason = "missingPiece";
+  else if (
+    ["reserve", "storage"].includes(view.cause) ||
+    session?.wait_reason === "CACHE_OR_PROBE"
+  )
+    reason = "serverBuffering";
+  else if (
+    (session?.active_readers ?? 0) > 0 &&
+    (session?.download_rate ?? 0) > 0 &&
+    view.bufferFresh
+  )
+    reason = "transfer";
+  else if (view.cause === "ready") reason = "serverReady";
+  else if (view.cause === "idle") reason = "idle";
+
+  // Explicit allowlist. Never serialize the session, startup, or torrent object.
+  const numberOrNull = (value?: number) =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0
+      ? value
+      : null;
+  return {
+    schema_version: 1,
+    scope: "server_observation",
+    wait_reason: reason,
+    sample_age_ms: view.age,
+    readable_buffer_bytes: view.bufferFresh
+      ? numberOrNull(session?.readable_contiguous_bytes)
+      : null,
+    verified_buffer_bytes: view.bufferFresh
+      ? numberOrNull(session?.verified_contiguous_bytes)
+      : null,
+    suppliers:
+      nativeFresh && view.fresh
+        ? numberOrNull(session?.required_piece_suppliers)
+        : null,
+  };
+}
