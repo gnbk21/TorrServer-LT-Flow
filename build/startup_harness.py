@@ -13,7 +13,7 @@ import time
 from urllib.parse import urlencode
 
 from controlled_peer import LocalSwarm
-from playback_harness import OwnedServer, upload
+from playback_harness import OwnedServer, range_read, upload
 
 
 def run(executable, fixtures, output, assert_fast=False, profile="legacy"):
@@ -31,14 +31,15 @@ def run(executable, fixtures, output, assert_fast=False, profile="legacy"):
             report["version"] = response.read().decode()
         with LocalSwarm([fixtures / "head.mp4", fixtures / "tail.mp4"]) as swarm:
             upload(server, swarm)
+            hash_text = swarm.info_hash.hex()
             deadline = time.monotonic() + 15
-            while swarm.status()["connections"] == 0:
+            while True:
+                status = server.json("/torrents", {"action": "get", "hash": hash_text}, timeout=2)
+                if swarm.status()["handshakes"] and status.get("connected_seeders", 0) > 0:
+                    break
                 if time.monotonic() >= deadline:
-                    raise TimeoutError("Seeder did not connect before preload")
+                    raise TimeoutError("Engine did not recognize a connected seeder before preload")
                 time.sleep(.05)
-            # Allow the incoming handshake/bitfield to finish. No reader or
-            # priority-bearing request has been created yet.
-            time.sleep(.3)
             report["before"] = swarm.status()
             started = time.monotonic()
             path = "/stream/generated?" + urlencode({"link": swarm.info_hash.hex(), "index": 1, "preload": "", "stat": ""})
@@ -84,13 +85,22 @@ def run(executable, fixtures, output, assert_fast=False, profile="legacy"):
                     raise AssertionError("Concurrent preload waited for background handoff")
             # A new episode supersedes and joins the old scheduling owner.
             switch_path = "/stream/generated?" + urlencode({"link":swarm.info_hash.hex(),"index":2,"preload":"","stat":""})
-            switched = server.json(switch_path, timeout=10)
+            report["episode_switch"] = {"requested": True, "completed": False, "before": swarm.status()}
+            began = time.monotonic()
+            try:
+                switched = server.json(switch_path, timeout=10)
+            finally:
+                report["episode_switch"]["elapsed_ms"] = (time.monotonic() - began) * 1000
+                report["episode_switch"]["after"] = swarm.status()
+                try:
+                    report["episode_switch"]["startup"] = server.json("/flow/status/" + swarm.info_hash.hex(), timeout=2)["startup"]
+                except (OSError, ValueError, KeyError):
+                    pass
             if switched.get("preloaded_bytes",0) < switched.get("preload_size",1):
                 raise AssertionError("Episode switch did not complete its buffer")
-            play_path = "/stream/generated?" + urlencode({"link":swarm.info_hash.hex(),"index":2,"play":""})
-            with server.request(play_path,headers={"Range":"bytes=0-65535"},timeout=10) as response:
-                if response.status != 206 or response.read() != (fixtures/"tail.mp4").read_bytes()[:65536]:
-                    raise AssertionError("Warm handoff corrupted a live reader")
+            report["episode_switch"]["completed"] = True
+            report["episode_switch"]["range"] = range_read(
+                server, swarm.info_hash.hex(), 2, (fixtures / "tail.mp4").read_bytes(), 0, 65535, timeout=10)
             history_status = server.json("/flow/network")["diagnostic_history"]
             if not history_status["enabled"] or history_status["errors"]:
                 raise AssertionError("Diagnostic recorder failed during playback")

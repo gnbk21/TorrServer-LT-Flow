@@ -470,18 +470,27 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 	if r.cache.readableAt(piece, pieceOff) > 0 {
 		return nil
 	}
+	parent := r.ctx
+	if parent == nil {
+		parent = context.Background()
+	}
+	// The preload owns download demand. A probe may wait for that work, but
+	// must not focus the picker on a piece from an episode the player has left.
+	if r.internal {
+		ctx, cancel := context.WithTimeout(parent, ReaderTimeout)
+		defer cancel()
+		if r.cache.waitForBytes(ctx, piece, pieceOff, nil) {
+			return nil
+		}
+		return ctx.Err()
+	}
+
 	nowMs := time.Now().UnixMilli()
 	fresh := r.ensuredPiece == piece && nowMs-r.ensuredAtMs < ensureRefreshMs
 	if !fresh {
 		r.ensuredPiece = piece
 		r.ensuredAtMs = nowMs
-		parent := r.ctx
-		if parent == nil {
-			parent = context.Background()
-		}
-		if !r.internal {
-			r.cache.tryReusePiece(parent, r.stopTicker, r.handle, piece)
-		}
+		r.cache.tryReusePiece(parent, r.stopTicker, r.handle, piece)
 		if r.handle != nil && r.canRefreshDeadline(parent, piece) {
 			// On-demand have/cache reconciliation: if libtorrent thinks it already has
 			// this piece but our cache doesn't (we evicted it, or a seek landed in an
@@ -518,14 +527,8 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 			r.cache.priMu.Unlock()
 		}
 	}
-	parent := r.ctx
-	if !r.internal {
-		r.cache.flowWaiting.Add(1)
-		defer r.cache.flowWaiting.Add(-1)
-	}
-	if parent == nil {
-		parent = context.Background()
-	}
+	r.cache.flowWaiting.Add(1)
+	defer r.cache.flowWaiting.Add(-1)
 	ctx, cancel := context.WithTimeout(parent, ReaderTimeout)
 	defer cancel()
 	// Flag the piece we're blocked on so applyStreamPriorities concentrates the
@@ -575,10 +578,10 @@ func (r *Reader) ensurePieceLocked(piece int, pieceOff int64) error {
 			}
 		}
 	})
-	if settings.CurrentFlow().MetricsEnabled && r.group != ProbeReaderGroup {
+	if settings.CurrentFlow().MetricsEnabled {
 		r.cache.flowCounters.Wait(time.Since(waitStarted))
 	}
-	if r.group != ProbeReaderGroup && parent.Err() == nil && time.Since(waitStarted) >= 500*time.Millisecond {
+	if parent.Err() == nil && time.Since(waitStarted) >= 500*time.Millisecond {
 		diagnostics.Incidents.Capture("SERVER_READ_STALL")
 	}
 	if !ready {
