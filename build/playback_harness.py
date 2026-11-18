@@ -129,8 +129,8 @@ def upload(server, swarm):
     return result[0] if isinstance(result, list) else result
 
 
-def range_read(server, info_hash, index, source, start, end, cancel=False):
-    connection = http.client.HTTPConnection("127.0.0.1", server.port, timeout=120)
+def range_read(server, info_hash, index, source, start, end, cancel=False, timeout=120):
+    connection = http.client.HTTPConnection("127.0.0.1", server.port, timeout=timeout)
     started = time.monotonic()
     try:
         headers={"Range":f"bytes={start}-{end}"}
@@ -148,7 +148,8 @@ def range_read(server, info_hash, index, source, start, end, cancel=False):
         except http.client.IncompleteRead as error:
             raise AssertionError(f"Incomplete Range: file={index}, start={start}, end={end}, received={1+len(error.partial)}, missing={error.expected}") from error
         expected = source[start:end+1]
-        if data != expected or response.getheader("Content-Range") != f"bytes {start}-{end}/{len(source)}":
+        if (data != expected or response.getheader("Content-Range") != f"bytes {start}-{end}/{len(source)}"
+                or response.getheader("Content-Length") != str(len(expected))):
             raise AssertionError("Range body/header mismatch")
         return {"file_index": index, "start": start, "bytes": len(data), "ttfb_ms": ttfb,
                 "duration_ms": (time.monotonic()-started)*1000, "sha256": hashlib.sha256(data).hexdigest()}
