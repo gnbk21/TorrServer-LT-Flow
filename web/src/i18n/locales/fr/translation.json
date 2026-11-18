@@ -1270,6 +1270,7 @@
         "AdaptiveUrgentHorizon": "Horizon urgent adaptatif (expérience)",
         "ContainerBurstHints": "Indications de pics par index résident (expérience)",
         "MSXAllowLAN": "Autoriser le proxy MSX sur le réseau local",
+        "PublicTorrentImportsOnly": "Exiger des destinations publiques pour importer un torrent par URL",
         "StreamTransportBufferKiB": "Tampon de transport (expérience contrôlée)",
         "NextEpisodeWarmup": "Préchauffage de l’en-tête/index du prochain épisode",
         "MetadataFallback": "Récupération automatique des métadonnées magnet",
@@ -1393,6 +1394,7 @@
       "cachePreview": "Budget partagé : {{budget}} Mio ; sessions conservées : jusqu’à {{warm}} Mio. Ce sont des budgets de cache, pas des limites de RAM."
     },
     "fieldHints": {
+      "PublicTorrentImportsOnly": "Lorsque cette option est activée, les téléchargements directs de torrents et leurs redirections HTTP doivent utiliser des destinations publiques. Laissez-la désactivée pour importer depuis votre indexeur local.",
       "IncidentFlightRecorder": "Désactivé par défaut. Fenêtre cible de trace Go de 30 s (indication de 32 Mio), suspendue sous pression mémoire. Deux captures au maximum, espacées de cinq minutes et limitées à 64 Mio chacune. Les traces brutes peuvent contenir des détails privés et sont exclues des exports ordinaires."
     },
     "storageView": {

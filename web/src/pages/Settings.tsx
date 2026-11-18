@@ -98,6 +98,7 @@ const groups: Record<string, string[]> = {
     "Flow.RequirePlaybackToken",
     "Flow.PlaybackTokenTTL",
     "Flow.MSXAllowLAN",
+    "Flow.PublicTorrentImportsOnly",
   ],
   advanced: [
     "Flow.IncidentFlightRecorder",

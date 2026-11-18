@@ -1264,6 +1264,7 @@
         "AdaptiveUrgentHorizon": "Orizont urgent adaptiv (experiment)",
         "ContainerBurstHints": "Indicii de vârf din indexul rezident (experiment)",
         "MSXAllowLAN": "Permite accesul proxy-ului MSX la rețeaua locală",
+        "PublicTorrentImportsOnly": "Solicită destinații publice la importul de torrente prin URL",
         "StreamTransportBufferKiB": "Buffer de transport (experiment controlat)",
         "NextEpisodeWarmup": "Încălzirea antetului/indexului episodului următor",
         "MetadataFallback": "Recuperare automată a metadatelor magnet",
@@ -1387,6 +1388,7 @@
       "cachePreview": "Buget comun: {{budget}} MiB; sesiuni păstrate: până la {{warm}} MiB. Sunt bugete de cache, nu limite de RAM."
     },
     "fieldHints": {
+      "PublicTorrentImportsOnly": "Când este activată, opțiunea impune destinații publice pentru descărcările directe de torrente și redirecționările HTTP. Las-o dezactivată pentru a importa din indexerul local.",
       "IncidentFlightRecorder": "Implicit oprit. Fereastră țintă de trasare Go de 30 s (indiciu de 32 MiB), suspendată la presiune pe memorie. Păstrează maximum două capturi, la cinci minute distanță, fiecare limitată la 64 MiB. Trasele brute pot conține detalii private și sunt excluse din exporturile obișnuite."
     },
     "storageView": {
