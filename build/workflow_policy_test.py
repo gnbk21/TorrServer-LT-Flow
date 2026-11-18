@@ -147,7 +147,7 @@ class WorkflowPolicyTests(unittest.TestCase):
     def test_every_integration_case_is_retained_and_dispatched(self):
         script = (ROOT / 'build/ci-integration.sh').read_text()
         expected = {
-            'playback_harness.py': 1, 'startup_harness.py': 2,
+            'playback_harness.py': 1, 'startup_harness.py': 1,
             'startup_piece_check.py': 3, 'discovery_harness.py': 1,
             'preparation_harness.py': 1, 'peerhint_harness.py': 1,
             'webseed_harness.py': 1, 'adaptive_harness.py': 1,
@@ -163,7 +163,8 @@ class WorkflowPolicyTests(unittest.TestCase):
         scheduled = set(re.search(r'group: \[([^]]+)\]',
                                  job('build.yml', 'controlled-integration'))[1].split(', '))
         self.assertEqual(declared, scheduled)
-        for flag in ('--duration 20 --debug', '--profile custom --assert-fast',
+        for flag in ('--duration 20 --debug', 'for profile in legacy custom; do',
+                     'for trial in 1 2 3 4 5; do', '--profile "$profile" --assert-fast',
                      '--case ordering --assert-fixed', '--case progress --assert-fixed',
                      '--case missing-index --assert-fixed',
                      '--rate-aware --cases below complementary late-have'):

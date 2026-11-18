@@ -151,6 +151,7 @@ class LocalSwarm:
         self.stop = threading.Event()
         self.lock = threading.Lock()
         self.sent_bytes = self.connections = self.requests = self.disconnects = self.announces = 0
+        self.handshakes = 0
         owner = self
 
         class Peer(socketserver.BaseRequestHandler):
@@ -192,6 +193,8 @@ class LocalSwarm:
                     send(b"\x00" if choked else b"\x01")
                     if not plan.request_queue:
                         send(b"\x14\x00" + bencode(extensions))
+                    with owner.lock:
+                        owner.handshakes += 1
                     incoming, pending, metadata_requests = bytearray(), [], []
                     cancelled_responses = {}
                     # Numeric wire evidence for strict-cap failures only. Never
@@ -431,6 +434,7 @@ class LocalSwarm:
     def status(self):
         with self.lock:
             return {"sent_bytes": self.sent_bytes, "connections": self.connections, "requests": self.requests,
+                    "handshakes": self.handshakes,
                     "disconnects": self.disconnects, "tracker_announces": self.announces,
                     "peers": [dict(s, requested_pieces=list(s['requested_pieces']), requested_piece_counts=dict(s['requested_piece_counts']), first_request_seconds=dict(s['first_request_seconds']), close_reasons=dict(s['close_reasons']), capacity_overflows=list(s['capacity_overflows'])) for s in self.peer_stats],
                     "rate_limit_bytes_per_second": self.rate, "block_delay_ms": self.delay * 1000}

@@ -10,8 +10,11 @@ case "${1:-}" in
     startup)
         python3 build/startup_reserve_check.py --executable "$binary" --output _out/startup-reserve-check
         python3 build/fixtures.py --output _out/startup-fixtures
-        python3 build/startup_harness.py --executable "$binary" --fixtures _out/startup-fixtures --output _out/startup-check --assert-fast
-        python3 build/startup_harness.py --executable "$binary" --fixtures _out/startup-fixtures --output _out/startup-custom-check --profile custom --assert-fast
+        for profile in legacy custom; do
+            for trial in 1 2 3 4 5; do
+                python3 build/startup_harness.py --executable "$binary" --fixtures _out/startup-fixtures --output "_out/startup-check-$profile-$trial" --profile "$profile" --assert-fast
+            done
+        done
         mkdir -p _out/startup-piece-fixtures
         # VBR size depends on source complexity; two repetitions need not cover
         # the large-piece case's 64-MiB minimum. Remux to an 80-MiB byte target,
