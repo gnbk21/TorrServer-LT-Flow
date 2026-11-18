@@ -2,6 +2,7 @@ package torrstor
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"testing"
 )
@@ -61,6 +62,25 @@ func TestProbeReader_NeverRecordsWindow(t *testing.T) {
 	// scheduleWindow ran from Read but must have no-oped for the internal reader.
 	if got := probe.winFirst.Load(); got != -1 {
 		t.Fatalf("winFirst=%d after read, want -1 (internal reader must not schedule a window)", got)
+	}
+}
+
+func TestProbeReader_MissingPieceDoesNotPublishDemand(t *testing.T) {
+	c := mkCache(t, 3*pieceLen)
+	probe := NewReader(c, nil, FileInfo{Length: 3 * pieceLen}, ProbeReaderGroup)
+	defer probe.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	probe.SetContext(ctx)
+
+	if n, err := probe.Read(make([]byte, 1)); n != 0 || err == nil {
+		t.Fatalf("canceled probe read = (%d, %v), want no bytes and an error", n, err)
+	}
+	if got := probe.waitPiece.Load(); got != -1 {
+		t.Errorf("probe claimed missing piece %d", got)
+	}
+	if _, ok := c.groupPlayheads()[ProbeReaderGroup]; ok {
+		t.Error("probe published a playback anchor after cancellation")
 	}
 }
 
