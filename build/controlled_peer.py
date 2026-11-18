@@ -79,7 +79,9 @@ class PeerPlan:
     delay_ms: int = 0
     choke_until: float = 0
     have_events: list = field(default_factory=list)  # (seconds, piece)
+    gated_pieces: dict = field(default_factory=dict)  # piece -> Event set by the harness
     outages: list = field(default_factory=list)  # (start, end) in seconds
+    paused: threading.Event | None = None
     metadata_delay: float = 0
     disconnect_after: int = 0
     rate_events: list = field(default_factory=list)  # (time, bytes/sec), positive delivery variation
@@ -101,10 +103,12 @@ class PeerPlan:
     def available(self, count, elapsed):
         pieces = set(range(count)) if self.pieces is None else set(self.pieces)
         pieces.update(piece for when, piece in self.have_events if elapsed >= when)
+        pieces.update(piece for piece, gate in self.gated_pieces.items() if gate.is_set())
         return pieces
 
     def online(self, elapsed):
-        return not any(start <= elapsed < end for start, end in self.outages)
+        return not (self.paused is not None and self.paused.is_set()) and not any(
+            start <= elapsed < end for start, end in self.outages)
 
 
 class LocalSwarm:
@@ -140,7 +144,8 @@ class LocalSwarm:
         for plan in self.plans:
             if plan.rate < 0 or plan.delay_ms < 0 or plan.request_latency_ms < 0 or plan.final_block_delay_ms < 0 or plan.partial_block_pause_ms < 0 or plan.choke_until < 0 or plan.metadata_delay < 0:
                 raise ValueError("negative peer timing or rate")
-            if any(p < 0 or p >= self.piece_count for p in plan.available(self.piece_count, float('inf'))):
+            configured_pieces = plan.available(self.piece_count, float('inf')) | plan.gated_pieces.keys()
+            if any(p < 0 or p >= self.piece_count for p in configured_pieces):
                 raise ValueError("piece outside generated torrent")
             if any(start < 0 or end <= start for start, end in plan.outages):
                 raise ValueError("invalid outage interval")
@@ -151,6 +156,7 @@ class LocalSwarm:
         self.stop = threading.Event()
         self.lock = threading.Lock()
         self.sent_bytes = self.connections = self.requests = self.disconnects = self.announces = 0
+        self.tracker_list_requests = 0
         owner = self
 
         class Peer(socketserver.BaseRequestHandler):
@@ -375,6 +381,16 @@ class LocalSwarm:
 
         class Tracker(BaseHTTPRequestHandler):
             def do_GET(self):
+                if self.path == "/trackers.txt":
+                    body = (owner.tracker_url + "\n").encode()
+                    with owner.lock:
+                        owner.tracker_list_requests += 1
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/plain")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
                 query = self.path.partition("?")[2]
                 values = dict(item.split("=", 1) for item in query.split("&") if "=" in item)
                 if unquote_to_bytes(values.get("info_hash", "")) != owner.info_hash:
@@ -425,12 +441,20 @@ class LocalSwarm:
             thread.join(2)
 
     def torrent(self):
-        url = f"http://127.0.0.1:{self.tracker.server_port}/announce"
-        return bencode({b"announce": url, b"info": self.info})
+        return bencode({b"announce": self.tracker_url, b"info": self.info})
+
+    @property
+    def tracker_url(self):
+        return f"http://127.0.0.1:{self.tracker.server_port}/announce"
+
+    @property
+    def tracker_list_url(self):
+        return f"http://127.0.0.1:{self.tracker.server_port}/trackers.txt"
 
     def status(self):
         with self.lock:
             return {"sent_bytes": self.sent_bytes, "connections": self.connections, "requests": self.requests,
+                    "tracker_list_requests": self.tracker_list_requests,
                     "disconnects": self.disconnects, "tracker_announces": self.announces,
                     "peers": [dict(s, requested_pieces=list(s['requested_pieces']), requested_piece_counts=dict(s['requested_piece_counts']), first_request_seconds=dict(s['first_request_seconds']), close_reasons=dict(s['close_reasons']), capacity_overflows=list(s['capacity_overflows'])) for s in self.peer_stats],
                     "rate_limit_bytes_per_second": self.rate, "block_delay_ms": self.delay * 1000}
