@@ -192,6 +192,7 @@ func NeedsEngineRestart(old, next *BTSets) bool {
 		b.Flow.RecentPlaybackHistory = a.Flow.RecentPlaybackHistory
 		b.Flow.PrometheusEnabled = a.Flow.PrometheusEnabled
 		b.Flow.AdaptiveUrgentHorizon = a.Flow.AdaptiveUrgentHorizon
+		b.Flow.MaxGStreamerProbes = a.Flow.MaxGStreamerProbes
 		b.Flow.ContainerBurstHints = a.Flow.ContainerBurstHints
 		av, bv := reflect.ValueOf(a.Flow).Elem(), reflect.ValueOf(b.Flow).Elem()
 		for _, name := range []string{"AdaptiveStartup", "BootstrapHeadMB", "ProbeGraceMs", "StartupBufferSeconds", "StartupBufferMinMB", "StartupBufferMaxMB", "StartupSafetyFactorPct", "AdaptiveReadAhead", "TargetBufferSeconds", "MaxBufferSeconds", "WarmSessionTimeoutSec", "NetworkRetryMinSec", "NetworkRetryMaxSec", "RangeTraceEnabled", "RangeClassification", "MetricsEnabled", "DebugFlow", "PreparationQuotaMB", "ScarcePieceHints", "RateAwareDeadlines", "GlobalCacheBudgetMB", "WarmCacheBudgetMB", "PreparationConcurrency", "ManagementOrigins", "ManagementRateLimit", "SecurityProfile", "RequirePlaybackToken", "PlaybackTokenTTL", "MSXAllowLAN", "StreamTransportBufferKiB", "NextEpisodeWarmup", "MetadataFallback", "PublicMetadataCache"} {
