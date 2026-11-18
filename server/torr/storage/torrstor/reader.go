@@ -661,21 +661,12 @@ func (r *Reader) Close() error {
 		// (the next connection re-covers it within the grace window, so it's never
 		// zeroed), so the swarm fills the buffer at full speed; a genuine stop
 		// just pays an extra windowLingerDelay of downloading before going lazy.
-		if wf := int(r.winFirst.Load()); wf >= 0 {
-			wl := int(r.winLast.Load())
-			handle := r.handle
+		if r.winFirst.Load() >= 0 {
 			cache := r.cache
+			expiry := cache.windowExpiry.Add(1)
 			time.AfterFunc(windowLingerDelay, func() {
-				keep := cache.readerWindows() // whoever is streaming NOW
-				for i := wf; i <= wl; i++ {
-					if pieceInRanges(i, keep) {
-						continue
-					}
-					_ = handle.SetPiecePriority(i, 0)
-					// Clear the deadline too, else the torn-down window stays
-					// time-critical and libtorrent keeps pulling it (see
-					// scheduleWindow's drop loop for the same invariant).
-					_ = handle.ResetPieceDeadline(i)
+				if cache.windowExpiry.Load() == expiry {
+					cache.reconcileStreamPriorities(expiry)
 				}
 			})
 		}

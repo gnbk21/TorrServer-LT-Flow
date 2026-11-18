@@ -183,10 +183,11 @@ type Cache struct {
 	// streaming deadline so the apply can clear the ones that scrolled out (a
 	// deadlined piece stays time-critical regardless of priority); lastApplyMs
 	// debounces bursts of triggers from a per-chunk player's many connections.
-	priMu       sync.Mutex
-	deadlined   map[int]bool
-	refetchedAt map[int]int64 // piece -> unix sec of the last proactive un-have (debounce)
-	lastApplyMs atomic.Int64
+	priMu        sync.Mutex
+	deadlined    map[int]bool
+	refetchedAt  map[int]int64 // piece -> unix sec of the last proactive un-have (debounce)
+	lastApplyMs  atomic.Int64
+	windowExpiry atomic.Uint64
 	// lastPrios is the piece-priority vector last handed to libtorrent (guarded by
 	// priMu). applyStreamPriorities skips the PrioritizePieces cgo call when the
 	// freshly-built vector is identical, so a steady stream (window not moving) stops
@@ -1147,8 +1148,13 @@ const (
 // groupPlayheads (which already excludes stale/probe/tail readers), so it is
 // consistent no matter which reader triggers it. Debounced + serialised by priMu.
 func (c *Cache) applyStreamPriorities() {
+	c.reconcileStreamPriorities(0)
+}
+
+func (c *Cache) reconcileStreamPriorities(windowExpiry uint64) {
+	expiringWindow := windowExpiry != 0
 	h := c.handle.Load()
-	if h == nil || c.NumPieces <= 0 || c.PieceLength <= 0 {
+	if h == nil || c.auxiliaryClosed.Load() || c.NumPieces <= 0 || c.PieceLength <= 0 {
 		return
 	}
 	now := time.Now().UnixMilli()
@@ -1156,11 +1162,17 @@ func (c *Cache) applyStreamPriorities() {
 	// its first Read); the 1s reprioritize loop guarantees a periodic refresh, so
 	// coalesce bursts. A seek applies within the debounce; the head stays protected
 	// from eviction by readerProtectRanges regardless of when priorities re-apply.
-	if last := c.lastApplyMs.Load(); now-last < 250 {
+	if !expiringWindow && now-c.lastApplyMs.Load() < 250 {
+		return
+	}
+	c.priMu.Lock()
+	defer c.priMu.Unlock()
+	if c.auxiliaryClosed.Load() ||
+		(expiringWindow && c.windowExpiry.Load() != windowExpiry) ||
+		(!expiringWindow && now-c.lastApplyMs.Load() < 250) {
 		return
 	}
 
-	anchors := c.groupPlayheads() // group -> playhead (excludes stale/probe/tail)
 	demandRates := c.demandRates()
 	rateAware := settings.CurrentFlow().RateAwareDeadlines
 	scarce, variable := c.scarceDemand()
@@ -1176,6 +1188,11 @@ func (c *Cache) applyStreamPriorities() {
 		}
 	}
 	c.readersMu.Unlock()
+	idleExpiry := expiringWindow && len(rs) == 0
+	var anchors map[string]int
+	if !idleExpiry {
+		anchors = c.groupPlayheads() // group -> playhead (excludes stale/probe/tail)
+	}
 
 	// Pieces readers are blocked on / trickling from (r.waitPiece — STICKY across the
 	// micro-parks of responsive block-level serving, cleared by completion, the next
@@ -1224,6 +1241,9 @@ func (c *Cache) applyStreamPriorities() {
 	for g, f := range c.waitFocus {
 		if nowFocus-f.atMs > waitFocusLingerMs || c.Have(f.piece) {
 			delete(c.waitFocus, g)
+			continue
+		}
+		if idleExpiry {
 			continue
 		}
 		if _, ok := blocked[f.piece]; !ok {
@@ -1408,9 +1428,10 @@ func (c *Cache) applyStreamPriorities() {
 		}
 	}
 
-	c.priMu.Lock()
-	defer c.priMu.Unlock()
 	c.lastApplyMs.Store(now)
+	if expiringWindow {
+		c.lastPrios = nil
+	}
 	// Native deadline removal demotes pieces to priority 1, even when a
 	// preceding vector already parked them at zero. Clear before reconciling
 	// priorities so old windows cannot keep fetching or override pinned work.
@@ -2341,6 +2362,10 @@ func (c *Cache) streamingReserveFor(ranges [][2]int) int64 {
 // capacity (via streamingReserve) and are protected from eviction until
 // ClearPreloadReserve.
 func (c *Cache) SetPreloadReserve(ranges [][2]int) {
+	// Publish ownership before any native priorities from the preload can race
+	// a reader's window expiry. The reconcile holds the same scheduling lock.
+	c.priMu.Lock()
+	defer c.priMu.Unlock()
 	c.preloadMu.Lock()
 	c.preloadProtect = ranges
 	c.preloadMu.Unlock()
