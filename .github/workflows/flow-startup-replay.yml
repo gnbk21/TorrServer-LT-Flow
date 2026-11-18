@@ -33,13 +33,21 @@ jobs:
           run-id: 44164535051
           github-token: ${{ github.token }}
           path: _out
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: _src
+          key: src-boost1.85.0-lt2.1.2-ossl3.5.9-v1
       - name: Extract the shared native SDK and matching trees
         run: |
           tar -xzf _out/linux-native-deps.tar.gz
+          bash build/_fetch_sources.sh
           sha256sum _deps/linux-amd64/lib/libtorrent-rasterbar.a _out/linux-native-deps.tar.gz > _out/sdk.sha256
           git worktree add --detach "$RUNNER_TEMP/pinned" d03d2fe1892811bdad651eed8af81188675b89a3
           git worktree add --detach "$RUNNER_TEMP/go-only" 372bbb731f0cf9c48c0e7823c9e4b06cc800b5d0
-          if ! command -v ffmpeg >/dev/null; then bash build/ci-apt.sh ffmpeg; fi
+          if ! command -v ffmpeg >/dev/null; then
+            sudo sed -i -E 's#https?://[a-z0-9-]+\.ec2\.archive\.ubuntu\.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' /etc/apt/sources.list.d/ubuntu.sources
+            bash build/ci-apt.sh ffmpeg
+          fi
           python3 build/fixtures.py --output _out/fixtures
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
@@ -92,7 +100,7 @@ jobs:
           done
           test "$fixed_failures" = 0
       - name: Scan both shipping Go configurations
-        if: always() && !cancelled()
+        if: success()
         working-directory: server
         env:
           CGO_ENABLED: '1'
