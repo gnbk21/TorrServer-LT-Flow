@@ -42,7 +42,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
-#include <shared_mutex>
+#include "lt_shared_mutex.hpp"
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -274,7 +274,7 @@ public:
         ss->info_hash = p.info_hash;
 
         {
-            std::unique_lock<std::shared_mutex> lk(map_mu_);
+            std::unique_lock<flow_shared_mutex> lk(map_mu_);
             storages_.emplace(idx, ss);
         }
 
@@ -316,7 +316,7 @@ public:
     void remove_torrent(lt::storage_index_t s) override {
         int64_t idx = storage_id_of(s);
         {
-            std::unique_lock<std::shared_mutex> lk(map_mu_);
+            std::unique_lock<flow_shared_mutex> lk(map_mu_);
             storages_.erase(idx);
         }
         // Queued jobs retain the storage until their callbacks have settled.
@@ -578,7 +578,7 @@ public:
 
 private:
     std::shared_ptr<storage_state> storage(lt::storage_index_t s) {
-        std::shared_lock<std::shared_mutex> lock(map_mu_);
+        std::shared_lock<flow_shared_mutex> lock(map_mu_);
         auto it = storages_.find(storage_id_of(s));
         return it == storages_.end() ? nullptr : it->second;
     }
@@ -588,7 +588,7 @@ private:
     lt::counters&                 cnt_;
     tsl_storage_callbacks         cb_;
 
-    std::shared_mutex                              map_mu_;
+    flow_shared_mutex                              map_mu_;
     std::unordered_map<int64_t, std::shared_ptr<storage_state>>     storages_;
 
     flow_io_queue work_{record_io_latency};
