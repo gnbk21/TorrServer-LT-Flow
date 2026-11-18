@@ -72,7 +72,7 @@ extern void tsl_install_disk_io_on(libtorrent::session_params& params);
 #include <future>
 #include <memory>
 #include <mutex>
-#include <shared_mutex>
+#include "lt_shared_mutex.hpp"
 #include <sstream>
 #include <string>
 #include <stdexcept>
@@ -372,11 +372,11 @@ struct session_slot {
     std::vector<lt::udp::endpoint> restored_dht_nodes; // <=32 per address family; pump_mu
 };
 
-std::shared_mutex g_sess_mu;
+flow_shared_mutex g_sess_mu;
 std::unordered_map<int64_t, std::shared_ptr<session_slot>> g_sessions;
 std::atomic<int64_t> g_next_sess{1};
 
-std::shared_mutex g_torr_mu;
+flow_shared_mutex g_torr_mu;
 // Native handle ownership identifies each session independently of hash aliases.
 struct sparse_snapshot {
     std::mutex mu;
@@ -398,14 +398,14 @@ std::map<lt::torrent_handle, int64_t> g_handle2id;
 std::atomic<int64_t> g_next_torr{1};
 
 std::shared_ptr<session_slot> get_session(lt_session id) {
-    std::shared_lock<std::shared_mutex> lk(g_sess_mu);
+    std::shared_lock<flow_shared_mutex> lk(g_sess_mu);
     auto it = g_sessions.find(id);
     if (it == g_sessions.end()) return nullptr;
     return it->second;
 }
 
 lt::torrent_handle get_torrent(lt_torrent id) {
-    std::shared_lock<std::shared_mutex> lk(g_torr_mu);
+    std::shared_lock<flow_shared_mutex> lk(g_torr_mu);
     auto it = g_torrents.find(id);
     if (it == g_torrents.end()) return lt::torrent_handle();
     return it->second.h;
@@ -415,7 +415,7 @@ lt::torrent_handle get_torrent(lt_torrent id) {
 // or storage request to another session holding the same torrent.
 int64_t register_torrent(lt::torrent_handle const& h, lt_session session_id) {
     if (!h.is_valid()) return 0;
-    std::unique_lock<std::shared_mutex> lk(g_torr_mu);
+    std::unique_lock<flow_shared_mutex> lk(g_torr_mu);
     auto existing = g_handle2id.find(h);
     if (existing != g_handle2id.end()) return existing->second;
     auto const id = g_next_torr++;
@@ -425,12 +425,12 @@ int64_t register_torrent(lt::torrent_handle const& h, lt_session session_id) {
 }
 int64_t lookup_torrent_id(lt::torrent_handle const& h) {
     if (!h.is_valid()) return 0;
-    std::shared_lock<std::shared_mutex> lk(g_torr_mu);
+    std::shared_lock<flow_shared_mutex> lk(g_torr_mu);
     auto it = g_handle2id.find(h);
     return it == g_handle2id.end() ? 0 : it->second;
 }
 void unregister_torrent(lt_torrent id) {
-    std::unique_lock<std::shared_mutex> lk(g_torr_mu);
+    std::unique_lock<flow_shared_mutex> lk(g_torr_mu);
     auto it = g_torrents.find(id);
     if (it == g_torrents.end()) return;
     g_handle2id.erase(it->second.h);
@@ -886,7 +886,7 @@ lt_session lt_session_new_with_dht(const char* settings_json, const char* state,
         if (network_paused) slot->s->pause();
         int64_t id = g_next_sess++;
         {
-            std::unique_lock<std::shared_mutex> lk(g_sess_mu);
+            std::unique_lock<flow_shared_mutex> lk(g_sess_mu);
             g_sessions.emplace(id, slot);
         }
         return id;
@@ -966,7 +966,7 @@ int lt_session_destroy(lt_session id) {
     WRAP_BEGIN
     std::shared_ptr<session_slot> slot;
     {
-        std::unique_lock<std::shared_mutex> lk(g_sess_mu);
+        std::unique_lock<flow_shared_mutex> lk(g_sess_mu);
         auto it = g_sessions.find(id);
         if (it == g_sessions.end()) return set_err(LT_ERR_NOT_FOUND, "session not found");
         slot = std::move(it->second);
@@ -974,7 +974,7 @@ int lt_session_destroy(lt_session id) {
     }
     // Forget only handles owned by this session. Other sessions may be active.
     {
-        std::unique_lock<std::shared_mutex> lk(g_torr_mu);
+        std::unique_lock<flow_shared_mutex> lk(g_torr_mu);
         for (auto it = g_torrents.begin(); it != g_torrents.end();) {
             if (it->second.session_id == id) {
                 g_handle2id.erase(it->second.h);
@@ -1207,7 +1207,7 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
         lt::torrent_handle h;
         std::shared_ptr<sparse_snapshot> snapshot;
         {
-            std::shared_lock<std::shared_mutex> lk(g_torr_mu);
+            std::shared_lock<flow_shared_mutex> lk(g_torr_mu);
             auto it = g_torrents.find(tid);
             if (it == g_torrents.end()) { set_err(LT_ERR_NOT_FOUND, "torrent not found"); return nullptr; }
             h = it->second.h;
@@ -1415,7 +1415,7 @@ char* lt_torrent_sparse_json_alloc(lt_torrent tid, const char* ranges_json, size
 char* lt_torrent_resume_peers_json_alloc(lt_torrent tid, size_t* out_len) {
     set_err(LT_OK, "");
     try {
-    std::shared_lock<std::shared_mutex> lk(g_torr_mu);
+    std::shared_lock<flow_shared_mutex> lk(g_torr_mu);
     auto it = g_torrents.find(tid);
     if (it == g_torrents.end()) { set_err(LT_ERR_NOT_FOUND, "torrent not found"); return nullptr; }
     auto snapshot = it->second.sparse;
