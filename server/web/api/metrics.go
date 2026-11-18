@@ -40,7 +40,8 @@ func (flowCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 		return 0
 	}
-	enabled := config.CurrentFlow().MetricsEnabled
+	flowSettings := config.CurrentFlow()
+	enabled := flowSettings.MetricsEnabled
 	gauge("observations_enabled", "Whether ordinary Flow streaming observations are enabled.", flag(enabled))
 	gauge("active_streams", "Current in-flight server media requests; not decoded player state.", float64(torr.GetActiveStreams()))
 	mem := diagnostics.CachedMemory()
@@ -74,6 +75,12 @@ func (flowCollector) Collect(ch chan<- prometheus.Metric) {
 	counter("seek_recoveries_total", "Observed successful server seek delivery recoveries.", totals.Recoveries)
 	for i, outcome := range []string{"ready", "failed", "timeout", "cancelled"} {
 		ch <- prometheus.MustNewConstMetric(prometheus.NewDesc("flow_startup_outcomes_total", "Observed startup terminal outcomes.", []string{"outcome"}, nil), prometheus.CounterValue, float64(totals.Startup[i]), outcome)
+	}
+	if flowSettings.PlaybackWaitDiagnostics {
+		desc := prometheus.NewDesc("flow_startup_wait_transitions_total", "Observed server startup transitions into a wait stage.", []string{"reason"}, nil)
+		for _, row := range flow.StartupWaitCounts() {
+			ch <- prometheus.MustNewConstMetric(desc, prometheus.CounterValue, float64(row.Count), row.Reason)
+		}
 	}
 	for _, row := range searchstatus.OutcomeMetrics() {
 		ch <- prometheus.MustNewConstMetric(prometheus.NewDesc("flow_search_outcomes_total", "Configured endpoint search/test outcomes since process start.", []string{"source", "outcome"}, nil), prometheus.CounterValue, float64(row.Count), row.Source, row.State)

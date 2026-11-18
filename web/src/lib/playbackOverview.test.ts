@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { playbackOverview } from "./playbackOverview";
+import { playbackOverview, playbackWaitExport } from "./playbackOverview";
 import type { FlowStatusResponse, FlowSession } from "../types/flow";
 
 const now = Date.parse("2026-10-22T10:00:00Z");
@@ -78,4 +78,62 @@ test("seeks, idle, supplier evidence and buffer are distinct", () => {
       now,
     ).bufferFresh,
   ).toBe(false);
+});
+
+test("playback export only contains known reasons and numeric evidence", () => {
+  const snapshot = {
+    ...status,
+    hash: "hidden-torrent-id",
+    sessions: [
+      {
+        ...session,
+        group: "hidden-peer-address",
+        media_path: "hidden-file-path",
+        stream_url: "hidden-url-and-token",
+        readable_contiguous_bytes: 1234,
+        verified_contiguous_bytes: 1000,
+      },
+    ],
+  };
+  expect(playbackWaitExport(snapshot, now)).toEqual({
+    schema_version: 1,
+    scope: "server_observation",
+    wait_reason: "missingPiece",
+    sample_age_ms: 0,
+    readable_buffer_bytes: 1234,
+    verified_buffer_bytes: 1000,
+    suppliers: 0,
+  });
+  expect(playbackWaitExport(snapshot, now + 11000).wait_reason).toBe("stale");
+  expect(
+    playbackWaitExport(
+      {
+        ...snapshot,
+        sessions: [],
+        startup: { ...snapshot.startup!, state: "METADATA" },
+      },
+      now,
+    ).wait_reason,
+  ).toBe("metadata");
+  expect(
+    playbackWaitExport(
+      {
+        ...snapshot,
+        sessions: [],
+        startup: { ...snapshot.startup!, wait_reason: "PEERS" },
+      },
+      now,
+    ).wait_reason,
+  ).toBe("peerDiscovery");
+  expect(
+    playbackWaitExport(
+      {
+        ...snapshot,
+        sessions: [
+          { ...session, buffer_ahead_bytes: 1234, download_rate: 1234 },
+        ],
+      },
+      now,
+    ).wait_reason,
+  ).toBe("transfer");
 });

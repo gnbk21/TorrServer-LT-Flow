@@ -138,12 +138,12 @@ export function useNetwork() {
     refetchInterval: visible ? pollingDelay(5000) : false,
   });
 }
-export function useSettings() {
+export function useSettings(includeDiagnostics = false) {
   const visible = useVisibilityGate(["settings"]);
   return useQuery({
     queryKey: ["settings"],
     queryFn: ({ signal }) => settingsApi.get(signal),
-    enabled: visible,
+    enabled: visible || includeDiagnostics,
     staleTime: 30_000,
   });
 }

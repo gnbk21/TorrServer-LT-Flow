@@ -10,6 +10,7 @@ import (
 type FlowSettings struct {
 	RecentPlaybackHistory    bool // bounded local recent opens; no decoded-player inference
 	PrometheusEnabled        bool // opt-in protected aggregate exporter
+	PlaybackWaitDiagnostics  bool // offer a redacted session export and count startup wait transitions
 	SchemaVersion            int
 	Enabled                  bool
 	AdaptiveStartup          bool

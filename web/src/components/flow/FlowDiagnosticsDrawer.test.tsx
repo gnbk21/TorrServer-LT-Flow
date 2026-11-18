@@ -4,6 +4,7 @@ import { FlowDiagnosticsDrawer } from "./FlowDiagnosticsDrawer";
 import type { FlowStatusResponse } from "../../types/flow";
 vi.mock("../../hooks/queries", () => ({
   useFlowDiagnostics: () => ({}),
+  useSettings: () => ({}),
   useVisible: () => true,
 }));
 vi.mock("react-i18next", () => ({

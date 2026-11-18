@@ -100,6 +100,7 @@ const groups: Record<string, string[]> = {
     "Flow.MSXAllowLAN",
   ],
   advanced: [
+    "Flow.PlaybackWaitDiagnostics",
     "Flow.IncidentFlightRecorder",
     "Flow.StreamTransportBufferKiB",
     "PadTailPartial",

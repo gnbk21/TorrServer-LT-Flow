@@ -10,6 +10,37 @@ import (
 var processTotals struct {
 	hits, misses, waits, waitNS, stalls, recoveries atomic.Uint64
 	startup                                         [4]atomic.Uint64
+	startupWaits                                    [len(startupWaitReasons)]atomic.Uint64
+}
+
+var startupWaitReasons = [...]string{"peer_discovery", "first_payload", "head_index", "server_prebuffer", "media_probe"}
+
+func RecordStartupWait(stage string) {
+	switch stage {
+	case "PEERS":
+		processTotals.startupWaits[0].Add(1)
+	case "FIRST_BLOCK":
+		processTotals.startupWaits[1].Add(1)
+	case "HEAD_INDEX":
+		processTotals.startupWaits[2].Add(1)
+	case "PREBUFFER":
+		processTotals.startupWaits[3].Add(1)
+	case "PROBE_GRACE":
+		processTotals.startupWaits[4].Add(1)
+	}
+}
+
+type StartupWaitCount struct {
+	Reason string
+	Count  uint64
+}
+
+func StartupWaitCounts() [len(startupWaitReasons)]StartupWaitCount {
+	var counts [len(startupWaitReasons)]StartupWaitCount
+	for i, reason := range startupWaitReasons {
+		counts[i] = StartupWaitCount{Reason: reason, Count: processTotals.startupWaits[i].Load()}
+	}
+	return counts
 }
 
 type ProcessTotals struct {
