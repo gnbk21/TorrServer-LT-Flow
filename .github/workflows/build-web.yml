@@ -89,7 +89,9 @@ jobs:
         if: env.FLOW_WEB_BUILD == '1'
         timeout-minutes: 10
         working-directory: web
-        run: yarn playwright install --with-deps chromium firefox webkit
+        run: |
+          bash ../build/ci-apt.sh
+          yarn playwright install --with-deps chromium firefox webkit
       - name: Browser regressions
         if: env.FLOW_WEB_BUILD == '1'
         timeout-minutes: 10
