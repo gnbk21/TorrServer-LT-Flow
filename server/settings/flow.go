@@ -59,6 +59,7 @@ type FlowSettings struct {
 	TorrentInterface         string // adapter name; empty retains OS routing
 	RequireTorrentInterface  bool
 	MSXAllowLAN              bool // explicit approval of literal private/loopback proxy targets
+	PublicTorrentImportsOnly bool // restrict direct HTTP(S) torrent imports to public destinations
 }
 
 // Zero custom values leave libtorrent's own setting unchanged.

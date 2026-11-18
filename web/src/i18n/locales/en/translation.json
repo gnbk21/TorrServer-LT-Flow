@@ -1243,6 +1243,7 @@
         "AdaptiveUrgentHorizon": "Adaptive urgent horizon (experiment)",
         "ContainerBurstHints": "Resident container burst hints (experiment)",
         "MSXAllowLAN": "Allow MSX proxy access to LAN",
+        "PublicTorrentImportsOnly": "Require public destinations for torrent URL imports",
         "StreamTransportBufferKiB": "Transport buffer (controlled experiment)",
         "NextEpisodeWarmup": "Next episode header/index warmup",
         "MetadataFallback": "Automatic magnet metadata recovery",
@@ -1366,7 +1367,8 @@
       "cachePreview": "Shared eviction budget: {{budget}} MiB; warm sessions: up to {{warm}} MiB. These are cache budgets, not process-RAM limits."
     },
     "fieldHints": {
-      "IncidentFlightRecorder": "Default off. Keeps a target 30-second Go trace window (32 MiB size hint), pauses under memory pressure, saves at most two raw captures with a five-minute cooldown and 64 MiB output limit each. Raw traces may contain private process details and are excluded from ordinary support exports."
+      "IncidentFlightRecorder": "Default off. Keeps a target 30-second Go trace window (32 MiB size hint), pauses under memory pressure, saves at most two raw captures with a five-minute cooldown and 64 MiB output limit each. Raw traces may contain private process details and are excluded from ordinary support exports.",
+      "PublicTorrentImportsOnly": "When enabled, direct torrent URL downloads and their HTTP redirects must use public destinations. Leave it off to import from your local indexer."
     },
     "storageView": {
       "title": "Runtime storage",

@@ -20,6 +20,7 @@ import (
 	"server/log"
 	"server/lt"
 	"server/netpolicy"
+	"server/settings"
 	"server/torrshash"
 )
 
@@ -184,10 +185,14 @@ type torrentFetchResult struct {
 var torrentFetches flow.FetchGroup[torrentFetchResult]
 
 func parseHTTPContext(ctx context.Context, u string) (*TorrentSpec, error) {
-	policy, _ := json.Marshal(netpolicy.Snapshot())
+	publicOnly := settings.CurrentFlow().PublicTorrentImportsOnly
+	policy, _ := json.Marshal(struct {
+		Interface  netpolicy.InterfaceStatus
+		PublicOnly bool
+	}{netpolicy.Snapshot(), publicOnly})
 	key := sha256.Sum256(append(append([]byte(u), 0), policy...))
 	result, err := torrentFetches.Do(ctx, hex.EncodeToString(key[:]), 4, func(shared context.Context) (torrentFetchResult, error) {
-		return fetchTorrentHTTP(shared, u)
+		return fetchTorrentHTTP(shared, u, publicOnly)
 	})
 	if err != nil {
 		return nil, err
@@ -200,12 +205,12 @@ func parseHTTPContext(ctx context.Context, u string) (*TorrentSpec, error) {
 	return ParseBytes(bytes.Clone(result.data))
 }
 
-func fetchTorrentHTTP(ctx context.Context, u string) (torrentFetchResult, error) {
+func fetchTorrentHTTP(ctx context.Context, u string, publicOnly bool) (torrentFetchResult, error) {
 	var (
 		magnetURL string
 		hopCount  int
 	)
-	client, err := netpolicy.FetchClient(u, true, httpFetchTimeout)
+	client, err := netpolicy.FetchClient(u, !publicOnly, httpFetchTimeout)
 	if err != nil {
 		return torrentFetchResult{}, err
 	}

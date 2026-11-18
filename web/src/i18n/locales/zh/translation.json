@@ -1270,6 +1270,7 @@
         "AdaptiveUrgentHorizon": "自适应紧急分片范围（实验）",
         "ContainerBurstHints": "已缓存容器索引的峰值提示（实验）",
         "MSXAllowLAN": "允许 MSX 代理访问局域网",
+        "PublicTorrentImportsOnly": "通过 URL 导入种子时仅允许公网地址",
         "StreamTransportBufferKiB": "传输缓冲区（受控实验）",
         "NextEpisodeWarmup": "预热下一集文件头/索引",
         "MetadataFallback": "自动恢复磁力链接元数据",
@@ -1393,6 +1394,7 @@
       "cachePreview": "共享驱逐预算：{{budget}} MiB；保留会话最多 {{warm}} MiB。这是缓存预算，并非进程内存上限。"
     },
     "fieldHints": {
+      "PublicTorrentImportsOnly": "启用后，直接下载种子及其 HTTP 重定向都必须使用公网地址。如需从本地索引器导入，请保持关闭。",
       "IncidentFlightRecorder": "默认关闭。目标保留 30 秒 Go 跟踪窗口（32 MiB 为大小提示），内存压力下暂停。最多保留两个原始记录，间隔至少五分钟，每个输出硬限制为 64 MiB。原始跟踪可能包含进程隐私信息，不包含在普通支持导出中。"
     },
     "storageView": {

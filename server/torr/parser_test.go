@@ -8,9 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"server/settings"
 	"server/torrshash"
 )
 
@@ -193,6 +195,34 @@ func TestParseLink_HTTPRedirectToMagnet(t *testing.T) {
 	}
 	if spec.InfoHash.HexString() != validHashHex {
 		t.Fatalf("hash mismatch after magnet redirect: %s", spec.InfoHash.HexString())
+	}
+}
+
+func TestParseLink_PublicTorrentImportsOnly(t *testing.T) {
+	previous := settings.BTsets()
+	t.Cleanup(func() { settings.StoreBTsets(previous) })
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		_, _ = w.Write(minimalTorrent())
+	}))
+	defer server.Close()
+	compatible := settings.NewDefaultConfig()
+	settings.StoreBTsets(compatible)
+	if spec, err := ParseLink(server.URL + "/library.torrent"); err != nil || spec.DisplayName != "test" {
+		t.Fatalf("compatible LAN import = (%v, %v)", spec, err)
+	}
+	restricted := settings.CloneSettings(compatible)
+	restricted.Flow.PublicTorrentImportsOnly = true
+	settings.StoreBTsets(restricted)
+	if _, err := ParseLink(server.URL + "/library.torrent"); err == nil {
+		t.Fatal("public-only import accepted a loopback destination")
+	}
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("local origin received %d requests, want 1", got)
+	}
+	if spec, err := ParseLink(validMagnet); err != nil || spec.InfoHash.HexString() != validHashHex {
+		t.Fatalf("public-only policy changed magnet parsing: (%v, %v)", spec, err)
 	}
 }
 

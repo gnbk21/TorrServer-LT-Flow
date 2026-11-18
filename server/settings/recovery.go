@@ -191,6 +191,7 @@ func NeedsEngineRestart(old, next *BTSets) bool {
 		b.Flow.IncidentFlightRecorder = a.Flow.IncidentFlightRecorder
 		b.Flow.RecentPlaybackHistory = a.Flow.RecentPlaybackHistory
 		b.Flow.PrometheusEnabled = a.Flow.PrometheusEnabled
+		b.Flow.PublicTorrentImportsOnly = a.Flow.PublicTorrentImportsOnly
 		b.Flow.AdaptiveUrgentHorizon = a.Flow.AdaptiveUrgentHorizon
 		b.Flow.ContainerBurstHints = a.Flow.ContainerBurstHints
 		av, bv := reflect.ValueOf(a.Flow).Elem(), reflect.ValueOf(b.Flow).Elem()
