@@ -126,3 +126,30 @@ func TestInterfaceChangeCancelsResponseBody(t *testing.T) {
 		t.Fatal("old response did not cancel", ctx.Err())
 	}
 }
+
+func TestInterfaceRefreshSerializesSnapshotAndPublication(t *testing.T) {
+	var generation interfaceGeneration
+	status := InterfaceStatus{Name: "fixture", State: "BOUND", Addresses: []string{"127.0.0.1"}}
+	observed, first := generation.refresh(func() InterfaceStatus {
+		if generation.TryLock() {
+			generation.Unlock()
+			t.Error("snapshot can run concurrently with publication of another generation")
+		}
+		return status
+	})
+	_, same := generation.refresh(func() InterfaceStatus { return status })
+	if same != first || observed.Name != status.Name {
+		t.Fatal("unchanged snapshot replaced the generation")
+	}
+	_, next := generation.refresh(func() InterfaceStatus { return InterfaceStatus{State: "DISABLED"} })
+	select {
+	case <-first:
+	default:
+		t.Fatal("interface change did not retire the previous generation")
+	}
+	select {
+	case <-next:
+		t.Fatal("replacement generation was cancelled")
+	default:
+	}
+}
