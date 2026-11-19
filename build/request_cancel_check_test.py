@@ -25,7 +25,7 @@ class CancellationFixtureAdmission(unittest.TestCase):
             result = trial(Path('unused.exe'), Path(directory)/'trial', Path('unused.ts'), True)
         allocator.assert_called_once()
         server.assert_called_once()
-        self.assertEqual(server.call_args.kwargs['extra_arguments'], ['--torrentaddr', '127.0.0.1:47000'])
+        self.assertEqual(server.call_args.kwargs['peer_port'], 47000)
         server.return_value.close.assert_called_once()
         self.assertFalse(result['passed'])
         self.assertEqual(result['failure_stage'], 'server_ready')

@@ -25,13 +25,24 @@ from fixtures import generate
 MIB = 1024 * 1024
 
 
-class OwnedServer:
-    def __init__(self, executable, state, profile=False, auth=False, extra_settings=None, seed_files=None, extra_arguments=None):
-        self.executable, self.state = executable.resolve(), state.resolve()
-        state.mkdir(parents=True, exist_ok=False)
+def select_http_port(*excluded):
+    # Native fixtures preflight their peer port and release it before launch.
+    # The OS may hand that port straight back to an HTTP or profiler listener.
+    for _ in range(32):
         with socket.socket() as reservation:
             reservation.bind(("127.0.0.1", 0))
-            self.port = reservation.getsockname()[1]
+            port = reservation.getsockname()[1]
+        if port not in excluded:
+            return port
+    raise RuntimeError("Could not select a distinct loopback HTTP port")
+
+
+class OwnedServer:
+    def __init__(self, executable, state, profile=False, auth=False, extra_settings=None,
+                 seed_files=None, extra_arguments=None, *, peer_port=None):
+        self.executable, self.state = executable.resolve(), state.resolve()
+        state.mkdir(parents=True, exist_ok=False)
+        self.port = select_http_port(peer_port)
         self.base = f"http://127.0.0.1:{self.port}"
         config = {"CacheSize": 32*MIB, "ReaderReadAHead": 70, "PreloadCache": 25,
                   "ConnectionsLimit": 12, "DHTConnectionsLimit": 100, "PeersListenPort": 0,
@@ -57,12 +68,12 @@ class OwnedServer:
         flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         arguments = [str(self.executable), "--path", str(self.state), "--port", str(self.port), "--ip", "127.0.0.1"]
         arguments += extra_arguments or []
+        if peer_port is not None:
+            arguments += ["--torrentaddr", f"127.0.0.1:{peer_port}"]
         if auth: arguments.append("--httpauth")
         self.profile_base = None
         if profile:
-            with socket.socket() as reservation:
-                reservation.bind(("127.0.0.1",0))
-                profile_port = reservation.getsockname()[1]
+            profile_port = select_http_port(self.port, peer_port)
             self.profile_base = f"http://127.0.0.1:{profile_port}"
             arguments += ["--profile-address",f"127.0.0.1:{profile_port}"]
         self.observations = []
