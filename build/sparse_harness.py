@@ -191,21 +191,32 @@ def run(executable, root, fixture, label, media_rate, profile='custom', piece_le
             else:
                 report['ranges'].append(range_read(server,swarm.info_hash.hex(),index,source,offset,min(len(source)-1,offset+65535)))
             if paused is not None:
+                before_disconnect = swarm.status()['disconnects']
                 paused.set()
                 deadline = time.monotonic() + 3
-                while not swarm.status()['disconnects'] and time.monotonic() < deadline:
+                while swarm.status()['disconnects'] <= before_disconnect and time.monotonic() < deadline:
                     time.sleep(.05)
-                if not swarm.status()['disconnects']:
+                if swarm.status()['disconnects'] <= before_disconnect:
                     raise AssertionError('Controlled peer did not disconnect')
                 report['warm_during_outage'] = range_read(
                     server, swarm.info_hash.hex(), index, source, offset, min(len(source) - 1, offset + 65535), timeout=3)
-                before_reconnect = swarm.status()['connections']
+                before_reconnect = swarm.status()
+                requested = {piece for peer in before_reconnect['peers'] for piece in peer['first_request_seconds']}
+                reconnect_piece = next((piece for piece in range(urgent + 1, count) if piece not in requested), None)
+                if reconnect_piece is None:
+                    raise AssertionError('Fixture has no unrequested piece for playback reconnect')
+                reconnect_start = reconnect_piece * plen
                 paused.clear()
-                deadline = time.monotonic() + 30
-                while swarm.status()['connections'] <= before_reconnect and time.monotonic() < deadline:
-                    time.sleep(.1)
-                if swarm.status()['connections'] <= before_reconnect:
-                    raise AssertionError('Controlled peer did not reconnect')
+                # Playback creates a reason to dial again. A warm cache hit alone
+                # can be served with no live peers and no outstanding work.
+                report['cold_reconnect'] = range_read(
+                    server, swarm.info_hash.hex(), index, source, reconnect_start,
+                    min(len(source) - 1, reconnect_start + 65535), timeout=30)
+                after_reconnect = swarm.status()
+                if (after_reconnect['connections'] <= before_reconnect['connections']
+                        or not any(reconnect_piece in peer['first_request_seconds']
+                                   for peer in after_reconnect['peers'])):
+                    raise AssertionError('Controlled peer did not reconnect and supply the cold piece')
                 report['warm_after_reconnect'] = range_read(
                     server, swarm.info_hash.hex(), index, source, offset, min(len(source) - 1, offset + 65535), timeout=3)
             report['ranges'].append(range_read(server,swarm.info_hash.hex(),index,source,0,65535))
