@@ -26,4 +26,3 @@ class OwnedListenerPorts(unittest.TestCase):
                 command = launch.call_args.args[0]
                 self.assertEqual(command[command.index("--torrentaddr") + 1], "127.0.0.1:47000")
                 self.assertEqual(command[command.index("--port") + 1], "47001")
-
