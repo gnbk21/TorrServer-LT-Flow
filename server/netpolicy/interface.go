@@ -24,11 +24,13 @@ type InterfaceStatus struct {
 	LeakProtectionVerified bool     `json:"leak_protection_verified"`
 }
 
-var interfaceLifecycle struct {
+type interfaceGeneration struct {
 	sync.Mutex
 	fingerprint string
 	changed     chan struct{}
 }
+
+var interfaceLifecycle interfaceGeneration
 
 func Snapshot() InterfaceStatus {
 	f := settings.CurrentFlow()
@@ -63,18 +65,24 @@ func Snapshot() InterfaceStatus {
 // Refresh cancels Go torrent fetches when the selected interface changes. Native
 // recovery is reconciled by BTServer's existing lifecycle, without a restart.
 func Refresh() (InterfaceStatus, <-chan struct{}) {
-	s := Snapshot()
+	return interfaceLifecycle.refresh(Snapshot)
+}
+
+func (g *interfaceGeneration) refresh(snapshot func() InterfaceStatus) (InterfaceStatus, <-chan struct{}) {
+	// A slow interface lookup must not publish an older settings snapshot
+	// after a later refresh has already replaced the active generation.
+	g.Lock()
+	defer g.Unlock()
+	s := snapshot()
 	fingerprint := s.Name + ":" + s.State + ":" + strings.Join(s.Addresses, ",")
-	interfaceLifecycle.Lock()
-	defer interfaceLifecycle.Unlock()
-	if interfaceLifecycle.changed == nil || interfaceLifecycle.fingerprint != fingerprint {
-		if interfaceLifecycle.changed != nil {
-			close(interfaceLifecycle.changed)
+	if g.changed == nil || g.fingerprint != fingerprint {
+		if g.changed != nil {
+			close(g.changed)
 		}
-		interfaceLifecycle.changed = make(chan struct{})
-		interfaceLifecycle.fingerprint = fingerprint
+		g.changed = make(chan struct{})
+		g.fingerprint = fingerprint
 	}
-	return s, interfaceLifecycle.changed
+	return s, g.changed
 }
 
 type boundTransport struct {
