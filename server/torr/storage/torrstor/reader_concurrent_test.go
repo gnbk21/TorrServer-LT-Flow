@@ -5,7 +5,67 @@ import (
 	"io"
 	"sync"
 	"testing"
+	"time"
+
+	"server/lt"
 )
+
+func TestReaderWindowExpiryKeepsNewPreloadDemand(t *testing.T) {
+	payload, _ := networkProtocolFixture(false)
+	session, err := lt.NewSession(lt.SessionConfig{
+		"listen_interfaces": "127.0.0.1:0", "enable_dht": false, "enable_lsd": false,
+		"enable_upnp": false, "enable_natpmp": false,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	handle, err := session.AddTorrent(lt.AddTorrentParams{InfoBytes: payload, SavePath: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer handle.Remove(false)
+	cache := newCache(nil, 1, mkHash(0x11), 3, 32768)
+	defer cache.close()
+	reader := NewReader(cache, handle, FileInfo{Length: 65536})
+	reader.winFirst.Store(0)
+	reader.winLast.Store(1)
+
+	if err := handle.PrioritizePieces([]int{4, 0, 0}); err != nil {
+		t.Fatal(err)
+	}
+	want, err := handle.Status()
+	if err != nil || want.TotalWanted == 0 {
+		t.Fatalf("preload fixture needs piece 0: (%v, %v)", want, err)
+	}
+	if err := handle.PrioritizePieces([]int{4, 4, 0}); err != nil {
+		t.Fatal(err)
+	}
+	shared, err := handle.Status()
+	if err != nil || shared.TotalWanted <= want.TotalWanted {
+		t.Fatalf("old window did not request the second piece: (%v, %v)", shared, err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	cache.SetPreloadReserve([][2]int{{0, 0}})
+
+	deadline := time.Now().Add(windowLingerDelay + 2*time.Second)
+	for time.Now().Before(deadline) {
+		status, err := handle.Status()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if status.TotalWanted == want.TotalWanted {
+			return
+		}
+		if status.TotalWanted < want.TotalWanted {
+			t.Fatalf("expired reader demoted another owner's piece: wanted %d bytes, want %d", status.TotalWanted, want.TotalWanted)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("expired reader's unclaimed piece kept downloading")
+}
 
 // TestReader_ConcurrentReadersOnSameCache exercises the FUSE / WebDAV
 // access pattern: several handles (== several Readers) read the same
