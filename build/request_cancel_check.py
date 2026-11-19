@@ -31,7 +31,7 @@ def trial(executable, directory, fixture, late, stream_controls=False):
                      'BootstrapHeadMB': 4, 'ProbeGraceMs': 300,
                      'StartupBufferMinMB': 4, 'StartupBufferMaxMB': 4,
                      'GlobalCacheBudgetMB': 64}},
-            extra_arguments=['--torrentaddr', f'127.0.0.1:{peer_port}'])
+            peer_port=peer_port)
         server.ready()
         stage = 'controlled_streaming'
         with LocalSwarm([fixture], peers=[PeerPlan(rate=2*MIB, request_queue=64,

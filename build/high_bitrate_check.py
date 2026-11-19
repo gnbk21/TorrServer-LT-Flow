@@ -355,7 +355,7 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
         (root/'report.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
         return report
     server = OwnedServer(executable, root, profile=capture_go,
-        extra_arguments=['--torrentaddr', f'127.0.0.1:{peer_port}'], extra_settings={
+        peer_port=peer_port, extra_settings={
         'CacheSize': cache_mb*MIB, 'PreloadCache': 10,
         'UseDisk': disk, 'TorrentsSavePath': str((root/'cache').resolve()) if disk else '',
         'Flow': {'SwarmProfile': profile, 'BootstrapHeadMB': 4,

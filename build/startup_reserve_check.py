@@ -60,7 +60,7 @@ def check(executable, output, personal_settings=None):
         return report
     server = OwnedServer(executable, output/'state', extra_settings=(
         personal_settings if personal_settings is not None else fixture),
-        extra_arguments=['--torrentaddr', f'127.0.0.1:{peer_port}'])
+        peer_port=peer_port)
     try:
         server.ready()
         with server.request('/echo', timeout=5) as response:
