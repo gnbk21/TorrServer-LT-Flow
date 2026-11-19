@@ -482,3 +482,59 @@ func TestFullDeliveryWindowRequiresContiguousReadableBytes(t *testing.T) {
 		t.Fatal("qualified metadata rate ignored")
 	}
 }
+
+func TestFarSeekRebuildsDeadlinesDuringItsFirstReconcile(t *testing.T) {
+	old := settings.BTsets()
+	settings.StoreBTsets(&settings.BTSets{CacheSize: 64 * flow.MiB, ReaderReadAHead: 70})
+	t.Cleanup(func() { settings.StoreBTsets(old) })
+
+	const count, length = 128, 4 * flow.MiB
+	info := []byte(fmt.Sprintf("d4:infod6:lengthi%de4:name4:test12:piece lengthi%de6:pieces%d:",
+		count*length, length, count*20))
+	info = append(info, bytes.Repeat([]byte{0}, count*20)...)
+	info = append(info, 'e', 'e')
+
+	session, err := lt.NewSession(lt.SessionConfig{
+		"listen_interfaces": "127.0.0.1:0", "enable_dht": false, "enable_lsd": false,
+		"enable_upnp": false, "enable_natpmp": false,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	handle, err := session.AddTorrent(lt.AddTorrentParams{
+		InfoBytes: info, SavePath: t.TempDir(), Paused: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer handle.Remove(false)
+
+	c := newCache(nil, 1, mkHash(0xAF), count, length)
+	defer c.close()
+	c.handle.Store(handle)
+	const groupID, first, target = "device", 16, 78
+	now := time.Now()
+	reader := &Reader{cache: c, group: groupID, file: FileInfo{Length: count * length}, bornMs: now.UnixMilli() - 1}
+	reader.offset.Store(first * length)
+	reader.winFirst.Store(first)
+	reader.lastRead.Store(now.Unix())
+	c.registerReader(reader)
+	if got := c.groupPlayheads()[groupID]; got != first {
+		t.Fatalf("initial playhead = %d, want %d", got, first)
+	}
+	if err := handle.SetPieceDeadline(first, 0, false); err != nil {
+		t.Fatal(err)
+	}
+	c.deadlined[first] = true
+
+	c.setWaitFocus(groupID, target, 0, count-1, now.UnixMilli())
+	c.applyStreamPriorities()
+
+	if c.takeSnapCancels() {
+		t.Fatal("first reconcile left the far-seek cancel pending")
+	}
+	if !c.deadlined[target] || c.deadlined[first] {
+		t.Fatalf("deadline handoff did not replace piece %d with %d", first, target)
+	}
+}

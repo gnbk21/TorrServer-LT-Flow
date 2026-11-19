@@ -1176,7 +1176,6 @@ func (c *Cache) reconcileStreamPriorities(windowExpiry uint64) {
 	demandRates := c.demandRates()
 	rateAware := settings.CurrentFlow().RateAwareDeadlines
 	scarce, variable := c.scarceDemand()
-	seekCancel := c.takeSnapCancels()
 	behindP, aheadP := c.readerWindowPieces()
 	urgentHorizons := c.urgentHorizons(demandRates, aheadP+1)
 
@@ -1193,6 +1192,8 @@ func (c *Cache) reconcileStreamPriorities(windowExpiry uint64) {
 	if !idleExpiry {
 		anchors = c.groupPlayheads() // group -> playhead (excludes stale/probe/tail)
 	}
+	// Updating the anchors may arm cancellation for the seek being applied.
+	seekCancel := c.takeSnapCancels()
 
 	// Pieces readers are blocked on / trickling from (r.waitPiece — STICKY across the
 	// micro-parks of responsive block-level serving, cleared by completion, the next
