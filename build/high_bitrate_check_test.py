@@ -1,7 +1,21 @@
 """Reject cached or unknown data as evidence of a cold streaming seek."""
 import unittest
 from unittest.mock import Mock, patch
-from high_bitrate_check import select_cold_piece, range_cache_evidence, compact_cache_sample, observed_cache_turnover, observed_rss_bytes, measure_cold_seeks, MIB
+from high_bitrate_check import select_cold_piece, range_cache_evidence, compact_cache_sample, observed_cache_turnover, observed_rss_bytes, measure_cold_seeks, peer_listener_ready, MIB
+
+
+class PeerListenerEvidenceTests(unittest.TestCase):
+    def test_auto_assignment_requires_positive_matching_ports(self):
+        network = {'peer_tcp_port': 38838, 'peer_udp_port': 38838}
+        self.assertTrue(peer_listener_ready(network, 0))
+        self.assertFalse(peer_listener_ready({'peer_tcp_port': 0, 'peer_udp_port': 0}, 0))
+        self.assertFalse(peer_listener_ready(dict(network, peer_udp_port=38839), 0))
+        self.assertFalse(peer_listener_ready({}, 0))
+
+    def test_explicit_request_does_not_accept_a_different_port(self):
+        network = {'peer_tcp_port': 38838, 'peer_udp_port': 38838}
+        self.assertTrue(peer_listener_ready(network, 38838))
+        self.assertFalse(peer_listener_ready(network, 38837))
 
 
 class ColdSeekEvidenceTests(unittest.TestCase):
