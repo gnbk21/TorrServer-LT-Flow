@@ -16,6 +16,7 @@ from pathlib import Path
 import socket
 import struct
 import subprocess
+import sys
 import time
 import urllib.request
 from urllib.parse import urlencode
@@ -310,6 +311,11 @@ def measure_cold_seeks(server, swarm, info_hash, index, piece_bytes, records, re
     raise AssertionError('Could not admit four verified cold seeks within twelve distinct byte-checked observations')
 
 
+def peer_listener_ready(network, requested_port):
+    port = network.get('peer_tcp_port', 0)
+    return port > 0 and port == network.get('peer_udp_port') and requested_port in (0, port)
+
+
 def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, preload=False,
         *, reqq=512, strict=False, latency_ms=0, piece_mb=4, disk=False,
         capacity_aware=False, urgent_horizon=False, burst_hints=False, startup_mb=32, transport_kib=1024,
@@ -335,12 +341,13 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
                   storage_backend='disk' if disk else 'ram', capacity_aware=capacity_aware,
                   urgent_horizon=urgent_horizon, burst_hints=burst_hints, startup_reserve_mb=startup_mb, transport_buffer_kib=transport_kib,
                   frontier_recovery=frontier_recovery, adaptive_peer_requests=adaptive_peer_requests)
-    # Keep the controlled peer listener on loopback too. Preflight TCP and UDP
-    # on the same OS-selected port rather than depending on wildcard adapter
-    # enumeration or an engine-selected Windows ephemeral port.
-    report['port_allocation'] = {}
+    # Linux can allocate the loopback port inside libtorrent, so no socket
+    # has to release a candidate before native startup. Windows retains the
+    # explicit TCP/UDP preflight for its ephemeral port exclusions.
+    auto_peer_port = sys.platform.startswith('linux')
+    report['port_allocation'] = {'mode': 'native' if auto_peer_port else 'preflight'}
     try:
-        peer_port = joint_loopback_port(evidence=report['port_allocation'])
+        peer_port = 0 if auto_peer_port else joint_loopback_port(evidence=report['port_allocation'])
     except OSError as error:
         # Admission is infrastructure evidence, not a failed streaming trial.
         report.update(passed=False, failure_stage='fixture_port_allocation',
@@ -373,7 +380,8 @@ def run(executable, root, fixture, profile, case, rate, seconds, cache_mb, prelo
         deadline = time.monotonic()+10
         while True:
             network = server.json('/flow/network')
-            if network.get('peer_tcp_port') == peer_port and network.get('peer_udp_port') == peer_port:
+            if peer_listener_ready(network, peer_port):
+                report['port_allocation']['port'] = network['peer_tcp_port']
                 break
             if time.monotonic() >= deadline:
                 raise TimeoutError('Owned loopback peer listeners did not become ready')
