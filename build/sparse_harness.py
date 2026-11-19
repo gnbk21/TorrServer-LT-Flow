@@ -12,15 +12,17 @@ import hashlib
 import http.client
 import math
 from pathlib import Path
+import threading
 import time
 from urllib.parse import quote, urlencode
 
 from controlled_peer import LocalSwarm, PeerPlan
 from fixtures import generate
+from high_bitrate_check import cpu_seconds, observed_rss_bytes
 from playback_harness import OwnedServer, upload, range_read, MIB
 
 
-CASES = ('below', 'near', 'above', 'complementary', 'ten-suppliers', 'small-swarm', 'multiple-rare', 'choked-supplier', 'intermittent-supplier', 'late-have', 'diagnostic-seek', 'choked', 'outage', 'late-metadata', 'latency', 'variation')
+CASES = ('healthy', 'below', 'near', 'above', 'complementary', 'ten-suppliers', 'small-swarm', 'multiple-rare', 'choked-supplier', 'intermittent-supplier', 'late-have', 'diagnostic-seek', 'missing-seek', 'warm-reconnect', 'choked', 'outage', 'late-metadata', 'latency', 'variation')
 
 
 def paced_read(server, hash_text, index, source, rate, seconds=8):
@@ -50,6 +52,51 @@ def paced_read(server, hash_text, index, source, rate, seconds=8):
         connection.close()
 
 
+def observe_missing_seek(server, swarm, index, source, piece, offset, supplier, report):
+    status_path = '/flow/status/' + swarm.info_hash.hex()
+    report['pending_seek_samples'] = []
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        task = pool.submit(range_read, server, swarm.info_hash.hex(), index, source,
+                           offset, min(len(source) - 1, offset + 65535), timeout=8)
+        while not task.done():
+            sample = server.json(status_path, timeout=2)
+            report['pending_seek_samples'].append(sample)
+            windows = sample.get('sparse', {}).get('windows', [])
+            missing = any(w['first_piece'] == piece and w['availability'] and w['availability'][0] == 0
+                          for w in windows)
+            waiting = any(s.get('active_readers', 0) > 0 and s.get('wait_reason') == 'MISSING_CONNECTED'
+                          and s.get('required_piece_suppliers') == 0
+                          and s.get('playback_offset_bytes', 0) < offset for s in sample.get('sessions', []))
+            if missing and waiting and 'pending_seek_missing_piece_observed' not in report:
+                report['pending_seek_missing_piece_observed'] = True
+                if any(piece in p['first_request_seconds'] for p in swarm.status()['peers']):
+                    raise AssertionError('Absent seek piece was requested before the supplier was released')
+                if supplier is not None:
+                    report['supplier_release_seconds'] = time.monotonic() - swarm.started
+                    supplier.set()
+            time.sleep(.1)
+        if not report.get('pending_seek_missing_piece_observed'):
+            raise AssertionError('Pending seek never reported the unavailable target')
+        if supplier is not None:
+            return task.result()
+        try:
+            task.result()
+        except TimeoutError:
+            report['missing_seek_client_timeout'] = True
+        else:
+            raise AssertionError('Missing piece unexpectedly completed')
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        sample = server.json(status_path, timeout=2)
+        if not any(s.get('active_readers', 0) for s in sample.get('sessions', [])):
+            if any(piece in p['first_request_seconds'] for p in swarm.status()['peers']):
+                raise AssertionError('Client requested a piece no peer advertised')
+            report['missing_seek_reader_released'] = True
+            return None
+        time.sleep(.1)
+    raise AssertionError('Timed-out seek retained an active reader')
+
+
 def run(executable, root, fixture, label, media_rate, profile='custom', piece_length=256*1024, scarce=False, rate_aware=False):
     source = fixture.read_bytes()
     plen = piece_length
@@ -57,7 +104,11 @@ def run(executable, root, fixture, label, media_rate, profile='custom', piece_le
     urgent = count//2
     all_pieces = set(range(count))
     rate = max(64*1024, int(media_rate))
-    if label in ('below', 'near', 'above'):
+    supplier = threading.Event() if label == 'diagnostic-seek' else None
+    paused = threading.Event() if label == 'warm-reconnect' else None
+    if label in ('healthy', 'warm-reconnect'):
+        plans = [PeerPlan(rate=8*rate, paused=paused)]
+    elif label in ('below', 'near', 'above'):
         ratio = {'below':.6, 'near':1, 'above':2.5}[label]
         plans = [PeerPlan(rate=int(rate*ratio))]
     elif label == 'complementary':
@@ -70,8 +121,11 @@ def run(executable, root, fixture, label, media_rate, profile='custom', piece_le
         plans=[PeerPlan(pieces=all_pieces-{urgent},rate=8*rate) for _ in range(fast_count)]
         plans += [PeerPlan(pieces={0,urgent},rate=max(32768,rate//4),choke_until=6 if label=='choked-supplier' else 0,outages=[(1,6)] if label=='intermittent-supplier' else [])]
         if label=='multiple-rare': plans += [PeerPlan(pieces={urgent},rate=max(32768,rate//3))]
-    elif label in ('late-have', 'diagnostic-seek'):
-        plans = [PeerPlan(pieces=all_pieces-{urgent},rate=8*rate,have_events=[(12 if label=='diagnostic-seek' else 5,urgent)])]
+    elif label == 'late-have':
+        plans = [PeerPlan(pieces=all_pieces-{urgent},rate=8*rate,have_events=[(5,urgent)])]
+    elif label in ('diagnostic-seek', 'missing-seek'):
+        plans = [PeerPlan(pieces=all_pieces-{urgent}, rate=8*rate,
+                          gated_pieces={urgent: supplier} if supplier is not None else {})]
     elif label == 'choked':
         plans = [PeerPlan(rate=8*rate,choke_until=3)]
     elif label == 'outage':
@@ -83,11 +137,19 @@ def run(executable, root, fixture, label, media_rate, profile='custom', piece_le
     else:
         plans = [PeerPlan(rate=8*rate,metadata_delay=3)]
     report = {'case':label, 'profile':profile, 'piece_length':plen, 'scarce_hints':scarce, 'rate_aware_deadlines':rate_aware, 'http_delivery_only':True, 'media_bytes_per_second':media_rate, 'fixture_sha256':hashlib.sha256(source).hexdigest(), 'ranges':[]}
-    server = OwnedServer(executable,root/label,extra_settings={'CacheSize':8*MIB,'PreloadCache':12,'Flow':{'Enabled':True,'SwarmProfile':profile,'SwarmCustom':{'MinReconnectTime':1,'PeerConnectTimeout':5},'ScarcePieceHints':scarce,'RateAwareDeadlines':rate_aware,'BootstrapHeadMB':1,'StartupBufferMinMB':1,'StartupBufferMaxMB':8,'StartupBufferSeconds':1}})
+    server = None
+    resource_samples = []
     try:
-        server.ready()
         with LocalSwarm([fixture],peers=plans,piece_length=plen) as swarm:
+            server = OwnedServer(executable, root/label, extra_settings={
+                'CacheSize': 8*MIB, 'PreloadCache': 12, 'TrackersListURL': swarm.tracker_list_url,
+                'Flow': {'Enabled': True, 'SwarmProfile': profile, 'SwarmCustom': {'MinReconnectTime': 1, 'PeerConnectTimeout': 5},
+                         'ScarcePieceHints': scarce, 'RateAwareDeadlines': rate_aware, 'BootstrapHeadMB': 1,
+                         'StartupBufferMinMB': 1, 'StartupBufferMaxMB': 8, 'StartupBufferSeconds': 1}})
+            server.ready()
             started = time.monotonic()
+            cpu_start = cpu_seconds(server.process)
+            resource_samples.append(server.json('/runtime/status', timeout=3))
             if label == 'late-metadata':
                 tracker = f'http://127.0.0.1:{swarm.tracker.server_port}/announce'
                 magnet = 'magnet:?xt=urn:btih:'+swarm.info_hash.hex()+'&tr='+quote(tracker,safe='')
@@ -117,56 +179,86 @@ def run(executable, root, fixture, label, media_rate, profile='custom', piece_le
                     if time.monotonic()-started>120: raise TimeoutError('head request exceeded case budget')
                     time.sleep(.5)
                 report['ranges'].append(task.result())
+            resource_samples.append(server.json('/runtime/status', timeout=3))
             before=swarm.status()
             seek_start=time.monotonic()-swarm.started
             offset=urgent*plen
             report['rare_requested_before_seek']=any(urgent in p['first_request_seconds'] for p in before['peers'])
-            if label == 'diagnostic-seek':
-                report['pending_seek_samples']=[]
-                with ThreadPoolExecutor(max_workers=1) as pool:
-                    task=pool.submit(range_read,server,swarm.info_hash.hex(),index,source,offset,min(len(source)-1,offset+65535))
-                    while not task.done():
-                        sample=server.json('/flow/status/'+swarm.info_hash.hex())
-                        report['pending_seek_samples'].append(sample)
-                        if time.monotonic()-started>90: raise TimeoutError('diagnostic seek exceeded budget')
-                        time.sleep(.25)
-                    report['ranges'].append(task.result())
-                observed=False
-                for sample in report['pending_seek_samples']:
-                    windows=sample.get('sparse',{}).get('windows',[])
-                    missing=any(w['first_piece']==urgent and w['availability'] and w['availability'][0]==0 for w in windows)
-                    waiting=any(s.get('active_readers',0)>0 and s.get('wait_reason')=='MISSING_CONNECTED' and s.get('required_piece_suppliers')==0 and s.get('playback_offset_bytes',0)<offset for s in sample.get('sessions',[]))
-                    observed=observed or (missing and waiting)
-                if not observed: raise AssertionError('pending seek did not report the actual missing piece before delivery')
-                report['pending_seek_missing_piece_observed']=True
+            if label in ('diagnostic-seek', 'missing-seek'):
+                delivered = observe_missing_seek(server, swarm, index, source, urgent, offset, supplier, report)
+                if delivered is not None:
+                    report['ranges'].append(delivered)
             else:
                 report['ranges'].append(range_read(server,swarm.info_hash.hex(),index,source,offset,min(len(source)-1,offset+65535)))
+            if paused is not None:
+                before_disconnect = swarm.status()['disconnects']
+                paused.set()
+                deadline = time.monotonic() + 3
+                while swarm.status()['disconnects'] <= before_disconnect and time.monotonic() < deadline:
+                    time.sleep(.05)
+                if swarm.status()['disconnects'] <= before_disconnect:
+                    raise AssertionError('Controlled peer did not disconnect')
+                report['warm_during_outage'] = range_read(
+                    server, swarm.info_hash.hex(), index, source, offset, min(len(source) - 1, offset + 65535), timeout=3)
+                before_reconnect = swarm.status()
+                requested = {piece for peer in before_reconnect['peers'] for piece in peer['first_request_seconds']}
+                reconnect_piece = next((piece for piece in range(urgent + 1, count) if piece not in requested), None)
+                if reconnect_piece is None:
+                    raise AssertionError('Fixture has no unrequested piece for playback reconnect')
+                reconnect_start = reconnect_piece * plen
+                paused.clear()
+                # Playback creates a reason to dial again. A warm cache hit alone
+                # can be served with no live peers and no outstanding work.
+                report['cold_reconnect'] = range_read(
+                    server, swarm.info_hash.hex(), index, source, reconnect_start,
+                    min(len(source) - 1, reconnect_start + 65535), timeout=30)
+                after_reconnect = swarm.status()
+                if (after_reconnect['connections'] <= before_reconnect['connections']
+                        or not any(reconnect_piece in peer['first_request_seconds']
+                                   for peer in after_reconnect['peers'])):
+                    raise AssertionError('Controlled peer did not reconnect and supply the cold piece')
+                report['warm_after_reconnect'] = range_read(
+                    server, swarm.info_hash.hex(), index, source, offset, min(len(source) - 1, offset + 65535), timeout=3)
             report['ranges'].append(range_read(server,swarm.info_hash.hex(),index,source,0,65535))
             if label in ('below','near','above','latency','variation'):
                 with ThreadPoolExecutor(max_workers=1) as pool:
                     task=pool.submit(paced_read,server,swarm.info_hash.hex(),index,source,media_rate)
                     while not task.done():
                         report['samples'].append(server.json('/flow/status/'+swarm.info_hash.hex()))
+                        resource_samples.append(server.json('/runtime/status', timeout=3))
                         time.sleep(.5)
                     report['paced_delivery']=task.result()
             report['swarm']=swarm.status()
+            if report['swarm']['tracker_list_requests'] < 1:
+                raise AssertionError('Engine never loaded the loopback tracker list')
             requests=[p['first_request_seconds'][urgent] for p in report['swarm']['peers'] if urgent in p['first_request_seconds']]
+            if supplier is not None and (not requests or min(requests) < report['supplier_release_seconds']):
+                raise AssertionError('Late supplier did not serve the seek after release')
             report['urgent_first_request_ms_after_seek']=(min(requests)-seek_start)*1000 if requests else None
             sent=[p['first_sent_seconds'] for p in report['swarm']['peers'] if p['first_sent_seconds'] is not None]
             report['first_peer_payload_ms']=min(sent)*1000 if sent else None
             report['flow']=server.json('/flow/status/'+swarm.info_hash.hex())
             report['runtime']=server.json('/runtime/status')
+            resource_samples.append(report['runtime'])
+            rss = observed_rss_bytes(resource_samples)
+            report['peak_observed_rss_bytes'] = max(rss) if rss else None
+            report['rss_observations_available'] = len(rss)
+            cpu_end = cpu_seconds(server.process)
+            report['cpu_seconds'] = cpu_end - cpu_start if cpu_start is not None and cpu_end is not None else None
             report['elapsed_ms']=(time.monotonic()-started)*1000
             report['passed']=True
     except Exception as error:
         report['passed']=False
         report['error']=str(error)
         if 'swarm' in locals(): report['swarm']=swarm.status()
-        try: report['flow']=server.json('/flow/status/'+swarm.info_hash.hex())
-        except (OSError,ValueError): pass
+        if server is not None:
+            try: report['flow']=server.json('/flow/status/'+swarm.info_hash.hex())
+            except (OSError,ValueError): pass
         return report
     finally:
-        server.close()
+        if server is not None:
+            server.close()
+        (root/label).mkdir(parents=True, exist_ok=True)
         (root/label/'report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
     return report
 
